@@ -242,9 +242,11 @@ run on novo alone suffices -- the loop treats local `rake compat` +
 ## 10. Next steps (require owner approval -- nothing below has run)
 
 1. **Approve this plan** (amend tiering/guardrails inline as with nabu).
-2. **Decide git hosting/push policy**: repo is not yet `git init`-ed.
-   Options: local-only (loop commits to `phase-N`, owner merges locally)
-   or GitHub remote + PRs like nabu (enables CI per section 9).
+2. ~~Decide git hosting~~ **Decided 2026-07-03:** repo initialized and
+   pushed to private `arvicco/mimir` (main). Remaining sub-decision:
+   whether the loop pushes `phase-N` branches + opens PRs (nabu policy,
+   enables CI per section 9) or phases merge locally. `main` stays
+   owner-merged either way.
 3. On approval, execute M0-1: `git init`, initial commit of current
    tree, `phase-0` branch, `.claude/settings.json` permission profile
    (nabu's, adapted: deny `wrangler:*`, `curl` write methods, secrets
