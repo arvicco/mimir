@@ -25,10 +25,10 @@
 require 'net/http'
 require 'json'
 require 'time'
+require_relative '../lib/btc/options'
+require_relative '../lib/btc/util'
 
-HOST   = 'https://www.deribit.com/api/v2/public'
-MONTHS = Hash[%w[JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC]
-                .each_with_index.map { |m, i| [m, i + 1] }]
+HOST = 'https://www.deribit.com/api/v2/public'
 
 def get_json(path)
   uri = URI("#{HOST}/#{path}")
@@ -40,27 +40,9 @@ rescue StandardError => e
   abort "deribit: #{e.class}: #{e.message}"
 end
 
-def arg(flag)
-  i = ARGV.index(flag)
-  i && ARGV[i + 1]
-end
-
-# ---- Black-Scholes gamma ---------------------------------------------------
-def norm_pdf(x)
-  Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math::PI)
-end
-
-def bs_gamma(s, k, t, v)
-  return 0.0 if t <= 0 || v <= 0 || s <= 0 || k <= 0
-
-  sq = v * Math.sqrt(t)
-  d1 = (Math.log(s / k) + 0.5 * v * v * t) / sq
-  norm_pdf(d1) / (s * sq)
-end
-
 # ---- fetch + parse board ---------------------------------------------------
 ccy      = ARGV.find { |a| %w[BTC ETH].include?(a.upcase) }&.upcase || 'BTC'
-max_days = arg('--max-days')&.to_f
+max_days = BTC::Util.arg('--max-days')&.to_f
 now      = Time.now.utc
 
 spot = get_json("get_index_price?index_name=#{ccy.downcase}_usd")['index_price'].to_f
@@ -71,9 +53,8 @@ book = rows.map do |r|
   next if oi <= 0
 
   _, exp, strike, cp = r['instrument_name'].split('-')
-  m   = exp&.match(/\A(\d{1,2})([A-Z]{3})(\d{2})\z/) or next
-  mon = MONTHS[m[2]] or next
-  t   = (Time.utc(2000 + m[3].to_i, mon, m[1].to_i, 8) - now) / (365.25 * 86_400)
+  ex = BTC::Options.deribit_expiry(exp) or next
+  t  = (ex - now) / BTC::Options::YEAR_S
   next if t <= 0 || (max_days && t * 365.25 > max_days)
 
   iv = r['mark_iv'].to_f / 100.0
@@ -90,7 +71,7 @@ def net_gex(book, spot, x)
   book.sum do |o|
     s   = o[:u] * x / spot
     sgn = o[:cp] == 'C' ? 1.0 : -1.0
-    sgn * bs_gamma(s, o[:k], o[:t], o[:iv]) * o[:oi] * x * x * 0.01
+    sgn * BTC::Options.bs_gamma(s, o[:k], o[:t], o[:iv]) * o[:oi] * x * x * 0.01
   end
 end
 
@@ -98,25 +79,16 @@ end
 profile = Hash.new(0.0)
 book.each do |o|
   sgn = o[:cp] == 'C' ? 1.0 : -1.0
-  profile[o[:k]] += sgn * bs_gamma(o[:u], o[:k], o[:t], o[:iv]) *
+  profile[o[:k]] += sgn * BTC::Options.bs_gamma(o[:u], o[:k], o[:t], o[:iv]) *
                     o[:oi] * spot * spot * 0.01
 end
 
-near      = profile.select { |k, _| (k - spot).abs / spot <= 0.30 }
-call_wall = near.max_by { |_, v| v }
-put_wall  = near.min_by { |_, v| v }
-total     = profile.values.sum
+near, call_wall, put_wall = BTC::Options.walls(profile, spot)
+total = profile.values.sum
 
 # ---- flip scan: first zero crossing of net GEX over +/-30% -----------------
-vals = (0.70..1.30).step(0.005).map do |f|
-  x = spot * f
-  [x, net_gex(book, spot, x)]
-end
-cross = vals.each_cons(2).find { |(_, a), (_, b)| a.negative? ^ b.negative? }
-flip  = cross && begin
-  (x0, y0), (x1, y1) = cross
-  (x0 - y0 * (x1 - x0) / (y1 - y0)).round
-end
+flip = BTC::Options.gamma_flip(spot) { |x| net_gex(book, spot, x) }
+flip = flip && flip.round
 
 put_oi  = book.sum { |o| o[:cp] == 'P' ? o[:oi] : 0.0 }
 call_oi = book.sum { |o| o[:cp] == 'C' ? o[:oi] : 0.0 }

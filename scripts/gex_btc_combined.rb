@@ -36,14 +36,13 @@
 require 'net/http'
 require 'json'
 require 'time'
+require_relative '../lib/btc/options'
+require_relative '../lib/btc/util'
 
 DERIBIT = 'https://www.deribit.com/api/v2/public'
 CBOE    = 'https://cdn.cboe.com/api/global/delayed_quotes/options'
 ETFS    = %w[IBIT FBTC BITB ARKB GBTC HODL BTCO BRRR EZBC].freeze
 MULT    = 100.0 # shares per US option contract
-MONTHS  = Hash[%w[JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC]
-                 .each_with_index.map { |m, i| [m, i + 1] }]
-OSI     = /\A[A-Z]+(\d{6})([CP])(\d{8})\z/
 
 def get_json(url)
   uri = URI(url)
@@ -54,28 +53,12 @@ def get_json(url)
   end
 end
 
-def norm_pdf(x)
-  Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math::PI)
-end
-
-def bs_gamma(s, k, t, v)
-  return 0.0 if t <= 0 || v <= 0 || s <= 0 || k <= 0
-
-  sq = v * Math.sqrt(t)
-  d1 = (Math.log(s / k) + 0.5 * v * v * t) / sq
-  norm_pdf(d1) / (s * sq)
-end
-
-def gamma_at(o, s)
-  o[:iv] > 0 ? bs_gamma(s, o[:k], o[:t], o[:iv]) : o[:gp]
-end
-
 # USD gamma per 1% BTC move for one instrument, with BTC at hypothetical
 # level x (its underlying scaled proportionally from spot).
 def gex_at(o, btc_spot, x)
   s   = o[:u] * x / btc_spot
   sgn = o[:cp] == 'C' ? 1.0 : -1.0
-  sgn * gamma_at(o, s) * o[:oi] * o[:cm] * s * s * 0.01
+  sgn * BTC::Options.gamma_at(o, s) * o[:oi] * o[:cm] * s * s * 0.01
 end
 
 # Open interest in BTC-equivalent units (for cross-venue P/C).
@@ -90,9 +73,8 @@ def load_deribit(max_days, now, btc_spot)
     next if oi <= 0
 
     _, exp, strike, cp = r['instrument_name'].split('-')
-    m   = exp && exp.match(/\A(\d{1,2})([A-Z]{3})(\d{2})\z/) or next
-    mon = MONTHS[m[2]] or next
-    t   = (Time.utc(2000 + m[3].to_i, mon, m[1].to_i, 8) - now) / (365.25 * 86_400)
+    ex = BTC::Options.deribit_expiry(exp) or next
+    t  = (ex - now) / BTC::Options::YEAR_S
     next if t <= 0 || (max_days && t * 365.25 > max_days)
 
     iv = r['mark_iv'].to_f / 100.0
@@ -116,31 +98,25 @@ def load_cboe(ticker, max_days, now, btc_spot)
     oi = o['open_interest'].to_f
     next if oi <= 0
 
-    m = OSI.match(o['option'].to_s.delete(' ')) or next
-    d = m[1]
-    t = (Time.utc(2000 + d[0, 2].to_i, d[2, 2].to_i, d[4, 2].to_i, 21) - now) /
-        (365.25 * 86_400)
+    expiry, cp, k = BTC::Options.parse_osi(o['option'])
+    next unless expiry
+
+    t = (expiry - now) / BTC::Options::YEAR_S
     next if t <= 0 || (max_days && t * 365.25 > max_days)
 
     iv = o['iv'].to_f
     gp = o['gamma'].to_f
     next if iv <= 0 && gp <= 0
 
-    k = m[3].to_f / 1000.0
-    { k: k, k_btc: k / ratio, cp: m[2], t: t, iv: iv, oi: oi,
+    { k: k, k_btc: k / ratio, cp: cp, t: t, iv: iv, oi: oi,
       u: spot, cm: MULT, gp: gp }
   end.compact
   book.empty? ? nil : book
 end
 
-def arg(flag)
-  i = ARGV.index(flag)
-  i && ARGV[i + 1]
-end
-
 # ---- main -------------------------------------------------------------------
-max_days = arg('--max-days') && arg('--max-days').to_f
-bin      = (arg('--bin') || 1000).to_f
+max_days = BTC::Util.arg('--max-days')&.to_f
+bin      = (BTC::Util.arg('--bin') || 1000).to_f
 now      = Time.now.utc
 
 begin
@@ -187,20 +163,13 @@ all_book.each do |o|
   profile[b] += gex_at(o, btc_spot, btc_spot)
 end
 
-near      = profile.select { |k, _| (k - btc_spot).abs / btc_spot <= 0.30 }
-call_wall = near.max_by { |_, v| v }
-put_wall  = near.min_by { |_, v| v }
+near, call_wall, put_wall = BTC::Options.walls(profile, btc_spot)
 
 # Flip scan: net GEX repriced at hypothetical BTC levels over +/-30%.
-vals = (0.70..1.30).step(0.005).map do |f|
-  x = btc_spot * f
-  [x, all_book.inject(0.0) { |a, o| a + gex_at(o, btc_spot, x) }]
+flip = BTC::Options.gamma_flip(btc_spot) do |x|
+  all_book.inject(0.0) { |a, o| a + gex_at(o, btc_spot, x) }
 end
-cross = vals.each_cons(2).find { |(_, a), (_, b)| a.negative? ^ b.negative? }
-flip  = cross && begin
-  (x0, y0), (x1, y1) = cross
-  (x0 - y0 * (x1 - x0) / (y1 - y0)).round
-end
+flip = flip && flip.round
 
 fmt_m = ->(v) { format('%+.1fM', v / 1e6) }
 fmt_k = ->(v) { v ? format('%gk', (v / 1000.0).round(2)) : '--' }

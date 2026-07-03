@@ -28,6 +28,8 @@
 require 'net/http'
 require 'json'
 require 'time'
+require_relative '../lib/btc/options'
+require_relative '../lib/btc/util'
 
 CBOE = 'https://cdn.cboe.com/api/global/delayed_quotes/options'
 MULT = 100.0 # shares per contract
@@ -44,26 +46,6 @@ rescue StandardError => e
   abort "fetch #{url}: #{e.class}: #{e.message}"
 end
 
-def norm_pdf(x)
-  Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math::PI)
-end
-
-def bs_gamma(s, k, t, v)
-  return 0.0 if t <= 0 || v <= 0 || s <= 0 || k <= 0
-
-  sq = v * Math.sqrt(t)
-  d1 = (Math.log(s / k) + 0.5 * v * v * t) / sq
-  norm_pdf(d1) / (s * sq)
-end
-
-# Gamma at hypothetical spot s. Recompute via BS when IV is present;
-# fall back to the CBOE-provided (static) gamma otherwise.
-def gamma_at(o, s)
-  o[:iv] > 0 ? bs_gamma(s, o[:k], o[:t], o[:iv]) : o[:gp]
-end
-
-OSI = /\A[A-Z]+(\d{6})([CP])(\d{8})\z/
-
 def parse_chain(ticker, max_days, now)
   data = get_json("#{CBOE}/#{ticker}.json")['data']
   abort "#{ticker}: no data in CBOE response" unless data
@@ -75,17 +57,17 @@ def parse_chain(ticker, max_days, now)
     oi = o['open_interest'].to_f
     next if oi <= 0
 
-    m = OSI.match(o['option'].to_s.delete(' ')) or next
-    d = m[1]
-    expiry = Time.utc(2000 + d[0, 2].to_i, d[2, 2].to_i, d[4, 2].to_i, 21)
-    t = (expiry - now) / (365.25 * 86_400)
+    expiry, cp, k = BTC::Options.parse_osi(o['option'])
+    next unless expiry
+
+    t = (expiry - now) / BTC::Options::YEAR_S
     next if t <= 0 || (max_days && t * 365.25 > max_days)
 
     iv = o['iv'].to_f
     gp = o['gamma'].to_f
     next if iv <= 0 && gp <= 0
 
-    { k: m[3].to_f / 1000.0, cp: m[2], t: t, iv: iv, oi: oi, gp: gp }
+    { k: k, cp: cp, t: t, iv: iv, oi: oi, gp: gp }
   end.compact
   abort "#{ticker}: no live instruments parsed" if book.empty?
 
@@ -96,20 +78,15 @@ end
 def net_gex(book, x)
   book.sum do |o|
     sgn = o[:cp] == 'C' ? 1.0 : -1.0
-    sgn * gamma_at(o, x) * o[:oi] * MULT * x * x * 0.01
+    sgn * BTC::Options.gamma_at(o, x) * o[:oi] * MULT * x * x * 0.01
   end
-end
-
-def arg(flag)
-  i = ARGV.index(flag)
-  i && ARGV[i + 1]
 end
 
 # ---- main -------------------------------------------------------------------
 tickers  = ARGV.select { |a| a =~ /\A[A-Za-z.]{1,6}\z/ }.map(&:upcase)
 abort 'usage: gex_us.rb TICKER [TICKER ...] [--max-days N] [--json|--tmux]' if tickers.empty?
 
-max_days = arg('--max-days') && arg('--max-days').to_f
+max_days = BTC::Util.arg('--max-days')&.to_f
 now      = Time.now.utc
 
 btc_spot = nil
@@ -129,23 +106,15 @@ tickers.each do |ticker|
   profile = Hash.new(0.0)
   book.each do |o|
     sgn = o[:cp] == 'C' ? 1.0 : -1.0
-    profile[o[:k]] += sgn * gamma_at(o, spot) * o[:oi] * MULT * spot * spot * 0.01
+    profile[o[:k]] += sgn * BTC::Options.gamma_at(o, spot) * o[:oi] * MULT *
+                      spot * spot * 0.01
   end
 
-  near      = profile.select { |k, _| (k - spot).abs / spot <= 0.30 }
-  call_wall = near.max_by { |_, v| v }
-  put_wall  = near.min_by { |_, v| v }
-  total     = profile.values.sum
+  near, call_wall, put_wall = BTC::Options.walls(profile, spot)
+  total = profile.values.sum
 
-  vals = (0.70..1.30).step(0.005).map do |f|
-    x = spot * f
-    [x, net_gex(book, x)]
-  end
-  cross = vals.each_cons(2).find { |(_, a), (_, b)| a.negative? ^ b.negative? }
-  flip  = cross && begin
-    (x0, y0), (x1, y1) = cross
-    (x0 - y0 * (x1 - x0) / (y1 - y0)).round(2)
-  end
+  flip = BTC::Options.gamma_flip(spot) { |x| net_gex(book, x) }
+  flip = flip && flip.round(2)
 
   put_oi  = book.sum { |o| o[:cp] == 'P' ? o[:oi] : 0.0 }
   call_oi = book.sum { |o| o[:cp] == 'C' ? o[:oi] : 0.0 }
