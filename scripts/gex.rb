@@ -22,20 +22,16 @@
 # Failure mode: aborts with a message on stderr, exit != 0 (no fail-soft
 # JSON) -- downstream consumers must treat nonzero exit as keep-last-good.
 
-require 'net/http'
 require 'json'
 require 'time'
 require_relative '../lib/btc/options'
 require_relative '../lib/btc/util'
+require_relative '../lib/btc/http'
 
 HOST = 'https://www.deribit.com/api/v2/public'
 
 def get_json(path)
-  uri = URI("#{HOST}/#{path}")
-  Net::HTTP.start(uri.host, uri.port, use_ssl: true,
-                  open_timeout: 5, read_timeout: 20) do |http|
-    JSON.parse(http.get(uri.request_uri).body).fetch('result')
-  end
+  JSON.parse(BTC::Http.get("#{HOST}/#{path}")).fetch('result')
 rescue StandardError => e
   abort "deribit: #{e.class}: #{e.message}"
 end

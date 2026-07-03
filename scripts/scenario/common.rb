@@ -3,25 +3,16 @@
 # common.rb -- shared helpers for the scenario signal modules.
 # Ruby >= 2.5, stdlib only.
 
-require 'net/http'
 require 'json'
 require 'time'
 require_relative '../../lib/btc/report'
+require_relative '../../lib/btc/http'
 
 module Common
   module_function
 
   def get(url, headers = {})
-    uri = URI(url)
-    Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https',
-                    open_timeout: 5, read_timeout: 20) do |http|
-      req = Net::HTTP::Get.new(uri.request_uri,
-                               { 'User-Agent' => 'scenario.rb' }.merge(headers))
-      res = http.request(req)
-      raise "HTTP #{res.code}" unless res.code.to_i == 200
-
-      res.body
-    end
+    BTC::Http.get(url, { 'User-Agent' => 'scenario.rb' }.merge(headers))
   end
 
   def get_json(url, headers = {})

@@ -3,12 +3,12 @@
 # common.rb -- shared machinery for the LPPL evidence suite.
 # Ruby >= 2.5, stdlib only.
 
-require 'net/http'
 require 'json'
 require 'time'
 require 'fileutils'
 require_relative '../../lib/btc/report'
 require_relative '../../lib/btc/env'
+require_relative '../../lib/btc/http'
 
 module Common
   GENESIS = Time.utc(2009, 1, 3)
@@ -20,16 +20,8 @@ module Common
   # ---- IO / reporting --------------------------------------------------------
 
   def get_json(url, headers = {})
-    uri = URI(url)
-    Net::HTTP.start(uri.host, uri.port, use_ssl: true,
-                    open_timeout: 5, read_timeout: 60) do |http|
-      req = Net::HTTP::Get.new(uri.request_uri,
-                               { 'User-Agent' => 'lppl.rb' }.merge(headers))
-      res = http.request(req)
-      raise "HTTP #{res.code}" unless res.code.to_i == 200
-
-      JSON.parse(res.body)
-    end
+    BTC::Http.get_json(url, { 'User-Agent' => 'lppl.rb' }.merge(headers),
+                       read_timeout: 60)
   end
 
   # Uniform module contract. score in -1/0/+1: +1 supports LPPL-as-regime,

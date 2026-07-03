@@ -26,23 +26,18 @@
 # Failure mode: aborts with a message on stderr, exit != 0 (no fail-soft
 # JSON) -- downstream consumers must treat nonzero exit as keep-last-good.
 
-require 'net/http'
 require 'json'
 require 'time'
 require_relative '../lib/btc/options'
 require_relative '../lib/btc/util'
+require_relative '../lib/btc/http'
 
 CBOE = 'https://cdn.cboe.com/api/global/delayed_quotes/options'
 MULT = 100.0 # shares per contract
 BTC_ETFS = %w[IBIT FBTC BITB ARKB GBTC BTC HODL BTCO BRRR EZBC].freeze
 
 def get_json(url)
-  uri = URI(url)
-  Net::HTTP.start(uri.host, uri.port, use_ssl: true,
-                  open_timeout: 5, read_timeout: 20) do |http|
-    req = Net::HTTP::Get.new(uri.request_uri, 'User-Agent' => 'gex_us.rb')
-    JSON.parse(http.request(req).body)
-  end
+  JSON.parse(BTC::Http.get(url, 'User-Agent' => 'gex_us.rb'))
 rescue StandardError => e
   abort "fetch #{url}: #{e.class}: #{e.message}"
 end

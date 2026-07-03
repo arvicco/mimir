@@ -48,29 +48,20 @@
 #
 # Ruby >= 2.5, stdlib only.
 
-require 'net/http'
 require 'json'
 require 'time'
 require_relative 'metrics'
 require_relative '../../lib/btc/report'
 require_relative '../../lib/btc/util'
+require_relative '../../lib/btc/http'
 
 UNIVERSE = BTC::Util.arg('--universe') ||
            File.join(File.expand_path(__dir__), 'universe.json')
 STALE_D  = 120
 
 def get(url, headers = {})
-  uri = URI(url)
-  Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https',
-                  open_timeout: 5, read_timeout: 30) do |http|
-    req = Net::HTTP::Get.new(uri.request_uri,
-                             { 'User-Agent' => ENV['EDGAR_UA'] || 'btco.rb (set EDGAR_UA=name email)' }
-                               .merge(headers))
-    res = http.request(req)
-    raise "HTTP #{res.code}" unless res.code.to_i == 200
-
-    res.body
-  end
+  ua = ENV['EDGAR_UA'] || 'btco.rb (set EDGAR_UA=name email)'
+  BTC::Http.get(url, { 'User-Agent' => ua }.merge(headers), read_timeout: 30)
 end
 
 def get_json(url, headers = {})

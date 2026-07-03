@@ -46,12 +46,12 @@
 # Env: EDGAR_UA='name email' (SEC courtesy), ANTHROPIC_API_KEY, BTCO_MODEL.
 # Ruby >= 2.5, stdlib only.
 
-require 'net/http'
 require 'json'
 require 'time'
 require 'fileutils'
 require 'digest'
 require_relative '../../lib/btc/util'
+require_relative '../../lib/btc/http'
 
 DIR      = File.expand_path(__dir__)
 UNIVERSE = File.join(DIR, 'universe.json')
@@ -66,21 +66,14 @@ def arg(flag)
 end
 
 def http(req_uri, post_body = nil, headers = {})
-  uri = URI(req_uri)
-  Net::HTTP.start(uri.host, uri.port, use_ssl: true,
-                  open_timeout: 5, read_timeout: 120) do |h|
-    req = if post_body
-            r = Net::HTTP::Post.new(uri.request_uri, headers)
-            r.body = post_body
-            r
-          else
-            Net::HTTP::Get.new(uri.request_uri, headers)
-          end
-    res = h.request(req)
-    raise "HTTP #{res.code}: #{res.body.to_s[0, 200]}" unless res.code.to_i == 200
-
-    res.body
+  if post_body
+    BTC::Http.post(req_uri, post_body, headers)
+  else
+    BTC::Http.get(req_uri, headers, read_timeout: 120)
   end
+rescue BTC::Http::StatusError => e
+  # historical message shape: status + a body snippet for debugging
+  raise "HTTP #{e.code}: #{e.body.to_s[0, 200]}"
 end
 
 UA = { 'User-Agent' => ENV['EDGAR_UA'] || 'btco-ingest (set EDGAR_UA=name email)' }.freeze
