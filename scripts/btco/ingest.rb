@@ -51,6 +51,7 @@ require 'json'
 require 'time'
 require 'fileutils'
 require 'digest'
+require_relative '../../lib/btc/util'
 
 DIR      = File.expand_path(__dir__)
 UNIVERSE = File.join(DIR, 'universe.json')
@@ -61,8 +62,7 @@ FORMS    = %w[8-K 10-Q 10-K 424B5].freeze
 NUMKEYS  = %w[btc shares_basic shares_diluted debt_face pref_liq].freeze
 
 def arg(flag)
-  i = ARGV.index(flag)
-  i && ARGV[i + 1]
+  BTC::Util.arg(flag)
 end
 
 def http(req_uri, post_body = nil, headers = {})

@@ -16,14 +16,11 @@
 #   ruby logperiodic.rb [--sims N]   # default 100 bootstrap sims
 
 require_relative 'common'
+require_relative '../../lib/btc/util'
 
 NAME = 'logperiodic'
 
-def arg(flag)
-  i = ARGV.index(flag)
-  i && ARGV[i + 1]
-end
-SIMS = (arg('--sims') || 100).to_i
+SIMS = (BTC::Util.arg('--sims') || 100).to_i
 
 begin
   p = Common.load_prices

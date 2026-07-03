@@ -52,13 +52,11 @@ require 'net/http'
 require 'json'
 require 'time'
 require_relative 'metrics'
+require_relative '../../lib/btc/report'
+require_relative '../../lib/btc/util'
 
-def arg(flag)
-  i = ARGV.index(flag)
-  i && ARGV[i + 1]
-end
-
-UNIVERSE = arg('--universe') || File.join(File.expand_path(__dir__), 'universe.json')
+UNIVERSE = BTC::Util.arg('--universe') ||
+           File.join(File.expand_path(__dir__), 'universe.json')
 STALE_D  = 120
 
 def get(url, headers = {})
@@ -82,14 +80,7 @@ end
 # Suite convention (scenario/lppl): a dead data source degrades to a
 # score-0 report and exit 0, never a crash.
 def fail_soft(reason)
-  if ARGV.include?('--json')
-    puts JSON.generate(name: 'btco', score: 0,
-                       headline: "unavailable (#{reason})",
-                       ts: Time.now.utc.iso8601)
-  else
-    puts format('%-6s [%+d]  %s', 'btco', 0, "unavailable (#{reason})")
-  end
-  exit 0
+  BTC::Report.fail_soft('btco', reason, name_w: 6)
 end
 
 begin
