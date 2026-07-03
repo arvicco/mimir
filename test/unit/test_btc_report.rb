@@ -43,4 +43,24 @@ class TestBtcReport < Minitest::Test
     end
     assert_equal "btco   [+0]  unavailable (boom)\n", out
   end
+
+  def test_fail_soft_json_carries_unavailable_marker
+    out, = capture_io do
+      assert_raises(SystemExit) { BTC::Report.fail_soft('macro', 'HTTP 500', json: true) }
+    end
+    h = JSON.parse(out)
+    assert_equal true, h['unavailable']
+    assert_equal 0, h['score']
+  end
+
+  def test_headline_and_string_details_are_redacted
+    out, = capture_io do
+      BTC::Report.report('macro', 0, 'GET x?api_key=s3cret failed',
+                         { 'url' => 'y?token=abc', 'n' => 5 }, json: true)
+    end
+    h = JSON.parse(out)
+    assert_equal 'GET x?api_key=[REDACTED] failed', h['headline']
+    assert_equal 'y?token=[REDACTED]', h['url']
+    assert_equal 5, h['n']
+  end
 end

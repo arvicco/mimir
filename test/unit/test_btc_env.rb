@@ -30,3 +30,26 @@ class TestBtcEnv < Minitest::Test
     end
   end
 end
+
+class TestBtcEnvRedact < Minitest::Test
+  def test_redacts_credential_query_params
+    assert_equal 'x?api_key=[REDACTED]&limit=6',
+                 BTC::Env.redact('x?api_key=abc123&limit=6')
+    assert_equal 'bad token=[REDACTED] here',
+                 BTC::Env.redact('bad token=tok_99 here')
+  end
+
+  def test_redacts_literal_secret_env_values
+    old = ENV['FRED_API_KEY']
+    ENV['FRED_API_KEY'] = 'deadbeef42'
+    assert_equal 'GET /obs?k=[FRED_API_KEY] failed',
+                 BTC::Env.redact('GET /obs?k=deadbeef42 failed')
+  ensure
+    old.nil? ? ENV.delete('FRED_API_KEY') : ENV['FRED_API_KEY'] = old
+  end
+
+  def test_passes_clean_strings_through
+    msg = 'HTTP 404 -- and Z -2.31 at 0.85/(Age+2.0)'
+    assert_equal msg, BTC::Env.redact(msg)
+  end
+end
