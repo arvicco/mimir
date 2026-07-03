@@ -112,7 +112,8 @@ commit does not happen.
 
 ## Git conventions
 
-- Branch per task: `phase0/characterize-rangereg`, `phase3/gex-spec`.
+- Work happens on phase branches (`phase-0`, `phase-1`, ...) pushed to
+  origin; `main` is owner-merged at gates (see docs/DEV-LOOP.md).
 - Conventional commits: `feat:`, `fix:`, `test:`, `refactor:`, `docs:`,
   `chore:`; imperative subject <= 72 chars; body explains WHY.
 - One logical change per commit; tests in the same commit as the code
