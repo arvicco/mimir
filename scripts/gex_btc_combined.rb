@@ -27,6 +27,10 @@
 # BTC-equivalent open interest so venues weigh comparably.
 # Sign convention: dealers long calls / short puts.
 #
+# Failure mode: individual venues fail soft (skipped with a stderr
+# warning), but the Deribit index call or all venues failing aborts with
+# exit != 0 -- downstream consumers must treat that as keep-last-good.
+#
 # Ruby >= 2.5, stdlib only.
 
 require 'net/http'

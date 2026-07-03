@@ -18,6 +18,9 @@
 # cryptogamma.io. On Deribit treat the SIGN with suspicion (flows are
 # two-sided); the LEVELS (walls, flip, magnitude) are robust to it.
 # Covers BTC/ETH inverse options only, not the USDC-quoted board.
+#
+# Failure mode: aborts with a message on stderr, exit != 0 (no fail-soft
+# JSON) -- downstream consumers must treat nonzero exit as keep-last-good.
 
 require 'net/http'
 require 'json'
