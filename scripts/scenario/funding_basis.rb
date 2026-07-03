@@ -17,6 +17,7 @@
 
 require_relative 'common'
 require_relative '../../lib/btc/options'
+require_relative '../../lib/btc/deribit'
 
 NAME = 'funding'
 
@@ -34,10 +35,8 @@ now_r = cur['lastFundingRate'].to_f
 
 basis = nil
 begin
-  spot = Common.get_json('https://www.deribit.com/api/v2/public/get_index_price?index_name=btc_usd')
-               .fetch('result').fetch('index_price').to_f
-  futs = Common.get_json('https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=BTC&kind=future')
-               .fetch('result')
+  spot = BTC::Deribit.index_price('btc_usd')
+  futs = BTC::Deribit.book_summary('BTC', 'future')
   nearest = futs.map do |f|
     parts = f['instrument_name'].split('-')
     next unless parts.size == 2 && parts[0] == 'BTC'
