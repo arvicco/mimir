@@ -32,6 +32,9 @@ finding AGREED / DEFERRED / REJECTED at the M0-2 review.*
   the day it does. The correct-fix diff is one line. **[decision]** -- it
   changes (future) published numbers; recommend fix + regression test in
   Phase 1 while still provably latent.
+  **RESOLVED 2026-07-03: owner approved; extracted to
+  scripts/btco/metrics.rb with characterization (f6ed522), fixed with
+  red-first JPY regression tests (32c0607). USD outputs byte-identical.**
 - **F-2 · fit.rb side effect on every run** `scripts/lppl/fit.rb:172` --
   appends to `data/fit_history.jsonl` unconditionally (not gated by
   `--history` like every other writer). The trough-stability downgrade
@@ -40,11 +43,16 @@ finding AGREED / DEFERRED / REJECTED at the M0-2 review.*
   `--history` changes scoring inputs; alternative is documenting
   "run once daily" as an operational contract. Either way tests must use
   an isolated data dir (BTC_DATA_DIR, Phase 1).
+  **RESOLVED 2026-07-03: owner approved; append now gated on --history,
+  lppl.rb passes the flag through so the daily cron run still feeds the
+  tracker (9bd5c5a).**
 - **F-3 · btco.rb mcap uses basic shares** `scripts/btco/btco.rb:176` --
   mNAV/netNAV numerator is `px * shares_basic` while sats/sh and CEBE use
   diluted counts. Plausibly deliberate (mcap is a market observable);
   needs an owner ruling so tests pin the intended definition.
   **[decision -- confirm semantics, likely no change]**
+  **RESOLVED 2026-07-03: confirmed deliberate (mcap = market observable);
+  documented in the btco.rb header, no code change. M0-7 tests pin it.**
 
 ### Robustness / conventions
 
@@ -55,12 +63,19 @@ finding AGREED / DEFERRED / REJECTED at the M0-2 review.*
   nothing aggregates them -- but Phase 2's publisher will. Options: align
   them to fail-soft JSON, or have the publisher treat nonzero exit as
   keep-stale. **[P2 -- design input, no change now]**
+  **RESOLVED 2026-07-03: failure mode documented in all three gex headers
+  ("nonzero exit = keep-last-good"); code-level fail-soft stays open for
+  Phase 2 publisher design -- the gex --json contract has no score field,
+  so inventing a failure shape now would front-run that design.**
 - **F-5 · btco.rb also aborts** (universe missing, Deribit index, no
   companies priced) while its own README claims it "fits the suite
   conventions (fail-soft)". Claim and code disagree. **[decision]** --
   either make it fail-soft (score-0 JSON matches the module contract) or
   fix the README. Recommend fail-soft: it is listed as a potential 8th
   scenario module.
+  **RESOLVED 2026-07-03: owner approved fail-soft; all four aborts now
+  report score 0 / exit 0 in the module contract shape, verified offline
+  in both output modes (7490b65).**
 - **F-6 · secret in URL** `scripts/scenario/macro.rb:23` -- FRED_API_KEY
   is query-string-interpolated; today's error paths don't echo URLs, but
   one careless edit would. Phase 1 http seam should redact query strings

@@ -29,6 +29,8 @@
 #   netNAV          market cap / (BTC NAV - senior claims)
 #   EV/BTC          (mcap + senior) / BTC  -- price paid per coin
 #   lev             senior claims / BTC NAV
+#   Market cap is px * shares_BASIC (the market observable) by design;
+#   per-share entitlement metrics (sats/sh, CEBE) use diluted counts.
 #
 # Verdict (per company, on netNAV with peer-median context):
 #   DEEP-DISC < 0.90 | UNDER < 1.10 | FAIR < 1.45 | RICH < 1.90 | OVER >=

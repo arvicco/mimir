@@ -19,6 +19,11 @@
 # calls / short puts (call gamma +, put gamma -); on OPRA customer flow
 # this assumption is more defensible than on Deribit. Quotes are ~15 min
 # delayed; open interest is previous-day (OPRA updates OI overnight).
+# US expiry approximated at 21:00 UTC year-round (4pm ET ignoring DST);
+# worst case 1h of T error, negligible at daily horizons.
+#
+# Failure mode: aborts with a message on stderr, exit != 0 (no fail-soft
+# JSON) -- downstream consumers must treat nonzero exit as keep-last-good.
 
 require 'net/http'
 require 'json'
