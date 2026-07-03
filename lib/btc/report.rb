@@ -9,15 +9,20 @@
 
 require 'json'
 require 'time'
+require_relative 'env'
 
 module BTC
   module Report
     module_function
 
     # score is -1/0/+1. detail keys are consumed by the aggregators.
+    # All string output passes through BTC::Env.redact, so a secret in an
+    # exception message or URL can never reach stdout (F-6).
     def report(name, score, headline, detail = {}, name_w: 14, key_w: 18,
                json: ARGV.include?('--json'))
+      headline = BTC::Env.redact(headline)
       detail = detail.reject { |_, v| v.nil? }
+      detail = Hash[detail.map { |k, v| [k, v.is_a?(String) ? BTC::Env.redact(v) : v] }]
       if json
         puts JSON.generate({ name: name, score: score, headline: headline,
                              ts: Time.now.utc.iso8601 }.merge(detail))
@@ -27,8 +32,12 @@ module BTC
       end
     end
 
+    # The JSON form carries an additive 'unavailable': true marker so
+    # consumers can distinguish "healthy 0" from "data source down"
+    # without parsing headlines (F-12). Human output is unchanged.
     def fail_soft(name, err, name_w: 14, json: ARGV.include?('--json'))
-      report(name, 0, "unavailable (#{err})", {}, name_w: name_w, json: json)
+      detail = json ? { 'unavailable' => true } : {}
+      report(name, 0, "unavailable (#{err})", detail, name_w: name_w, json: json)
       exit 0
     end
   end
