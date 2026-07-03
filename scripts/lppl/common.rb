@@ -7,6 +7,7 @@ require 'net/http'
 require 'json'
 require 'time'
 require 'fileutils'
+require_relative '../../lib/btc/report'
 
 module Common
   GENESIS = Time.utc(2009, 1, 3)
@@ -34,19 +35,11 @@ module Common
   # -1 is evidence against, 0 neutral/insufficient. detail keys are consumed
   # by the aggregator (lppl.rb).
   def report(name, score, headline, detail = {})
-    detail = detail.reject { |_, v| v.nil? }
-    if ARGV.include?('--json')
-      puts JSON.generate({ name: name, score: score, headline: headline,
-                           ts: Time.now.utc.iso8601 }.merge(detail))
-    else
-      puts format('%-12s [%+d]  %s', name, score, headline)
-      detail.each { |k, v| puts format('  %-16s %s', k, v) }
-    end
+    BTC::Report.report(name, score, headline, detail, name_w: 12, key_w: 16)
   end
 
   def fail_soft(name, err)
-    report(name, 0, "unavailable (#{err})")
-    exit 0
+    BTC::Report.fail_soft(name, err, name_w: 12)
   end
 
   # ---- price cache -----------------------------------------------------------

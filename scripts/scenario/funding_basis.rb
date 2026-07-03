@@ -12,6 +12,7 @@
 # marked terminal capitulation regimes (precedes bottoms by days-weeks).
 
 require_relative 'common'
+require_relative '../../lib/btc/options'
 
 NAME = 'funding'
 
@@ -34,11 +35,13 @@ begin
   futs = Common.get_json('https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=BTC&kind=future')
                .fetch('result')
   nearest = futs.map do |f|
-    m = f['instrument_name'].match(/\ABTC-(\d{1,2})([A-Z]{3})(\d{2})\z/)
-    next unless m
+    parts = f['instrument_name'].split('-')
+    next unless parts.size == 2 && parts[0] == 'BTC'
 
-    t   = Time.utc(2000 + m[3].to_i, Common::MONTHS[m[2]], m[1].to_i, 8)
-    yrs = (t - Time.now.utc) / (365.25 * 86_400)
+    t = BTC::Options.deribit_expiry(parts[1])
+    next unless t
+
+    yrs = (t - Time.now.utc) / BTC::Options::YEAR_S
     yrs > 0.02 ? [yrs, f['mark_price'].to_f] : nil
   end.compact.min_by { |yrs, _| yrs }
   basis = nearest && (nearest[1] / spot - 1.0) / nearest[0]
