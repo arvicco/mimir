@@ -193,3 +193,77 @@ finding AGREED / DEFERRED / REJECTED at the M0-2 review.*
 Everything else: [document] items fold into M0-3 README + header updates;
 [P2] items are recorded as publish-pipeline design inputs in Phase 2's
 packet elaboration.
+
+## 5. Round 2 (2026-07-03): DRY + naming-consistency review
+
+*Second Fable pass over the post-refactor tree, requested by owner.
+R-numbered; same dispositions as section 2. "Frozen" = --json/--tmux
+contract involved, extra care.*
+
+### DRY -- recommended
+
+- **R-1 · Deribit venue helper.** The index-price fetch appears FIVE
+  times (gex.rb, gex_us.rb, combined, funding_basis.rb, btco.rb), the
+  book-summary fetch + `.fetch('result')` unwrap three times, and the
+  base URL twice as a const (`HOST`, `DERIBIT`) plus three times inline.
+  Extract `lib/btc/deribit.rb`: `BTC::Deribit.index_price(ccy)`,
+  `.book_summary(ccy, kind:)` over the http seam. Also dissolves R-8.
+- **R-2 · Sign convention.** `o[:cp] == 'C' ? 1.0 : -1.0` is spelled out
+  six times across the gex family -- and it is THE semantics-critical
+  constant (dealer-positioning model). One definition:
+  `BTC::Options.sign(cp)`. Zero behavior change, kills silent-drift risk.
+- **R-4 · Aggregator subprocess runner.** scenario.rb (inline) and
+  lppl.rb (`run_module`) duplicate the Timeout + IO.popen +
+  parse-last-stdout-line + degrade-to-score-0 pattern near-verbatim.
+  Extract `BTC::Suite.run_module(dir, name, timeout, extra: [])`; each
+  aggregator keeps its own result-wrapping and weighting.
+- **R-5 · Status-line writer.** `File.write('/tmp/<x>.status', line + "\n")`
+  x6. `BTC::Report.status(basename, line)` centralizes the /tmp
+  convention (frozen paths preserved byte-for-byte).
+
+### DRY -- optional (smaller wins, owner's call)
+
+- **R-3 · Put/call OI ratio block** x5 (two weightings: raw OI in
+  gex/gex_us, BTC-equivalent OI x3 in combined). Extractable as
+  `Options.put_call_ratio(book) { |o| weight }`; modest gain.
+- **R-6 · ASCII profile bars** x3, identical except the strike-label
+  format. Human output only; extract with a label lambda or leave.
+- **R-7 · `fmt_m` lambda** identical x3 -> `BTC::Options.fmt_musd` or a
+  tiny format helper. NOTE: `fmt_k` variants must NOT be unified -- they
+  differ per tool ('103.5k' vs '%gk') and feed --tmux lines (frozen).
+
+### Naming -- recommended
+
+- **R-8 · `get_json` means two different things**: gex.rb's unwraps
+  Deribit's result envelope; gex_us/combined/suites return the raw
+  parse. Same name, different semantics, adjacent files. Dissolved by
+  R-1 (venue helper owns the unwrap; remaining get_json = raw parse
+  everywhere).
+- **R-9 · `module Common` is defined twice** (scenario/common.rb,
+  lppl/common.rb) with different methods INCLUDING two different
+  `get_json` implementations. Separate processes today, but any future
+  same-process load (tests are one process; a scenario test alongside
+  test_lppl_common.rb) silently merges them -- last-loaded get_json
+  wins. Rename to `module Scenario` / `module Lppl` (suite-local sed;
+  no frozen contract touched).
+- **R-10 · Namespace rule.** `BtcoMetrics` (top-level) breaks the
+  pattern set by `BTC::*`. Adopt: **suite-local shared code = module
+  named after the suite (`Scenario`, `Lppl`, `Btco`); cross-suite code =
+  `BTC::*`.** metrics.rb becomes `module Btco` (with R-9 this makes the
+  three suites uniform).
+
+### Flag only -- do not touch
+
+- **R-11 · Wall key naming differs in frozen JSON**: gex.rb walls carry
+  `strike:`, combined's carry `level:` -- deliberate (real strikes vs
+  BTC-axis buckets). Document in M1 contract tests, never rename.
+- **R-12 · Net-GEX formula divergence (ANALYTICS decision item)**:
+  gex.rb's `net_gex` multiplies by `x*x` (hypothetical index level);
+  combined's `gex_at` uses `s*s` (the instrument's scaled underlying).
+  For Deribit u ~= index so the numbers nearly agree, but not exactly --
+  the two tools will not reconcile to the digit for the same venue.
+  Unifying changes published numbers; owner must rule which is intended
+  (Golden Rule 4). Until then the near-duplicates stay separate.
+- **R-13 · funding/onchain file-vs-name mismatch** (= F-11): renaming
+  the files would change the `scores` keys in history.jsonl (breaks
+  accumulated history) -- leave documented as is.
