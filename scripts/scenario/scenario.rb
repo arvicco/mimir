@@ -28,8 +28,9 @@
 
 require 'json'
 require 'time'
-require 'timeout'
 require_relative '../../lib/btc/env'
+require_relative '../../lib/btc/suite'
+require_relative '../../lib/btc/report'
 
 DIR = File.expand_path(__dir__)
 
@@ -51,11 +52,7 @@ LABELS = {
 
 results = MODULES.map do |mod, w|
   begin
-    out = nil
-    Timeout.timeout(45) do
-      out = IO.popen(['ruby', File.join(DIR, "#{mod}.rb"), '--json'], &:read)
-    end
-    r = JSON.parse(out.to_s.lines.last.to_s)
+    r = BTC::Suite.run_module(DIR, mod, 45)
     { mod: mod, w: w, score: r['score'].to_i, headline: r['headline'].to_s }
   rescue StandardError => e
     { mod: mod, w: w, score: 0, headline: "module failed (#{e.class})" }
@@ -99,7 +96,7 @@ line = format('SCN %s %+.2f %s', regime, composite,
                      .join(' '))
 
 if ARGV.include?('--tmux')
-  File.write('/tmp/scenario.status', line + "\n")
+  BTC::Report.status('scenario', line)
   exit
 end
 

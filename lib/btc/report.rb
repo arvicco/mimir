@@ -32,6 +32,12 @@ module BTC
       end
     end
 
+    # Write the one-line tmux status artifact. The /tmp/<basename>.status
+    # paths are frozen (--tmux contract); this just centralizes them.
+    def status(basename, line)
+      File.write("/tmp/#{basename}.status", line + "\n")
+    end
+
     # The JSON form carries an additive 'unavailable': true marker so
     # consumers can distinguish "healthy 0" from "data source down"
     # without parsing headlines (F-12). Human output is unchanged.

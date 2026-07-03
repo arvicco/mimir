@@ -31,8 +31,9 @@
 
 require 'json'
 require 'time'
-require 'timeout'
 require_relative '../../lib/btc/env'
+require_relative '../../lib/btc/suite'
+require_relative '../../lib/btc/report'
 
 DIR    = File.expand_path(__dir__)
 LEDGER = File.join(BTC::Env.data_dir('lppl', File.join(DIR, 'data')),
@@ -47,11 +48,7 @@ TESTS = [
 ].freeze
 
 def run_module(name, timeout, extra = [])
-  out = nil
-  Timeout.timeout(timeout) do
-    out = IO.popen(['ruby', File.join(DIR, "#{name}.rb"), '--json'] + extra, &:read)
-  end
-  JSON.parse(out.to_s.lines.last.to_s)
+  BTC::Suite.run_module(DIR, name, timeout, extra)
 rescue StandardError => e
   { 'name' => name, 'score' => 0, 'headline' => "module failed (#{e.class})" }
 end
@@ -127,7 +124,7 @@ line = format('LPPL %s %+.2f BF%s r%s trough %s/%s w%s p%s Z%s@%s%s',
               d['percentile']['record'] ? '!' : '')
 
 if ARGV.include?('--tmux')
-  File.write('/tmp/lppl.status', line + "\n")
+  BTC::Report.status('lppl', line)
   exit
 end
 
