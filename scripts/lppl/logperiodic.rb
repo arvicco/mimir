@@ -23,17 +23,17 @@ NAME = 'logperiodic'
 SIMS = (BTC::Util.arg('--sims') || 100).to_i
 
 begin
-  p = Common.load_prices
+  p = Lppl.load_prices
 rescue StandardError => e
-  Common.fail_soft(NAME, e.message)
+  Lppl.fail_soft(NAME, e.message)
 end
 
-i_peak = Common.detect_peak(p)
-Common.fail_soft(NAME, 'no post-peak window') if i_peak.nil? ||
+i_peak = Lppl.detect_peak(p)
+Lppl.fail_soft(NAME, 'no post-peak window') if i_peak.nil? ||
                                                  p[:dates].size - i_peak < 90
 
-null = Common.power_decay_fit(p, i_peak)
-Common.fail_soft(NAME, 'power-decay null failed') unless null
+null = Lppl.power_decay_fit(p, i_peak)
+Lppl.fail_soft(NAME, 'power-decay null failed') unless null
 
 u = null[:u]
 r = null[:resid]
@@ -104,7 +104,7 @@ score = if pval <= 0.05 && w_peak >= 6.0 && w_peak <= 13.0
           0
         end
 
-Common.report(NAME, score,
+Lppl.report(NAME, score,
               format('LS peak omega %.1f, power %.1f, p = %.3f (AR(1) rho %.2f, %d sims)',
                      w_peak, obs_max, pval, rho, SIMS),
               'omega_peak' => w_peak.round(2), 'p_value' => pval.round(3),

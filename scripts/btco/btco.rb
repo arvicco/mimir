@@ -160,7 +160,7 @@ cos.each do |c|
   shs_b  = c['shares_basic'].to_f
   shs_d  = [c['shares_diluted'].to_f, shs_b].max
 
-  itm_sh, otm_fc = BtcoMetrics.convert_split(c['converts'], px, rate)
+  itm_sh, otm_fc = Btco.convert_split(c['converts'], px, rate)
   senior = otm_fc + c['debt_face'].to_f + c['pref_liq'].to_f
   shs_a  = shs_d + itm_sh
 

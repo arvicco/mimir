@@ -18,9 +18,9 @@ require_relative 'common'
 NAME = 'etf_flows'
 
 begin
-  html = Common.get('https://farside.co.uk/btc/')
+  html = Scenario.get('https://farside.co.uk/btc/')
 rescue StandardError => e
-  Common.fail_soft(NAME, e.message)
+  Scenario.fail_soft(NAME, e.message)
 end
 
 # Strip tags, find rows "DD Mon YYYY <numbers...>"; last number in the row
@@ -37,7 +37,7 @@ daily = rows.map do |date, nums|
   vals.empty? ? nil : [Time.parse(date), vals.last]
 end.compact.sort_by { |d, _| d }
 
-Common.fail_soft(NAME, 'parse produced too few rows') if daily.size < 10
+Scenario.fail_soft(NAME, 'parse produced too few rows') if daily.size < 10
 
 last5 = daily.last(5).map { |_, v| v }
 prev5 = daily[-10, 5].map { |_, v| v }
@@ -53,7 +53,7 @@ score =
     0
   end
 
-Common.report(NAME, score,
+Scenario.report(NAME, score,
               format('5d net %+.0f$m (prev 5d %+.0f$m), last day %+.0f$m',
                      s5, p5, daily.last[1]),
               'last_5_days_usd_m' => last5.map { |v| v.round }.join(', '),

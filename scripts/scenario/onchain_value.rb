@@ -23,18 +23,18 @@ URL   = 'https://community-api.coinmetrics.io/v4/timeseries/asset-metrics' \
         "&frequency=1d&start_time=#{start}&page_size=100"
 
 begin
-  rows = Common.get_json(URL)['data']
+  rows = Scenario.get_json(URL)['data']
 rescue StandardError => e
-  Common.fail_soft(NAME, e.message)
+  Scenario.fail_soft(NAME, e.message)
 end
-Common.fail_soft(NAME, 'no data rows') if rows.nil? || rows.empty?
+Scenario.fail_soft(NAME, 'no data rows') if rows.nil? || rows.empty?
 
 r    = rows.last
 mcap = r['CapMrktCurUSD'].to_f
 rcap = r['CapRealUSD'].to_f
 sply = r['SplyCur'].to_f
 px   = r['PriceUSD'].to_f
-Common.fail_soft(NAME, 'zero-valued fields') if rcap <= 0 || sply <= 0
+Scenario.fail_soft(NAME, 'zero-valued fields') if rcap <= 0 || sply <= 0
 
 mvrv = mcap / rcap
 rp   = rcap / sply
@@ -47,6 +47,6 @@ score = if mvrv <= 0.85
           0
         end
 
-Common.report(NAME, score,
+Scenario.report(NAME, score,
               format('MVRV %.2f, realized price %.0f vs spot %.0f (%s)',
                      mvrv, rp, px, r['time'].to_s[0, 10]))

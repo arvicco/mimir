@@ -17,13 +17,13 @@ require_relative 'common'
 NAME = 'hash_ribbons'
 
 begin
-  data = Common.get_json('https://mempool.space/api/v1/mining/hashrate/6m')
+  data = Scenario.get_json('https://mempool.space/api/v1/mining/hashrate/6m')
 rescue StandardError => e
-  Common.fail_soft(NAME, e.message)
+  Scenario.fail_soft(NAME, e.message)
 end
 
 hs = (data['hashrates'] || []).map { |h| h['avgHashrate'].to_f }
-Common.fail_soft(NAME, 'not enough hashrate history') if hs.size < 75
+Scenario.fail_soft(NAME, 'not enough hashrate history') if hs.size < 75
 
 sma = lambda do |arr, n, at|
   seg = arr[(at - n + 1)..at]
@@ -50,7 +50,7 @@ adj   = diffs.each_cons(2).map { |a, b| (b / a - 1.0) * 100 }
 
 score = below_now ? -1 : (crossed_up ? 1 : 0)
 
-Common.report(NAME, score,
+Scenario.report(NAME, score,
               format('30d SMA %s 60d SMA%s; recent diff adj: %s',
                      below_now ? '<' : '>',
                      crossed_up ? ' (recovery cross <14d ago)' : '',

@@ -30,16 +30,16 @@
 require_relative 'common'
 
 NAME = 'fit'
-HIST = File.join(Common::DATA, 'fit_history.jsonl')
+HIST = File.join(Lppl::DATA, 'fit_history.jsonl')
 
 begin
-  p = Common.load_prices
+  p = Lppl.load_prices
 rescue StandardError => e
-  Common.fail_soft(NAME, e.message)
+  Lppl.fail_soft(NAME, e.message)
 end
 
-i_peak = Common.detect_peak(p)
-Common.fail_soft(NAME, 'no post-peak window') if i_peak.nil? ||
+i_peak = Lppl.detect_peak(p)
+Lppl.fail_soft(NAME, 'no post-peak window') if i_peak.nil? ||
                                                  p[:dates].size - i_peak < 90
 
 peak_day = p[:days][i_peak]
@@ -69,7 +69,7 @@ def solve_combo(days, lnp, i0, tc, m, w)
   return nil if cnt < 60
 
   (0...4).each { |a| (0...a).each { |b| xtx[a][b] = xtx[b][a] } }
-  coef = Common.gauss_solve(xtx, xty)
+  coef = Lppl.gauss_solve(xtx, xty)
   return nil unless coef
 
   # SSE = y'y - 2 b'X'y + b'X'Xb
@@ -101,7 +101,7 @@ end
 scan.((-30..10).step(2).map { |d| peak_day + d },
       (0.10..0.90).step(0.10).to_a,
       (4.0..16.0).step(0.5).to_a)
-Common.fail_soft(NAME, 'no valid fit') if best.nil?
+Lppl.fail_soft(NAME, 'no valid fit') if best.nil?
 
 # refinement pass around coarse optimum
 b0 = best
@@ -114,7 +114,7 @@ a, b, c1, c2 = best[:coef]
 cmag = Math.sqrt(c1 * c1 + c2 * c2)
 
 # null: pure power decay
-null = Common.power_decay_fit(p, i_peak)
+null = Lppl.power_decay_fit(p, i_peak)
 impr = null ? (1.0 - rmse / null[:rmse]) * 100 : nil
 
 # ---- filters -----------------------------------------------------------------
@@ -146,7 +146,7 @@ d0 = p[:days][-1]
   trough_day = d0 + k
 end
 interior    = trough_day && trough_day < d0 + 398
-trough_date = trough_day && (Common::GENESIS + trough_day * 86_400).strftime('%d%b%y')
+trough_date = trough_day && (Lppl::GENESIS + trough_day * 86_400).strftime('%d%b%y')
 trough_px   = trough_ln && Math.exp(trough_ln).round(-2)
 
 # ---- stability ---------------------------------------------------------------
@@ -180,7 +180,7 @@ if ARGV.include?('--history')
   end
 end
 
-Common.report(NAME, score,
+Lppl.report(NAME, score,
               format('m %.2f, omega %.1f, %d/4 filters; trough %s @ ~%s; rmse %.3f (%s vs null)%s',
                      best[:m], best[:w], passed,
                      interior ? trough_date : 'none<=+400d',
@@ -188,7 +188,7 @@ Common.report(NAME, score,
                      impr ? format('%+.0f%%', impr) : 'n/a',
                      tstd ? format('; trough std %.0fd', tstd) : ''),
               'omega' => best[:w].round(2), 'm' => best[:m].round(3),
-              'tc_date' => (Common::GENESIS + best[:tc] * 86_400).strftime('%Y-%m-%d'),
+              'tc_date' => (Lppl::GENESIS + best[:tc] * 86_400).strftime('%Y-%m-%d'),
               'trough_date' => (interior ? trough_date : nil),
               'trough_px' => (interior ? trough_px : nil),
               'filters' => filters.inspect,

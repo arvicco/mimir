@@ -14,11 +14,11 @@ require_relative 'common'
 NAME = 'prices'
 URL  = 'https://min-api.cryptocompare.com/data/v2/histoday?fsym=BTC&tsym=USD'
 
-FileUtils.mkdir_p(Common::DATA)
+FileUtils.mkdir_p(Lppl::DATA)
 
 existing = {}
-if File.exist?(Common::PRICES)
-  File.foreach(Common::PRICES) do |ln|
+if File.exist?(Lppl::PRICES)
+  File.foreach(Lppl::PRICES) do |ln|
     d, c = ln.strip.split(',')
     existing[d] = c.to_f if d && d != 'date' && c
   end
@@ -41,9 +41,9 @@ begin
     else
       URL + "&limit=#{[missing + 3, 30].max}"
     end
-  rows = Common.get_json(url).fetch('Data').fetch('Data')
+  rows = Lppl.get_json(url).fetch('Data').fetch('Data')
 rescue StandardError => e
-  Common.fail_soft(NAME, e.message)
+  Lppl.fail_soft(NAME, e.message)
 end
 
 added = 0
@@ -59,13 +59,13 @@ rows.each do |r|
   existing[key] = c
 end
 
-File.open(Common::PRICES, 'w') do |f|
+File.open(Lppl::PRICES, 'w') do |f|
   f.puts 'date,close'
   existing.keys.sort.each { |d| f.puts "#{d},#{existing[d]}" }
 end
 
 last = existing.keys.max
-Common.report(NAME, 0,
+Lppl.report(NAME, 0,
               format('%d rows (%s .. %s), last close %.0f, +%d new',
                      existing.size, existing.keys.min, last,
                      existing[last], added),
