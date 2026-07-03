@@ -35,11 +35,12 @@ class TestBtcReport < Minitest::Test
   end
 
   def test_fail_soft_reports_score_zero_and_exits_zero
-    out = nil
-    e = assert_raises(SystemExit) do
-      out, = capture_io { BTC::Report.fail_soft('btco', 'boom', name_w: 6, json: false) }
+    out, = capture_io do
+      e = assert_raises(SystemExit) do
+        BTC::Report.fail_soft('btco', 'boom', name_w: 6, json: false)
+      end
+      assert_equal 0, e.status
     end
-    assert_equal 0, e.status
     assert_equal "btco   [+0]  unavailable (boom)\n", out
   end
 end
