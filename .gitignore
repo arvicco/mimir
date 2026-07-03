@@ -1,0 +1,26 @@
+# runtime data -- never commit
+data/
+scripts/lppl/data/
+scripts/scenario/data/
+scripts/btco/capstruct/pending/
+scripts/btco/capstruct/state.json
+scripts/btco/universe.json.bak-*
+*.status
+
+# btco: capstruct/<TICKER>.jsonl ledgers and universe.json ARE committed
+# (audit trail); other *.jsonl are runtime
+*.jsonl
+!scripts/btco/capstruct/*.jsonl
+
+# secrets
+.env
+*.token
+
+# OS noise
+.DS_Store
+
+# editor
+*.swp
+
+# claude code -- machine-local settings (a shared settings.json IS committed)
+.claude/settings.local.json

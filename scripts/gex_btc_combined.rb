@@ -1,0 +1,255 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+#
+# gex_btc_combined.rb -- combined Bitcoin GEX across Deribit BTC options and
+# all US-listed spot-BTC ETF option chains (CBOE delayed quotes), normalized
+# to BTC price levels.
+#
+#   ruby gex_btc_combined.rb                 # full picture
+#   ruby gex_btc_combined.rb --max-days 45   # near-dated boards only
+#   ruby gex_btc_combined.rb --bin 500       # strike bucket width, BTC-USD
+#   ruby gex_btc_combined.rb --json          # machine-readable dump
+#   ruby gex_btc_combined.rb --tmux          # -> /tmp/gex_btc_combined.status
+#
+# Method: every instrument's strike is mapped to its BTC-equivalent level via
+# the live ratio (ETF spot / Deribit BTC index) and bucketed on the BTC price
+# axis (Deribit strikes map 1:1). Dollar gamma per 1% BTC move is computed
+# per instrument via Black-Scholes from its own IV; the flip scan reprices
+# ALL books at hypothetical BTC levels, scaling each underlying
+# proportionally. Units are USD delta-notional dealers re-hedge per 1% BTC
+# move -- identical to gex.rb / gex_us.rb, so per-venue numbers reconcile.
+#
+# Coverage: Deribit BTC board + every ETF in ETFS below that has a listed
+# chain (missing/optionless tickers are skipped with a warning to stderr).
+# Not covered: CME BTC options (no free chain source) and MSTR (not a BTC
+# tracker; its gamma lives on MSTR's own price axis). ETF OI is prior-day
+# (OPRA convention); Deribit OI is live. Combined P/C is computed on
+# BTC-equivalent open interest so venues weigh comparably.
+# Sign convention: dealers long calls / short puts.
+#
+# Ruby >= 2.5, stdlib only.
+
+require 'net/http'
+require 'json'
+require 'time'
+
+DERIBIT = 'https://www.deribit.com/api/v2/public'
+CBOE    = 'https://cdn.cboe.com/api/global/delayed_quotes/options'
+ETFS    = %w[IBIT FBTC BITB ARKB GBTC HODL BTCO BRRR EZBC].freeze
+MULT    = 100.0 # shares per US option contract
+MONTHS  = Hash[%w[JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC]
+                 .each_with_index.map { |m, i| [m, i + 1] }]
+OSI     = /\A[A-Z]+(\d{6})([CP])(\d{8})\z/
+
+def get_json(url)
+  uri = URI(url)
+  Net::HTTP.start(uri.host, uri.port, use_ssl: true,
+                  open_timeout: 5, read_timeout: 20) do |http|
+    req = Net::HTTP::Get.new(uri.request_uri, 'User-Agent' => 'gex_btc_combined.rb')
+    JSON.parse(http.request(req).body)
+  end
+end
+
+def norm_pdf(x)
+  Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math::PI)
+end
+
+def bs_gamma(s, k, t, v)
+  return 0.0 if t <= 0 || v <= 0 || s <= 0 || k <= 0
+
+  sq = v * Math.sqrt(t)
+  d1 = (Math.log(s / k) + 0.5 * v * v * t) / sq
+  norm_pdf(d1) / (s * sq)
+end
+
+def gamma_at(o, s)
+  o[:iv] > 0 ? bs_gamma(s, o[:k], o[:t], o[:iv]) : o[:gp]
+end
+
+# USD gamma per 1% BTC move for one instrument, with BTC at hypothetical
+# level x (its underlying scaled proportionally from spot).
+def gex_at(o, btc_spot, x)
+  s   = o[:u] * x / btc_spot
+  sgn = o[:cp] == 'C' ? 1.0 : -1.0
+  sgn * gamma_at(o, s) * o[:oi] * o[:cm] * s * s * 0.01
+end
+
+# Open interest in BTC-equivalent units (for cross-venue P/C).
+def oi_btc(o, btc_spot)
+  o[:oi] * o[:cm] * o[:u] / btc_spot
+end
+
+def load_deribit(max_days, now, btc_spot)
+  rows = get_json("#{DERIBIT}/get_book_summary_by_currency?currency=BTC&kind=option").fetch('result')
+  rows.map do |r|
+    oi = r['open_interest'].to_f
+    next if oi <= 0
+
+    _, exp, strike, cp = r['instrument_name'].split('-')
+    m   = exp && exp.match(/\A(\d{1,2})([A-Z]{3})(\d{2})\z/) or next
+    mon = MONTHS[m[2]] or next
+    t   = (Time.utc(2000 + m[3].to_i, mon, m[1].to_i, 8) - now) / (365.25 * 86_400)
+    next if t <= 0 || (max_days && t * 365.25 > max_days)
+
+    iv = r['mark_iv'].to_f / 100.0
+    next if iv <= 0
+
+    k = strike.to_f
+    { k: k, k_btc: k, cp: cp, t: t, iv: iv, oi: oi,
+      u: (r['underlying_price'] || btc_spot).to_f, cm: 1.0, gp: 0.0 }
+  end.compact
+end
+
+def load_cboe(ticker, max_days, now, btc_spot)
+  data = get_json("#{CBOE}/#{ticker}.json")['data']
+  return nil unless data
+
+  spot = (data['current_price'] || data['close']).to_f
+  return nil if spot <= 0
+
+  ratio = spot / btc_spot
+  book = (data['options'] || []).map do |o|
+    oi = o['open_interest'].to_f
+    next if oi <= 0
+
+    m = OSI.match(o['option'].to_s.delete(' ')) or next
+    d = m[1]
+    t = (Time.utc(2000 + d[0, 2].to_i, d[2, 2].to_i, d[4, 2].to_i, 21) - now) /
+        (365.25 * 86_400)
+    next if t <= 0 || (max_days && t * 365.25 > max_days)
+
+    iv = o['iv'].to_f
+    gp = o['gamma'].to_f
+    next if iv <= 0 && gp <= 0
+
+    k = m[3].to_f / 1000.0
+    { k: k, k_btc: k / ratio, cp: m[2], t: t, iv: iv, oi: oi,
+      u: spot, cm: MULT, gp: gp }
+  end.compact
+  book.empty? ? nil : book
+end
+
+def arg(flag)
+  i = ARGV.index(flag)
+  i && ARGV[i + 1]
+end
+
+# ---- main -------------------------------------------------------------------
+max_days = arg('--max-days') && arg('--max-days').to_f
+bin      = (arg('--bin') || 1000).to_f
+now      = Time.now.utc
+
+begin
+  btc_spot = get_json("#{DERIBIT}/get_index_price?index_name=btc_usd")
+             .fetch('result').fetch('index_price').to_f
+rescue StandardError => e
+  abort "deribit index: #{e.class}: #{e.message}"
+end
+
+venues = {}
+begin
+  venues['Deribit'] = load_deribit(max_days, now, btc_spot)
+rescue StandardError => e
+  warn "Deribit: skipped (#{e.class}: #{e.message})"
+end
+ETFS.each do |tk|
+  begin
+    b = load_cboe(tk, max_days, now, btc_spot)
+    venues[tk] = b if b
+  rescue StandardError => e
+    warn "#{tk}: skipped (#{e.class}: #{e.message})"
+  end
+end
+abort 'no option books loaded' if venues.empty?
+
+all_book = venues.values.flatten
+
+per_venue = venues.map do |name, book|
+  tot = book.inject(0.0) { |a, o| a + gex_at(o, btc_spot, btc_spot) }
+  poi = book.inject(0.0) { |a, o| a + (o[:cp] == 'P' ? oi_btc(o, btc_spot) : 0.0) }
+  coi = book.inject(0.0) { |a, o| a + (o[:cp] == 'C' ? oi_btc(o, btc_spot) : 0.0) }
+  { name: name, net: tot, n: book.size, pc: coi.zero? ? 0.0 : poi / coi }
+end
+
+total   = per_venue.inject(0.0) { |a, v| a + v[:net] }
+poi_all = all_book.inject(0.0) { |a, o| a + (o[:cp] == 'P' ? oi_btc(o, btc_spot) : 0.0) }
+coi_all = all_book.inject(0.0) { |a, o| a + (o[:cp] == 'C' ? oi_btc(o, btc_spot) : 0.0) }
+pc_all  = coi_all.zero? ? 0.0 : poi_all / coi_all
+
+# Bucketed profile on the BTC price axis.
+profile = Hash.new(0.0)
+all_book.each do |o|
+  b = (o[:k_btc] / bin).round * bin
+  profile[b] += gex_at(o, btc_spot, btc_spot)
+end
+
+near      = profile.select { |k, _| (k - btc_spot).abs / btc_spot <= 0.30 }
+call_wall = near.max_by { |_, v| v }
+put_wall  = near.min_by { |_, v| v }
+
+# Flip scan: net GEX repriced at hypothetical BTC levels over +/-30%.
+vals = (0.70..1.30).step(0.005).map do |f|
+  x = btc_spot * f
+  [x, all_book.inject(0.0) { |a, o| a + gex_at(o, btc_spot, x) }]
+end
+cross = vals.each_cons(2).find { |(_, a), (_, b)| a.negative? ^ b.negative? }
+flip  = cross && begin
+  (x0, y0), (x1, y1) = cross
+  (x0 - y0 * (x1 - x0) / (y1 - y0)).round
+end
+
+fmt_m = ->(v) { format('%+.1fM', v / 1e6) }
+fmt_k = ->(v) { v ? format('%gk', (v / 1000.0).round(2)) : '--' }
+
+if ARGV.include?('--json')
+  puts JSON.pretty_generate(
+    ts: now.iso8601, btc_spot: btc_spot.round(1), bin: bin.round,
+    venues: per_venue.map { |v|
+      { name: v[:name], net_gex_usd_per_1pct: v[:net].round,
+        instruments: v[:n], put_call_oi_btc: v[:pc].round(3) }
+    },
+    combined: {
+      net_gex_usd_per_1pct: total.round,
+      regime: total.negative? ? 'short_gamma' : 'long_gamma',
+      gamma_flip: flip,
+      call_wall: call_wall && { level: call_wall[0].round, gex: call_wall[1].round },
+      put_wall:  put_wall  && { level: put_wall[0].round,  gex: put_wall[1].round },
+      put_call_oi_btc: pc_all.round(3),
+      instruments: all_book.size
+    },
+    profile: Hash[profile.sort.map { |k, v| [k.round, v.round] }]
+  )
+  exit
+end
+
+line = format('GEXsum %s flip %s PW %s CW %s P/C %.2f',
+              fmt_m.(total), fmt_k.(flip),
+              fmt_k.(put_wall && put_wall[0]),
+              fmt_k.(call_wall && call_wall[0]), pc_all)
+
+if ARGV.include?('--tmux')
+  File.write('/tmp/gex_btc_combined.status', line + "\n")
+  exit
+end
+
+puts format('BTC combined GEX   index %.0f   %s   bin %.0f',
+            btc_spot, now.strftime('%H:%M UTC'), bin)
+puts format('%-9s %14s %8s %8s', 'venue', 'net $GEX/1%', 'instr', 'P/C')
+per_venue.sort_by { |v| v[:net] }.each do |v|
+  puts format('%-9s %14s %8d %8.2f', v[:name], fmt_m.(v[:net]), v[:n], v[:pc])
+end
+puts '-' * 42
+puts format('%-9s %14s %8d %8.2f  -> %s', 'COMBINED', fmt_m.(total),
+            all_book.size, pc_all,
+            total.negative? ? 'SHORT GAMMA (amplifying)' : 'LONG GAMMA (pinning)')
+puts format('gamma flip ~ %s   call wall %s (%s)   put wall %s (%s)',
+            fmt_k.(flip),
+            fmt_k.(call_wall && call_wall[0]), call_wall ? fmt_m.(call_wall[1]) : '--',
+            fmt_k.(put_wall && put_wall[0]),   put_wall  ? fmt_m.(put_wall[1])  : '--')
+
+puts
+max_abs = near.values.map(&:abs).max || 1.0
+profile.select { |k, _| (k - btc_spot).abs / btc_spot <= 0.15 }.sort.each do |k, v|
+  bar = '#' * [(v.abs / max_abs * 40).round, 40].min
+  puts format('%-8s %12s  %s%s', fmt_k.(k), fmt_m.(v), v.negative? ? '-' : '+', bar)
+end
