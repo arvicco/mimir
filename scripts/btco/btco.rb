@@ -40,6 +40,10 @@
 #   bands: <25 CALM, <50 ELEVATED, <75 STRESSED, >=75 CRITICAL
 #   suite score: +1 if stress <= 30, -1 if >= 60, else 0
 #
+# Fail-soft: a dead input (universe, Deribit index, no priced companies)
+# degrades to a score-0 report with exit 0, matching the scenario/lppl
+# module contract; it never crashes an aggregate.
+#
 # Ruby >= 2.5, stdlib only.
 
 require 'net/http'
@@ -73,13 +77,26 @@ def get_json(url, headers = {})
   JSON.parse(get(url, headers))
 end
 
+# Suite convention (scenario/lppl): a dead data source degrades to a
+# score-0 report and exit 0, never a crash.
+def fail_soft(reason)
+  if ARGV.include?('--json')
+    puts JSON.generate(name: 'btco', score: 0,
+                       headline: "unavailable (#{reason})",
+                       ts: Time.now.utc.iso8601)
+  else
+    puts format('%-6s [%+d]  %s', 'btco', 0, "unavailable (#{reason})")
+  end
+  exit 0
+end
+
 begin
   uni = JSON.parse(File.read(UNIVERSE))
 rescue StandardError => e
-  abort "universe: #{e.class}: #{e.message}"
+  fail_soft("universe: #{e.class}: #{e.message}")
 end
 cos = uni['companies'] || []
-abort 'empty universe' if cos.empty?
+fail_soft('empty universe') if cos.empty?
 
 # ---- filings check mode ------------------------------------------------------
 if ARGV.include?('--check-filings')
@@ -120,7 +137,7 @@ begin
   btc_px = get_json('https://www.deribit.com/api/v2/public/get_index_price?index_name=btc_usd')
            .fetch('result').fetch('index_price').to_f
 rescue StandardError => e
-  abort "deribit index: #{e.message}"
+  fail_soft("deribit index: #{e.message}")
 end
 
 syms = cos.map { |c| c['stooq'] }.compact
@@ -179,7 +196,7 @@ cos.each do |c|
             mcap: mcap, nav: nav, stale: stale, as_of: c['btc_as_of'],
             ph: c['placeholder'] }
 end
-abort 'no companies priced' if rows.empty?
+fail_soft('no companies priced') if rows.empty?
 
 med = lambda do |a|
   s = a.compact.sort
