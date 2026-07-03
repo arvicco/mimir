@@ -80,9 +80,16 @@ finding AGREED / DEFERRED / REJECTED at the M0-2 review.*
   is query-string-interpolated; today's error paths don't echo URLs, but
   one careless edit would. Phase 1 http seam should redact query strings
   in all error messages by construction. **[fix-P1 -- fold into M1-1]**
+  **RESOLVED 2026-07-03: BTC::Env.redact (credential query params by
+  pattern + literal SECRET_ENV values) applied to every headline and
+  string detail inside BTC::Report -- redaction by construction at the
+  single output funnel (d225614).**
 - **F-7 · US option expiry fixed at 21:00 UTC** (gex_us, combined) -- 4pm
   ET is 20:00 UTC in DST; up to 1h of T error, negligible at daily
   horizons. Deribit's 08:00 is exact. **[document]**
+  **RESOLVED 2026-07-03: documented in the gex_us.rb header and in
+  BTC::Options.parse_osi's doc (which now owns the 21:00 constant for
+  both consumers).**
 - **F-8 · artifact locations inconsistent** -- scenario history in
   `~/.scenario_history.jsonl` (HOME), lppl ledger + caches in-tree
   `data/`, all status lines in `/tmp`. BTC_DATA_DIR (Phase 1, planned)
@@ -98,17 +105,28 @@ finding AGREED / DEFERRED / REJECTED at the M0-2 review.*
   any stray stdout from a module breaks its JSON parse (caught -> score 0,
   so it degrades, not crashes). Contract tests will pin module stdout
   discipline. **[document; contract tests cover]**
+  **RESOLVED 2026-07-03: stdout discipline documented in both
+  aggregator headers (exactly one JSON line per module in --json mode);
+  test pinning remains with M1-7..11.**
 
 ### Contract quirks (pin in tests, do not change)
 
 - **F-10 · gex_us.rb --json shape varies**: single ticker -> object,
   multiple -> array (gex_us.rb:203). Frozen contract; pin both shapes.
+  **RESOLVED 2026-07-03: called out explicitly in the gex_us.rb usage
+  header; test pinning at M1 contract tests.**
 - **F-11 · module `name` fields differ from filenames**: funding_basis.rb
   reports `funding`, onchain_value.rb reports `onchain`. Aggregator keys
   by filename, so only standalone `--json` consumers see it. Frozen; pin.
+  **RESOLVED 2026-07-03: noted in both module headers as frozen;
+  test pinning at M1 contract tests.**
 - **F-12 · fail-soft exits 0 with score 0** everywhere in scenario/lppl --
   the publisher must distinguish "healthy 0" from "unavailable 0" via the
   headline text only. **[P2 -- envelope design should carry a status]**
+  **RESOLVED 2026-07-03: fail_soft's JSON now carries an additive
+  'unavailable': true marker (single change in BTC::Report; human and
+  --tmux output untouched). Phase 2's envelope reads the field instead
+  of parsing headlines; M1 contract tests pin it (d225614).**
 
 ### Duplication (Phase 1 extraction candidates)
 
@@ -117,6 +135,13 @@ finding AGREED / DEFERRED / REJECTED at the M0-2 review.*
   with drifting timeouts (read 20/30/60/120s) and UA strings. This IS the
   planned `lib/btc/http.rb` seam (M1-1). Ingest's POST + long timeout is
   the superset case; design for it.
+  **RESOLVED 2026-07-03: owner pulled M1-1's seam forward. BTC::Http
+  (get/get_json/post, injectable transport, StatusError with code+body
+  but the historical 'HTTP <n>' message) + fake-transport tests; all
+  six call sites are thin wrappers preserving UA/timeout/error shape;
+  net/http gone from scripts/. Remaining M1-1 scope at Phase 1: fixture
+  recording (rake fixtures:record) and per-suite contract tests
+  (6435e7a, b416b82).**
 - **F-14 · BS gamma + norm_pdf x3, MONTHS x3, OSI regex x2, arg() x5,
   flip-scan/wall block x3** across the gex family (+ scenario/common's
   MONTHS). A `lib/btc/` math+parse module would cut ~150 duplicated lines.

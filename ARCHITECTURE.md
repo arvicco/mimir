@@ -63,7 +63,7 @@ btc-analytics/
     lppl/       (common.rb, prices.rb, 5 tests, lppl.rb, README.md)
     btco/       (btco.rb, ingest.rb, universe.json, capstruct/)
   lib/                       shared code (seams + extracted duplicates)
-    btc/http.rb              single HTTP seam (Phase 1, injectable for tests)
+    btc/http.rb              single HTTP seam (injectable for tests)
     btc/env.rb               ENV access, data-dir resolution
     btc/options.rb           options math + instrument parsing (gex family)
     btc/report.rb            suite module report/fail_soft contract
@@ -209,8 +209,8 @@ BEFORE any new feature work. Stage 0 runs interactively with the owner.
   pre-import captures); review memo accepted; README v1 accepted.
 
 ### Phase 1 -- seams, contracts + reviewed refactoring
-- Extract `lib/btc/http.rb`; suites' `Common.get_json` delegates to it.
-  Injectable transport for tests; fixtures recorded via
+- `lib/btc/http.rb` seam + all call-site migration: delivered early in
+  Phase 0 (F-13). Remaining here: fixtures recorded via
   `rake fixtures:record` (network task, run manually).
 - Contract tests in `test/contract/` for every module's `--json`,
   including btco.rb, plus the ingest proposal schema (extraction JSON
