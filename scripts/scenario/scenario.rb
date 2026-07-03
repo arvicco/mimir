@@ -13,7 +13,8 @@
 #   ruby scenario.rb              # table + composite
 #   ruby scenario.rb --json       # full machine dump
 #   ruby scenario.rb --tmux       # one line -> /tmp/scenario.status
-#   ruby scenario.rb --history    # append JSONL to ~/.scenario_history.jsonl
+#   ruby scenario.rb --history    # append data/history.jsonl (legacy
+#                                 #   ~/.scenario_history.jsonl auto-migrates)
 #
 # Modules run as subprocesses: a crash/hang in any one degrades it to
 # score 0 without breaking the composite. Each module is independently
@@ -25,6 +26,7 @@
 require 'json'
 require 'time'
 require 'timeout'
+require_relative '../../lib/btc/env'
 
 DIR = File.expand_path(__dir__)
 
@@ -75,7 +77,14 @@ regime = if composite <= -0.40
 ts = Time.now.utc
 
 if ARGV.include?('--history')
-  File.open(File.join(ENV['HOME'], '.scenario_history.jsonl'), 'a') do |f|
+  require 'fileutils'
+  hist_dir = BTC::Env.data_dir('scenario', File.join(DIR, 'data'))
+  FileUtils.mkdir_p(hist_dir)
+  hist = File.join(hist_dir, 'history.jsonl')
+  # one-time migration from the pre-2026-07 location
+  legacy = File.join(ENV['HOME'].to_s, '.scenario_history.jsonl')
+  FileUtils.mv(legacy, hist) if File.exist?(legacy) && !File.exist?(hist)
+  File.open(hist, 'a') do |f|
     f.puts JSON.generate(ts: ts.iso8601, composite: composite.round(3),
                          regime: regime,
                          scores: Hash[results.map { |r| [r[:mod], r[:score]] }])

@@ -28,9 +28,11 @@
 require 'json'
 require 'time'
 require 'timeout'
+require_relative '../../lib/btc/env'
 
 DIR    = File.expand_path(__dir__)
-LEDGER = File.join(DIR, 'data', 'ledger.jsonl')
+LEDGER = File.join(BTC::Env.data_dir('lppl', File.join(DIR, 'data')),
+                   'ledger.jsonl')
 
 TESTS = [
   ['trend',       3, 400],
