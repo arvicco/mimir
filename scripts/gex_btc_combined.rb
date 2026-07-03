@@ -39,6 +39,7 @@ require_relative '../lib/btc/options'
 require_relative '../lib/btc/util'
 require_relative '../lib/btc/http'
 require_relative '../lib/btc/deribit'
+require_relative '../lib/btc/report'
 
 CBOE = 'https://cdn.cboe.com/api/global/delayed_quotes/options'
 ETFS    = %w[IBIT FBTC BITB ARKB GBTC HODL BTCO BRRR EZBC].freeze
@@ -195,7 +196,7 @@ line = format('GEXsum %s flip %s PW %s CW %s P/C %.2f',
               fmt_k.(call_wall && call_wall[0]), pc_all)
 
 if ARGV.include?('--tmux')
-  File.write('/tmp/gex_btc_combined.status', line + "\n")
+  BTC::Report.status('gex_btc_combined', line)
   exit
 end
 

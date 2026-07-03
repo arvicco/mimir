@@ -27,6 +27,7 @@ require 'time'
 require_relative '../lib/btc/options'
 require_relative '../lib/btc/util'
 require_relative '../lib/btc/deribit'
+require_relative '../lib/btc/report'
 
 # ---- fetch + parse board ---------------------------------------------------
 ccy      = ARGV.find { |a| %w[BTC ETH].include?(a.upcase) }&.upcase || 'BTC'
@@ -110,7 +111,7 @@ line = format('GEX %s %s flip %s PW %s CW %s P/C %.2f',
               fmt_k.(put_wall&.first), fmt_k.(call_wall&.first), pc)
 
 if ARGV.include?('--tmux')
-  File.write("/tmp/gex_#{ccy.downcase}.status", line + "\n")
+  BTC::Report.status("gex_#{ccy.downcase}", line)
   exit
 end
 

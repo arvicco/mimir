@@ -32,6 +32,7 @@ require_relative '../lib/btc/options'
 require_relative '../lib/btc/util'
 require_relative '../lib/btc/http'
 require_relative '../lib/btc/deribit'
+require_relative '../lib/btc/report'
 
 CBOE = 'https://cdn.cboe.com/api/global/delayed_quotes/options'
 MULT = 100.0 # shares per contract
@@ -149,7 +150,7 @@ tickers.each do |ticker|
                 call_wall ? pxb.(call_wall[0]) : '--', pc)
 
   if ARGV.include?('--tmux')
-    File.write("/tmp/gex_#{ticker.downcase}.status", line + "\n")
+    BTC::Report.status("gex_#{ticker.downcase}", line)
     next
   end
 

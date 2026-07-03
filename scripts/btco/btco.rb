@@ -247,7 +247,7 @@ line = format('BTCO %d %s <1:%d%% med %.2f lev %.0f%%%s',
               stress, band, (below_w * 100).round, mm, agg_lev * 100,
               n_stale > 0 ? " stale:#{n_stale}" : '')
 if ARGV.include?('--tmux')
-  File.write('/tmp/btco.status', line + "\n")
+  BTC::Report.status('btco', line)
   exit
 end
 
