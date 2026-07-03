@@ -31,6 +31,11 @@ class TestBsGamma < Minitest::Test
     assert_close 0.398942280401433, BTC::Options.norm_pdf(0.0), 1e-12
   end
 
+  def test_dealer_sign_convention
+    assert_equal 1.0, BTC::Options.sign('C')
+    assert_equal(-1.0, BTC::Options.sign('P'))
+  end
+
   def test_gamma_at_uses_bs_when_iv_present_else_static
     o = { k: 100.0, t: 0.25, iv: 0.5, gp: 0.123 }
     assert_close BTC::Options.bs_gamma(100.0, 100.0, 0.25, 0.5),

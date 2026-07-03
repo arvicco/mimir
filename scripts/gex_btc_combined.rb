@@ -51,9 +51,9 @@ end
 # USD gamma per 1% BTC move for one instrument, with BTC at hypothetical
 # level x (its underlying scaled proportionally from spot).
 def gex_at(o, btc_spot, x)
-  s   = o[:u] * x / btc_spot
-  sgn = o[:cp] == 'C' ? 1.0 : -1.0
-  sgn * BTC::Options.gamma_at(o, s) * o[:oi] * o[:cm] * s * s * 0.01
+  s = o[:u] * x / btc_spot
+  BTC::Options.sign(o[:cp]) *
+    BTC::Options.gamma_at(o, s) * o[:oi] * o[:cm] * s * s * 0.01
 end
 
 # Open interest in BTC-equivalent units (for cross-venue P/C).
