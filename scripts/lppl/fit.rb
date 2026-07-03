@@ -13,8 +13,10 @@
 # Evidence is NOT the fit itself but three diagnostics:
 #   (a) Sornette qualifying filters: m in [0.1,0.9] interior, w in [6,13],
 #       >= 2.5 oscillations in window, |C|/|B| <= 1
-#   (b) parameter stability day-over-day (data/fit_history.jsonl): a real
-#       regime shows converging trough estimates; overfit noise wanders
+#   (b) parameter stability day-over-day (data/fit_history.jsonl, appended
+#       only on --history runs so ad-hoc runs cannot pollute the signal;
+#       lppl.rb --history passes the flag through): a real regime shows
+#       converging trough estimates; overfit noise wanders
 #   (c) RMSE improvement vs the pure power-decay null
 #
 #   score: +1 all four filters pass; -1 if <= 2 pass; else 0.
@@ -169,11 +171,13 @@ score = if passed == 4
 score = [score - 1, -1].max if tstd && tstd > 21
 score = [score - 1, -1].max unless interior
 
-File.open(HIST, 'a') do |f|
-  f.puts JSON.generate(ts: Time.now.utc.iso8601, tc: best[:tc].round(1),
-                       m: best[:m].round(3), w: best[:w].round(2),
-                       rmse: rmse.round(4), trough_day: trough_day,
-                       trough_px: trough_px, filters_passed: passed)
+if ARGV.include?('--history')
+  File.open(HIST, 'a') do |f|
+    f.puts JSON.generate(ts: Time.now.utc.iso8601, tc: best[:tc].round(1),
+                         m: best[:m].round(3), w: best[:w].round(2),
+                         rmse: rmse.round(4), trough_day: trough_day,
+                         trough_px: trough_px, filters_passed: passed)
+  end
 end
 
 Common.report(NAME, score,

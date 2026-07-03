@@ -20,7 +20,7 @@
 #   ruby lppl.rb                # table + verdict
 #   ruby lppl.rb --json        # machine dump
 #   ruby lppl.rb --tmux        # one line -> /tmp/lppl.status
-#   ruby lppl.rb --history     # append data/ledger.jsonl
+#   ruby lppl.rb --history     # append data/ledger.jsonl (+ fit history)
 #   ruby lppl.rb --skip-update # use cached prices (offline/backtest)
 #
 # Ruby >= 2.5, stdlib only.
@@ -56,7 +56,10 @@ unless ARGV.include?('--skip-update')
 end
 
 results = TESTS.map do |name, w, to|
-  r = run_module(name, to)
+  # fit.rb's stability tracker only appends on --history runs; pass the
+  # flag through so the daily cron run keeps feeding it.
+  extra = name == 'fit' && ARGV.include?('--history') ? ['--history'] : []
+  r = run_module(name, to, extra)
   { name: name, w: w, score: r['score'].to_i,
     headline: r['headline'].to_s, detail: r }
 end
