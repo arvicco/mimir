@@ -7,17 +7,12 @@ the phases, data contracts, and review gates that govern this repo.
 
 ## Golden rules (non-negotiable)
 
-1. **Target Ruby is 2.5.5** (macOS system Ruby, x86_64-darwin19) for
-   everything under `scripts/`, `lib/`, `publish/`. Newer syntax breaks
-   production. Forbidden constructs -- do not introduce ANY of these:
-   - `filter_map`, `Enumerable#tally`, `Array#intersect?`, `Hash#except`
-   - endless methods `def f(x) = ...`
-   - `to_h { block }` -> use `Hash[arr.map { }]`
-   - numbered block params `_1`, `it`
-   - `then` / `yield_self`, pattern matching `case/in`, one-line `in`
-   - `Struct.new(keyword_init:)`, `Comparable#clamp` is OK (2.4) but
-     verify anything you are unsure of against 2.5 docs
-   - safe navigation `&.` IS allowed (2.3+); `Array#sum` IS allowed (2.4+)
+1. **Target Ruby is 3.3+** on Apple Silicon (arm64-darwin) for
+   everything under `scripts/`, `lib/`, `publish/`. Write idiomatic
+   modern Ruby, but stay within the 3.3 feature set (no 3.4+/4.x-only
+   constructs) so CI and every target Mac agree. Existing code written
+   for older rubies is modernized only as part of a reviewed refactor
+   task, never as a drive-by.
 2. **stdlib only** in runtime code (`net/http`, `json`, `time`,
    `fileutils`, `timeout`, `matrix`). No gems, no Gemfile for runtime.
    Tests use bundled minitest. Never add a dependency without asking.
@@ -47,7 +42,7 @@ the phases, data contracts, and review gates that govern this repo.
 rake test                 # full minitest suite (must pass before any commit)
 rake test:unit            # math/parsing only
 rake test:contract        # --json field-set contracts (fixtures)
-rake compat               # ruby -c every file + 2.6+ construct scan
+rake compat               # ruby -c syntax check of every Ruby file
 rake fixtures:record      # refresh API fixtures -- NETWORK, ask first
 rake golden:approve       # bless regenerated chart specs after visual review
 ruby scripts/lppl/lppl.rb --skip-update   # run suites offline against cache
@@ -71,11 +66,16 @@ commit does not happen.
 4. **SELF-REVIEW** against the checklist below, then produce a short
    summary: what changed, why, test evidence (`rake test` + `rake compat`
    output), contract impact (none/additive), open questions.
-5. **STOP at gates.** Phase boundaries and anything listed in Golden Rule
+5. **README before every gate.** Each phase gate includes an updated
+   `README.md` -- the user-facing document describing the capabilities
+   and commands implemented up to this point, honest about what does
+   not work yet. A newcomer reading only the README should know exactly
+   what the tools can do today.
+6. **STOP at gates.** Phase boundaries and anything listed in Golden Rule
    3 end your turn with a handoff summary, not an action.
 
 ### Self-review checklist
-- [ ] runs on 2.5.5 (compat scan clean; no forbidden constructs)
+- [ ] Ruby 3.3-compatible (`rake compat` clean; no 3.4+/4.x-only constructs)
 - [ ] stdlib only; no new deps
 - [ ] tests added/updated and green; no network in tests
 - [ ] `--json` / `--tmux` contracts unchanged or additive + tested
@@ -133,5 +133,6 @@ commit does not happen.
 
 ## Current phase
 
-Phase 0 (bootstrap + safety net). Consult ARCHITECTURE.md section 6 for
-the phase's scope and Gate 0 criteria; update this line at each gate.
+Phase 0 (Stage 0: inventory, documentation + safety net -- see
+docs/DEV-LOOP.md). Consult ARCHITECTURE.md section 6 for the phase's
+scope and Gate 0 criteria; update this line at each gate.
