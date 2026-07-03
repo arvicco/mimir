@@ -49,3 +49,32 @@ class TestConvertSplitUsd < Minitest::Test
     assert_equal [0.0, 0.0], BtcoMetrics.convert_split([], 150.0, 1.0)
   end
 end
+
+# F-1 regression (TOOL-REVIEW.md): face is USD, conv_price is listing ccy.
+# shares = face_usd / conv_usd. The pre-fix code divided by rate twice,
+# understating ITM shares by rate^2 for non-USD listings.
+class TestConvertSplitFx < Minitest::Test
+  def tranche(face, conv_price)
+    { 'face' => face, 'conv_price' => conv_price }
+  end
+
+  def test_jpy_itm_shares_use_usd_face_over_usd_conv_price
+    # rate 150 JPY/USD; conv 1500 JPY = 10 USD; px 3000 JPY -> ITM.
+    # 1,000,000 USD face / 10 USD conv = 100,000 shares.
+    itm, otm = BtcoMetrics.convert_split([tranche(1_000_000, 1_500.0)], 3_000.0, 150.0)
+    assert_close 100_000.0, itm
+    assert_close 0.0, otm
+  end
+
+  def test_jpy_itm_test_compares_in_listing_ccy
+    # px 1200 JPY < conv 1500 JPY -> OTM regardless of rate.
+    itm, otm = BtcoMetrics.convert_split([tranche(1_000_000, 1_500.0)], 1_200.0, 150.0)
+    assert_close 0.0, itm
+    assert_close 1_000_000.0, otm
+  end
+
+  def test_usd_unchanged_by_fix
+    itm, = BtcoMetrics.convert_split([tranche(1_000_000, 100.0)], 150.0, 1.0)
+    assert_close 10_000.0, itm
+  end
+end

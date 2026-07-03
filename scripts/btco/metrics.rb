@@ -16,7 +16,7 @@ module BtcoMetrics
     (converts || []).each do |t|
       cp = t['conv_price'].to_f / rate # conv price in USD
       if cp > 0 && px > cp * rate
-        itm_sh += t['face'].to_f / (cp * rate) / rate # shares = face_usd/conv_usd
+        itm_sh += t['face'].to_f / cp # shares = face_usd / conv_usd
       else
         otm_fc += t['face'].to_f
       end
