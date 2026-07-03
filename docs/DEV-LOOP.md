@@ -22,48 +22,61 @@ CLAUDE.md already specifies most of an autonomous loop:
 Where mimir is *harder* than a greenfield project (nabu) and the loop
 must be more conservative:
 
-1. **Brownfield production code.** `scripts/` runs in cron today.
-   Characterization tests come BEFORE any modification, and Gate 0's
+1. **Brownfield production code, built without TDD.** `scripts/` runs
+   in cron today; some tools are new and barely used or tested by the
+   owner. Legacy-without-TDD is always tricky: behavior must be pinned
+   (characterization tests) before it is touched, weak spots must be
+   found by review rather than assumed absent, and Gate 0's
    byte-identical `--json` check needs pre-import captures only the
-   owner can produce (on novo, against live data).
-2. **Ruby 2.5.5 floor.** Local dev rubies are newer (this machine runs
-   4.x), so green tests locally do NOT prove 2.5.5 compatibility.
-   `rake compat` is the automated floor; the authoritative check is a
-   periodic human run of the suite on novo (part of each gate).
-3. **Untouchable semantics.** Scoring thresholds, weights, model
+   owner can produce. This is why Stage 0 exists (section 5) and why it
+   runs interactively with Fable-only code access.
+2. **Untouchable semantics.** Scoring thresholds, weights, model
    parameters, probability mappings are research decisions. The loop
    treats any packet that seems to require touching them as
    `blocked: decision-item` immediately -- zero attempts.
-4. **Human-only deploys.** wrangler/KV/token/first-publish actions are
+3. **Human-only deploys.** wrangler/KV/token/first-publish actions are
    never executed by any model at any tier (Golden Rule 3).
-5. **Visual gates.** Golden chart specs are approved only by a human
+4. **Visual gates.** Golden chart specs are approved only by a human
    looking at preview.html (`rake golden:approve`).
 
+Runtime target is Ruby 3.3+ on Apple Silicon Macs (arm64-darwin); local
+dev rubies and CI (section 9) are all modern, so green-locally is
+meaningful -- no cross-version gymnastics needed.
+
 The loop's job is dispatch-and-verify, not judge -- which is what lets
-cheaper models do most of the work.
+cheaper models do most of the work in later stages.
 
 ## 2. Model tiering policy
 
-**Principle: Fable writes seams, patterns, and judgments; Opus writes
+**Principle: Fable hardens the legacy and sets the patterns; Opus writes
 code that has a pattern and an oracle; the test suite gatekeeps
 regardless of who wrote the code.**
 
+**Stage 0 override: only Fable touches code.** During Stage 0 (Phases
+0-1) every code-writing or code-modifying packet is Fable, regardless of
+how mechanical it looks -- reviewing and refactoring untested legacy
+code is exactly where a cheaper model's plausible-but-wrong output is
+most expensive. Opus/Sonnet may only do non-code chores (worklog
+housekeeping, summarizing) in Stage 0.
+
+From Stage A on:
+
 | Tier | Used for | Rationale |
 |---|---|---|
-| **Fable** | `lib/btc/http.rb` seam design (touches every suite); characterization-test design for numerically subtle code (Lomb-Scargle, percentile envelope fit, LPPL fit internals); `kv_client.rb` (secret redaction, retry semantics -- security-sensitive); the FIRST chart spec (`gex_profile`, sets the family pattern); the first contract test (sets the pattern); phase-gate reviews of the whole phase diff; adjudicating `blocked` packets | Mistakes here are cross-cutting or expensive; everything downstream copies these patterns |
-| **Opus** | Characterization tests following the pinned pattern (seed test `test_lppl_common.rb` exists); every second-and-later contract test and chart spec; `publish.rb` orchestrator against the Fable-approved kv_client; per-suite `Common.get_json` migration onto the http seam; `worker.js` / `app.js` / `preview.html` (small, fully specified in ARCHITECTURE.md); `BTC_DATA_DIR` plumbing; RUNBOOK.md drafting; prepared (not installed) cron/launchd entries | Pattern-following work with a reference implementation and an oracle to grade it |
+| **Fable** | `publish/kv_client.rb` (secret redaction, retry semantics -- security-sensitive); the FIRST chart spec (`gex_profile`, sets the family pattern); review of auth/header logic in `web/`; phase-gate reviews of the whole phase diff; adjudicating `blocked` packets | Mistakes here are cross-cutting or expensive; everything downstream copies these patterns |
+| **Opus** | Every second-and-later chart spec; `publish/publish.rb` orchestrator against the Fable-approved kv_client; `worker.js` / `app.js` / `preview.html` (small, fully specified in ARCHITECTURE.md); envelope/retry/dry-run test batteries following pinned patterns; RUNBOOK.md drafting; prepared (not installed) cron/launchd entries | Pattern-following work with a reference implementation and an oracle to grade it |
 | **Sonnet** | Non-coding chores only: fixture READMEs, worklog/backlog housekeeping, summarizing dry-run artifacts | Cheap and adequate for prose; **never writes code** |
 
-**Only Fable and Opus write code.** Heuristic for tagging a coding
-packet: **first-of-kind or cross-cutting or secret-adjacent -> Fable;
-everything else -> Opus.** When in doubt, tag Opus and rely on the
-escalation rule (section 4) -- a wrongly-tagged packet fails
-verification and gets bumped up, costing one retry, not a bad
-foundation.
+**Only Fable and Opus write code, ever.** Heuristic for tagging a coding
+packet in Stages A/B: **first-of-kind or cross-cutting or
+secret-adjacent -> Fable; everything else -> Opus.** When in doubt, tag
+Opus and rely on the escalation rule (section 4) -- a wrongly-tagged
+packet fails verification and gets bumped up, costing one retry, not a
+bad foundation.
 
-Mimir-specific hard rule regardless of tier: **no model changes
-analytics semantics, frozen contract fields, or `universe.json`.**
-Those become `blocked: decision-item` for the owner.
+Hard rule regardless of tier and stage: **no model changes analytics
+semantics, frozen contract fields, or `universe.json`.** Those become
+`blocked: decision-item` for the owner.
 
 ## 3. Work packets and the backlog
 
@@ -71,7 +84,7 @@ The backlog lives at `docs/BACKLOG.md` -- flat, human-editable packets
 (same format that ran nabu):
 
 ```markdown
-## M1-04 · Contract test: scenario.rb --json field set  [tier: opus] [status: ready] [deps: M1-01]
+## M1-04 · Contract test: scenario.rb --json field set  [tier: fable] [status: ready] [deps: M1-01]
 Goal: test/contract/test_scenario_contract.rb asserts field presence/types
       (not values) of scenario.rb --json against a recorded fixture.
 Acceptance: contract test red against a mutated fixture, green against the
@@ -90,10 +103,9 @@ Each iteration, regardless of execution vehicle (section 5):
 
 1. **Pick** the first `ready` packet whose deps are `done`.
 2. **Dispatch** at the packet's tier (session model or Agent-tool model
-   override).
+   override; in Stage 0, always Fable for code).
 3. **Implement TDD** per CLAUDE.md: characterization/failing test first,
-   then minimal diff to green. Forbidden-construct list applies; when
-   unsure about a 2.5.5 API, verify against 2.5 docs, don't guess.
+   then minimal diff to green.
 4. **Verify**: `rake compat` + `rake test` green, then a `/code-review`
    (medium) pass; fix findings. For anything touching a `--json`/`--tmux`
    path, additionally diff the output field set against the contract.
@@ -105,34 +117,56 @@ Each iteration, regardless of execution vehicle (section 5):
    blocked -> stop and notify the owner). Packets touching semantics or
    contracts skip attempts entirely and go straight to
    `blocked: decision-item`.
-7. **Phase gate** (all phase packets done/blocked): Fable reviews the
-   *entire phase diff* against ARCHITECTURE.md, verifies the doc is
-   still truthful, resolves blocked packets, updates the "Current
-   phase" line in CLAUDE.md, and produces the gate handoff summary.
-   **The owner executes the gate's human actions (section 7) and
-   merges -- this is the standing approval gate.** The next phase's
+7. **Pre-gate: update `README.md`** -- the user-facing document
+   describing the capabilities and commands implemented up to this
+   point, honest about what does not work yet. A newcomer reading only
+   the README should know exactly what the tools can do today. A phase
+   is not gate-ready with a stale README.
+8. **Phase gate** (all phase packets done/blocked, README current):
+   Fable reviews the *entire phase diff* against ARCHITECTURE.md,
+   verifies the doc is still truthful, resolves blocked packets, updates
+   the "Current phase" line in CLAUDE.md, and produces the gate handoff
+   summary. **The owner executes the gate's human actions (section 7)
+   and merges -- this is the standing approval gate.** The next phase's
    packets are elaborated in detail only after the gate closes.
 
-## 5. Execution vehicles -- two stages
+## 5. Execution stages
 
-**Stage A (Phases 0-2): Fable-led sessions, semi-attended.**
-A Claude Code session on Fable does the design-heavy packets itself and
-delegates `tier: opus` packets to Opus subagents via the Agent tool.
-This is where the seam, the contract-test pattern, and the kv client
-get built -- Fable spend is genuinely justified, and trust in the loop
-is established while the owner is around intermittently.
+**Stage 0 (Phases 0-1): legacy hardening -- interactive, Fable-only code.**
+The existing disparate CLI tools were developed without TDD; some are
+new and barely used. Before ANY new feature work, Stage 0 puts the
+legacy in good shape, deliberately staged:
 
-**Stage B (Phases 3-4): assembly line, mostly unattended.**
-The patterns exist; Phase 3 is three more chart specs after the first,
-Phase 4 is ~80 lines of specified JS. Run the loop as an **Opus main
-session** (`/loop`, or headless `claude -p --model opus` per packet)
-that spawns **Fable subagents only** for gate reviews and blocked-packet
+- *Phase 0 -- inventory, documentation + safety net.* A per-tool review
+  memo (purpose, data sources, output contracts, maturity assessment,
+  suspected weak spots, refactor candidates), `README.md` v1, and the
+  full offline test suite pinning all pure logic. The memo is reviewed
+  WITH the owner -- its agreed findings seed Phase 1.
+- *Phase 1 -- seams, contracts + reviewed refactoring.* The
+  `lib/btc/http.rb` seam, fixtures, contract tests for every module,
+  then the owner-approved refactor list executed behavior-preservingly
+  (characterization first). Bugs found in the barely-used tools are
+  decision items, never silent fixes.
+
+Stage 0 is **more interactive than later stages**: the owner is present
+for the memo review, refactor-list approval, and both gates; sessions
+work packet-by-packet with the owner able to steer between packets, not
+in a fire-and-forget loop. **Every code-touching packet is Fable.**
+
+**Stage A (Phases 2-3): new features -- Fable-led sessions, semi-attended.**
+Legacy is now trustworthy; new-feature work begins. A Fable session does
+the design-heavy packets itself (kv_client, first chart spec) and
+delegates `tier: opus` packets via the Agent tool. Owner is around
+intermittently.
+
+**Stage B (Phases 4-5): assembly line -- Opus-led, mostly unattended.**
+The patterns exist; Phase 4 is ~80 lines of specified JS, Phase 5 is
+drafting ops artifacts. Run the loop as an **Opus main session**
+(`/loop`, or headless `claude -p --model opus` per packet) that spawns
+**Fable subagents only** for gate reviews and blocked-packet
 adjudication. Fresh context per packet prevents drift; the backlog file
-carries all state.
-
-Phase 5 is ops integration -- inherently human-paced (installing cron
-entries, one-week soak); the loop only drafts artifacts (RUNBOOK.md,
-launchd plists, tmux status line) as Opus packets.
+carries all state. Phase 5's installations and the one-week soak are
+inherently human-paced; the loop only drafts artifacts.
 
 Cloud scheduled agents are not proposed: the runtime target is a local
 Mac mesh and every deploy-adjacent action is human anyway.
@@ -147,7 +181,7 @@ full freedom -- the boundary itself is hard.**
 - `rake` (test/compat/golden tasks), `ruby -c`, `ruby scripts/... --skip-update`,
   `PUBLISH_DRY_RUN=1 ruby publish/publish.rb`.
 - `git add/commit/branch/checkout/diff/log` on non-`main` branches.
-- Web search / doc fetches (e.g. Ruby 2.5 API docs, ECharts option docs,
+- Web search / doc fetches (e.g. Ruby stdlib docs, ECharts option docs,
   Cloudflare KV REST docs).
 
 **Hard boundary (deny-listed or owner-only, every time):**
@@ -166,16 +200,14 @@ full freedom -- the boundary itself is hard.**
 - The loop never marks its own phase done -- a phase ends at
   owner-executed gate actions, full stop.
 - No opportunistic refactors, no reformatting, no assertion weakening.
+  (In Stage 0, refactoring happens ONLY from the owner-approved list.)
 
 ## 7. Human-action inventory (what only the owner does)
 
-This project has more human touchpoints than a greenfield one; the loop
-schedules around them so they never block mid-phase:
-
 | When | Action |
 |---|---|
-| Phase 0, before Gate 0 | Provide pre-import `--json` captures from novo; provide/locate `gex.rb` + `gex_us.rb` (listed in ARCHITECTURE §3, not yet in the repo); run suite once on novo Ruby 2.5.5 |
-| Phase 1 | Run `rake fixtures:record` once (live API calls), review the recorded fixtures diff |
+| Phase 0 | Review the tool inventory memo; agree the refactor/priority list; accept README v1; provide pre-import `--json` captures for Gate 0 |
+| Phase 1 | Run `rake fixtures:record` once (live API calls), review the recorded fixtures diff; approve the refactor list before execution; adjudicate any bug found (fix vs pin as-is) |
 | Gate 2 | Review dry-run artifact set; create KV namespace + scoped token; run first real publish by hand |
 | Gate 3 | Visual review in preview.html; `rake golden:approve` |
 | Gate 4 | `wrangler deploy` / Pages publish; smoke checklist |
@@ -187,40 +219,49 @@ schedules around them so they never block mid-phase:
 Packet lists are the plan; each phase's packets get full
 Goal/Acceptance elaboration at the previous phase's gate. IDs `M<phase>-<n>`.
 
-**Phase 0 -- safety net** *(in progress; mostly Opus -- the seed
-characterization test pins the pattern)*
-- M0-1 git init, `phase-0` branch, `.claude/settings.json` permission
-  profile, `docs/BACKLOG.md` + `docs/WORKLOG.md` bootstrap [opus]
-- M0-2 import `gex.rb`, `gex_us.rb` [human provides, opus verifies compat]
-- M0-3 characterization: `bs_gamma` (known values, put/call symmetry) [opus]
-- M0-4 characterization: OSI/Deribit instrument parsing [opus]
-- M0-5 characterization: percentile envelope fit + Lomb-Scargle on
-  synthetic sinusoid [fable -- numerically subtle, defines tolerance policy]
-- M0-6 characterization: btco CEBE/mNAV/convert ITM-OTM on synthetic
-  universe [fable design, opus implement]
-- M0-7 characterization: ingest pure parts (`excerpt`, `diff_against`) [opus]
-- Gate 0: byte-identical `--json` vs owner-provided captures [human]
+**Phase 0 -- inventory, documentation + safety net** *(Stage 0: all code
+Fable; in progress -- skeleton, import, and seed test done)*
+- M0-1 `phase-0` branch, `.claude/settings.json` permission profile,
+  `docs/BACKLOG.md` + `docs/WORKLOG.md` bootstrap [fable]
+- M0-2 tool inventory & review memo (`docs/TOOL-REVIEW.md`): all of
+  `scripts/` -- purpose, sources, contracts, maturity, weak spots,
+  refactor candidates [fable; owner reviews]
+- M0-3 `README.md` v1: capabilities + commands as they exist today,
+  per-tool maturity honestly stated [fable draft; owner accepts]
+- M0-4 characterization: `bs_gamma` (known values, put/call symmetry) [fable]
+- M0-5 characterization: OSI/Deribit instrument parsing [fable]
+- M0-6 characterization: percentile envelope fit + Lomb-Scargle on
+  synthetic sinusoid [fable]
+- M0-7 characterization: btco CEBE/mNAV/convert ITM-OTM on synthetic
+  universe [fable]
+- M0-8 characterization: ingest pure parts (`excerpt`, `diff_against`) [fable]
+- Gate 0: byte-identical `--json` vs owner-provided captures; memo +
+  README accepted [human]
 
-**Phase 1 -- seams** *(Fable-heavy: the seam everything depends on)*
-- M1-1 `lib/btc/http.rb` + injectable transport design [fable]
-- M1-2..5 migrate each suite's `Common.get_json` onto the seam,
-  one suite per packet [opus]
-- M1-6 implement `rake fixtures:record` [opus; execution is human]
-- M1-7 first contract test (pattern-setter) [fable]; M1-8..11 remaining
-  module contracts + ingest proposal schema [opus]
-- M1-12 `BTC_DATA_DIR` override [opus]
+**Phase 1 -- seams, contracts + reviewed refactoring** *(Stage 0: all
+code Fable)*
+- M1-1 `lib/btc/http.rb` + injectable transport [fable]
+- M1-2..5 migrate each suite's `Common.get_json` onto the seam, one
+  suite per packet [fable]
+- M1-6 implement `rake fixtures:record` [fable; execution is human]
+- M1-7..11 contract tests: one per module + ingest proposal schema [fable]
+- M1-12 `BTC_DATA_DIR` override [fable]
+- M1-13..n refactor packets from the owner-approved Phase 0 list, one
+  finding per packet, behavior-preserving [fable]
+- Gate 1: field-set diffs empty; refactor list resolved; README updated
+  [human]
 
-**Phase 2 -- publish pipeline**
+**Phase 2 -- publish pipeline** *(Stage A begins)*
 - M2-1 `publish/kv_client.rb` [fable -- retries, auth, redaction]
 - M2-2 `publish/publish.rb` orchestrator + envelopes + dry-run [opus]
 - M2-3 redaction/retry/dry-run test battery [opus, fable review]
 
-**Phase 3 -- chart specs** *(Stage B begins)*
+**Phase 3 -- chart specs**
 - M3-1 `gex_profile` spec [fable -- family pattern-setter]
 - M3-2..4 `scenario_strip`, `lppl_regime`, `btco_table` [opus]
 - M3-5 `web/preview.html` offline harness [opus]
 
-**Phase 4 -- Cloudflare layer**
+**Phase 4 -- Cloudflare layer** *(Stage B begins)*
 - M4-1 `worker.js` + `wrangler.toml` [opus, fable review of auth/headers]
 - M4-2 `public/index.html` + `app.js` loader + staleness badges [opus]
 
@@ -228,31 +269,31 @@ characterization test pins the pattern)*
 - M5-1 launchd/cron entry files + tmux health line [opus]
 - M5-2 `docs/RUNBOOK.md` [opus draft, sonnet polish]
 
-## 9. CI (proposed, decision item)
+## 9. CI (proposed)
 
-Nabu's loop leaned on GitHub Actions as an un-gameable external oracle.
-For mimir the equivalent is `rake compat && rake test` on every push --
-but hosted runners cannot faithfully provide Ruby 2.5.5 (EOL). Proposal:
-CI runs the suite on a modern Ruby plus `rake compat` (the automated
-floor); the authoritative 2.5.5 run happens on novo at each gate
-(section 7). If no remote/CI is wanted for a local-first repo, the gate
-run on novo alone suffices -- the loop treats local `rake compat` +
-`rake test` as its oracle either way.
+GitHub Actions on every push/PR: `rake compat && rake test` on Ruby 3.3
+(`ruby/setup-ruby`, ubuntu-latest) as the always-on oracle, plus a
+`macos-latest` (Apple Silicon) job running the same suite so the target
+architecture is exercised on every change. No gems to install (stdlib +
+bundled minitest), so both jobs are fast and dependency-free. Becomes a
+Phase 0 packet (M0-1 scope) if approved.
 
 ## 10. Next steps (require owner approval -- nothing below has run)
 
-1. **Approve this plan** (amend tiering/guardrails inline as with nabu).
+1. **Approve this revision** (Stage 0 structure, Fable-only Stage 0
+   tiering, README gate rule, Ruby 3.3+/Apple Silicon retarget --
+   already reflected in CLAUDE.md and ARCHITECTURE.md, pending your
+   review).
 2. ~~Decide git hosting~~ **Decided 2026-07-03:** repo initialized and
    pushed to private `arvicco/mimir` (main). Remaining sub-decision:
    whether the loop pushes `phase-N` branches + opens PRs (nabu policy,
    enables CI per section 9) or phases merge locally. `main` stays
    owner-merged either way.
-3. On approval, execute M0-1: `git init`, initial commit of current
-   tree, `phase-0` branch, `.claude/settings.json` permission profile
-   (nabu's, adapted: deny `wrangler:*`, `curl` write methods, secrets
-   paths; allow rake/ruby/git-non-main), elaborate Phase 0 packets into
+3. On approval, execute M0-1: `phase-0` branch, permission profile, CI
+   workflow (if approved), elaborate Phase 0 packets into
    `docs/BACKLOG.md`.
-4. Owner supplies the two Phase 0 inputs the loop cannot get itself:
-   `gex.rb`/`gex_us.rb` origin, and pre-import `--json` captures from
-   novo for Gate 0.
-5. Stage A begins: Fable-led session works the Phase 0 backlog.
+4. Owner supplies the one Phase 0 input the loop cannot get itself:
+   pre-import `--json` captures for Gate 0 (run each tool once, save
+   output; the loop can print the exact commands to run).
+5. Stage 0 begins: interactive Fable sessions work the Phase 0 backlog,
+   starting with the tool inventory memo.

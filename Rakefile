@@ -24,44 +24,15 @@ namespace :test do
   end
 end
 
-desc 'Syntax-check every Ruby file and scan for post-2.5 constructs'
+desc 'Syntax-check every Ruby file (target: Ruby 3.3+)'
 task :compat do
   files = RUBY_DIRS.flat_map { |d| Dir.glob("#{d}/**/*.rb") } + ['Rakefile']
-  bad = []
-
-  files.each do |f|
-    ok = system("ruby -c #{f} > /dev/null 2>&1")
-    bad << "#{f}: syntax error" unless ok
-  end
-
-  # Regexps whose literal source would match themselves are built from
-  # split strings, so this file passes its own scan.
-  patterns = {
-    'filter_map'                  => Regexp.new('\.filter_' + 'map\b'),
-    'endless method'              => /^\s*def\s+\w+[?!]?\s*(\([^)]*\))?\s*=[^=~>]/,
-    'to_h with block'             => /\.to_h\s*\{/,
-    'numbered block param'        => /\b_1\b/,
-    'then/yield_self'             => /\.(then|yield_self)\b/,
-    'pattern matching (case/in)'  => /^\s*in\s+.+\bthen\b|^\s+in\s+\[/,
-    'tally'                       => Regexp.new('\.tal' + 'ly\b'),
-    'Hash#except'                 => /\.except\(/,
-    'keyword-init Struct'         => Regexp.new('keyword' + '_init')
-  }
-
-  files.each do |f|
-    File.readlines(f).each_with_index do |line, i|
-      next if line.strip.start_with?('#')
-
-      patterns.each do |name, re|
-        bad << "#{f}:#{i + 1}: #{name}" if line =~ re
-      end
-    end
-  end
+  bad = files.reject { |f| system("ruby -c #{f} > /dev/null 2>&1") }
 
   if bad.empty?
     puts "compat: OK (#{files.size} files)"
   else
-    puts bad
+    bad.each { |f| puts "#{f}: syntax error" }
     abort "compat: #{bad.size} problem(s)"
   end
 end

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-# test_helper.rb -- minitest bootstrap. stdlib only: minitest ships with
-# Ruby 2.5. No network is permitted anywhere under test/.
+# test_helper.rb -- minitest bootstrap. stdlib/bundled gems only: minitest
+# ships with Ruby. No network is permitted anywhere under test/.
 
 require 'minitest/autorun'
 require 'json'

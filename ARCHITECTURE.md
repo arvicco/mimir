@@ -5,10 +5,11 @@ Mimir is Norse god-keeper of the well of wisdom, apt for a system that extracts 
 ## 1. Principles
 
 1. **Ruby computes, Cloudflare serves.** No Ruby on Workers, no analytics in JS. The browser renders pre-built chart specs; it makes no decisions.
-2. **Ruby 2.5.5 / stdlib-only for everything under `scripts/`, `lib/`,
-   `publish/`.** These run on macOS system Ruby (x86_64-darwin19). This is
-   a hard compatibility floor, not a preference. See CLAUDE.md for the
-   forbidden-constructs list.
+2. **Ruby 3.3+ / stdlib-only for everything under `scripts/`, `lib/`,
+   `publish/`.** Target machines are Apple Silicon Macs (arm64-darwin)
+   with a modern Ruby; CI runs 3.3. Stay within the 3.3 feature set so
+   CI and every target Mac agree. stdlib-only is the hard rule: no gems,
+   no Gemfile for runtime.
 3. **Stale, never down.** Publishers stamp `generated_at`; the Worker adds
    `X-Data-Age-Seconds`; every chart shows a staleness badge. The dashboard
    must remain correct-and-honest when the Macs sleep.
@@ -23,7 +24,7 @@ Mimir is Norse god-keeper of the well of wisdom, apt for a system that extracts 
 ## 2. System overview
 
 ```
-novo (launchd/cron, Ruby 2.5)
+novo (launchd/cron, Ruby 3.3+, arm64)
   scripts/gex_btc_combined.rb --json     15-30 min   ─┐
   scripts/scenario/scenario.rb --json    30 min       ├─> publish/publish.rb
   scripts/lppl/lppl.rb --json --history  daily 00:15  │
@@ -47,8 +48,12 @@ script tag; there is **no npm build step**.
 
 ```
 btc-analytics/
+  README.md                  user-facing capabilities + commands, updated
+                             at every gate (honest about what works today)
   ARCHITECTURE.md            this file
   CLAUDE.md                  Claude Code project instructions
+  docs/DEV-LOOP.md           how the implementation loop runs (stages,
+                             model tiering, gates)
   Rakefile                   test / lint / compat / fixture tasks
   .gitignore                 data dirs, secrets, *.status
   .env.example               required environment variables
@@ -169,32 +174,50 @@ the repo. `.env.example` documents names only.
 ## 6. Implementation phases
 
 Each phase ends at a **review gate**: work stops, a summary of diffs +
-test evidence is produced, and a human approves before the next phase.
-Deploy-touching steps are always executed by the human, never by tooling.
+test evidence is produced, `README.md` is brought up to date (what the
+tools can do today, honestly), and a human approves before the next
+phase. Deploy-touching steps are always executed by the human, never by
+tooling.
 
-### Phase 0 -- repo bootstrap + safety net
+Phases 0-1 are **Stage 0: legacy hardening** (see docs/DEV-LOOP.md).
+The existing tools grew without TDD and some are new and barely used;
+they are inventoried, documented, fully tested, reviewed, and refactored
+BEFORE any new feature work. Stage 0 runs interactively with the owner.
+
+### Phase 0 -- inventory, documentation + safety net
 - Import `scripts/` as-is; add Rakefile, .gitignore, .env.example,
-  test harness.
-- Characterization tests for pure functions currently embedded in the
-  suites: `RangeReg` (incl. SSE identity), `gauss_solve`, `bs_gamma`
-  (known values, put/call symmetry), OSI/Deribit instrument parsing,
-  percentile envelope fit, Lomb-Scargle on a synthetic sinusoid; btco
-  metrics math (CEBE / mNAV / convert ITM-OTM treatment on a synthetic
-  universe) and ingest pure parts (`excerpt` windowing, `diff_against`).
-- `rake compat` (2.6+ construct scan + `ruby -c` per file) and `rake test`
-  green.
+  test harness. (done)
+- **Tool inventory & review memo**: per tool -- what it does, data
+  sources, output contracts, maturity assessment (battle-tested vs new
+  and barely used), suspected weak spots, refactor candidates. Reviewed
+  with the owner; the agreed findings seed Phase 1's refactor list.
+- **README.md v1**: user-facing capabilities + commands as they exist
+  today, honest about maturity per tool.
+- Full offline test suite for pure logic: `RangeReg` (incl. SSE
+  identity), `gauss_solve`, `bs_gamma` (known values, put/call
+  symmetry), OSI/Deribit instrument parsing, percentile envelope fit,
+  Lomb-Scargle on a synthetic sinusoid; btco metrics math (CEBE / mNAV /
+  convert ITM-OTM treatment on a synthetic universe) and ingest pure
+  parts (`excerpt` windowing, `diff_against`).
+- `rake compat` (`ruby -c` per file) and `rake test` green.
 - **Gate 0:** all scripts still run byte-identically (`--json` diff against
-  pre-import captures).
+  pre-import captures); review memo accepted; README v1 accepted.
 
-### Phase 1 -- seams, no behavior change
+### Phase 1 -- seams, contracts + reviewed refactoring
 - Extract `lib/btc/http.rb`; suites' `Common.get_json` delegates to it.
   Injectable transport for tests; fixtures recorded via
   `rake fixtures:record` (network task, run manually).
 - Contract tests in `test/contract/` for every module's `--json`,
   including btco.rb, plus the ingest proposal schema (extraction JSON
   shape + diff computation on fixture excerpts; no live API calls).
+- **Refactor pass** from the Phase 0 review memo: owner-approved list
+  only; behavior-preserving, characterization tests first; duplication
+  across the disparate tools consolidated into `lib/`. Bugs found are
+  decision items (a fix changes published behavior), never silent.
 - Optional `BTC_DATA_DIR` (defaults preserve current paths).
-- **Gate 1:** field-set diff empty for all modules; cron behavior unchanged.
+- **Gate 1:** field-set diff empty for all modules; cron behavior
+  unchanged; refactor list fully resolved (done or explicitly deferred).
+  Legacy code is now in good shape -- new feature work may begin.
 
 ### Phase 2 -- publish pipeline
 - `publish/kv_client.rb`: PUT/GET against the KV REST API, bearer auth,
@@ -256,7 +279,7 @@ Deploy-touching steps are always executed by the human, never by tooling.
 | fixtures refresh    | `rake fixtures:record` (manual)    | yes     |
 | deploy smoke        | human checklist at Gate 4/5        | yes     |
 
-minitest ships with Ruby 2.5 stdlib: zero gem installs on the target Macs.
+minitest ships bundled with Ruby: zero gem installs on the target Macs.
 
 ## 8. Explicit non-goals (v1)
 
