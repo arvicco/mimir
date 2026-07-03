@@ -16,6 +16,13 @@ module BTC
 
     module_function
 
+    # Dealer-positioning sign convention (naive dealer model): dealers
+    # long calls (+), short puts (-). THE semantics-critical constant of
+    # the GEX family -- defined exactly once.
+    def sign(cp)
+      cp == 'C' ? 1.0 : -1.0
+    end
+
     def norm_pdf(x)
       Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math::PI)
     end

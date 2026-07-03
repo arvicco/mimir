@@ -61,17 +61,17 @@ abort 'no live instruments parsed' if book.empty?
 # Each instrument's forward is scaled proportionally with the index.
 def net_gex(book, spot, x)
   book.sum do |o|
-    s   = o[:u] * x / spot
-    sgn = o[:cp] == 'C' ? 1.0 : -1.0
-    sgn * BTC::Options.bs_gamma(s, o[:k], o[:t], o[:iv]) * o[:oi] * x * x * 0.01
+    s = o[:u] * x / spot
+    BTC::Options.sign(o[:cp]) *
+      BTC::Options.bs_gamma(s, o[:k], o[:t], o[:iv]) * o[:oi] * x * x * 0.01
   end
 end
 
 # ---- strike profile at current spot ----------------------------------------
 profile = Hash.new(0.0)
 book.each do |o|
-  sgn = o[:cp] == 'C' ? 1.0 : -1.0
-  profile[o[:k]] += sgn * BTC::Options.bs_gamma(o[:u], o[:k], o[:t], o[:iv]) *
+  profile[o[:k]] += BTC::Options.sign(o[:cp]) *
+                    BTC::Options.bs_gamma(o[:u], o[:k], o[:t], o[:iv]) *
                     o[:oi] * spot * spot * 0.01
 end
 

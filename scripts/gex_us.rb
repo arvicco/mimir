@@ -74,8 +74,8 @@ end
 # Dollar gamma per 1% move at hypothetical spot x.
 def net_gex(book, x)
   book.sum do |o|
-    sgn = o[:cp] == 'C' ? 1.0 : -1.0
-    sgn * BTC::Options.gamma_at(o, x) * o[:oi] * MULT * x * x * 0.01
+    BTC::Options.sign(o[:cp]) *
+      BTC::Options.gamma_at(o, x) * o[:oi] * MULT * x * x * 0.01
   end
 end
 
@@ -105,8 +105,8 @@ tickers.each do |ticker|
 
   profile = Hash.new(0.0)
   book.each do |o|
-    sgn = o[:cp] == 'C' ? 1.0 : -1.0
-    profile[o[:k]] += sgn * BTC::Options.gamma_at(o, spot) * o[:oi] * MULT *
+    profile[o[:k]] += BTC::Options.sign(o[:cp]) *
+                      BTC::Options.gamma_at(o, spot) * o[:oi] * MULT *
                       spot * spot * 0.01
   end
 
