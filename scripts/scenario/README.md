@@ -26,7 +26,8 @@ Dead data sources degrade to score 0, never crash the composite.
     ruby scenario.rb --tmux       # 'SCN LEAN-FLUSH -0.25 etf-1 fnd+1 ...'
                                   #   -> /tmp/scenario.status
     ruby scenario.rb --json
-    ruby scenario.rb --history    # append ~/.scenario_history.jsonl
+    ruby scenario.rb --history    # append data/history.jsonl (legacy
+                                  #   ~/.scenario_history.jsonl auto-migrates)
 
 Composite bands: <=-0.40 FLUSH, -0.10 LEAN-FLUSH, +0.10 NEUTRAL,
 +0.40 BASE, above RECOVERY.
@@ -46,4 +47,4 @@ history entries is itself the A'->B' transition signature.
   score 0 with a parse error. Everything else is JSON APIs.
 - macro.rb needs `export FRED_API_KEY=...` (free, fred.stlouisfed.org).
 - Weights in scenario.rb MODULES are meant to be tuned against
-  ~/.scenario_history.jsonl once a few weeks accumulate.
+  data/history.jsonl once a few weeks accumulate.

@@ -8,10 +8,11 @@ require 'json'
 require 'time'
 require 'fileutils'
 require_relative '../../lib/btc/report'
+require_relative '../../lib/btc/env'
 
 module Common
   GENESIS = Time.utc(2009, 1, 3)
-  DATA    = File.join(File.expand_path(__dir__), 'data')
+  DATA    = BTC::Env.data_dir('lppl', File.join(File.expand_path(__dir__), 'data'))
   PRICES  = File.join(DATA, 'prices.csv')
 
   module_function
