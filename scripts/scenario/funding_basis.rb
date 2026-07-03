@@ -10,6 +10,10 @@
 #
 # Basis is context, not score: negative annualized basis has historically
 # marked terminal capitulation regimes (precedes bottoms by days-weeks).
+#
+# NOTE: self-reports name 'funding' (not the filename) in --json -- frozen
+# contract; the aggregator keys by filename, so only standalone consumers
+# see the difference.
 
 require_relative 'common'
 require_relative '../../lib/btc/options'

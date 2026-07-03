@@ -9,7 +9,8 @@
 #   ruby gex_us.rb IBIT               # human output
 #   ruby gex_us.rb IBIT MSTR          # multiple tickers
 #   ruby gex_us.rb IBIT --max-days 45 # near-dated board only
-#   ruby gex_us.rb IBIT --json
+#   ruby gex_us.rb IBIT --json        # single ticker -> ONE OBJECT;
+#   ruby gex_us.rb IBIT MSTR --json   #   multiple -> ARRAY (frozen contract)
 #   ruby gex_us.rb IBIT MSTR --tmux   # one line each -> /tmp/gex_<ticker>.status
 #
 # For spot-BTC ETFs (IBIT, FBTC, ...) every price output is annotated with

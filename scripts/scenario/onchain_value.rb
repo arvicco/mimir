@@ -5,6 +5,10 @@
 # community API. Slow floor gauge: prior cycle bottoms formed at
 # MVRV ~0.75-0.85 with spot converging on realized price.
 #
+# NOTE: self-reports name 'onchain' (not the filename) in --json -- frozen
+# contract; the aggregator keys by filename, so only standalone consumers
+# see the difference.
+#
 #   score +1  MVRV <= 0.85 (terminal value zone)
 #   score -1  MVRV >= 2.5  (froth; irrelevant in a drawdown, kept for
 #             symmetry so the module works across the whole cycle)
