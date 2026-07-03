@@ -200,6 +200,14 @@ packet elaboration.
 R-numbered; same dispositions as section 2. "Frozen" = --json/--tmux
 contract involved, extra care.*
 
+**Round-2 status (2026-07-03): owner approved all "recommended" items;
+executed same day (0341e3c..2ce01e0): R-1/R-8 BTC::Deribit (verified
+live), R-2 Options.sign, R-4 BTC::Suite.run_module (tested against
+throwaway module scripts), R-5 Report.status, R-9/R-10 suite namespaces
+Scenario/Lppl/Btco. Failure-path normalizations noted in the R-1 commit.
+Still open for owner review: optional R-3/R-6/R-7; flagged R-11/R-12
+(analytics ruling needed on x^2 vs s^2)/R-13.**
+
 ### DRY -- recommended
 
 - **R-1 · Deribit venue helper.** The index-price fetch appears FIVE
