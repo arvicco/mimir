@@ -8,7 +8,7 @@ require 'time'
 require_relative '../../lib/btc/report'
 require_relative '../../lib/btc/http'
 
-module Common
+module Scenario
   module_function
 
   def get(url, headers = {})

@@ -22,14 +22,14 @@ require_relative '../../lib/btc/deribit'
 NAME = 'funding'
 
 begin
-  hist = Common.get_json('https://fapi.binance.com/fapi/v1/fundingRate?symbol=BTCUSDT&limit=21')
-  cur  = Common.get_json('https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT')
+  hist = Scenario.get_json('https://fapi.binance.com/fapi/v1/fundingRate?symbol=BTCUSDT&limit=21')
+  cur  = Scenario.get_json('https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT')
 rescue StandardError => e
-  Common.fail_soft(NAME, e.message)
+  Scenario.fail_soft(NAME, e.message)
 end
 
 rates = hist.map { |h| h['fundingRate'].to_f }
-Common.fail_soft(NAME, 'no funding history') if rates.empty?
+Scenario.fail_soft(NAME, 'no funding history') if rates.empty?
 avg7  = rates.inject(:+) / rates.size
 now_r = cur['lastFundingRate'].to_f
 
@@ -60,7 +60,7 @@ score = if avg7 <= -0.0001
           0
         end
 
-Common.report(NAME, score,
+Scenario.report(NAME, score,
               format('funding 7d avg %+.4f%%/8h, now %+.4f%%; basis %s',
                      avg7 * 100, now_r * 100,
                      basis ? format('%+.1f%% ann.', basis * 100) : 'n/a'),

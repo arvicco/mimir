@@ -3,7 +3,7 @@
 # metrics.rb -- pure metrics math for the BTCo analyser, extracted from
 # btco.rb so it is unit-testable without network. No IO, no ENV.
 
-module BtcoMetrics
+module Btco
   module_function
 
   # Split convert tranches into [itm_shares, otm_face_usd].

@@ -10,7 +10,7 @@ require_relative '../../lib/btc/report'
 require_relative '../../lib/btc/env'
 require_relative '../../lib/btc/http'
 
-module Common
+module Lppl
   GENESIS = Time.utc(2009, 1, 3)
   DATA    = BTC::Env.data_dir('lppl', File.join(File.expand_path(__dir__), 'data'))
   PRICES  = File.join(DATA, 'prices.csv')
