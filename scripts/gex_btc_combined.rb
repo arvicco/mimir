@@ -33,11 +33,11 @@
 #
 # Ruby >= 2.5, stdlib only.
 
-require 'net/http'
 require 'json'
 require 'time'
 require_relative '../lib/btc/options'
 require_relative '../lib/btc/util'
+require_relative '../lib/btc/http'
 
 DERIBIT = 'https://www.deribit.com/api/v2/public'
 CBOE    = 'https://cdn.cboe.com/api/global/delayed_quotes/options'
@@ -45,12 +45,7 @@ ETFS    = %w[IBIT FBTC BITB ARKB GBTC HODL BTCO BRRR EZBC].freeze
 MULT    = 100.0 # shares per US option contract
 
 def get_json(url)
-  uri = URI(url)
-  Net::HTTP.start(uri.host, uri.port, use_ssl: true,
-                  open_timeout: 5, read_timeout: 20) do |http|
-    req = Net::HTTP::Get.new(uri.request_uri, 'User-Agent' => 'gex_btc_combined.rb')
-    JSON.parse(http.request(req).body)
-  end
+  JSON.parse(BTC::Http.get(url, 'User-Agent' => 'gex_btc_combined.rb'))
 end
 
 # USD gamma per 1% BTC move for one instrument, with BTC at hypothetical
