@@ -23,6 +23,10 @@
 #   ruby lppl.rb --history     # append data/ledger.jsonl (+ fit history)
 #   ruby lppl.rb --skip-update # use cached prices (offline/backtest)
 #
+# Module stdout discipline: in --json mode a test must print exactly one
+# JSON line (this aggregator parses the LAST stdout line; anything else
+# degrades that test to score 0).
+#
 # Ruby >= 2.5, stdlib only.
 
 require 'json'

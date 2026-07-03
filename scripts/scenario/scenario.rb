@@ -20,6 +20,9 @@
 # score 0 without breaking the composite. Each module is independently
 # runnable for its own detailed view. Weights reflect lead time and
 # reliability: flows > positioning/premium/macro > slow on-chain gauges.
+# Module stdout discipline: in --json mode a module must print exactly
+# one JSON line (this aggregator parses the LAST stdout line; anything
+# else degrades that module to score 0).
 #
 # Ruby >= 2.5, stdlib only.
 
