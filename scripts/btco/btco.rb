@@ -45,6 +45,7 @@
 require 'net/http'
 require 'json'
 require 'time'
+require_relative 'metrics'
 
 def arg(flag)
   i = ARGV.index(flag)
@@ -158,16 +159,7 @@ cos.each do |c|
   shs_b  = c['shares_basic'].to_f
   shs_d  = [c['shares_diluted'].to_f, shs_b].max
 
-  itm_sh = 0.0
-  otm_fc = 0.0
-  (c['converts'] || []).each do |t|
-    cp = t['conv_price'].to_f / rate # conv prices quoted in listing ccy
-    if cp > 0 && px > cp * rate
-      itm_sh += t['face'].to_f / (cp * rate) / rate # shares = face_usd/conv_usd
-    else
-      otm_fc += t['face'].to_f
-    end
-  end
+  itm_sh, otm_fc = BtcoMetrics.convert_split(c['converts'], px, rate)
   senior = otm_fc + c['debt_face'].to_f + c['pref_liq'].to_f
   shs_a  = shs_d + itm_sh
 
