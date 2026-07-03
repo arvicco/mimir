@@ -26,23 +26,19 @@ require 'json'
 require 'time'
 require_relative '../lib/btc/options'
 require_relative '../lib/btc/util'
-require_relative '../lib/btc/http'
-
-HOST = 'https://www.deribit.com/api/v2/public'
-
-def get_json(path)
-  JSON.parse(BTC::Http.get("#{HOST}/#{path}")).fetch('result')
-rescue StandardError => e
-  abort "deribit: #{e.class}: #{e.message}"
-end
+require_relative '../lib/btc/deribit'
 
 # ---- fetch + parse board ---------------------------------------------------
 ccy      = ARGV.find { |a| %w[BTC ETH].include?(a.upcase) }&.upcase || 'BTC'
 max_days = BTC::Util.arg('--max-days')&.to_f
 now      = Time.now.utc
 
-spot = get_json("get_index_price?index_name=#{ccy.downcase}_usd")['index_price'].to_f
-rows = get_json("get_book_summary_by_currency?currency=#{ccy}&kind=option")
+begin
+  spot = BTC::Deribit.index_price("#{ccy.downcase}_usd")
+  rows = BTC::Deribit.book_summary(ccy, 'option')
+rescue StandardError => e
+  abort "deribit: #{e.class}: #{e.message}"
+end
 
 book = rows.map do |r|
   oi = r['open_interest'].to_f

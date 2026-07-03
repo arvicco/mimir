@@ -54,6 +54,7 @@ require_relative 'metrics'
 require_relative '../../lib/btc/report'
 require_relative '../../lib/btc/util'
 require_relative '../../lib/btc/http'
+require_relative '../../lib/btc/deribit'
 
 UNIVERSE = BTC::Util.arg('--universe') ||
            File.join(File.expand_path(__dir__), 'universe.json')
@@ -118,8 +119,7 @@ end
 
 # ---- live inputs -------------------------------------------------------------
 begin
-  btc_px = get_json('https://www.deribit.com/api/v2/public/get_index_price?index_name=btc_usd')
-           .fetch('result').fetch('index_price').to_f
+  btc_px = BTC::Deribit.index_price('btc_usd')
 rescue StandardError => e
   fail_soft("deribit index: #{e.message}")
 end

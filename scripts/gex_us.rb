@@ -31,6 +31,7 @@ require 'time'
 require_relative '../lib/btc/options'
 require_relative '../lib/btc/util'
 require_relative '../lib/btc/http'
+require_relative '../lib/btc/deribit'
 
 CBOE = 'https://cdn.cboe.com/api/global/delayed_quotes/options'
 MULT = 100.0 # shares per contract
@@ -87,8 +88,11 @@ now      = Time.now.utc
 
 btc_spot = nil
 if (tickers & BTC_ETFS).any?
-  r = get_json('https://www.deribit.com/api/v2/public/get_index_price?index_name=btc_usd')
-  btc_spot = r['result'] && r['result']['index_price'].to_f
+  begin
+    btc_spot = BTC::Deribit.index_price('btc_usd')
+  rescue StandardError => e
+    abort "fetch deribit index: #{e.class}: #{e.message}"
+  end
 end
 
 fmt_m  = ->(v) { format('%+.1fM', v / 1e6) }

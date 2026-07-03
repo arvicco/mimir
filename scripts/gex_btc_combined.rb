@@ -38,9 +38,9 @@ require 'time'
 require_relative '../lib/btc/options'
 require_relative '../lib/btc/util'
 require_relative '../lib/btc/http'
+require_relative '../lib/btc/deribit'
 
-DERIBIT = 'https://www.deribit.com/api/v2/public'
-CBOE    = 'https://cdn.cboe.com/api/global/delayed_quotes/options'
+CBOE = 'https://cdn.cboe.com/api/global/delayed_quotes/options'
 ETFS    = %w[IBIT FBTC BITB ARKB GBTC HODL BTCO BRRR EZBC].freeze
 MULT    = 100.0 # shares per US option contract
 
@@ -62,7 +62,7 @@ def oi_btc(o, btc_spot)
 end
 
 def load_deribit(max_days, now, btc_spot)
-  rows = get_json("#{DERIBIT}/get_book_summary_by_currency?currency=BTC&kind=option").fetch('result')
+  rows = BTC::Deribit.book_summary('BTC', 'option')
   rows.map do |r|
     oi = r['open_interest'].to_f
     next if oi <= 0
@@ -115,8 +115,7 @@ bin      = (BTC::Util.arg('--bin') || 1000).to_f
 now      = Time.now.utc
 
 begin
-  btc_spot = get_json("#{DERIBIT}/get_index_price?index_name=btc_usd")
-             .fetch('result').fetch('index_price').to_f
+  btc_spot = BTC::Deribit.index_price('btc_usd')
 rescue StandardError => e
   abort "deribit index: #{e.class}: #{e.message}"
 end
