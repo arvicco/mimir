@@ -93,5 +93,8 @@ README accepted; PR `phase-0 -> main` merged by owner.
 ## Phase 1 -- seams, contracts + reviewed refactoring
 Elaborated at Gate 0. Sketch (DEV-LOOP.md section 8): M1-1 http seam ·
 M1-2..5 per-suite migration · M1-6 fixtures:record · M1-7..11 contract
-tests · M1-12 BTC_DATA_DIR · M1-13..n refactors from the approved
-M0-2 memo findings. All [tier: fable] (Stage 0).
+tests. All [tier: fable] (Stage 0).
+Delivered early in Phase 0 by owner request: M1-12 BTC_DATA_DIR (F-8)
+and the memo refactors F-1/F-2/F-5 (fixes) + F-14/F-15 (lib/btc
+extraction). Remaining memo seeds for M1-13..n: F-6 redaction (folds
+into M1-1) only; F-4/F-12 are Phase 2 design inputs.

@@ -88,6 +88,12 @@ finding AGREED / DEFERRED / REJECTED at the M0-2 review.*
   `data/`, all status lines in `/tmp`. BTC_DATA_DIR (Phase 1, planned)
   unifies; scenario's HOME path needs a migration decision then.
   **[fix-P1, flag path change at gate]**
+  **RESOLVED 2026-07-03: owner approved; lib/btc/env.rb resolves
+  $BTC_DATA_DIR/<suite>/ with in-tree defaults, lppl.rb's ledger no
+  longer bypasses the shared dir, scenario history moved to
+  scenario/data/history.jsonl with verified one-time auto-migration
+  from ~/.scenario_history.jsonl. Deliberate exceptions documented:
+  /tmp status lines, btco capstruct/ audit trail (38d4e7a).**
 - **F-9 · aggregators parse `lines.last`** (scenario.rb:53, lppl.rb:48) --
   any stray stdout from a module breaks its JSON parse (caught -> score 0,
   so it degrades, not crashes). Contract tests will pin module stdout
@@ -119,9 +125,19 @@ finding AGREED / DEFERRED / REJECTED at the M0-2 review.*
   drift-dangerous: three copies of bs_gamma can silently diverge) and
   leaving presentation duplication alone. **[decision -- scope of
   extraction: http-only vs http+math/parse]**
+  **RESOLVED 2026-07-03: owner approved math/parse extraction.
+  lib/btc/options.rb (bs_gamma/gamma_at, Deribit+OSI parsing,
+  gamma_flip, walls) + lib/btc/util.rb (arg), pinned by exact-value
+  tests before adoption; gex family -133/+43 lines (9b22457, 1bdfef1).
+  Presentation duplication (fmt lambdas, table rendering) left alone as
+  recommended. HTTP stays with M1-1.**
 - **F-15 · scenario/common.rb and lppl/common.rb share report/fail_soft**
   almost verbatim (width 14 vs 12 in one format string). Fold into the
   same lib decision as F-14.
+  **RESOLVED 2026-07-03: lib/btc/report.rb with per-suite widths as
+  parameters, output pinned byte-for-byte by tests; both Commons and
+  btco's fail_soft delegate. Verified offline in all three suites,
+  both output modes (d82b845).**
 
 ## 3. What was checked and found sound
 
