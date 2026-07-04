@@ -151,7 +151,11 @@ Goal: proposal JSON shape (ticker/accession/form/diff/extraction keys)
 Acceptance: no ANTHROPIC_API_KEY, no network.
 
 ## Gate 1 (human)
-Owner runs `rake fixtures:record` once and reviews the recorded
-fixtures diff; field-set contracts green for all modules; README
+First recording done 2026-07-04 (committed 38f991a), but it predated
+the F-20/21/22 recorder fixes: owner re-runs `rake fixtures:record`
+once more and reviews the diff (expect: far-dated live option boards,
+new binance_spot.json, a longer farside page). That flips the 5
+self-gated contract skips to live pins -- `rake test:contract` must
+then show 0 skips. Field-set contracts green for all modules; README
 updated; PR phase-1 -> main merged. (F-4's code half remains a Phase 2
 design input.)
