@@ -73,9 +73,15 @@ end
 namespace :fixtures do
   desc 'Refresh recorded API fixtures (NETWORK -- run manually, review diff)'
   task :record do
-    puts 'This task performs live API calls and overwrites test/fixtures/.'
-    puts 'Implemented in Phase 1 alongside lib/btc/http.rb. Aborting for now.'
-    abort
+    require_relative 'lib/btc/fixtures'
+    puts 'Recording live API responses into test/fixtures/ ...'
+    fails = 0
+    BTC::Fixtures.record_all('test/fixtures').each do |file, status, note|
+      puts format('%-26s %-5s %s', file, status.to_s.upcase, note)
+      fails += 1 if status == :fail
+    end
+    puts "\nReview `git diff test/fixtures/` before committing."
+    abort "fixtures:record: #{fails} failure(s)" if fails > 0
   end
 end
 
