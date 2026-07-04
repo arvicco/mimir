@@ -138,6 +138,9 @@ same commit (`rake health` fails on registry drift).
 
 ## Current phase
 
-Phase 0 (Stage 0: inventory, documentation + safety net -- see
-docs/DEV-LOOP.md). Consult ARCHITECTURE.md section 6 for the phase's
-scope and Gate 0 criteria; update this line at each gate.
+Phase 1 (Stage 0: fixtures + contract tests -- see docs/DEV-LOOP.md;
+Gate 0 closed 2026-07-04, PR #1). Most of Phase 1's original scope
+(http seam, BTC_DATA_DIR, refactors) was delivered in Phase 0; what
+remains is rake fixtures:record and the per-module --json contract
+tests. Consult ARCHITECTURE.md section 6 for Gate 1 criteria; update
+this line at each gate.
