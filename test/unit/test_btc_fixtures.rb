@@ -36,6 +36,7 @@ class TestBtcFixtures < Minitest::Test
     'metrics=CapMVRVCur' => '{"data":[{"CapMVRVCur":"1.18","PriceUSD":"62000"}],"next_page_url":"x"}',
     'fundingRate'        => JSON.generate((1..21).map { { 'fundingRate' => '0.0001' } }),
     'premiumIndex'       => '{"lastFundingRate":"0.0001"}',
+    'ticker/price'       => '{"symbol":"BTCUSDT","price":"62000.00"}',
     'BTC-USD/ticker'     => '{"price":"62000.0"}',
     'hashrate/6m'        => JSON.generate('hashrates' => (1..200).map { |i| { 'avgHashrate' => i } },
                                           'difficulty' => (1..9).map { |i| { 'difficulty' => i } }),
@@ -43,8 +44,10 @@ class TestBtcFixtures < Minitest::Test
       { 'symbol' => 'USDT', 'circulating' => { 'peggedUSD' => 1 }, 'circulatingPrevWeek' => {}, 'circulatingPrevMonth' => {}, 'chains' => %w[big list] },
       { 'symbol' => 'DAI',  'circulating' => { 'peggedUSD' => 1 } },
       { 'symbol' => 'USDC', 'circulating' => { 'peggedUSD' => 1 }, 'circulatingPrevWeek' => {}, 'circulatingPrevMonth' => {} }]),
+    # 28 date rows: the parser regex swallows every other row's day
+    # number (F-22), so these PARSE to 14 rows -- above the trim's 12.
     'farside'            => ('<tr><td>x</td></tr>' * 400) +
-                            (1..14).map { |i| "<tr><td>#{i} Jun 2026</td><td>1.0</td></tr>" }.join +
+                            (1..28).map { |i| "<tr><td>#{i} Jun 2026</td><td>1.0</td><td>2.5</td></tr>" }.join +
                             ('<p>tail</p>' * 5_000),
     'frankfurter'        => '{"rates":{"JPY":161.15}}',
     'stlouisfed'         => JSON.generate('observations' => (1..30).map { |i| { 'value' => i.to_s } }),
@@ -138,8 +141,9 @@ class TestBtcFixtures < Minitest::Test
       assert_equal 3, mem['difficulty'].size
 
       html = File.read(File.join(dir, 'farside_flows.html'))
-      rows = html.gsub(/<[^>]+>/, ' ').scan(/\d{1,2}\s+[A-Z][a-z]{2}\s+\d{4}/).size
-      assert_operator rows, :>=, 12
+      text = html.gsub(/<[^>]+>/, ' ')
+      # F-22: count rows the etf_flows PARSER yields, not date strings
+      assert_operator text.scan(BTC::Fixtures::FARSIDE_ROWS).size, :>=, 12
       assert_operator html.size, :<, CANNED['farside'].size # actually trimmed
 
       filing = File.read(File.join(dir, 'edgar_filing.html'))

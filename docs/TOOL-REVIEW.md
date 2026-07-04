@@ -352,3 +352,24 @@ coverage; an all-dead board raises (FAIL in rake fixtures:record)
 instead of silently recording garbage. Unit tests pin the selection.
 Owner action: re-run `rake fixtures:record` once so cboe_options.json
 (and the deribit book) are re-picked under the fixed rule.
+
+**F-21 (2026-07-04, found during M1-8): fixture registry missed
+cb_premium's Binance spot leg.** M1-6 registered the fapi funding and
+premiumIndex shapes but not `api/v3/ticker/price` -- cb_premium's
+success path was untestable offline. Fixed: `binance_spot.json` added
+to lib/btc/fixtures.rb; recorded on the owner's next
+`rake fixtures:record`.
+
+**F-22 (2026-07-04, found during M1-8): farside trim counted date
+strings, but the etf_flows parser yields ~half that.** The module's
+row regex greedily swallows the NEXT row's day number into the
+previous row's number group, so alternating daily rows are dropped;
+the trim's ">= 12 date-like strings" therefore recorded a page that
+parses to only 6 rows (module fail-softs under 10). Fixed: the trim
+now counts rows with the module's regex verbatim (FARSIDE_ROWS) and
+fails the recording loudly if the whole page parses below 12.
+DECISION ITEM (analytics, untouched): the swallowing also happens in
+production -- etf_flows' "5d" windows actually span ~10 calendar days
+of alternating rows. Scoring may well be fine with that (it compares
+like windows), but the owner should rule whether the parser regex gets
+fixed in a reviewed analytics change.

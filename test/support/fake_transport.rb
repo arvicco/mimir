@@ -32,6 +32,7 @@ module FakeTransport
     ['metrics=PriceUSD',            'coinmetrics_prices.json'],
     ['fundingRate',                 'binance_funding.json'],
     ['premiumIndex',                'binance_premium.json'],
+    ['ticker/price',                'binance_spot.json'],
     ['BTC-USD/ticker',              'coinbase_ticker.json'],
     ['hashrate',                    'mempool_hashrate.json'],
     ['stablecoins',                 'defillama_stables.json'],
