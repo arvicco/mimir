@@ -126,7 +126,7 @@ Goal: test/contract/ pins field presence/types (not values) for
       profile{}), via fixtures + injected transport.
 Acceptance: red against a mutated fixture, green against real; no network.
 
-## M1-8 · Contract tests: scenario modules + aggregator  [tier: fable] [status: ready] [deps: M1-6]
+## M1-8 · Contract tests: scenario modules + aggregator  [tier: fable] [status: done -- etf_flows/cb_premium success pins self-enable on the owner re-record (F-21/F-22)] [deps: M1-6]
 Goal: per-module --json contract (name/score/headline/ts; the
       funding/onchain name quirks pinned -- F-11), fail-soft shape with
       'unavailable': true (F-12), one-JSON-line stdout discipline

@@ -42,13 +42,19 @@ module BTC
         (rows - alive).first(2)
     end
 
-    # shortest HTML prefix whose tag-stripped text has >= 12 daily rows
+    # etf_flows.rb's row regex, verbatim -- the trim must count rows the
+    # PARSER yields, not date-like strings (F-22: the number group
+    # swallows the next row's day number, so parsed rows ~halve).
+    FARSIDE_ROWS = /(\d{1,2}\s+[A-Z][a-z]{2}\s+\d{4})((?:\s+\(?-?[\d,.]+\)?)+)/
+
+    # shortest HTML prefix that PARSES to >= 12 daily rows (module
+    # fail-softs below 10); an insufficient page fails the recording.
     FARSIDE_TRIM = lambda do |body|
       (5_000..body.size).step(5_000) do |i|
-        txt = body[0, i].gsub(/<[^>]+>/, ' ')
-        return body[0, i] if txt.scan(/\d{1,2}\s+[A-Z][a-z]{2}\s+\d{4}/).size >= 12
+        txt = body[0, i].gsub(/<[^>]+>/, ' ').gsub(/&[a-z]+;/, ' ')
+        return body[0, i] if txt.scan(FARSIDE_ROWS).size >= 12
       end
-      body
+      raise 'fewer than 12 parser-live farside rows on the whole page'
     end
 
     fred = lambda do |series, limit, keep|
@@ -102,6 +108,8 @@ module BTC
         url: 'https://fapi.binance.com/fapi/v1/fundingRate?symbol=BTCUSDT&limit=21' },
       { file: 'binance_premium.json',
         url: 'https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT' },
+      { file: 'binance_spot.json', # F-21: cb_premium's spot leg was missing
+        url: 'https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT' },
       { file: 'coinbase_ticker.json',
         url: 'https://api.exchange.coinbase.com/products/BTC-USD/ticker' },
       { file: 'mempool_hashrate.json',
