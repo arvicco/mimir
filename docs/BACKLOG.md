@@ -205,7 +205,7 @@ PUBLISH_DRY_RUN=1 is the default until Gate 2; nothing here touches
 the network except through BTC::Http, and no model ever runs a real
 publish (Golden Rule 3).
 
-## M2-1 · publish/kv_client.rb  [tier: fable -- secret-adjacent (CF_API_TOKEN) + first-of-family: retry/redaction pattern everything downstream copies] [status: in-progress] [deps: --]
+## M2-1 · publish/kv_client.rb  [tier: fable -- secret-adjacent (CF_API_TOKEN) + first-of-family: retry/redaction pattern everything downstream copies] [status: done] [deps: --]
 Goal: PUT/GET against the Cloudflare KV REST API through BTC::Http:
       bearer auth from ENV (CF_ACCOUNT_ID/CF_KV_NAMESPACE_ID/
       CF_API_TOKEN), bounded retries with backoff on 429/5xx, never
