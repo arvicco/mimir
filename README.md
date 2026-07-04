@@ -23,7 +23,7 @@ lines, and the caveats -- read it before acting on any output.
 | `scripts/gex_btc_combined.rb` | cross-venue BTC GEX on one BTC axis | newer, math verified |
 | `scripts/scenario/scenario.rb` | -1/0/+1 regime composite from 7 signals | mature |
 | `scripts/lppl/lppl.rb` | LPPL regime verdict from 5 falsification tests | new but rigorous; builds caches on first run |
-| `scripts/btco/btco.rb` | treasury-company metrics + stress score | **seed data is placeholder**; live quote source (Stooq) died upstream 2026-07 -- currently needs `manual_px` (replacement pending, TOOL-REVIEW F-17) |
+| `scripts/btco/btco.rb` | treasury-company metrics + stress score | **seed data is placeholder**; US quotes via CBOE + Frankfurter FX, non-US via `manual_px` |
 | `scripts/btco/ingest.rb` | EDGAR filing -> reviewed universe updates | newest, lightly exercised |
 
 Shared conventions: `--json` (machine output, frozen contract),
@@ -59,6 +59,11 @@ Seven weighted signals (ETF flows, funding/basis, Coinbase premium,
 macro liquidity, hash ribbons, MVRV, stablecoin supply) -> composite in
 [-1, +1] -> FLUSH / LEAN-FLUSH / NEUTRAL / BASE / RECOVERY.
 `macro.rb` needs a free `FRED_API_KEY` (degrades to score 0 without).
+`etf_flows.rb` scrapes farside.co.uk, falling back to the Internet
+Archive snapshot and then CoinGlass (`COINGLASS_API_KEY`, free) -- see
+the source-chain note in the script header. Its history entries before
+2026-07-04 are unreliable: the old parser reported day-of-month numbers
+as daily totals (TOOL-REVIEW.md F-22).
 Everything else is keyless public APIs; `etf_flows` is the one HTML
 scrape (degrades gracefully on layout drift).
 

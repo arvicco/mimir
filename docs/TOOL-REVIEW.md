@@ -408,3 +408,19 @@ acceptable for EOD flow windows); (2) rewrite the parser per-<tr>/<td>
 re-record the fixture from whichever source is ruled in. Evidence:
 scratchpad farside_live.html (challenge), farside_archive.html /
 farside_alldata_archive.html (real pages, 13 and 636 data rows).
+
+**Resolutions (owner, 2026-07-04): F-22 and F-23 ruled and executed.**
+F-22 fixed as recommended: BTC::Flows.parse_flows parses per <tr>/<td>
+(first cell date, last numeric cell total, parens negative); exact
+values pinned against the recorded real page (30 Jun -222.6 / 01 Jul
+-296.0 / 02 Jul +223.5); scoring untouched; pre-fix history flagged in
+README/METHODOLOGY. F-23 implemented with CoinGlass as the keyed leg
+(owner registered a free Hobbyist key, 30 req/min): etf_flows tries
+farside direct -> Internet Archive latest raw snapshot (web/2id_/,
+redirects via new BTC::Http.get_follow) -> CoinGlass flow-history
+(COINGLASS_API_KEY), first source with >= 10 rows wins; --json gains
+the additive 'source' field. Recorder + health registry follow the
+same chain (farside direct registered soft: degradation WARNs, since
+the fallback covers it). Fixture re-recorded from the 2026-07-04
+archive snapshot; coinglass_flows.json records on the owner's next
+keyed run.

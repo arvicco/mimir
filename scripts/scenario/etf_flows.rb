@@ -1,43 +1,74 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 #
-# etf_flows.rb -- daily US spot-BTC ETF net flows (Farside Investors table).
-# The marginal-buyer gauge: outflow deceleration is the A'->B' tell,
-# sustained inflows the B' confirmation.
+# etf_flows.rb -- daily US spot-BTC ETF net flows. The marginal-buyer
+# gauge: outflow deceleration is the A'->B' tell, sustained inflows the
+# B' confirmation.
 #
 #   score +1  last-5d net inflow, or outflow shrunk >50% vs prior 5d
 #   score -1  last-5d outflow steady/accelerating vs prior 5d
 #   score  0  mixed / flat
 #
-# NOTE: this is an HTML scrape (farside.co.uk/btc/) -- the only good free
-# daily source. Parser is deliberately tolerant, but layout drift will
-# degrade it to score 0 rather than crash.
+# Sources, tried in order until one yields >= 10 daily rows (F-23):
+#   1. farside.co.uk/btc/ (HTML) -- primary; intermittently behind a
+#      Cloudflare JS challenge since 2026-07
+#   2. the Internet Archive's latest snapshot of the same page
+#      (raw web/2id_/ form, redirects followed; captured 2-4x/day, so
+#      worst case ~12h lag -- acceptable for EOD flow windows)
+#   3. CoinGlass ETF flow history, only when COINGLASS_API_KEY is set
+#      (free Hobbyist key: coinglass.com -> API Management)
+# Otherwise the module fails soft. The --json detail carries which
+# source answered ('source', additive field 2026-07-04).
+#
+# Parsing is per table row (BTC::Flows): the old tag-strip regex
+# swallowed each next row's day-of-month, halving the rows AND
+# reporting day numbers as daily totals (F-22) -- history entries for
+# this module predating 2026-07-04 are unreliable.
 
 require_relative 'common'
+require_relative '../../lib/btc/flows'
+require_relative '../../lib/btc/http'
 
 NAME = 'etf_flows'
 
-begin
-  html = Scenario.get('https://farside.co.uk/btc/')
-rescue StandardError => e
-  Scenario.fail_soft(NAME, e.message)
+FARSIDE   = 'https://farside.co.uk/btc/'
+ARCHIVE   = 'https://web.archive.org/web/2id_/https://farside.co.uk/btc/'
+COINGLASS = 'https://open-api-v4.coinglass.com/api/etf/bitcoin/flow-history'
+
+daily  = nil
+source = nil
+
+[['farside',         -> { Scenario.get(FARSIDE) }],
+ ['farside-archive', -> { BTC::Http.get_follow(ARCHIVE, { 'User-Agent' => 'scenario.rb' }, read_timeout: 60) }]].each do |name, fetch|
+  rows = begin
+    BTC::Flows.parse_flows(fetch.call)
+  rescue StandardError
+    []
+  end
+  next if rows.size < 10
+
+  daily  = rows
+  source = name
+  break
 end
 
-# Strip tags, find rows "DD Mon YYYY <numbers...>"; last number in the row
-# is the day's total in US$m. Negatives appear as (123.4) or -123.4.
-text = html.gsub(%r{<[^>]+>}, ' ').gsub(/&[a-z]+;/, ' ')
-rows = text.scan(/(\d{1,2}\s+[A-Z][a-z]{2}\s+\d{4})((?:\s+\(?-?[\d,.]+\)?)+)/)
-
-daily = rows.map do |date, nums|
-  vals = nums.scan(/\(?-?[\d,.]+\)?/).map do |s|
-    neg = s.start_with?('(') || s.start_with?('-')
-    v   = s.delete('(),-').to_f
-    neg ? -v : v
+if daily.nil? && !ENV['COINGLASS_API_KEY'].to_s.empty?
+  begin
+    j = Scenario.get_json(COINGLASS, { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] })
+    rows = BTC::Flows.from_coinglass(j['data'])
+    if rows.size >= 10
+      daily  = rows
+      source = 'coinglass'
+    end
+  rescue StandardError
+    nil
   end
-  vals.empty? ? nil : [Time.parse(date), vals.last]
-end.compact.sort_by { |d, _| d }
+end
 
-Scenario.fail_soft(NAME, 'parse produced too few rows') if daily.size < 10
+if daily.nil?
+  Scenario.fail_soft(NAME, 'no flow source yielded enough rows ' \
+                           '(farside blocked? set COINGLASS_API_KEY for the keyed fallback)')
+end
 
 last5 = daily.last(5).map { |_, v| v }
 prev5 = daily[-10, 5].map { |_, v| v }
@@ -57,4 +88,5 @@ Scenario.report(NAME, score,
               format('5d net %+.0f$m (prev 5d %+.0f$m), last day %+.0f$m',
                      s5, p5, daily.last[1]),
               'last_5_days_usd_m' => last5.map { |v| v.round }.join(', '),
-              'as_of' => daily.last[0].strftime('%Y-%m-%d'))
+              'as_of' => daily.last[0].strftime('%Y-%m-%d'),
+              'source' => source)

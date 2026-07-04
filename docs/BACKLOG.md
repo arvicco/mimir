@@ -150,6 +150,24 @@ Goal: proposal JSON shape (ticker/accession/form/diff/extraction keys)
       text pinned verbatim (Golden Rule 5 tripwire).
 Acceptance: no ANTHROPIC_API_KEY, no network.
 
+## M1-14 · F-22: per-row flows parser (BTC::Flows)  [tier: fable] [status: done -- owner-approved analytics fix 2026-07-04] [deps: --]
+Goal: replace etf_flows' tag-strip regex (swallowed each next row's
+      day-of-month: rows halved AND day numbers reported as daily
+      totals) with per-<tr>/<td> parsing; exact-value pins against the
+      recorded real page; scoring/thresholds byte-identical; pre-fix
+      history flagged in README/METHODOLOGY.
+Acceptance: unit pins green (13 rows, -222.6/-296.0/+223.5); recorder
+      trim counts with the new parser; contract skip flips live.
+
+## M1-15 · F-23: etf_flows source chain + CoinGlass leg  [tier: fable] [status: done -- coinglass fixture records on the owner's next keyed run] [deps: M1-14]
+Goal: farside direct -> Internet Archive latest raw snapshot (new
+      BTC::Http.get_follow) -> CoinGlass flow-history (COINGLASS_API_KEY,
+      free Hobbyist), first source with >= 10 rows; additive 'source'
+      field in --json; recorder + health registry mirror the chain
+      (farside direct soft-registered: WARN not FAIL).
+Acceptance: rake green; fail-soft only when all three legs dead;
+      SECRET_ENV redacts the new key; .env.example updated.
+
 ## Gate 1 (human)
 First recording done 2026-07-04 (committed 38f991a), but it predated
 the F-20/21/22 recorder fixes: owner re-runs `rake fixtures:record`
