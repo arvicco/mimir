@@ -21,7 +21,7 @@ Goal: `phase-0` branch; `.claude/settings.json` permission profile
 Acceptance: branch pushed; first CI run green on both OSes; backlog
       carries all Phase 0 packets with goals/acceptance.
 
-## M0-2 · Tool inventory & review memo  [tier: fable] [status: in-progress -- memo drafted, awaiting owner review of findings] [deps: --]
+## M0-2 · Tool inventory & review memo  [tier: fable] [status: done -- all findings owner-ruled and executed; open at Gate 0: optional R-3/6/7, flagged R-11/12/13 (R-12 needs an analytics ruling)] [deps: --]
 Goal: `docs/TOOL-REVIEW.md` covering every tool under `scripts/`
       (gex.rb, gex_us.rb, gex_btc_combined.rb, scenario/* incl. all 7
       modules, lppl/* incl. all 5 evidence tests, btco.rb, ingest.rb):
@@ -34,7 +34,7 @@ Acceptance: memo covers 100% of scripts/; each tool has an explicit
       owner has reviewed and the agreed findings are marked -- these
       seed Phase 1's M1-13..n refactor packets.
 
-## M0-3 · README.md v1  [tier: fable] [status: ready] [deps: M0-2]
+## M0-3 · README.md v1  [tier: fable] [status: in-progress -- drafted, owner accepts at Gate 0] [deps: M0-2]
 Goal: user-facing README at repo root: what each tool does today, exact
       commands (incl. --json/--tmux/--skip-update flags), required ENV
       per tool, per-tool maturity honestly stated (from the M0-2 memo),

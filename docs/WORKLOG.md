@@ -4,6 +4,8 @@ One line per completed packet: date · packet · commit · notes.
 
 ---
 
+2026-07-04 · M0-3 (draft) · -- · README.md v1: per-tool capabilities/commands/ENV with honest maturity (btco placeholder data called out), shared conventions, explicit not-implemented list (publish/charts/dashboard/fixtures), dev pointers. Owner accepts at Gate 0. M0-2 marked done (open R-items are Gate 0 decision items).
+
 2026-07-03 · R-1..R-10 (recommended) · 0341e3c..2ce01e0 · Round-2 fixes: BTC::Deribit venue helper (5x index fetch collapsed, R-8 get_json ambiguity dissolved, verified live), Options.sign single definition, BTC::Suite.run_module + Report.status, suite namespace rule (Scenario/Lppl/Btco -- kills the double module Common landmine). Optional R-3/6/7 and flagged R-11/12/13 await owner review.
 2026-07-03 · F-6/F-7..F-12/F-13 · d225614..b416b82 · Owner approved: BTC::Env.redact wired through BTC::Report (secrets can't reach stdout); fail_soft JSON gains additive 'unavailable':true (F-12); F-7/9/10/11 conventions pinned in headers; BTC::Http seam with injectable transport + StatusError, all six HTTP helpers migrated (net/http gone from scripts/), verified offline fail-soft matrix + live fetches. M1-1 core delivered early; fixtures/contract tests remain for Phase 1.
 2026-07-03 · F-8/F-14/F-15 · 9b22457..38d4e7a · Owner approved DRY extraction + data regularization: lib/btc/{options,report,util,env}.rb with exact-value/byte-format tests first; gex family and suites switched over (net -180 lines of duplication); BTC_DATA_DIR resolution everywhere (M1-12 early); scenario history migrated HOME -> scenario/data/history.jsonl (auto-migration verified offline). HTTP helpers deliberately left for M1-1 seam.
