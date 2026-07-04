@@ -44,11 +44,12 @@ class TestBtcFixtures < Minitest::Test
       { 'symbol' => 'USDT', 'circulating' => { 'peggedUSD' => 1 }, 'circulatingPrevWeek' => {}, 'circulatingPrevMonth' => {}, 'chains' => %w[big list] },
       { 'symbol' => 'DAI',  'circulating' => { 'peggedUSD' => 1 } },
       { 'symbol' => 'USDC', 'circulating' => { 'peggedUSD' => 1 }, 'circulatingPrevWeek' => {}, 'circulatingPrevMonth' => {} }]),
-    # 28 date rows: the parser regex swallows every other row's day
-    # number (F-22), so these PARSE to 14 rows -- above the trim's 12.
+    # 28 <tr> data rows; the per-row parser (F-22 fix) yields all 28.
     'farside'            => ('<tr><td>x</td></tr>' * 400) +
                             (1..28).map { |i| "<tr><td>#{i} Jun 2026</td><td>1.0</td><td>2.5</td></tr>" }.join +
                             ('<p>tail</p>' * 5_000),
+    'flow-history'       => JSON.generate('code' => '0', 'msg' => 'success',
+                                          'data' => (1..40).map { |i| { 'timestamp' => 1_700_000_000_000 + i * 86_400_000, 'flow_usd' => i * 1e6, 'price_usd' => 60_000, 'etf_flows' => [{ 'etf_ticker' => 'IBIT', 'flow_usd' => 1 }] } }),
     'frankfurter'        => '{"rates":{"JPY":161.15}}',
     'stlouisfed'         => JSON.generate('observations' => (1..30).map { |i| { 'value' => i.to_s } }),
     'submissions/CIK'    => JSON.generate('cik' => '1050446', 'name' => 'Strategy',
@@ -78,15 +79,18 @@ class TestBtcFixtures < Minitest::Test
   end
 
   def test_all_fixtures_written_with_env_present
-    old_fred = ENV['FRED_API_KEY']
+    old = ENV.to_hash.slice('FRED_API_KEY', 'COINGLASS_API_KEY')
     ENV['FRED_API_KEY'] = 'testkey123'
+    ENV['COINGLASS_API_KEY'] = 'cgkey456'
     record do |dir, results|
       assert results.all? { |_, s, _| s == :ok }, results.inspect
       assert_equal BTC::Fixtures::FIXTURES.size,
                    Dir.glob(File.join(dir, '*.{json,html}')).size
     end
   ensure
-    old_fred.nil? ? ENV.delete('FRED_API_KEY') : ENV['FRED_API_KEY'] = old_fred
+    %w[FRED_API_KEY COINGLASS_API_KEY].each do |k|
+      old.key?(k) ? ENV[k] = old[k] : ENV.delete(k)
+    end
   end
 
   def test_fred_skipped_without_key_and_url_redacted_with_it
@@ -141,15 +145,37 @@ class TestBtcFixtures < Minitest::Test
       assert_equal 3, mem['difficulty'].size
 
       html = File.read(File.join(dir, 'farside_flows.html'))
-      text = html.gsub(/<[^>]+>/, ' ')
-      # F-22: count rows the etf_flows PARSER yields, not date strings
-      assert_operator text.scan(BTC::Fixtures::FARSIDE_ROWS).size, :>=, 12
+      # F-22: the trim counts rows the per-row parser yields
+      assert_operator BTC::Flows.parse_flows(html).size, :>=, 12
       assert_operator html.size, :<, CANNED['farside'].size # actually trimmed
 
       filing = File.read(File.join(dir, 'edgar_filing.html'))
       assert_equal 60_000, filing.size
       assert filing.start_with?('FILING BODY')
     end
+  end
+
+  def test_coinglass_trim_keeps_30_slim_rows
+    old = ENV['COINGLASS_API_KEY']
+    ENV['COINGLASS_API_KEY'] = 'cgkey456'
+    record do |dir, results|
+      row = results.find { |f, _, _| f == 'coinglass_flows.json' }
+      assert_equal :ok, row[1]
+      j = JSON.parse(File.read(File.join(dir, 'coinglass_flows.json')))
+      assert_equal 30, j['data'].size
+      refute j['data'].first.key?('etf_flows') # slimmed to module fields
+      assert_equal %w[flow_usd price_usd timestamp], j['data'].first.keys.sort
+    end
+  ensure
+    old.nil? ? ENV.delete('COINGLASS_API_KEY') : ENV['COINGLASS_API_KEY'] = old
+  end
+
+  # F-23 guardrail: a Cloudflare challenge page parses to zero rows and
+  # must fail the recording, never record silently.
+  def test_farside_trim_raises_on_challenge_page
+    trim = BTC::Fixtures::FARSIDE_TRIM
+    err = assert_raises(RuntimeError) { trim.call('<html><body>Just a moment...</body></html>') }
+    assert_match(/parseable farside rows/, err.message)
   end
 
   # F-20 guardrail: a board with zero parser-live rows must raise (surfacing

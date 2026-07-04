@@ -19,7 +19,7 @@ class TestScenarioContract < Minitest::Test
   # module file -> [self-reported name (F-11), URL fragment to deny,
   #                 optional extra keys in the success shape]
   MODULES = {
-    'etf_flows'     => ['etf_flows',    'farside',        %w[as_of last_5_days_usd_m]],
+    'etf_flows'     => ['etf_flows',    'farside',        %w[as_of last_5_days_usd_m source]],
     'funding_basis' => ['funding',      'fapi.binance',   %w[note]], # note only when basis < 0
     'cb_premium'    => ['cb_premium',   'coinbase',       []],
     'hash_ribbons'  => ['hash_ribbons', 'mempool',        []],
@@ -54,9 +54,8 @@ class TestScenarioContract < Minitest::Test
         skip 'binance_spot.json not yet recorded (F-21) -- owner: rake fixtures:record'
       end
     when 'etf_flows'
-      text = File.read(File.join(ROOT, 'test/fixtures/farside_flows.html'))
-                 .gsub(/<[^>]+>/, ' ').gsub(/&[a-z]+;/, ' ')
-      if text.scan(BTC::Fixtures::FARSIDE_ROWS).size < 10
+      rows = BTC::Flows.parse_flows(File.read(File.join(ROOT, 'test/fixtures/farside_flows.html')))
+      if rows.size < 10
         skip 'farside_flows.html parses below 10 rows (F-22) -- owner: rake fixtures:record'
       end
     end
@@ -75,6 +74,9 @@ class TestScenarioContract < Minitest::Test
     define_method("test_#{mod}_fail_soft_shape") do
       env = { 'FAKE_HTTP_DENY' => deny }
       env = env.merge(FRED_ENV) if mod == 'macro'
+      # etf_flows: 'farside' also denies the archive proxy (URL contains
+      # farside.co.uk); the keyed leg must be off in the test env too.
+      env['COINGLASS_API_KEY'] = nil if mod == 'etf_flows'
       j = module_json(mod, env: env)
       assert_contract_keys FAIL_SOFT_KEYS, j, "#{mod} fail-soft"
       assert_base_shape j, name
@@ -82,6 +84,19 @@ class TestScenarioContract < Minitest::Test
       assert_equal true, j['unavailable'] # F-12
       assert_match(/unavailable/, j['headline'])
     end
+  end
+
+  # F-23 leg 3: with both farside legs denied and a key set, etf_flows
+  # answers from the CoinGlass fixture and reports its source.
+  def test_etf_flows_coinglass_fallback_shape
+    unless File.exist?(File.join(ROOT, 'test/fixtures/coinglass_flows.json'))
+      skip 'coinglass_flows.json not yet recorded (F-23) -- owner: rake fixtures:record'
+    end
+    j = module_json('etf_flows', env: { 'FAKE_HTTP_DENY' => 'farside',
+                                        'COINGLASS_API_KEY' => 'contract-test-key' })
+    assert_base_shape j, 'etf_flows'
+    assert_equal 'coinglass', j['source']
+    refute j.key?('unavailable')
   end
 
   def test_macro_fail_soft_without_key

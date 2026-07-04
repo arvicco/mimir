@@ -10,7 +10,8 @@
 module BTC
   module Env
     # ENV names whose values must never appear in output or error text.
-    SECRET_ENV = %w[FRED_API_KEY CF_API_TOKEN ANTHROPIC_API_KEY].freeze
+    SECRET_ENV = %w[FRED_API_KEY CF_API_TOKEN ANTHROPIC_API_KEY
+                    COINGLASS_API_KEY].freeze
 
     module_function
 

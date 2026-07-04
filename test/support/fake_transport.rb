@@ -36,7 +36,8 @@ module FakeTransport
     ['BTC-USD/ticker',              'coinbase_ticker.json'],
     ['hashrate',                    'mempool_hashrate.json'],
     ['stablecoins',                 'defillama_stables.json'],
-    ['farside',                     'farside_flows.html'],
+    ['farside',                     'farside_flows.html'], # also matches the archive-proxy URL
+    ['flow-history',                'coinglass_flows.json'],
     ['frankfurter',                 'frankfurter_fx.json'],
     ['submissions/CIK',             'edgar_submissions.json'],
     ['Archives/edgar',              'edgar_filing.html']

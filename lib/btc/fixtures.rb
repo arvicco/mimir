@@ -21,6 +21,7 @@ require 'fileutils'
 require_relative 'http'
 require_relative 'env'
 require_relative 'options'
+require_relative 'flows'
 
 module BTC
   module Fixtures
@@ -42,19 +43,14 @@ module BTC
         (rows - alive).first(2)
     end
 
-    # etf_flows.rb's row regex, verbatim -- the trim must count rows the
-    # PARSER yields, not date-like strings (F-22: the number group
-    # swallows the next row's day number, so parsed rows ~halve).
-    FARSIDE_ROWS = /(\d{1,2}\s+[A-Z][a-z]{2}\s+\d{4})((?:\s+\(?-?[\d,.]+\)?)+)/
-
-    # shortest HTML prefix that PARSES to >= 12 daily rows (module
-    # fail-softs below 10); an insufficient page fails the recording.
+    # shortest HTML prefix that PARSES (BTC::Flows, the F-22 per-row
+    # parser) to >= 12 daily rows (the module fail-softs below 10); an
+    # insufficient page fails the recording loudly.
     FARSIDE_TRIM = lambda do |body|
       (5_000..body.size).step(5_000) do |i|
-        txt = body[0, i].gsub(/<[^>]+>/, ' ').gsub(/&[a-z]+;/, ' ')
-        return body[0, i] if txt.scan(FARSIDE_ROWS).size >= 12
+        return body[0, i] if Flows.parse_flows(body[0, i]).size >= 12
       end
-      raise 'fewer than 12 parser-live farside rows on the whole page'
+      raise 'fewer than 12 parseable farside rows on the whole page'
     end
 
     fred = lambda do |series, limit, keep|
@@ -128,7 +124,31 @@ module BTC
           JSON.generate('peggedAssets' => keep)
         } },
       { file: 'farside_flows.html',
-        url: 'https://farside.co.uk/btc/', trim: FARSIDE_TRIM },
+        # F-23 chain, mirroring etf_flows.rb: the direct page when it
+        # parses (Cloudflare challenge pages don't), else the Internet
+        # Archive's latest raw snapshot (redirects followed).
+        fetch: lambda {
+          direct = 'https://farside.co.uk/btc/'
+          body = begin
+            Http.get(direct, { 'User-Agent' => 'mimir fixtures' }, read_timeout: 30)
+          rescue StandardError
+            nil
+          end
+          return [body, direct] if body && Flows.parse_flows(body).size >= 12
+
+          arch = 'https://web.archive.org/web/2id_/https://farside.co.uk/btc/'
+          [Http.get_follow(arch, { 'User-Agent' => 'mimir fixtures' }, read_timeout: 60), arch]
+        },
+        trim: FARSIDE_TRIM },
+      { file: 'coinglass_flows.json', env: 'COINGLASS_API_KEY',
+        url: 'https://open-api-v4.coinglass.com/api/etf/bitcoin/flow-history',
+        headers: -> { { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] } },
+        trim: lambda { |b|
+          j = JSON.parse(b)
+          keep = j['data'].to_a.last(30)
+                  .map { |r| r.select { |k, _| %w[timestamp flow_usd price_usd].include?(k) } }
+          JSON.generate('code' => j['code'], 'msg' => j['msg'], 'data' => keep)
+        } },
       { file: 'frankfurter_fx.json',
         url: 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=JPY' },
       fred.call('WALCL', 6, 6),
