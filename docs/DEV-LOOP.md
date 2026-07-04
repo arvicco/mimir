@@ -129,6 +129,25 @@ Each iteration, regardless of execution vehicle (section 5):
    summary. **The owner executes the gate's human actions (section 7)
    and merges -- this is the standing approval gate.** The next phase's
    packets are elaborated in detail only after the gate closes.
+9. **Ring for the owner** whenever the loop stops on something only the
+   owner can do -- a phase gate handoff, an all-blocked stop, a
+   `decision-item` that halts progress. As the LAST tool call of that
+   turn, arm the machine's sticky attention alarm:
+
+   ```
+   nohup "$HOME/.claude/hooks/attention-alarm.sh" sticky >/dev/null 2>&1 &
+   ```
+
+   Sticky mode (Glass chime, once a minute, max 20 rings) survives
+   turn end and stops only when the owner reacts (types anything,
+   presses the mic key, runs `hush`, or clicks the Hush Dock icon).
+   Do NOT arm it earlier in the turn (any later tool call kills it via
+   hook) and do NOT ring for informational or progress-report turns --
+   the alarm is scoped to input-required moments only. (Normal mode,
+   no argument, is auto-started by the Notification hook on permission
+   prompts; the loop never invokes it directly.) On a machine without
+   the hook the command is a harmless no-op, so sessions elsewhere can
+   follow this step unconditionally.
 
 ## 5. Execution stages
 
