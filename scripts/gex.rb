@@ -28,6 +28,7 @@ require_relative '../lib/btc/options'
 require_relative '../lib/btc/util'
 require_relative '../lib/btc/deribit'
 require_relative '../lib/btc/report'
+require_relative '../lib/btc/format'
 
 # ---- fetch + parse board ---------------------------------------------------
 ccy      = ARGV.find { |a| %w[BTC ETH].include?(a.upcase) }&.upcase || 'BTC'
@@ -78,7 +79,7 @@ flip = flip && flip.round
 
 pc = BTC::Options.put_call_ratio(book) { |o| o[:oi] }
 
-fmt_m = ->(v) { format('%+.1fM', v / 1e6) }
+fmt_m = BTC::Format.method(:musd)
 fmt_k = ->(v) { v ? "#{(v / 1000.0).round(1)}k" : '--' }
 
 # ---- output -----------------------------------------------------------------
@@ -118,8 +119,4 @@ if call_wall && put_wall
 end
 
 puts
-max_abs = near.values.map(&:abs).max || 1.0
-profile.select { |k, _| (k - spot).abs / spot <= 0.15 }.sort.each do |k, v|
-  bar = '#' * [(v.abs / max_abs * 40).round, 40].min
-  puts format('%-9d %12s  %s%s', k, fmt_m.(v), v.negative? ? '-' : '+', bar)
-end
+BTC::Format.profile_bars(profile, near, spot, 9, ->(k) { format('%d', k) })
