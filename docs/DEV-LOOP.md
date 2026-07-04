@@ -1,6 +1,6 @@
 # DEV-LOOP.md -- driving mimir's implementation with Claude models
 
-*How mimir (btc-analytics) gets built with maximum unattended automation,
+*How mimir gets built with maximum unattended automation,
 minimum Fable-tier spend, and the human gates ARCHITECTURE.md already
 mandates. Modeled on the proven loop in `../nabu/docs/dev-loop.md`
 (Phases 0-1 of nabu were executed by that loop). This document is the
@@ -187,7 +187,7 @@ full freedom -- the boundary itself is hard.**
 **Hard boundary (deny-listed or owner-only, every time):**
 - `wrangler` anything; KV namespace/token creation; any non-dry-run
   publish; `rake fixtures:record` (network -- owner-triggered only).
-- Secrets: never read `~/.config/btc-analytics/env`, `.env`, `*.token`;
+- Secrets: never read `~/.config/mimir/env`, `.env`, `*.token`;
   ENV names only; error paths redact (already Golden Rule 8).
 - Pushes to `main`; force pushes; history rewrites; tags (tags are gate
   actions).
