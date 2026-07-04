@@ -119,7 +119,7 @@ Goal: replace the Rakefile stub: for each registered upstream response
 Acceptance: task implemented + unit-tested against a fake transport
       (writes correct layout without network); rake gates green.
 
-## M1-7 · Contract tests: gex family --json  [tier: fable] [status: ready] [deps: M1-6]
+## M1-7 · Contract tests: gex family --json  [tier: fable] [status: done -- gex_us pins self-enable once the owner re-records cboe_options.json (F-20)] [deps: M1-6]
 Goal: test/contract/ pins field presence/types (not values) for
       gex.rb, gex_us.rb (BOTH shapes: single-ticker object, multi
       array -- F-10), gex_btc_combined.rb (venues[], combined{},
