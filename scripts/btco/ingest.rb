@@ -52,6 +52,7 @@ require 'fileutils'
 require 'digest'
 require_relative '../../lib/btc/util'
 require_relative '../../lib/btc/http'
+require_relative 'ingest_text'
 
 DIR      = File.expand_path(__dir__)
 UNIVERSE = File.join(DIR, 'universe.json')
@@ -59,7 +60,7 @@ CAPDIR   = File.join(DIR, 'capstruct')
 PENDING  = File.join(CAPDIR, 'pending')
 STATE    = File.join(CAPDIR, 'state.json')
 FORMS    = %w[8-K 10-Q 10-K 424B5].freeze
-NUMKEYS  = %w[btc shares_basic shares_diluted debt_face pref_liq].freeze
+NUMKEYS  = Btco::NUMKEYS # canonical list lives in ingest_text.rb
 
 def arg(flag)
   BTC::Util.arg(flag)
@@ -90,40 +91,7 @@ def company(universe, ticker)
   universe['companies'].find { |c| c['ticker'] == ticker }
 end
 
-# ---- text extraction ----------------------------------------------------------
-KEYRE = /bitcoin|\bbtc\b|shares? of (?:class [ab] )?common|issued and outstanding|
-         convertible|preferred stock|liquidation preference|at-the-market|
-         notes due|aggregate principal/xi
-
-def strip_html(html)
-  html.gsub(%r{<(script|style)[^>]*>.*?</\1>}mi, ' ')
-      .gsub(/<[^>]+>/, ' ')
-      .gsub(/&nbsp;|&#160;/, ' ').gsub(/&amp;/, '&')
-      .gsub(/[ \t]+/, ' ').gsub(/\n{2,}/, "\n")
-end
-
-# keyword-window excerpting: +-1500 chars around every keyword hit,
-# merged, capped -- keeps 10-Q sized documents inside a sane prompt.
-def excerpt(text, cap = 40_000)
-  spans = []
-  text.scan(KEYRE) do
-    i = Regexp.last_match.begin(0)
-    spans << [[i - 1500, 0].max, [i + 1500, text.size].min]
-  end
-  return text[0, cap] if spans.empty?
-
-  spans.sort!
-  merged = [spans.first.dup]
-  spans.drop(1).each do |s, e|
-    if s <= merged.last[1] + 200
-      merged.last[1] = [merged.last[1], e].max
-    else
-      merged << [s, e]
-    end
-  end
-  out = merged.map { |s, e| text[s...e] }.join("\n[...]\n")
-  out[0, cap]
-end
+# ---- text extraction: Btco.strip_html / Btco.excerpt (ingest_text.rb) ---------
 
 # ---- analysis: AI -------------------------------------------------------------
 SCHEMA_NOTE = <<~SCHEMA
@@ -184,22 +152,7 @@ def heuristic_extract(text)
     'summary' => 'heuristic regex candidates only -- verify against document' }
 end
 
-# ---- proposal machinery --------------------------------------------------------
-def diff_against(cur, ext)
-  d = {}
-  NUMKEYS.each do |k|
-    v = ext[k]
-    next if v.nil? || v.to_f == cur[k].to_f
-
-    d[k] = { 'from' => cur[k], 'to' => v }
-  end
-  d['btc_as_of'] = { 'from' => cur['btc_as_of'], 'to' => ext['btc_as_of'] } if
-    ext['btc_as_of'] && ext['btc_as_of'] != cur['btc_as_of']
-  d['converts_add']    = ext['converts_add']    if ext['converts_add'].to_a.any?
-  d['converts_remove'] = ext['converts_remove'] if ext['converts_remove'].to_a.any?
-  d
-end
-
+# ---- proposal machinery (diff: Btco.diff_against, ingest_text.rb) --------------
 def write_proposal(ticker, meta, ext, diff, mode)
   path = File.join(PENDING, "#{ticker}_#{meta[:acc].to_s.delete('-')}.json")
   File.write(path, JSON.pretty_generate(
@@ -212,11 +165,11 @@ def write_proposal(ticker, meta, ext, diff, mode)
 end
 
 def analyse_one(cur, raw, meta)
-  text = excerpt(strip_html(raw))
+  text = Btco.excerpt(Btco.strip_html(raw))
   ext  = ai_extract(cur, text, meta)
   mode = ext ? 'ai' : 'heuristic'
   ext ||= heuristic_extract(text)
-  diff = diff_against(cur, ext)
+  diff = Btco.diff_against(cur, ext)
   if ext['no_material_change'] && diff.empty?
     puts format('  %-6s %s %s: no material change (%s)', cur['ticker'],
                 meta[:form], meta[:date], mode)
