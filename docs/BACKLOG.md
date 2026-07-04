@@ -194,3 +194,54 @@ ruling: `rake fixtures:verify` all OK/WARN (digest numbers sane vs
 your screen), `rake test:contract` 0 skips (confirmed), README
 updated; merge PR phase-1 -> main. (F-4's code half remains a Phase 2
 design input.)
+
+---
+
+## Phase 2 -- publish pipeline (branch: phase-2)
+Gate 1 closed 2026-07-04 (PR #2). First phase elaborated and executed
+under the revised tiering policy (DEV-LOOP.md section 2). Scope:
+ARCHITECTURE.md section 6 Phase 2; KV contracts in section 4.1/4.2.
+PUBLISH_DRY_RUN=1 is the default until Gate 2; nothing here touches
+the network except through BTC::Http, and no model ever runs a real
+publish (Golden Rule 3).
+
+## M2-1 · publish/kv_client.rb  [tier: fable -- secret-adjacent (CF_API_TOKEN) + first-of-family: retry/redaction pattern everything downstream copies] [status: ready] [deps: --]
+Goal: PUT/GET against the Cloudflare KV REST API through BTC::Http:
+      bearer auth from ENV (CF_ACCOUNT_ID/CF_KV_NAMESPACE_ID/
+      CF_API_TOKEN), bounded retries with backoff on 429/5xx, never
+      logs or raises token or payload bodies (error paths redact);
+      env-gated read-only probe registered in health.rb SOURCES.
+Acceptance: unit tests against a fake transport pin: auth header,
+      retry/backoff schedule and cap, non-retryable 4xx behavior,
+      redaction of token in every error path (incl. StatusError
+      bodies); rake green; no network in tests.
+
+## M2-2 · publish envelope + index (pure)  [tier: opus -- fully specified in ARCHITECTURE.md 4.2, pure functions with contract tests] [status: ready] [deps: --]
+Goal: publish/envelope.rb: wrap(key, payload, ttl_hint_s, now:) ->
+      {v:1, key:, generated_at:, ttl_hint_s:, source:, payload:} per
+      ARCHITECTURE 4.2 verbatim (source: hostname); build_index(rows)
+      -> v1:index payload listing every key with generated_at. The
+      envelope field set is a NEW frozen contract: contract test pins
+      exact keys in the same commit.
+Acceptance: exact-value unit tests (fixed now:); contract test on the
+      field set; rake green; no IO in the module.
+
+## M2-3 · publish/publish.rb orchestrator (dry-run first)  [tier: opus -- glue against M2-1/M2-2 with a written spec and offline oracle] [status: ready] [deps: M2-1, M2-2]
+Goal: collect the four suites' freshest --json outputs (BTC::Suite
+      subprocess runs; scenario history + lppl ledger tails per
+      ARCHITECTURE 4.1), wrap envelopes, and: PUBLISH_DRY_RUN=1
+      (default) -> write the full artifact set to
+      data/publish_preview/ and /tmp/publish.status line; real mode
+      (explicit PUBLISH_DRY_RUN=0 + CF_* env) -> kv_client PUTs of
+      v1:* keys + v1:index. A failed suite publishes its fail-soft
+      JSON, never blocks the others.
+Acceptance: dry-run layout + status-line format pinned offline via
+      fake transport + synthetic suite outputs; per-key envelope
+      correctness; no network in tests; rake green. Real-mode PUTs
+      exercised only against the fake transport.
+
+## Gate 2 (human)
+Owner reviews the dry-run artifact set (data/publish_preview/ -- the
+loop provides exact files + what sane looks like), creates the KV
+namespace + scoped token (dashboard or wrangler, human-only), runs the
+first real publish by hand. README updated before the gate.
