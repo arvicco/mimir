@@ -102,14 +102,56 @@ readings, merge PR `phase-0 -> main`.
 
 ---
 
-## Phase 1 -- seams, contracts + reviewed refactoring
-Elaborated at Gate 0. Sketch (DEV-LOOP.md section 8): M1-1 http seam ·
-M1-2..5 per-suite migration · M1-6 fixtures:record · M1-7..11 contract
-tests. All [tier: fable] (Stage 0).
-Delivered early in Phase 0 by owner request: M1-12 BTC_DATA_DIR (F-8);
-memo refactors F-1/F-2/F-5 (fixes), F-14/F-15 (lib/btc extraction),
-F-13 http seam + all call-site migration (M1-1 core, so M1-2..5 are
-done too), F-6 redaction-at-output, F-12 'unavailable' marker.
-Remaining Phase 1 scope: M1-6 fixtures:record + M1-7..11 contract
-tests (which also pin F-9/F-10/F-11/F-12). F-4's code half stays a
-Phase 2 design input.
+## Phase 1 -- fixtures + contract tests (branch: phase-1)
+Gate 0 closed 2026-07-04 (PR #1). M1-1..5 (seam + migration) and M1-12
+(BTC_DATA_DIR) were delivered in Phase 0, as were the memo refactors.
+All [tier: fable] (Stage 0).
+
+## M1-6 · Implement rake fixtures:record  [tier: fable] [status: ready] [deps: --]
+Goal: replace the Rakefile stub: for each registered upstream response
+      shape, fetch once through BTC::Http, trim to minimum size (drop
+      rows beyond what parsers need), redact anything sensitive, write
+      test/fixtures/<source>_<shape>.json + per-file provenance note
+      (url, retrieved date). Reuses lib/btc/health.rb's SOURCES where
+      shapes align; adds fixture-only shapes (full option book slice,
+      farside HTML sample, EDGAR filing excerpt, stooq gone -- cboe
+      quote). RUNNING it stays owner-only (network; deny-listed).
+Acceptance: task implemented + unit-tested against a fake transport
+      (writes correct layout without network); rake gates green.
+
+## M1-7 · Contract tests: gex family --json  [tier: fable] [status: ready] [deps: M1-6]
+Goal: test/contract/ pins field presence/types (not values) for
+      gex.rb, gex_us.rb (BOTH shapes: single-ticker object, multi
+      array -- F-10), gex_btc_combined.rb (venues[], combined{},
+      profile{}), via fixtures + injected transport.
+Acceptance: red against a mutated fixture, green against real; no network.
+
+## M1-8 · Contract tests: scenario modules + aggregator  [tier: fable] [status: ready] [deps: M1-6]
+Goal: per-module --json contract (name/score/headline/ts; the
+      funding/onchain name quirks pinned -- F-11), fail-soft shape with
+      'unavailable': true (F-12), one-JSON-line stdout discipline
+      (F-9), aggregator composite/regime fields.
+Acceptance: every module covered; no network.
+
+## M1-9 · Contract tests: lppl tests + aggregator  [tier: fable] [status: ready] [deps: M1-6]
+Goal: per-test --json contracts on a synthetic price cache written to
+      a temp BTC_DATA_DIR (tests run the real scripts offline); ledger
+      line field set; status_line format.
+Acceptance: all five tests + aggregator covered; no network.
+
+## M1-10 · Contract tests: btco --json  [tier: fable] [status: ready] [deps: M1-6]
+Goal: success shape (companies[], stress fields) on a synthetic
+      universe + fixture quotes; fail-soft shape; --tmux line format.
+Acceptance: covered incl. STALE/placeholder flags; no network.
+
+## M1-11 · Contract test: ingest proposal schema  [tier: fable] [status: ready] [deps: --]
+Goal: proposal JSON shape (ticker/accession/form/diff/extraction keys)
+      + diff computation on fixture excerpts; extraction prompt/schema
+      text pinned verbatim (Golden Rule 5 tripwire).
+Acceptance: no ANTHROPIC_API_KEY, no network.
+
+## Gate 1 (human)
+Owner runs `rake fixtures:record` once and reviews the recorded
+fixtures diff; field-set contracts green for all modules; README
+updated; PR phase-1 -> main merged. (F-4's code half remains a Phase 2
+design input.)

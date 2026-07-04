@@ -4,6 +4,7 @@ One line per completed packet: date · packet · commit · notes.
 
 ---
 
+2026-07-04 · gate-0 CLOSED · 13eea5b · Owner merged PR #1; prices eyeballed fine; legacy crontabs scrapped pending Phase 5 ops; FRED/EDGAR key setup deferred to owner discussion. Phase 1 opened on branch phase-1: M1-6 fixtures:record + M1-7..11 contract tests elaborated.
 2026-07-04 · gate-0 · -- · PR #1 opened (phase-0 -> main, 41 commits): all Phase 0 packets done, gates green, capture review complete. Owner merges to close Gate 0; CLAUDE.md phase line updates post-merge.
 2026-07-04 · M0-9 · -- · docs/METHODOLOGY.md (owner request): interpretation guide for all four tool families -- rationale, model assumptions, field-by-field output tables, status-line decodes, worked LPPL reading (incl. the trend-BF cache-density caveat explaining -61 vs -425 magnitudes), quick score reference. Linked from README.
 2026-07-04 · F-17/F-18+/F-19 · 08f6727..130395a · F-16/F-17 signed off; btco repriced via CBOE + Frankfurter (6/7 live, manual_px for JP). Health framework built (owner request): offline conventions scan joins the default gate; rake health:sources probes 14 registered endpoints with shape validators + anti-drift markers. Its first run caught F-19 (community tier gated CapRealUSD -> MVRV module silently score-0 for unknown duration); fixed via CapMVRVCur + derived realized price, all sources green. Loop discipline added: owner verification asks must carry exact commands.
