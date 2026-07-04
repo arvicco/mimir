@@ -4,6 +4,7 @@ One line per completed packet: date · packet · commit · notes.
 
 ---
 
+2026-07-04 · M0-4..M0-8 · d07c5b6..8be32be · Characterization complete: deep bs_gamma properties + parser edge pins (M0-4/5); Lppl.lomb + reciprocal_envelope extracted and pinned on synthetic tone/decay, tolerance policy set (M0-6); Btco.company_row extracted, every metrics branch pinned on synthetic universe incl. JPY listing (M0-7); Btco strip_html/excerpt/diff_against extracted with window-geometry and diff-semantics pins (M0-8). All Phase 0 packets done; Gate 0 awaits owner captures + README/memo acceptance + PR merge.
 2026-07-04 · M0-3 (draft) · -- · README.md v1: per-tool capabilities/commands/ENV with honest maturity (btco placeholder data called out), shared conventions, explicit not-implemented list (publish/charts/dashboard/fixtures), dev pointers. Owner accepts at Gate 0. M0-2 marked done (open R-items are Gate 0 decision items).
 
 2026-07-03 · R-1..R-10 (recommended) · 0341e3c..2ce01e0 · Round-2 fixes: BTC::Deribit venue helper (5x index fetch collapsed, R-8 get_json ambiguity dissolved, verified live), Options.sign single definition, BTC::Suite.run_module + Report.status, suite namespace rule (Scenario/Lppl/Btco -- kills the double module Common landmine). Optional R-3/6/7 and flagged R-11/12/13 await owner review.
