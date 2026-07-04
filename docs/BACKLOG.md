@@ -76,7 +76,7 @@ Goal: pin CEBE / mNAV / convert ITM-OTM treatment from btco.rb on a
 Acceptance: rake test green; synthetic universe as inline fixture (no
       real universe.json dependency); every metric branch hit; no network.
 
-## M0-8 · Characterization: ingest pure parts  [tier: fable] [status: ready] [deps: --]
+## M0-8 · Characterization: ingest pure parts  [tier: fable] [status: done] [deps: --]
 Goal: pin ingest.rb's pure functions: `excerpt` windowing (boundaries,
       overlaps, short docs) and `diff_against` (added/changed/removed
       detection on synthetic before/after models).
