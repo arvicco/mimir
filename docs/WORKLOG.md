@@ -3,6 +3,7 @@
 One line per completed packet: date · packet · commit · notes.
 
 ---
+2026-07-04 · F-20 + M1-7 · 63d36aa.. · Fixture board trims fixed to pick parser-live far-dated rows (pre-fix recording captured an expired zero-greek CBOE weekly board); owner re-record queued. Contract harness built: test/support/fake_transport.rb preload shim (fixture-backed transport via RUBYOPT, FAKE_NOW clock frozen to the provenance stamp so expiring fixtures never age out) + contract_helper with exact key-set pins. gex family covered: gex.rb/gex_us.rb both F-10 shapes/combined venues+combined+profile, --tmux line formats, abort-on-dead-source; red-check verified by key rename.
 
 2026-07-04 · M1-6 · -- · BTC::Fixtures recorder behind rake fixtures:record: 17 registered shapes (gex venues, all scenario sources incl. 4 FRED series, coinmetrics, edgar submissions + dependent 8-K doc fetch), per-shape trims (slimmed CBOE rows, USDT+USDC-only stables, consistent EDGAR array slices, farside shortest-prefix HTML), provenance README with redacted URLs. Unit-tested against fake transport; recording stays owner-run.
 2026-07-04 · gate-0 CLOSED · 13eea5b · Owner merged PR #1; prices eyeballed fine; legacy crontabs scrapped pending Phase 5 ops; FRED/EDGAR key setup deferred to owner discussion. Phase 1 opened on branch phase-1: M1-6 fixtures:record + M1-7..11 contract tests elaborated.
