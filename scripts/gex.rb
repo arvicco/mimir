@@ -59,22 +59,15 @@ end.compact
 abort 'no live instruments parsed' if book.empty?
 
 # ---- dollar gamma per 1% move at hypothetical index level x ----------------
-# Each instrument's forward is scaled proportionally with the index.
+# Each instrument's forward is scaled proportionally with the index;
+# notional at s^2 per the R-12 ruling (reconciles with gex_btc_combined).
 def net_gex(book, spot, x)
-  book.sum do |o|
-    s = o[:u] * x / spot
-    BTC::Options.sign(o[:cp]) *
-      BTC::Options.bs_gamma(s, o[:k], o[:t], o[:iv]) * o[:oi] * x * x * 0.01
-  end
+  book.sum { |o| BTC::Options.inst_gex(o, o[:u] * x / spot) }
 end
 
 # ---- strike profile at current spot ----------------------------------------
 profile = Hash.new(0.0)
-book.each do |o|
-  profile[o[:k]] += BTC::Options.sign(o[:cp]) *
-                    BTC::Options.bs_gamma(o[:u], o[:k], o[:t], o[:iv]) *
-                    o[:oi] * spot * spot * 0.01
-end
+book.each { |o| profile[o[:k]] += BTC::Options.inst_gex(o, o[:u]) }
 
 near, call_wall, put_wall = BTC::Options.walls(profile, spot)
 total = profile.values.sum
@@ -83,9 +76,7 @@ total = profile.values.sum
 flip = BTC::Options.gamma_flip(spot) { |x| net_gex(book, spot, x) }
 flip = flip && flip.round
 
-put_oi  = book.sum { |o| o[:cp] == 'P' ? o[:oi] : 0.0 }
-call_oi = book.sum { |o| o[:cp] == 'C' ? o[:oi] : 0.0 }
-pc      = call_oi.zero? ? 0.0 : put_oi / call_oi
+pc = BTC::Options.put_call_ratio(book) { |o| o[:oi] }
 
 fmt_m = ->(v) { format('%+.1fM', v / 1e6) }
 fmt_k = ->(v) { v ? "#{(v / 1000.0).round(1)}k" : '--' }

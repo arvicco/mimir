@@ -42,6 +42,23 @@ module BTC
       o[:iv] > 0 ? bs_gamma(s, o[:k], o[:t], o[:iv]) : o[:gp]
     end
 
+    # Dollar gamma per 1% move for one instrument, evaluated at the
+    # instrument's own underlying level s (per the R-12 owner ruling:
+    # notional scales with s^2, never with the index level), times the
+    # contract multiplier. THE per-instrument GEX formula -- all three
+    # gex tools compose exactly this.
+    def inst_gex(o, s, mult = 1.0)
+      sign(o[:cp]) * gamma_at(o, s) * o[:oi] * mult * s * s * 0.01
+    end
+
+    # Put/call open-interest ratio; per-instrument weight supplied by
+    # the block (raw OI, BTC-equivalent OI, ...). 0.0 without call OI.
+    def put_call_ratio(book)
+      put  = book.sum { |o| o[:cp] == 'P' ? yield(o) : 0.0 }
+      call = book.sum { |o| o[:cp] == 'C' ? yield(o) : 0.0 }
+      call.zero? ? 0.0 : put / call
+    end
+
     # Deribit expiry code ('27MAR26', '3JUL26') -> Time (08:00 UTC) or nil.
     def deribit_expiry(exp)
       m = exp && exp.match(/\A(\d{1,2})([A-Z]{3})(\d{2})\z/) or return nil

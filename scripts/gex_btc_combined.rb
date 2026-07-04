@@ -52,9 +52,7 @@ end
 # USD gamma per 1% BTC move for one instrument, with BTC at hypothetical
 # level x (its underlying scaled proportionally from spot).
 def gex_at(o, btc_spot, x)
-  s = o[:u] * x / btc_spot
-  BTC::Options.sign(o[:cp]) *
-    BTC::Options.gamma_at(o, s) * o[:oi] * o[:cm] * s * s * 0.01
+  BTC::Options.inst_gex(o, o[:u] * x / btc_spot, o[:cm])
 end
 
 # Open interest in BTC-equivalent units (for cross-venue P/C).
@@ -141,15 +139,12 @@ all_book = venues.values.flatten
 
 per_venue = venues.map do |name, book|
   tot = book.inject(0.0) { |a, o| a + gex_at(o, btc_spot, btc_spot) }
-  poi = book.inject(0.0) { |a, o| a + (o[:cp] == 'P' ? oi_btc(o, btc_spot) : 0.0) }
-  coi = book.inject(0.0) { |a, o| a + (o[:cp] == 'C' ? oi_btc(o, btc_spot) : 0.0) }
-  { name: name, net: tot, n: book.size, pc: coi.zero? ? 0.0 : poi / coi }
+  { name: name, net: tot, n: book.size,
+    pc: BTC::Options.put_call_ratio(book) { |o| oi_btc(o, btc_spot) } }
 end
 
-total   = per_venue.inject(0.0) { |a, v| a + v[:net] }
-poi_all = all_book.inject(0.0) { |a, o| a + (o[:cp] == 'P' ? oi_btc(o, btc_spot) : 0.0) }
-coi_all = all_book.inject(0.0) { |a, o| a + (o[:cp] == 'C' ? oi_btc(o, btc_spot) : 0.0) }
-pc_all  = coi_all.zero? ? 0.0 : poi_all / coi_all
+total  = per_venue.inject(0.0) { |a, v| a + v[:net] }
+pc_all = BTC::Options.put_call_ratio(all_book) { |o| oi_btc(o, btc_spot) }
 
 # Bucketed profile on the BTC price axis.
 profile = Hash.new(0.0)

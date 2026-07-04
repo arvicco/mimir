@@ -72,12 +72,10 @@ def parse_chain(ticker, max_days, now)
   [spot, book]
 end
 
-# Dollar gamma per 1% move at hypothetical spot x.
+# Dollar gamma per 1% move at hypothetical spot x (x IS each
+# instrument's underlying here -- single-name chains).
 def net_gex(book, x)
-  book.sum do |o|
-    BTC::Options.sign(o[:cp]) *
-      BTC::Options.gamma_at(o, x) * o[:oi] * MULT * x * x * 0.01
-  end
+  book.sum { |o| BTC::Options.inst_gex(o, x, MULT) }
 end
 
 # ---- main -------------------------------------------------------------------
@@ -105,11 +103,7 @@ tickers.each do |ticker|
   spot, book = parse_chain(ticker, max_days, now)
 
   profile = Hash.new(0.0)
-  book.each do |o|
-    profile[o[:k]] += BTC::Options.sign(o[:cp]) *
-                      BTC::Options.gamma_at(o, spot) * o[:oi] * MULT *
-                      spot * spot * 0.01
-  end
+  book.each { |o| profile[o[:k]] += BTC::Options.inst_gex(o, spot, MULT) }
 
   near, call_wall, put_wall = BTC::Options.walls(profile, spot)
   total = profile.values.sum
@@ -117,9 +111,7 @@ tickers.each do |ticker|
   flip = BTC::Options.gamma_flip(spot) { |x| net_gex(book, x) }
   flip = flip && flip.round(2)
 
-  put_oi  = book.sum { |o| o[:cp] == 'P' ? o[:oi] : 0.0 }
-  call_oi = book.sum { |o| o[:cp] == 'C' ? o[:oi] : 0.0 }
-  pc      = call_oi.zero? ? 0.0 : put_oi / call_oi
+  pc = BTC::Options.put_call_ratio(book) { |o| o[:oi] }
 
   ratio  = btc_spot && BTC_ETFS.include?(ticker) ? spot / btc_spot : nil
   to_btc = ->(v) { v && ratio ? v / ratio : nil }
