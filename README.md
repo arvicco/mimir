@@ -19,7 +19,7 @@ no bundle install. Run everything from the repo root.
 | `scripts/gex_btc_combined.rb` | cross-venue BTC GEX on one BTC axis | newer, math verified |
 | `scripts/scenario/scenario.rb` | -1/0/+1 regime composite from 7 signals | mature |
 | `scripts/lppl/lppl.rb` | LPPL regime verdict from 5 falsification tests | new but rigorous; builds caches on first run |
-| `scripts/btco/btco.rb` | treasury-company metrics + stress score | **seed data is placeholder** -- refresh before trusting numbers |
+| `scripts/btco/btco.rb` | treasury-company metrics + stress score | **seed data is placeholder**; live quote source (Stooq) died upstream 2026-07 -- currently needs `manual_px` (replacement pending, TOOL-REVIEW F-17) |
 | `scripts/btco/ingest.rb` | EDGAR filing -> reviewed universe updates | newest, lightly exercised |
 
 Shared conventions: `--json` (machine output, frozen contract),
@@ -86,6 +86,10 @@ ruby scripts/btco/ingest.rb --review  # inspect proposals, then --apply <acc>
 
 Fundamentals live in `scripts/btco/universe.json` (human-maintained,
 per-field as-of dates); only prices/FX/BTC spot are fetched live.
+**Known break:** the Stooq quote API died upstream (2026-07), so live
+prices/FX are unavailable -- entries need `manual_px` until the
+replacement source is decided (TOOL-REVIEW.md F-17); the tool degrades
+to a score-0 report meanwhile.
 **Every shipped universe entry is `placeholder: true` seed data --
 update via ingest before the numbers mean anything.** `ingest.rb` with
 `ANTHROPIC_API_KEY` set uses Claude extraction (model override:

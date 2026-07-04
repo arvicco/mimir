@@ -34,7 +34,7 @@ Acceptance: memo covers 100% of scripts/; each tool has an explicit
       owner has reviewed and the agreed findings are marked -- these
       seed Phase 1's M1-13..n refactor packets.
 
-## M0-3 · README.md v1  [tier: fable] [status: in-progress -- drafted, owner accepts at Gate 0] [deps: M0-2]
+## M0-3 · README.md v1  [tier: fable] [status: done -- owner accepted 2026-07-04] [deps: M0-2]
 Goal: user-facing README at repo root: what each tool does today, exact
       commands (incl. --json/--tmux/--skip-update flags), required ENV
       per tool, per-tool maturity honestly stated (from the M0-2 memo),
@@ -84,9 +84,12 @@ Acceptance: rake test green; no ANTHROPIC_API_KEY needed, no network;
       extraction prompt/schema untouched (contract, Golden Rule 5).
 
 ## Gate 0 (human)
-Byte-identical `--json` runs vs owner-provided pre-import captures
-(loop prints the exact capture commands); M0-2 memo reviewed; M0-3
-README accepted; PR `phase-0 -> main` merged by owner.
+~~Byte-identical vs pre-import captures~~ amended (no pre-import copies
+survived): characterization suite + loop-run capture review
+(TOOL-REVIEW.md section 6, done 2026-07-04). Memo + README accepted.
+Remaining owner actions: sign off F-16 (Coin Metrics price source),
+rule F-17 (btco quote-source replacement), eyeball the first LPPL
+readings, merge PR `phase-0 -> main`.
 
 ---
 

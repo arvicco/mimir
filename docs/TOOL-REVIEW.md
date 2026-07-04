@@ -260,6 +260,17 @@ Still open for owner review: optional R-3/R-6/R-7; flagged R-11/R-12
   `BTC::*`.** metrics.rb becomes `module Btco` (with R-9 this makes the
   three suites uniform).
 
+### Round-2 optional/flagged -- final dispositions (owner, 2026-07-04)
+
+Owner ruled "implement R-1..R-13 as recommended; R-12 unify". R-3
+(put_call_ratio), R-6/R-7 (BTC::Format bars + musd) implemented
+(fcbcfb2, 3fc8466). **R-12: unified to the s^2 convention**
+(gex_btc_combined's): notional scales with each instrument's own
+underlying, never the index -- Options.inst_gex is now THE formula and
+gex.rb's published numbers changed accordingly (approved analytics
+change; verified live: per-venue figures reconcile to ppm).
+R-11/R-13 stay as documented, no code change (as recommended).
+
 ### Flag only -- do not touch
 
 - **R-11 · Wall key naming differs in frozen JSON**: gex.rb walls carry
@@ -275,3 +286,44 @@ Still open for owner review: optional R-3/R-6/R-7; flagged R-11/R-12
 - **R-13 · funding/onchain file-vs-name mismatch** (= F-11): renaming
   the files would change the `scores` keys in history.jsonl (breaks
   accumulated history) -- leave documented as is.
+
+## 6. Gate 0 capture review (2026-07-04, loop-run per owner approval)
+
+No pre-import tool copies survived anywhere on this machine, so the
+gate's byte-identical old-vs-new criterion is impossible as written;
+**amended criterion**: characterization suite (102 tests pinning all
+extracted math) + these reviewed fresh captures (data/gate0_captures/,
+gitignored). Findings:
+
+- **F-16 · CryptoCompare price history key-gated upstream** (HTTP 401,
+  observed 2026-07-04) -- lppl's price source died. With owner's
+  remedy mandate and NO surviving cache to mix series, prices.rb was
+  switched to the Coin Metrics community API (PriceUSD reference rate,
+  keyless, 2010-07+ -- the provider onchain_value.rb already trusts).
+  Cache format and all consumers unchanged; 5,830 rows rebuilt;
+  incremental rerun idempotent. **Reference-rate closes differ slightly
+  from exchange closes: data-source change, owner sign-off requested.**
+- **F-17 · Stooq quote API dead upstream** (404 on /q/l/, /q/d/l/ now
+  JS-gated; confirmed via plain curl, pre-dates the seam). btco.rb has
+  no live share-price source and fail-softs to 'no companies priced'
+  (correctly). **[decision]** Recommended replacement: CBOE delayed
+  quotes for US tickers (same feed gex_us already trusts; carries
+  current_price/close per symbol), Frankfurter (ECB, keyless) for FX,
+  manual_px for Metaplanet. Until ruled, btco is only usable with
+  manual_px entries.
+- **F-18 · brace-less trailing hash at two Http.get call sites** parsed
+  as keyword args by modern Ruby -> gex_us aborted, combined silently
+  ran Deribit-only (venue fail-soft masked it). Fixed same day
+  (e2525e8); all call sites audited. Lesson recorded: capture runs
+  catch what unit tests can't -- combined's masking is exactly the
+  fail-soft/monitoring blind spot the Phase 2 envelope must expose.
+- **Analytics observation (no action)**: first LPPL run on the new
+  price series prints trailing-1y BF of -61 (trend decisively rejected
+  vs rivals over the past year), verdict STRESSED via the trend
+  override; envelope intact (0.464 vs bound 0.434), fit passes 4/4
+  filters but projects no interior trough; percentile at a record-low
+  Z (-1.82, 0.19th empirical pctile). Self-consistent with a deep
+  drawdown regime; owner should eyeball before trusting the ledger.
+- Minor: CBOE returned 403 for BRRR only (skipped by venue fail-soft);
+  scenario composite LEAN-FLUSH -0.167 with macro score-0 here (no
+  FRED key in this env -- expected); all other captures sane.
