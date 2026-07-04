@@ -108,8 +108,9 @@ are ledgered in `capstruct/<TICKER>.jsonl`.
 ## Development
 
 ```
-rake            # compat (syntax) + full test suite -- the pre-commit gate
-rake test:unit  # just the unit tests
+rake                 # compat + health (offline) + tests -- the pre-commit gate
+rake test:unit       # just the unit tests
+rake health:sources  # probe all upstream data sources (network, read-only)
 ```
 
 Read `CLAUDE.md` (ground rules), `ARCHITECTURE.md` (design + phases),
