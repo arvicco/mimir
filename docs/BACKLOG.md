@@ -107,7 +107,7 @@ Gate 0 closed 2026-07-04 (PR #1). M1-1..5 (seam + migration) and M1-12
 (BTC_DATA_DIR) were delivered in Phase 0, as were the memo refactors.
 All [tier: fable] (Stage 0).
 
-## M1-6 · Implement rake fixtures:record  [tier: fable] [status: ready] [deps: --]
+## M1-6 · Implement rake fixtures:record  [tier: fable] [status: done -- implementation; recording itself is the owner-run Gate 1 step] [deps: --]
 Goal: replace the Rakefile stub: for each registered upstream response
       shape, fetch once through BTC::Http, trim to minimum size (drop
       rows beyond what parsers need), redact anything sensitive, write
