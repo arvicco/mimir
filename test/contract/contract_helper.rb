@@ -31,8 +31,8 @@ module ContractHelpers
   def run_script(script, *argv, env: {})
     base = { 'RUBYOPT' => "-I#{SUPPORT} -rfake_transport",
              'FAKE_NOW' => RECORDED_NOW }
-    Open3.capture3(base.merge(env), RbConfig.ruby,
-                   File.join(ROOT, script), *argv, chdir: ROOT)
+    path = script.start_with?('/') ? script : File.join(ROOT, script)
+    Open3.capture3(base.merge(env), RbConfig.ruby, path, *argv, chdir: ROOT)
   end
 
   # Run expecting success; parse stdout as one JSON document.
