@@ -40,7 +40,7 @@ end
 desc 'Offline health scan: conventions/interfaces + source-registry integrity'
 task :health do
   require_relative 'lib/btc/health'
-  scripts = Hash[Dir.glob('scripts/**/*.rb').map { |f| [f, File.read(f)] }]
+  scripts = Hash[Dir.glob('{scripts,publish}/**/*.rb').map { |f| [f, File.read(f)] }]
   libs    = Hash[Dir.glob('lib/**/*.rb').map { |f| [f, File.read(f)] }]
   bad = BTC::Health.scan_conventions(scripts) +
         BTC::Health.scan_frozen(libs) +
