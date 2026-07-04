@@ -144,7 +144,7 @@ Goal: success shape (companies[], stress fields) on a synthetic
       universe + fixture quotes; fail-soft shape; --tmux line format.
 Acceptance: covered incl. STALE/placeholder flags; no network.
 
-## M1-11 · Contract test: ingest proposal schema  [tier: fable] [status: ready] [deps: --]
+## M1-11 · Contract test: ingest proposal schema  [tier: fable] [status: done] [deps: --]
 Goal: proposal JSON shape (ticker/accession/form/diff/extraction keys)
       + diff computation on fixture excerpts; extraction prompt/schema
       text pinned verbatim (Golden Rule 5 tripwire).
