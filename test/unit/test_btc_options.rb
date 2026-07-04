@@ -82,6 +82,24 @@ class TestBsGamma < Minitest::Test
     assert_operator atm, :>, BTC::Options.bs_gamma(100.0, 130.0, 0.25, 0.5)
     assert_operator atm, :>, BTC::Options.bs_gamma(100.0, 75.0, 0.25, 0.5)
   end
+
+  def test_inst_gex_composes_sign_gamma_oi_mult_s_squared
+    o = { cp: 'P', k: 100.0, t: 0.25, iv: 0.5, oi: 10.0, gp: 0.0 }
+    expected = -1.0 * BTC::Options.bs_gamma(95.0, 100.0, 0.25, 0.5) *
+               10.0 * 100.0 * 95.0 * 95.0 * 0.01
+    assert_close expected, BTC::Options.inst_gex(o, 95.0, 100.0), 1e-9
+    # default multiplier 1.0 (Deribit-style)
+    assert_close expected / 100.0, BTC::Options.inst_gex(o, 95.0), 1e-9
+  end
+
+  def test_put_call_ratio_with_weights
+    book = [{ cp: 'P', oi: 30.0, w: 3.0 }, { cp: 'C', oi: 60.0, w: 1.0 },
+            { cp: 'C', oi: 40.0, w: 1.0 }]
+    assert_close 0.3, BTC::Options.put_call_ratio(book) { |o| o[:oi] }
+    assert_close 0.9, BTC::Options.put_call_ratio(book) { |o| o[:oi] * o[:w] }
+    calls_only = book.reject { |o| o[:cp] == 'C' }
+    assert_equal 0.0, BTC::Options.put_call_ratio(calls_only) { |o| o[:oi] }
+  end
 end
 
 class TestInstrumentParsing < Minitest::Test
