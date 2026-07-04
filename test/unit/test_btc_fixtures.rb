@@ -17,16 +17,21 @@ class TestBtcFixtures < Minitest::Test
   # Canned bodies keyed by a distinctive URL fragment.
   CANNED = {
     'get_index_price'    => '{"result":{"index_price":62000.0}}',
+    # far-future canned expiries (2036/37) so the unit test itself does
+    # not age; the expired 2020 row pins the F-20 exclusion.
     'kind=option'        => JSON.generate('result' =>
-      (1..6).map { |i| { 'instrument_name' => "BTC-27MAR26-#{90 + i}000-C", 'open_interest' => 5.0 } } +
-      (1..6).map { |i| { 'instrument_name' => "BTC-27MAR26-#{60 + i}000-P", 'open_interest' => 3.0 } } +
-      (1..4).map { |i| { 'instrument_name' => "BTC-26JUN26-#{50 + i}000-C", 'open_interest' => 0.0 } }),
+      (1..6).map { |i| { 'instrument_name' => "BTC-26DEC36-#{90 + i}000-C", 'open_interest' => 5.0, 'mark_iv' => 55.0 } } +
+      (1..6).map { |i| { 'instrument_name' => "BTC-25SEP37-#{60 + i}000-P", 'open_interest' => 3.0, 'mark_iv' => 60.0 } } +
+      [{ 'instrument_name' => 'BTC-27MAR20-50000-C', 'open_interest' => 9.0, 'mark_iv' => 40.0 }] +
+      (1..3).map { |i| { 'instrument_name' => "BTC-26JUN37-#{50 + i}000-C", 'open_interest' => 0.0 } }),
     'kind=future'        => JSON.generate('result' => (1..9).map { |i| { 'instrument_name' => "F#{i}" } }),
     'delayed_quotes'     => JSON.generate('data' => {
       'current_price' => 34.8, 'close' => 34.7, 'extra' => 'drop-me',
-      'options' => (1..5).map { |i| { 'option' => "IBIT260327C0010#{i}000", 'iv' => 0.5, 'gamma' => 0.01, 'open_interest' => 9, 'theta' => -1 } } +
-                   (1..5).map { |i| { 'option' => "IBIT260327P0009#{i}000", 'iv' => 0.5, 'gamma' => 0.01, 'open_interest' => 9, 'theta' => -1 } } +
-                   [{ 'option' => 'IBIT260327C00200000', 'iv' => 0.5, 'gamma' => 0.01, 'open_interest' => 0 }] }),
+      'options' => (1..5).map { |i| { 'option' => "IBIT361218C0010#{i}000", 'iv' => 0.5, 'gamma' => 0.01, 'open_interest' => 9, 'theta' => -1 } } +
+                   (1..5).map { |i| { 'option' => "IBIT361218P0009#{i}000", 'iv' => 0.5, 'gamma' => 0.01, 'open_interest' => 9, 'theta' => -1 } } +
+                   # the two F-20 dead shapes: expired-with-OI, zero-OI
+                   [{ 'option' => 'IBIT260702C00020000', 'iv' => 0.0, 'gamma' => 0.0, 'open_interest' => 71 },
+                    { 'option' => 'IBIT361218C00200000', 'iv' => 0.5, 'gamma' => 0.01, 'open_interest' => 0 }] }),
     'metrics=PriceUSD'   => '{"data":[{"PriceUSD":"62000"}],"next_page_url":"x"}',
     'metrics=CapMVRVCur' => '{"data":[{"CapMVRVCur":"1.18","PriceUSD":"62000"}],"next_page_url":"x"}',
     'fundingRate'        => JSON.generate((1..21).map { { 'fundingRate' => '0.0001' } }),
@@ -100,10 +105,19 @@ class TestBtcFixtures < Minitest::Test
   def test_trims_book_cboe_stables_and_submissions
     record do |dir, _|
       book = JSON.parse(File.read(File.join(dir, 'deribit_book_summary.json')))['result']
-      assert_equal 10, book.size # 4 calls + 4 puts + 2 zero-OI
+      assert_equal 10, book.size # 4 live calls + 4 live puts + 2 dead
+      names = book.map { |r| r['instrument_name'] }
+      assert_equal 4, names.count { |n| n.include?('DEC36') && n.end_with?('-C') }
+      assert_equal 4, names.count { |n| n.include?('SEP37') && n.end_with?('-P') }
+      # F-20: expired-with-OI row lands in the dead tail, never the live picks
+      assert_includes names.last(2), 'BTC-27MAR20-50000-C'
+      refute_includes names.first(8), 'BTC-27MAR20-50000-C'
 
       cboe = JSON.parse(File.read(File.join(dir, 'cboe_options.json')))['data']
-      assert_equal 9, cboe['options'].size
+      assert_equal 10, cboe['options'].size # 4 live calls + 4 live puts + 2 dead
+      codes = cboe['options'].map { |o| o['option'] }
+      assert(codes.first(8).all? { |c| c.include?('3612') }) # far-dated live only
+      assert_includes codes.last(2), 'IBIT260702C00020000' # expired weekly = dead
       refute cboe.key?('extra')
       refute cboe['options'].first.key?('theta') # slimmed to parser fields
 
@@ -132,6 +146,17 @@ class TestBtcFixtures < Minitest::Test
       assert_equal 60_000, filing.size
       assert filing.start_with?('FILING BODY')
     end
+  end
+
+  # F-20 guardrail: a board with zero parser-live rows must raise (surfacing
+  # as FAIL in rake fixtures:record), never record a dead fixture silently.
+  def test_trim_raises_on_parser_dead_board
+    dead = JSON.generate('data' => { 'current_price' => 1.0, 'close' => 1.0,
+                                     'options' => [{ 'option' => 'IBIT200101C00010000', 'iv' => 0.0,
+                                                     'gamma' => 0.0, 'open_interest' => 5 }] })
+    trim = BTC::Fixtures::FIXTURES.find { |f| f[:file] == 'cboe_options.json' }[:trim]
+    err = assert_raises(RuntimeError) { trim.call(dead) }
+    assert_match(/parser-live/, err.message)
   end
 
   def test_readme_provenance_written

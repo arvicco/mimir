@@ -10,11 +10,17 @@
 #
 # Trimming is part of the frozen fixture shape: contract tests pin
 # against these exact structures. Changing a trim is a contract change.
+#
+# Option-board rows are selected PARSER-live (unexpired at record time,
+# nonzero greeks), far-dated first so fixtures age slowly -- CBOE lists
+# expired weeklies first, and a board of parser-dead rows is useless to
+# the contract tests (F-20).
 
 require 'json'
 require 'fileutils'
 require_relative 'http'
 require_relative 'env'
+require_relative 'options'
 
 module BTC
   module Fixtures
@@ -23,6 +29,18 @@ module BTC
 
     # slim a CBOE option row to the fields the parsers read
     CBOE_FIELDS = %w[option iv gamma open_interest].freeze
+
+    # F-20: 4 calls + 4 puts the parsers would actually keep, farthest
+    # expiry first, plus 2 parser-dead rows for skip-branch coverage.
+    def self.pick_rows(rows, live:, expiry:, call:)
+      alive = rows.select { |r| live.call(r) }
+                  .sort_by { |r| expiry.call(r) }.reverse
+      raise 'no parser-live option rows to record' if alive.empty?
+
+      alive.select { |r| call.call(r) }.first(4) +
+        alive.reject { |r| call.call(r) }.first(4) +
+        (rows - alive).first(2)
+    end
 
     # shortest HTML prefix whose tag-stripped text has >= 12 daily rows
     FARSIDE_TRIM = lambda do |body|
@@ -46,11 +64,14 @@ module BTC
       { file: 'deribit_book_summary.json',
         url: 'https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=BTC&kind=option',
         trim: lambda { |b|
-          rows = JSON.parse(b)['result']
-          live = rows.select { |r| r['open_interest'].to_f > 0 }
-          keep = live.select { |r| r['instrument_name'].end_with?('-C') }.first(4) +
-                 live.select { |r| r['instrument_name'].end_with?('-P') }.first(4) +
-                 rows.select { |r| r['open_interest'].to_f <= 0 }.first(2)
+          now = Time.now.utc
+          exp = ->(r) { Options.deribit_expiry(r['instrument_name'].split('-')[1]) }
+          keep = pick_rows(
+            JSON.parse(b)['result'],
+            live:   ->(r) { r['open_interest'].to_f > 0 && r['mark_iv'].to_f > 0 && (e = exp.call(r)) && e > now },
+            expiry: exp,
+            call:   ->(r) { r['instrument_name'].end_with?('-C') }
+          )
           JSON.generate('result' => keep)
         } },
       { file: 'deribit_futures.json',
@@ -59,13 +80,15 @@ module BTC
       { file: 'cboe_options.json',
         url: 'https://cdn.cboe.com/api/global/delayed_quotes/options/IBIT.json',
         trim: lambda { |b|
+          now = Time.now.utc
           d = JSON.parse(b)['data']
-          opts = d['options'].to_a
-          live = opts.select { |o| o['open_interest'].to_f > 0 }
-          keep = (live.select { |o| o['option'].to_s =~ /C\d{8}\z/ }.first(4) +
-                  live.select { |o| o['option'].to_s =~ /P\d{8}\z/ }.first(4) +
-                  opts.select { |o| o['open_interest'].to_f <= 0 }.first(2))
-                 .map { |o| o.select { |k, _| CBOE_FIELDS.include?(k) } }
+          osi = ->(o) { Options.parse_osi(o['option']) }
+          keep = pick_rows(
+            d['options'].to_a,
+            live:   ->(o) { o['open_interest'].to_f > 0 && (o['iv'].to_f > 0 || o['gamma'].to_f > 0) && (p = osi.call(o)) && p[0] > now },
+            expiry: ->(o) { osi.call(o)[0] },
+            call:   ->(o) { osi.call(o)[1] == 'C' }
+          ).map { |o| o.select { |k, _| CBOE_FIELDS.include?(k) } }
           JSON.generate('data' => { 'current_price' => d['current_price'],
                                     'close' => d['close'], 'options' => keep })
         } },
