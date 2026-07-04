@@ -4,6 +4,9 @@
 # onchain_value.rb -- MVRV and realized price from the free Coin Metrics
 # community API. Slow floor gauge: prior cycle bottoms formed at
 # MVRV ~0.75-0.85 with spot converging on realized price.
+# Since 2026-07 the community tier gates CapRealUSD (F-19), so MVRV is
+# read directly (CapMVRVCur) and realized price derived as
+# PriceUSD / MVRV -- identical quantities, same provider.
 #
 # NOTE: self-reports name 'onchain' (not the filename) in --json -- frozen
 # contract; the aggregator keys by filename, so only standalone consumers
@@ -19,7 +22,7 @@ require_relative 'common'
 NAME  = 'onchain'
 start = (Time.now.utc - 10 * 86_400).strftime('%Y-%m-%d')
 URL   = 'https://community-api.coinmetrics.io/v4/timeseries/asset-metrics' \
-        '?assets=btc&metrics=CapMrktCurUSD,CapRealUSD,SplyCur,PriceUSD' \
+        '?assets=btc&metrics=CapMVRVCur,PriceUSD' \
         "&frequency=1d&start_time=#{start}&page_size=100"
 
 begin
@@ -30,14 +33,11 @@ end
 Scenario.fail_soft(NAME, 'no data rows') if rows.nil? || rows.empty?
 
 r    = rows.last
-mcap = r['CapMrktCurUSD'].to_f
-rcap = r['CapRealUSD'].to_f
-sply = r['SplyCur'].to_f
+mvrv = r['CapMVRVCur'].to_f
 px   = r['PriceUSD'].to_f
-Scenario.fail_soft(NAME, 'zero-valued fields') if rcap <= 0 || sply <= 0
+Scenario.fail_soft(NAME, 'zero-valued fields') if mvrv <= 0 || px <= 0
 
-mvrv = mcap / rcap
-rp   = rcap / sply
+rp = px / mvrv
 
 score = if mvrv <= 0.85
           1
