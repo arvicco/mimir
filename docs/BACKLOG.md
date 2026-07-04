@@ -139,7 +139,7 @@ Goal: per-test --json contracts on a synthetic price cache written to
       line field set; status_line format.
 Acceptance: all five tests + aggregator covered; no network.
 
-## M1-10 · Contract tests: btco --json  [tier: fable] [status: ready] [deps: M1-6]
+## M1-10 · Contract tests: btco --json  [tier: fable] [status: done] [deps: M1-6]
 Goal: success shape (companies[], stress fields) on a synthetic
       universe + fixture quotes; fail-soft shape; --tmux line format.
 Acceptance: covered incl. STALE/placeholder flags; no network.
