@@ -59,7 +59,7 @@ Goal: pin instrument-name parsing in gex.rb (Deribit: BTC-27MAR26-100000-C
 Acceptance: rake test green; both parsers covered incl. month map and
       decimal-strike handling; no network.
 
-## M0-6 · Characterization: percentile envelope fit + Lomb-Scargle  [tier: fable] [status: ready] [deps: --]
+## M0-6 · Characterization: percentile envelope fit + Lomb-Scargle  [tier: fable] [status: done] [deps: --]
 Goal: pin lppl/envelope.rb percentile-envelope fitting and the
       Lomb-Scargle periodogram (logperiodic.rb) on synthetic inputs:
       envelope on a constructed series with known percentile bands;

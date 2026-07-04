@@ -49,22 +49,7 @@ resid = (0...n_rows).map { |i| y[i] - (f[:icept] + f[:slope] * x[i]) }
 
 # reciprocal-decay envelope per side: |r| ~ a / (Age + b)
 fit_side = lambda do |idx|
-  best = nil
-  (0.0..25.0).step(0.5) do |b|
-    sw2 = 0.0
-    srw = 0.0
-    idx.each do |i|
-      w = 1.0 / (age[i] + b)
-      sw2 += w * w
-      srw += resid[i].abs * w
-    end
-    next if sw2 <= 0
-
-    a   = srw / sw2
-    sse = idx.inject(0.0) { |s, i| s + (resid[i].abs - a / (age[i] + b))**2 }
-    best = { a: a, b: b, sse: sse } if best.nil? || sse < best[:sse]
-  end
-  best
+  Lppl.reciprocal_envelope(idx.map { |i| resid[i].abs }, idx.map { |i| age[i] })
 end
 
 pos_ix = (0...n_rows).select { |i| resid[i] >= 0 }

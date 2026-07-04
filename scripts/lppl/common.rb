@@ -135,6 +135,63 @@ module Lppl
     x
   end
 
+  # Lomb-Scargle normalized periodogram over an angular-frequency grid,
+  # on the (uneven) sample points u. Returns [powers, peak_power,
+  # peak_frequency]; [[], 0.0, 0.0] for zero-variance input.
+  # (Extracted verbatim from logperiodic.rb for characterization, M0-6.)
+  def lomb(u, r, grid)
+    n    = r.size
+    mu   = r.inject(:+) / n
+    rc   = r.map { |v| v - mu }
+    var  = rc.inject(0.0) { |s, v| s + v * v } / n
+    return [[], 0.0, 0.0] if var <= 0
+
+    pw = grid.map do |w|
+      s2 = 0.0
+      c2 = 0.0
+      (0...n).each do |i|
+        s2 += Math.sin(2 * w * u[i])
+        c2 += Math.cos(2 * w * u[i])
+      end
+      tau = Math.atan2(s2, c2) / (2 * w)
+      sc = 0.0; ss = 0.0; cc = 0.0; s_s = 0.0
+      (0...n).each do |i|
+        cv = Math.cos(w * (u[i] - tau))
+        sv = Math.sin(w * (u[i] - tau))
+        sc += rc[i] * cv
+        s_s += rc[i] * sv
+        cc += cv * cv
+        ss += sv * sv
+      end
+      ((sc * sc / cc) + (s_s * s_s / ss)) / (2 * var)
+    end
+    pk = pw.each_index.max_by { |i| pw[i] }
+    [pw, pw[pk], grid[pk]]
+  end
+
+  # Reciprocal-decay envelope fit E[|r| | side] = a / (Age + b): grid
+  # over b (0..25 step 0.5), weighted linear solve for a, min-SSE
+  # winner. Returns { a:, b:, sse: } or nil. (Extracted verbatim from
+  # percentile.rb's per-side lambda for characterization, M0-6.)
+  def reciprocal_envelope(abs_r, ages)
+    best = nil
+    (0.0..25.0).step(0.5) do |b|
+      sw2 = 0.0
+      srw = 0.0
+      abs_r.each_index do |j|
+        w = 1.0 / (ages[j] + b)
+        sw2 += w * w
+        srw += abs_r[j] * w
+      end
+      next if sw2 <= 0
+
+      a   = srw / sw2
+      sse = abs_r.each_index.inject(0.0) { |s, j| s + (abs_r[j] - a / (ages[j] + b))**2 }
+      best = { a: a, b: b, sse: sse } if best.nil? || sse < best[:sse]
+    end
+    best
+  end
+
   # ---- anti-bubble window helpers ---------------------------------------------
 
   # Index of the cycle peak (max close on/after from_date).
