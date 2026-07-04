@@ -338,3 +338,17 @@ validators and anti-drift markers; 21dfe10) -- whose FIRST live run
 caught **F-19: Coin Metrics community gated CapRealUSD**, silently
 degrading the MVRV module to score 0; fixed by reading CapMVRVCur
 directly with realized price derived as PriceUSD/MVRV (130395a).
+
+**F-20 (2026-07-04, found during M1-7 prep): fixture trims recorded a
+parser-dead CBOE board.** The M1-6 trims selected option rows by file
+order + OI only; CBOE lists expired weeklies first, so the recorded
+`cboe_options.json` held rows dated 260702 (expired pre-recording,
+iv=0, gamma=0) that gex_us.rb drops to the last row -- unusable for
+contract tests, and the Deribit pick was a slow time bomb (nearest
+expiries first). Fixed in lib/btc/fixtures.rb: both board trims now
+select PARSER-live rows (unexpired at record time, nonzero greeks),
+farthest expiry first for shelf life, plus 2 dead rows for skip-branch
+coverage; an all-dead board raises (FAIL in rake fixtures:record)
+instead of silently recording garbage. Unit tests pin the selection.
+Owner action: re-run `rake fixtures:record` once so cboe_options.json
+(and the deribit book) are re-picked under the fixed rule.
