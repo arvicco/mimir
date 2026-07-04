@@ -106,10 +106,26 @@ update via ingest before the numbers mean anything.** `ingest.rb` with
 touches `universe.json` except an explicit `--apply`; applied changes
 are ledgered in `capstruct/<TICKER>.jsonl`.
 
+## Publish pipeline (dry-run today; real publish is a human action)
+
+```
+PUBLISH_DRY_RUN=1 ruby publish/publish.rb   # DEFAULT: artifact set -> data/publish_preview/
+PUBLISH_DRY_RUN=0 ruby publish/publish.rb   # KV PUTs; needs CF_ACCOUNT_ID/CF_KV_NAMESPACE_ID/CF_API_TOKEN
+```
+
+Runs the four suites, wraps every payload in the frozen envelope
+(`v/key/generated_at/ttl_hint_s/source/payload`), adds trailing
+history windows (scenario 90d, lppl 365d) and a `v1:index`, and writes
+files (dry) or Cloudflare KV keys (real). A producer that crashes or
+prints garbage is skipped -- keep-last-good, never publish junk; a
+fail-soft suite publishes its honest `unavailable` state. Status line:
+`/tmp/publish.status`. Real mode has never been run yet (Gate 2 is the
+first human-run publish); retries are bounded and error paths never
+carry the token or payloads.
+
 ## Not implemented yet (roadmap in ARCHITECTURE.md)
 
-- Publishing to Cloudflare KV (`publish/`), chart specs, the Worker API
-  and the dashboard (Phases 2-4). `PUBLISH_DRY_RUN` does nothing today.
+- Chart specs, the Worker API and the dashboard (Phases 3-4).
 - Cron/launchd install, runbook (Phase 5).
 
 ## Development
