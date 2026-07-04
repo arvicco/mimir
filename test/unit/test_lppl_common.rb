@@ -64,3 +64,56 @@ class TestGaussSolve < Minitest::Test
     assert_nil Lppl.gauss_solve(a, [1.0, 2.0])
   end
 end
+
+# M0-6 tolerance policy: detected frequencies are pinned to the scan
+# grid (step 0.1 -> exact grid-point equality for on-grid tones);
+# powers/parameters pinned to 1e-9 of precomputed references.
+class TestLomb < Minitest::Test
+  GRID = (2.0..20.0).step(0.1).to_a # logperiodic.rb's grid
+
+  def test_pure_tone_peak_lands_on_true_frequency
+    u = Array.new(300) { |i| Math.log(3.0 + i * 1.3) }
+    r = u.map { |x| Math.cos(7.5 * x) }
+    _, power, w_peak = Lppl.lomb(u, r, GRID)
+    assert_close 7.5, w_peak, 1e-12
+    assert_close 146.81424555, power, 1e-6
+  end
+
+  def test_seeded_white_noise_peak_stays_insignificant
+    rng = Random.new(42)
+    u = Array.new(200) { |i| Math.log(3.0 + i * 1.7) }
+    r = Array.new(200) { rng.rand - 0.5 }
+    _, power, = Lppl.lomb(u, r, GRID)
+    assert_close 2.95047054749, power, 1e-6
+    assert_operator power, :<, 10.0 # far below any tone; guards the pval logic
+  end
+
+  def test_zero_variance_returns_empty
+    u = Array.new(10) { |i| Math.log(2.0 + i) }
+    assert_equal [[], 0.0, 0.0], Lppl.lomb(u, Array.new(10, 1.0), GRID)
+  end
+end
+
+class TestReciprocalEnvelope < Minitest::Test
+  def test_recovers_exact_on_grid_decay
+    ages  = (1..60).map { |i| i * 0.25 }
+    abs_r = ages.map { |a| 2.0 / (a + 3.0) }
+    f = Lppl.reciprocal_envelope(abs_r, ages)
+    assert_close 3.0, f[:b]
+    assert_close 2.0, f[:a], 1e-9
+    assert_close 0.0, f[:sse], 1e-12
+  end
+
+  def test_off_grid_b_picks_nearest_grid_point
+    ages  = (1..60).map { |i| i * 0.25 }
+    abs_r = ages.map { |a| 2.0 / (a + 3.2) }
+    f = Lppl.reciprocal_envelope(abs_r, ages)
+    assert_close 3.0, f[:b] # nearest 0.5-grid point below 3.2
+    assert_close 1.92816511287, f[:a], 1e-9
+    assert_operator f[:sse], :>, 0.0
+  end
+
+  def test_empty_input_returns_nil
+    assert_nil Lppl.reciprocal_envelope([], [])
+  end
+end

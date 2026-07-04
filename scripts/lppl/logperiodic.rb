@@ -39,40 +39,10 @@ u = null[:u]
 r = null[:resid]
 n = r.size
 
-# ---- Lomb-Scargle over angular frequency grid --------------------------------
+# ---- Lomb-Scargle over angular frequency grid (Lppl.lomb) ---------------------
 GRID = (2.0..20.0).step(0.1).to_a
 
-def lomb(u, r, grid)
-  n    = r.size
-  mu   = r.inject(:+) / n
-  rc   = r.map { |v| v - mu }
-  var  = rc.inject(0.0) { |s, v| s + v * v } / n
-  return [[], 0.0, 0.0] if var <= 0
-
-  pw = grid.map do |w|
-    s2 = 0.0
-    c2 = 0.0
-    (0...n).each do |i|
-      s2 += Math.sin(2 * w * u[i])
-      c2 += Math.cos(2 * w * u[i])
-    end
-    tau = Math.atan2(s2, c2) / (2 * w)
-    sc = 0.0; ss = 0.0; cc = 0.0; s_s = 0.0
-    (0...n).each do |i|
-      cv = Math.cos(w * (u[i] - tau))
-      sv = Math.sin(w * (u[i] - tau))
-      sc += rc[i] * cv
-      s_s += rc[i] * sv
-      cc += cv * cv
-      ss += sv * sv
-    end
-    ((sc * sc / cc) + (s_s * s_s / ss)) / (2 * var)
-  end
-  pk = pw.each_index.max_by { |i| pw[i] }
-  [pw, pw[pk], grid[pk]]
-end
-
-_, obs_max, w_peak = lomb(u, r, GRID)
+_, obs_max, w_peak = Lppl.lomb(u, r, GRID)
 
 # ---- AR(1) bootstrap null ----------------------------------------------------
 mu  = r.inject(:+) / n
@@ -91,7 +61,7 @@ hits = 0
 SIMS.times do
   x   = 0.0
   sim = Array.new(n) { x = rho * x + se * gauss(rng) }
-  _, smax, = lomb(u, sim, GRID)
+  _, smax, = Lppl.lomb(u, sim, GRID)
   hits += 1 if smax >= obs_max
 end
 pval = (hits + 1).to_f / (SIMS + 1)
