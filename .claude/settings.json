@@ -52,6 +52,7 @@
       "Read(//Users/*/.gnupg/**)",
       "Read(//Users/*/.config/gh/**)",
       "Read(//Users/*/.netrc)",
+      "Read(//Users/*/.config/mimir/**)",
       "Read(//Users/*/.config/btc-analytics/**)",
       "Read(.env)",
       "Read(**/*.token)"

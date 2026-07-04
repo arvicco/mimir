@@ -23,7 +23,7 @@ lines, and the caveats -- read it before acting on any output.
 | `scripts/gex_btc_combined.rb` | cross-venue BTC GEX on one BTC axis | newer, math verified |
 | `scripts/scenario/scenario.rb` | -1/0/+1 regime composite from 7 signals | mature |
 | `scripts/lppl/lppl.rb` | LPPL regime verdict from 5 falsification tests | new but rigorous; builds caches on first run |
-| `scripts/btco/btco.rb` | treasury-company metrics + stress score | **seed data is placeholder**; live quote source (Stooq) died upstream 2026-07 -- currently needs `manual_px` (replacement pending, TOOL-REVIEW F-17) |
+| `scripts/btco/btco.rb` | treasury-company metrics + stress score | **seed data is placeholder**; US quotes via CBOE + Frankfurter FX, non-US via `manual_px` |
 | `scripts/btco/ingest.rb` | EDGAR filing -> reviewed universe updates | newest, lightly exercised |
 
 Shared conventions: `--json` (machine output, frozen contract),
@@ -59,6 +59,11 @@ Seven weighted signals (ETF flows, funding/basis, Coinbase premium,
 macro liquidity, hash ribbons, MVRV, stablecoin supply) -> composite in
 [-1, +1] -> FLUSH / LEAN-FLUSH / NEUTRAL / BASE / RECOVERY.
 `macro.rb` needs a free `FRED_API_KEY` (degrades to score 0 without).
+`etf_flows.rb` scrapes farside.co.uk, falling back to the Internet
+Archive snapshot and then CoinGlass (`COINGLASS_API_KEY`, free) -- see
+the source-chain note in the script header. Its history entries before
+2026-07-04 are unreliable: the old parser reported day-of-month numbers
+as daily totals (TOOL-REVIEW.md F-22).
 Everything else is keyless public APIs; `etf_flows` is the one HTML
 scrape (degrades gracefully on layout drift).
 
@@ -89,11 +94,11 @@ ruby scripts/btco/ingest.rb --review  # inspect proposals, then --apply <acc>
 ```
 
 Fundamentals live in `scripts/btco/universe.json` (human-maintained,
-per-field as-of dates); only prices/FX/BTC spot are fetched live.
-**Known break:** the Stooq quote API died upstream (2026-07), so live
-prices/FX are unavailable -- entries need `manual_px` until the
-replacement source is decided (TOOL-REVIEW.md F-17); the tool degrades
-to a score-0 report meanwhile.
+per-field as-of dates); only prices/FX/BTC spot are fetched live: US
+listings via CBOE delayed quotes, FX via Frankfurter/ECB, BTC via the
+Deribit index. Non-US listings (Metaplanet) price via `manual_px`
+only. (Stooq served quotes+FX until its API died upstream 2026-07 --
+TOOL-REVIEW.md F-17.)
 **Every shipped universe entry is `placeholder: true` seed data --
 update via ingest before the numbers mean anything.** `ingest.rb` with
 `ANTHROPIC_API_KEY` set uses Claude extraction (model override:
@@ -105,8 +110,6 @@ are ledgered in `capstruct/<TICKER>.jsonl`.
 
 - Publishing to Cloudflare KV (`publish/`), chart specs, the Worker API
   and the dashboard (Phases 2-4). `PUBLISH_DRY_RUN` does nothing today.
-- Recorded API fixtures + per-module contract tests (`rake
-  fixtures:record` aborts by design until Phase 1).
 - Cron/launchd install, runbook (Phase 5).
 
 ## Development
@@ -114,8 +117,21 @@ are ledgered in `capstruct/<TICKER>.jsonl`.
 ```
 rake                 # compat + health (offline) + tests -- the pre-commit gate
 rake test:unit       # just the unit tests
+rake test:contract   # --json/--tmux field-set contracts (offline, vs fixtures)
+rake fixtures:record # re-record live API fixtures (NETWORK -- prints verify digest)
+rake fixtures:verify # offline digest + safety checks (leaks, drift, aging) -- in the default gate
 rake health:sources  # probe all upstream data sources (network, read-only)
 ```
+
+Every tool's `--json` and `--tmux` output is a frozen contract, pinned
+by `test/contract/`: the real scripts run offline as subprocesses
+against recorded fixtures (`test/fixtures/`, provenance in its README)
+with a fake HTTP transport and the clock frozen to the recording day.
+Changing an output field set, a status-line format, or the ingest
+extraction prompt fails the suite unless the matching contract test
+changes in the same commit. A few pins skip themselves until fixtures
+recorded before a recorder fix are refreshed (`rake fixtures:record`,
+network, owner-run); the skip messages say exactly which.
 
 Read `docs/METHODOLOGY.md` (how to interpret the outputs), `CLAUDE.md`
 (ground rules), `ARCHITECTURE.md` (design + phases), `docs/DEV-LOOP.md`

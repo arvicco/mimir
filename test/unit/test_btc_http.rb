@@ -60,4 +60,46 @@ class TestBtcHttp < Minitest::Test
     assert_equal '{"m":1}', c[:req].body
     assert_equal 120, c[:opts][:read_timeout]
   end
+
+  # For 3xx responses get_follow reads the Location header via #[].
+  class RedirectRes < FakeRes
+    def initialize(code, body, location = nil)
+      super(code, body)
+      @location = location
+    end
+
+    def [](key)
+      @location if key.to_s.casecmp('location').zero?
+    end
+  end
+
+  def test_get_follow_follows_absolute_and_relative_redirects
+    calls = inject do |uri, _req, _opts|
+      case uri.to_s
+      when %r{example\.com/start} then RedirectRes.new('302', '', 'https://example.com/hop')
+      when %r{/hop\z}             then RedirectRes.new('301', '', '/final')
+      when %r{/final\z}           then FakeRes.new('200', 'landed')
+      end
+    end
+    assert_equal 'landed', BTC::Http.get_follow('https://example.com/start')
+    assert_equal 3, calls.size
+  end
+
+  def test_get_follow_raises_on_redirect_loop
+    inject { RedirectRes.new('302', '', 'https://example.com/again') }
+    e = assert_raises(BTC::Http::StatusError) { BTC::Http.get_follow('https://example.com/again') }
+    assert_equal 508, e.code
+  end
+
+  def test_get_follow_passes_plain_errors_through
+    inject { FakeRes.new('403', 'blocked') }
+    e = assert_raises(BTC::Http::StatusError) { BTC::Http.get_follow('https://example.com/x') }
+    assert_equal 'HTTP 403', e.message
+  end
+
+  def test_get_follow_raises_on_redirect_without_location
+    inject { RedirectRes.new('302', 'no loc', nil) }
+    e = assert_raises(BTC::Http::StatusError) { BTC::Http.get_follow('https://example.com/x') }
+    assert_equal 302, e.code
+  end
 end

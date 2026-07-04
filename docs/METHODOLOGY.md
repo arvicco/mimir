@@ -93,7 +93,7 @@ months).
 
 | module (wt) | measures | +1 when | -1 when |
 |---|---|---|---|
-| `etf_flows` (3) | US spot-ETF net flows, 5d vs prior 5d (Farside scrape) | net 5d inflow, or outflow shrunk >50% | outflow steady/accelerating (>=90% of prior) |
+| `etf_flows` (3) | US spot-ETF net flows, 5d vs prior 5d (farside -> archive.org snapshot -> CoinGlass, first source with >=10 rows) | net 5d inflow, or outflow shrunk >50% | outflow steady/accelerating (>=90% of prior) |
 | `funding_basis` (2) | Binance perp funding, 7d avg (contrarian) | <= -0.010%/8h: crowded shorts = squeeze fuel | >= +0.010%/8h: crowded longs |
 | `cb_premium` (2) | Coinbase vs Binance spot premium | >= +10 bps: US institutional bid | <= -10 bps: US distribution |
 | `macro` (2) | Fed net liquidity (WALCL - TGA - RRP) and 10y real yield, ~4w deltas (FRED) | liquidity rising AND real yields falling | liquidity falling AND yields rising |
