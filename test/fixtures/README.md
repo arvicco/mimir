@@ -5,7 +5,7 @@ Real responses trimmed to the minimum the parsers need
 with `rake fixtures:record` (network, owner-run), then
 review the diff before committing.
 
-Recorded 2026-07-04 13:43 UTC:
+Recorded 2026-07-04 18:27 UTC:
 
 - `deribit_index.json` -- OK (https://www.deribit.com/api/v2/public/get_index_price?index_name=btc_usd)
 - `deribit_book_summary.json` -- OK (https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=BTC&kind=option)
@@ -19,7 +19,8 @@ Recorded 2026-07-04 13:43 UTC:
 - `coinbase_ticker.json` -- OK (https://api.exchange.coinbase.com/products/BTC-USD/ticker)
 - `mempool_hashrate.json` -- OK (https://mempool.space/api/v1/mining/hashrate/6m)
 - `defillama_stables.json` -- OK (https://stablecoins.llama.fi/stablecoins?includePrices=false)
-- `farside_flows.html` -- OK (https://web.archive.org/web/20260704113829id_/https://farside.co.uk/btc/ -- farside direct is Cloudflare-challenged (F-23); recorded from the Internet Archive snapshot by the loop, trimmed per BTC::Flows)
+- `farside_flows.html` -- OK (https://farside.co.uk/btc/)
+- `coinglass_flows.json` -- OK (https://open-api-v4.coinglass.com/api/etf/bitcoin/flow-history)
 - `frankfurter_fx.json` -- OK (https://api.frankfurter.dev/v1/latest?base=USD&symbols=JPY)
 - `fred_walcl.json` -- OK (https://api.stlouisfed.org/fred/series/observations?series_id=WALCL&api_key=[REDACTED]&file_type=json&sort_order=desc&limit=6)
 - `fred_wtregen.json` -- OK (https://api.stlouisfed.org/fred/series/observations?series_id=WTREGEN&api_key=[REDACTED]&file_type=json&sort_order=desc&limit=6)
