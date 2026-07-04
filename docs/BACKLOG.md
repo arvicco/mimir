@@ -133,7 +133,7 @@ Goal: per-module --json contract (name/score/headline/ts; the
       (F-9), aggregator composite/regime fields.
 Acceptance: every module covered; no network.
 
-## M1-9 · Contract tests: lppl tests + aggregator  [tier: fable] [status: ready] [deps: M1-6]
+## M1-9 · Contract tests: lppl tests + aggregator  [tier: fable] [status: done] [deps: M1-6]
 Goal: per-test --json contracts on a synthetic price cache written to
       a temp BTC_DATA_DIR (tests run the real scripts offline); ledger
       line field set; status_line format.
