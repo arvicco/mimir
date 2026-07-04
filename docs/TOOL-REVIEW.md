@@ -373,3 +373,38 @@ production -- etf_flows' "5d" windows actually span ~10 calendar days
 of alternating rows. Scoring may well be fine with that (it compares
 like windows), but the owner should rule whether the parser regex gets
 fixed in a reviewed analytics change.
+
+**F-22 amended (2026-07-04, owner-requested root-cause analysis): the
+etf_flows regex corrupts TOTALS, not just row counts.** Ground truth
+established by per-<tr> parsing of an archive.org copy of the real
+page: after tag-stripping, the number-run group
+`((?:\s+\(?-?[\d,.]+\)?)+)` keeps consuming past the row's final
+column into the NEXT row's leading day-of-month. Two consequences:
+(a) the next row's date loses its day and fails to match (rows ~halve:
+13 real rows -> 7 parsed); (b) for every such row, `vals.last` -- used
+as the day's net flow -- is the next row's DAY NUMBER, not the total.
+Verified: real 30 Jun 2026 total is -222.6 $m; the regex yields "01"
+(from "01 Jul"). On the long-history page, 30 of 590 parsed rows carry
+a bare 1-2-digit "total". The module's 5d/prev-5d sums have therefore
+been arithmetic over day-of-month integers mixed with real values for
+as long as this parser has existed; historical etf_flows scores in
+scenario history are unreliable. Fix requires per-<tr>/<td> parsing
+(date cell + last cell), a reviewed analytics-affecting change.
+
+**F-23 (2026-07-04): farside.co.uk now behind a Cloudflare managed JS
+challenge -- etf_flows and its fixture recording are dead upstream.**
+Between the good recording (2026-07-04 09:26 UTC) and the owner's
+re-record the same day, farside began serving "Just a moment..."
+challenge HTML to non-JS clients (200 with challenge body for plain
+UAs; 403 for browser-UA curl; JS execution required either way -- no
+stdlib client can pass). CDX history shows a 403 snapshot already on
+2026-02-28, so the protection is intermittent-to-permanent.
+DECISION ITEM (source change, like F-16/F-17). Recommended:
+(1) keep the direct fetch as primary, fall back to the Internet
+Archive's latest snapshot -- `web/2id_/` form returns the original
+HTML without wayback chrome; /btc/ is snapshotted 2-4x/day (0-12h lag,
+acceptable for EOD flow windows); (2) rewrite the parser per-<tr>/<td>
+(fixes F-22 decisively); (3) re-register the source in health.rb and
+re-record the fixture from whichever source is ruled in. Evidence:
+scratchpad farside_live.html (challenge), farside_archive.html /
+farside_alldata_archive.html (real pages, 13 and 636 data rows).
