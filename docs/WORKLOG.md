@@ -4,6 +4,7 @@ One line per completed packet: date · packet · commit · notes.
 
 ---
 
+2026-07-04 · R-3/6/7/12 + captures · fcbcfb2..e2525e8 · Owner-ruled round-2 completion: inst_gex unification (R-12, s^2 -- approved analytics change, verified live to ppm), put_call_ratio, BTC::Format. lppl cache rebuilt: CryptoCompare key-gated upstream (F-16) -> prices.rb switched to Coin Metrics community (5,830 rows, idempotent). Gate 0 captures run + reviewed (criterion amended, no pre-import copies exist): caught + fixed kwargs-parse bug at two Http.get sites (F-18); Stooq quote API dead upstream (F-17, decision item); first LPPL verdict STRESSED with BF -61 flagged for owner eyeball. M0-3 README accepted -> done.
 2026-07-04 · M0-4..M0-8 · d07c5b6..8be32be · Characterization complete: deep bs_gamma properties + parser edge pins (M0-4/5); Lppl.lomb + reciprocal_envelope extracted and pinned on synthetic tone/decay, tolerance policy set (M0-6); Btco.company_row extracted, every metrics branch pinned on synthetic universe incl. JPY listing (M0-7); Btco strip_html/excerpt/diff_against extracted with window-geometry and diff-semantics pins (M0-8). All Phase 0 packets done; Gate 0 awaits owner captures + README/memo acceptance + PR merge.
 2026-07-04 · M0-3 (draft) · -- · README.md v1: per-tool capabilities/commands/ENV with honest maturity (btco placeholder data called out), shared conventions, explicit not-implemented list (publish/charts/dashboard/fixtures), dev pointers. Owner accepts at Gate 0. M0-2 marked done (open R-items are Gate 0 decision items).
 

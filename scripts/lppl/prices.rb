@@ -1,18 +1,27 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 #
-# prices.rb -- builds/updates the daily BTC-USD close cache (data/prices.csv)
-# from CryptoCompare's free histoday endpoint (full history back to 2010,
-# no API key). Incremental after first run: one small call per day.
-# Today's incomplete candle is always excluded.
+# prices.rb -- builds/updates the daily BTC-USD close cache
+# (data/prices.csv) from the Coin Metrics community API (PriceUSD
+# reference rate, keyless, full history back to 2010-07). Incremental
+# after first run. The latest (potentially incomplete) day is excluded.
 #
 #   ruby prices.rb           # update cache, print summary
 #   ruby prices.rb --json    # machine summary
+#
+# Source history: originally CryptoCompare histoday; that endpoint was
+# key-gated upstream (HTTP 401, observed 2026-07-04), and no cache
+# survived to mix series, so the suite restarted on Coin Metrics --
+# the provider onchain_value.rb already trusts. Reference-rate closes
+# differ slightly from exchange closes; a data-source decision recorded
+# in docs/TOOL-REVIEW.md (F-16).
 
 require_relative 'common'
 
 NAME = 'prices'
-URL  = 'https://min-api.cryptocompare.com/data/v2/histoday?fsym=BTC&tsym=USD'
+URL  = 'https://community-api.coinmetrics.io/v4/timeseries/asset-metrics' \
+       '?assets=btc&metrics=PriceUSD&frequency=1d&page_size=10000' \
+       '&paging_from=start'
 
 FileUtils.mkdir_p(Lppl::DATA)
 
@@ -27,37 +36,41 @@ end
 today = Time.now.utc
 mid   = Time.utc(today.year, today.month, today.day)
 
-missing =
-  if existing.empty?
-    9_999
-  else
-    ((mid - Time.parse(existing.keys.max + ' 00:00:00 UTC')) / 86_400).to_i
-  end
+start = if existing.empty?
+          '2010-07-01'
+        else
+          # small overlap re-reads the tail; upserts are idempotent
+          (Time.parse(existing.keys.max + ' 00:00:00 UTC') - 5 * 86_400)
+            .strftime('%Y-%m-%d')
+        end
 
+rows = []
 begin
-  url =
-    if missing > 1800
-      URL + '&allData=true'
-    else
-      URL + "&limit=#{[missing + 3, 30].max}"
-    end
-  rows = Lppl.get_json(url).fetch('Data').fetch('Data')
+  url = URL + "&start_time=#{start}"
+  loop do
+    res = Lppl.get_json(url)
+    rows.concat(res['data'].to_a)
+    url = res['next_page_url']
+    break if url.nil? || res['data'].to_a.empty?
+  end
 rescue StandardError => e
   Lppl.fail_soft(NAME, e.message)
 end
 
 added = 0
 rows.each do |r|
-  t = Time.at(r['time'].to_i).utc
-  next if t >= mid # incomplete candle
+  t = Time.parse(r['time']).utc
+  next if t >= mid # today's row would be incomplete
 
-  c = r['close'].to_f
+  c = r['PriceUSD'].to_f
   next if c <= 0
 
   key = t.strftime('%Y-%m-%d')
   added += 1 unless existing.key?(key)
   existing[key] = c
 end
+
+Lppl.fail_soft(NAME, 'no rows fetched and no cache') if existing.empty?
 
 File.open(Lppl::PRICES, 'w') do |f|
   f.puts 'date,close'
@@ -66,8 +79,8 @@ end
 
 last = existing.keys.max
 Lppl.report(NAME, 0,
-              format('%d rows (%s .. %s), last close %.0f, +%d new',
-                     existing.size, existing.keys.min, last,
-                     existing[last], added),
-              'last_date' => last, 'last_close' => existing[last].round(2),
-              'rows' => existing.size)
+            format('%d rows (%s .. %s), last close %.0f, +%d new',
+                   existing.size, existing.keys.min, last,
+                   existing[last], added),
+            'last_date' => last, 'last_close' => existing[last].round(2),
+            'rows' => existing.size)
