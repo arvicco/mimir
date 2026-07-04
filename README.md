@@ -10,6 +10,10 @@ are command-line tools, nothing more.
 Requirements: **Ruby 3.3+ (Apple Silicon), zero gems** -- stdlib only,
 no bundle install. Run everything from the repo root.
 
+**New here?** [docs/METHODOLOGY.md](docs/METHODOLOGY.md) explains what
+each tool measures, every displayed field, how to decode the status
+lines, and the caveats -- read it before acting on any output.
+
 ## What works today
 
 | tool | what it tells you | maturity |
@@ -113,7 +117,7 @@ rake test:unit       # just the unit tests
 rake health:sources  # probe all upstream data sources (network, read-only)
 ```
 
-Read `CLAUDE.md` (ground rules), `ARCHITECTURE.md` (design + phases),
-`docs/DEV-LOOP.md` (how this gets built), `docs/TOOL-REVIEW.md`
-(per-tool audit), `docs/BACKLOG.md` (work state). ENV reference:
-`.env.example`.
+Read `docs/METHODOLOGY.md` (how to interpret the outputs), `CLAUDE.md`
+(ground rules), `ARCHITECTURE.md` (design + phases), `docs/DEV-LOOP.md`
+(how this gets built), `docs/TOOL-REVIEW.md` (per-tool audit),
+`docs/BACKLOG.md` (work state). ENV reference: `.env.example`.

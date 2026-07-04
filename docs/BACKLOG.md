@@ -83,6 +83,15 @@ Goal: pin ingest.rb's pure functions: `excerpt` windowing (boundaries,
 Acceptance: rake test green; no ANTHROPIC_API_KEY needed, no network;
       extraction prompt/schema untouched (contract, Golden Rule 5).
 
+## M0-9 · Methodology documentation  [tier: fable] [status: done] [deps: M0-2]
+Goal: docs/METHODOLOGY.md for new users (owner request 2026-07-04):
+      per-tool rationale, model assumptions, every displayed field and
+      its interpretation, token-by-token status-line decodes, worked
+      readings of real output, honest caveats (GEX sign trust, trend-BF
+      magnitude/cache-density, empirical-vs-gaussian percentile).
+Acceptance: a newcomer can decode any tool's terminal output unaided;
+      linked from README; owner review at Gate 0.
+
 ## Gate 0 (human)
 ~~Byte-identical vs pre-import captures~~ amended (no pre-import copies
 survived): characterization suite + loop-run capture review
