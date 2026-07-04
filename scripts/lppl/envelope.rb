@@ -26,15 +26,15 @@ NAME    = 'envelope'
 TROUGHS = %w[2015-01-14 2018-12-15 2022-11-21].freeze
 
 begin
-  p = Common.load_prices
+  p = Lppl.load_prices
 rescue StandardError => e
-  Common.fail_soft(NAME, e.message)
+  Lppl.fail_soft(NAME, e.message)
 end
 
 xs  = p[:days].map { |d| Math.log(d) }
-reg = Common::RangeReg.new(xs, p[:lnp])
+reg = Lppl::RangeReg.new(xs, p[:lnp])
 f   = reg.fit(0, p[:days].size - 1)
-Common.fail_soft(NAME, 'trend fit failed') unless f
+Lppl.fail_soft(NAME, 'trend fit failed') unless f
 
 trend_ln = ->(i) { f[:icept] + f[:slope] * xs[i] }
 ratio_at = ->(i) { Math.exp(p[:lnp][i] - trend_ln.(i)) }
@@ -43,7 +43,7 @@ date_ix = {}
 p[:dates].each_index { |i| date_ix[p[:dates][i].strftime('%Y-%m-%d')] = i }
 
 hist = TROUGHS.map { |d| date_ix[d] && ratio_at.(date_ix[d]) }.compact
-Common.fail_soft(NAME, 'historical troughs not in cache') if hist.size < 3
+Lppl.fail_soft(NAME, 'historical troughs not in cache') if hist.size < 3
 
 bound = hist.last          # strong form: damping means new trough > 2022 ratio
 floor = hist.min           # weak form
@@ -79,7 +79,7 @@ state = if broken
           'stressed'
         end
 
-Common.report(NAME, score,
+Lppl.report(NAME, score,
               format('price/trend %.3f vs bound %.3f (floor %.3f) -- %s; %dd below strong, %dd below floor',
                      r_now, bound, floor, state, d_strong, d_weak),
               'ratio' => r_now.round(3), 'bound' => bound.round(3),

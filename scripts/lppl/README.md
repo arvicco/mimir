@@ -8,7 +8,8 @@ evidence ledger. Ruby >= 2.5, stdlib only.
 
 | file            | role                                                    |
 |-----------------|---------------------------------------------------------|
-| prices.rb       | daily BTC-USD close cache (CryptoCompare, keyless)      |
+| prices.rb       | daily BTC-USD close cache (Coin Metrics community,      |
+|                 |     keyless; CryptoCompare until it was key-gated 2026-07) |
 | trend.rb        | T1: prequential out-of-sample BF, global power law vs   |
 |                 |     "trend has bent" (3y-window PL) vs random walk      |
 | envelope.rb     | T2: damped trough-ratio envelope + breach persistence   |

@@ -31,9 +31,9 @@ L10  = Math.log(10)
 HN   = Math.sqrt(Math::PI / 2)
 
 begin
-  p = Common.load_prices
+  p = Lppl.load_prices
 rescue StandardError => e
-  Common.fail_soft(NAME, e.message)
+  Lppl.fail_soft(NAME, e.message)
 end
 
 n_rows = p[:px].size
@@ -41,36 +41,21 @@ age = p[:days].map { |d| d / 365.25 }
 x   = age.map { |a| Math.log(a) / L10 }
 y   = p[:lnp].map { |v| v / L10 }
 
-reg = Common::RangeReg.new(x, y)
+reg = Lppl::RangeReg.new(x, y)
 f   = reg.fit(0, n_rows - 1)
-Common.fail_soft(NAME, 'trend fit failed') unless f
+Lppl.fail_soft(NAME, 'trend fit failed') unless f
 
 resid = (0...n_rows).map { |i| y[i] - (f[:icept] + f[:slope] * x[i]) }
 
 # reciprocal-decay envelope per side: |r| ~ a / (Age + b)
 fit_side = lambda do |idx|
-  best = nil
-  (0.0..25.0).step(0.5) do |b|
-    sw2 = 0.0
-    srw = 0.0
-    idx.each do |i|
-      w = 1.0 / (age[i] + b)
-      sw2 += w * w
-      srw += resid[i].abs * w
-    end
-    next if sw2 <= 0
-
-    a   = srw / sw2
-    sse = idx.inject(0.0) { |s, i| s + (resid[i].abs - a / (age[i] + b))**2 }
-    best = { a: a, b: b, sse: sse } if best.nil? || sse < best[:sse]
-  end
-  best
+  Lppl.reciprocal_envelope(idx.map { |i| resid[i].abs }, idx.map { |i| age[i] })
 end
 
 pos_ix = (0...n_rows).select { |i| resid[i] >= 0 }
 neg_ix = (0...n_rows).select { |i| resid[i] < 0 }
 if pos_ix.size < 100 || neg_ix.size < 100
-  Common.fail_soft(NAME, 'insufficient residual history')
+  Lppl.fail_soft(NAME, 'insufficient residual history')
 end
 
 ep = fit_side.(pos_ix)
@@ -117,7 +102,7 @@ score = 1 if score.zero? && recent_min <= z05 && z_now >= -1.0
 
 trend_px = 10**(f[:icept] + f[:slope] * x[-1])
 
-Common.report(NAME, score,
+Lppl.report(NAME, score,
               format('Z %.2f -> emp pctile %.2f%% (gauss %.2f%%); %dd at <=1st pct, %dd at <=5th; %s',
                      z_now, pct_e * 100, pct_g * 100, run01, run05,
                      record ? format('NEW RECORD low (prior %.2f on %s)', pmin, pmin_d) \

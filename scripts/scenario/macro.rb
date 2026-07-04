@@ -17,13 +17,13 @@ require_relative 'common'
 
 NAME = 'macro'
 KEY  = ENV['FRED_API_KEY']
-Common.fail_soft(NAME, 'FRED_API_KEY not set') if KEY.nil? || KEY.empty?
+Scenario.fail_soft(NAME, 'FRED_API_KEY not set') if KEY.nil? || KEY.empty?
 
 def fred(series, key, limit)
   url = 'https://api.stlouisfed.org/fred/series/observations' \
         "?series_id=#{series}&api_key=#{key}&file_type=json" \
         "&sort_order=desc&limit=#{limit}"
-  obs = Common.get_json(url)['observations'] || []
+  obs = Scenario.get_json(url)['observations'] || []
   obs.reject { |o| o['value'] == '.' }.map { |o| o['value'].to_f }
 end
 
@@ -33,11 +33,11 @@ begin
   rrp   = fred('RRPONTSYD', KEY, 25)  # daily,  $ billions
   dfii  = fred('DFII10', KEY, 25)     # daily,  percent
 rescue StandardError => e
-  Common.fail_soft(NAME, e.message)
+  Scenario.fail_soft(NAME, e.message)
 end
 
 if walcl.size < 5 || tga.size < 5 || rrp.size < 20 || dfii.size < 20
-  Common.fail_soft(NAME, 'insufficient series history')
+  Scenario.fail_soft(NAME, 'insufficient series history')
 end
 
 nl_now = walcl[0] / 1000.0 - tga[0] - rrp[0]
@@ -53,6 +53,6 @@ score = if d_nl > 0 && d_ry < 0
           0
         end
 
-Common.report(NAME, score,
+Scenario.report(NAME, score,
               format('net liq %.0fB (%+.0fB/4w), 10y real %.2f%% (%+.2fpp/4w)',
                      nl_now, d_nl, dfii[0], d_ry))

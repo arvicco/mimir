@@ -10,35 +10,41 @@
 #
 # Basis is context, not score: negative annualized basis has historically
 # marked terminal capitulation regimes (precedes bottoms by days-weeks).
+#
+# NOTE: self-reports name 'funding' (not the filename) in --json -- frozen
+# contract; the aggregator keys by filename, so only standalone consumers
+# see the difference.
 
 require_relative 'common'
+require_relative '../../lib/btc/options'
+require_relative '../../lib/btc/deribit'
 
 NAME = 'funding'
 
 begin
-  hist = Common.get_json('https://fapi.binance.com/fapi/v1/fundingRate?symbol=BTCUSDT&limit=21')
-  cur  = Common.get_json('https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT')
+  hist = Scenario.get_json('https://fapi.binance.com/fapi/v1/fundingRate?symbol=BTCUSDT&limit=21')
+  cur  = Scenario.get_json('https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT')
 rescue StandardError => e
-  Common.fail_soft(NAME, e.message)
+  Scenario.fail_soft(NAME, e.message)
 end
 
 rates = hist.map { |h| h['fundingRate'].to_f }
-Common.fail_soft(NAME, 'no funding history') if rates.empty?
+Scenario.fail_soft(NAME, 'no funding history') if rates.empty?
 avg7  = rates.inject(:+) / rates.size
 now_r = cur['lastFundingRate'].to_f
 
 basis = nil
 begin
-  spot = Common.get_json('https://www.deribit.com/api/v2/public/get_index_price?index_name=btc_usd')
-               .fetch('result').fetch('index_price').to_f
-  futs = Common.get_json('https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=BTC&kind=future')
-               .fetch('result')
+  spot = BTC::Deribit.index_price('btc_usd')
+  futs = BTC::Deribit.book_summary('BTC', 'future')
   nearest = futs.map do |f|
-    m = f['instrument_name'].match(/\ABTC-(\d{1,2})([A-Z]{3})(\d{2})\z/)
-    next unless m
+    parts = f['instrument_name'].split('-')
+    next unless parts.size == 2 && parts[0] == 'BTC'
 
-    t   = Time.utc(2000 + m[3].to_i, Common::MONTHS[m[2]], m[1].to_i, 8)
-    yrs = (t - Time.now.utc) / (365.25 * 86_400)
+    t = BTC::Options.deribit_expiry(parts[1])
+    next unless t
+
+    yrs = (t - Time.now.utc) / BTC::Options::YEAR_S
     yrs > 0.02 ? [yrs, f['mark_price'].to_f] : nil
   end.compact.min_by { |yrs, _| yrs }
   basis = nearest && (nearest[1] / spot - 1.0) / nearest[0]
@@ -54,7 +60,7 @@ score = if avg7 <= -0.0001
           0
         end
 
-Common.report(NAME, score,
+Scenario.report(NAME, score,
               format('funding 7d avg %+.4f%%/8h, now %+.4f%%; basis %s',
                      avg7 * 100, now_r * 100,
                      basis ? format('%+.1f%% ann.', basis * 100) : 'n/a'),
