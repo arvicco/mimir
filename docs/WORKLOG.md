@@ -3,6 +3,7 @@
 One line per completed packet: date · packet · commit · notes.
 
 ---
+2026-07-04 · gate-2 · -- · PR #3 opened (phase-2 -> main): M2-1..3 done under the revised tiering (fable: kv_client + specs + reviews; opus: envelope, orchestrator), CI green. Owner: review dry-run artifacts, create KV namespace + token, first real publish by hand, merge.
 2026-07-04 · M2-3 · -- · Publish orchestrator (opus subagent, fable spec + review): producer table w/ per-key ttls, full-stdout JSON parse (aggregators print pretty json), skip-dont-publish-garbage semantics, 90d/365d history tails, dry-run-default preview writer, real-mode v1: KV PUTs abort-on-failure, new frozen PUB status line. Live dry-run artifact set generated and verified (envelope contract + sorted index). Phase 2 complete to Gate 2.
 2026-07-04 · M2-1 + M2-2 · -- · Phase 2 opened: Publish::KV client (fable: bearer auth, 1s/2s/4s bounded backoff on 429/5xx/transport errors, immediate fail on other 4xx, token/body redaction pinned in every error path; BTC::Http gains put; env-gated cloudflare-kv probe registered; health conventions scan now covers publish/) and Publish.wrap/build_index envelope builders (opus subagent, fable spec + review, zero deviations; frozen envelope key-set pinned).
 2026-07-04 · gate-1 CLOSED · c2b38e0 · Owner merged PR #2 (21 commits): fixtures + contract harness + F-20..23 fixes + fixtures:verify + revised tiering policy. Phase 2 opened on branch phase-2: M2-1 kv_client (fable: secret-adjacent first-of-family), M2-2 envelope/index (opus), M2-3 publish orchestrator (opus).
