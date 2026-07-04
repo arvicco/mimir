@@ -1,4 +1,4 @@
-# CLAUDE.md -- btc-analytics
+# CLAUDE.md -- mimir
 
 Ruby analytics (GEX / scenario signals / LPPL evidence) published as
 pre-built chart specs to Cloudflare KV, rendered by a dumb static

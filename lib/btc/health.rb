@@ -85,7 +85,7 @@ module BTC
       { name: 'edgar submissions', src: 'scripts/btco/ingest.rb',
         marker: 'data.sec.gov/submissions/CIK',
         url: 'https://data.sec.gov/submissions/CIK0001050446.json',
-        headers: -> { { 'User-Agent' => ENV['EDGAR_UA'] || 'btc-analytics health (set EDGAR_UA=name email)' } },
+        headers: -> { { 'User-Agent' => ENV['EDGAR_UA'] || 'mimir health (set EDGAR_UA=name email)' } },
         check: ->(b) { JSON.parse(b).fetch('filings').fetch('recent').fetch('form').is_a?(Array) } }
     ].freeze
 

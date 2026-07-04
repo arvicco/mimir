@@ -31,7 +31,7 @@ novo (launchd/cron, Ruby 3.3+, arm64)
   scripts/btco/btco.rb --json            hourly      ─┘        │
   scripts/btco/ingest.rb                 daily, human-reviewed │ HTTPS PUT
 Cloudflare                                                     ▼ (stdlib Net::HTTP)
-  KV namespace   BTC_ANALYTICS   small JSON values, key-per-artifact
+  KV namespace   MIMIR   small JSON values, key-per-artifact
   Worker         GET /api/:key -> KV; cache + staleness headers; auth
   Pages          static index.html + generic ECharts spec loader
   Access (opt)   Zero Trust gate (email OTP / service token; no Google dep)
@@ -47,7 +47,7 @@ script tag; there is **no npm build step**.
 ## 3. Repository layout
 
 ```
-btc-analytics/
+mimir/
   README.md                  user-facing capabilities + commands, updated
                              at every gate (honest about what works today)
   ARCHITECTURE.md            this file
@@ -162,7 +162,7 @@ are contract changes (Golden Rule 5 in CLAUDE.md applies).
 
 ```
 CF_ACCOUNT_ID        Cloudflare account
-CF_KV_NAMESPACE_ID   KV namespace for BTC_ANALYTICS
+CF_KV_NAMESPACE_ID   KV namespace for MIMIR
 CF_API_TOKEN         token scoped to that namespace, Workers KV write
 FRED_API_KEY         (existing, scenario/macro.rb)
 EDGAR_UA             'name email' -- SEC-required identifying UA (btco)
@@ -173,7 +173,7 @@ BTC_DATA_DIR         optional data-dir override ($BTC_DATA_DIR/<suite>/)
 PUBLISH_DRY_RUN=1    write artifacts to data/publish_preview/, no network
 ```
 
-Secrets live in `~/.config/btc-analytics/env` sourced by cron, never in
+Secrets live in `~/.config/mimir/env` sourced by cron, never in
 the repo. `.env.example` documents names only.
 
 ## 6. Implementation phases
