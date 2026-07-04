@@ -42,6 +42,46 @@ class TestBsGamma < Minitest::Test
                  BTC::Options.gamma_at(o, 100.0)
     assert_equal 0.123, BTC::Options.gamma_at(o.merge(iv: 0.0), 100.0)
   end
+
+  # ---- M0-4: deeper characterization ----------------------------------
+
+  def test_put_call_gamma_identical
+    # BS gamma is cp-independent; the sign convention is applied by the
+    # callers via Options.sign, never inside the greek.
+    g = BTC::Options.bs_gamma(100.0, 110.0, 0.5, 0.4)
+    assert_close g * BTC::Options.sign('C'), g
+    assert_close g * BTC::Options.sign('P'), -g
+  end
+
+  def test_scale_invariance_gamma_halves_when_price_axis_doubles
+    assert_close BTC::Options.bs_gamma(100.0, 110.0, 0.5, 0.4) / 2,
+                 BTC::Options.bs_gamma(200.0, 220.0, 0.5, 0.4), 1e-15
+  end
+
+  def test_s_phi_d1_equals_k_phi_d2_identity
+    s = 100.0
+    k = 110.0
+    sq = 0.4 * Math.sqrt(0.5)
+    d1 = (Math.log(s / k) + 0.5 * 0.4 * 0.4 * 0.5) / sq
+    assert_close s * BTC::Options.norm_pdf(d1),
+                 k * BTC::Options.norm_pdf(d1 - sq), 1e-10
+  end
+
+  def test_deep_otm_gamma_vanishes
+    assert_close 5.51105245799875e-31,
+                 BTC::Options.bs_gamma(100.0, 300.0, 0.1, 0.3), 1e-40
+  end
+
+  def test_expiry_limit_gamma_zero_away_from_strike_spikes_atm
+    assert_equal 0.0, BTC::Options.bs_gamma(100.0, 110.0, 1e-8, 0.5)
+    assert_close 79.7884560553527, BTC::Options.bs_gamma(100.0, 100.0, 1e-8, 0.5), 1e-9
+  end
+
+  def test_gamma_peaks_near_the_money
+    atm = BTC::Options.bs_gamma(100.0, 100.0, 0.25, 0.5)
+    assert_operator atm, :>, BTC::Options.bs_gamma(100.0, 130.0, 0.25, 0.5)
+    assert_operator atm, :>, BTC::Options.bs_gamma(100.0, 75.0, 0.25, 0.5)
+  end
 end
 
 class TestInstrumentParsing < Minitest::Test
@@ -79,6 +119,40 @@ class TestInstrumentParsing < Minitest::Test
     assert_equal Time.utc(2026, 3, 27, 21), exp
     assert_nil BTC::Options.parse_osi('not-an-osi')
     assert_nil BTC::Options.parse_osi(nil)
+  end
+
+  # ---- M0-5: deeper characterization ----------------------------------
+
+  def test_deribit_month_map_all_twelve
+    %w[JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC].each_with_index do |m, i|
+      assert_equal Time.utc(2026, i + 1, 15, 8),
+                   BTC::Options.deribit_expiry("15#{m}26")
+    end
+  end
+
+  def test_deribit_expiry_century_assumption
+    assert_equal Time.utc(2099, 12, 31, 8), BTC::Options.deribit_expiry('31DEC99')
+  end
+
+  def test_deribit_expiry_malformed_day_raises_pinned_behavior
+    # Pinned current behavior: pattern-valid but calendar-invalid input
+    # raises (Time.utc). Upstream never emits this; a change here is a
+    # behavior change, not a cleanup.
+    assert_raises(ArgumentError) { BTC::Options.deribit_expiry('32MAR26') }
+  end
+
+  def test_parse_osi_small_strike_and_long_ticker
+    exp, cp, k = BTC::Options.parse_osi('EZBC260116C00007500')
+    assert_equal Time.utc(2026, 1, 16, 21), exp
+    assert_equal 'C', cp
+    assert_close 7.5, k
+  end
+
+  def test_parse_osi_rejects_lowercase_and_short_fields
+    assert_nil BTC::Options.parse_osi('ibit260327C00100000')
+    assert_nil BTC::Options.parse_osi('IBIT26032C00100000')   # 5-digit date
+    assert_nil BTC::Options.parse_osi('IBIT260327X00100000')  # bad cp
+    assert_nil BTC::Options.parse_osi('IBIT260327C0010000')   # 7-digit strike
   end
 end
 

@@ -44,7 +44,7 @@ Goal: user-facing README at repo root: what each tool does today, exact
 Acceptance: owner accepts; every documented command actually runs;
       nothing implemented is missing, nothing missing is claimed.
 
-## M0-4 · Characterization: bs_gamma  [tier: fable] [status: ready] [deps: --]
+## M0-4 · Characterization: bs_gamma  [tier: fable] [status: done] [deps: --]
 Goal: pin Black-Scholes gamma as implemented in the gex tools: exact
       known values (precomputed reference points), put/call gamma
       symmetry, edge behavior (deep ITM/OTM, near-zero time). Pattern:
@@ -52,7 +52,7 @@ Goal: pin Black-Scholes gamma as implemented in the gex tools: exact
 Acceptance: rake test green; values pinned to current behavior (no
       "fixes" -- deviations become decision items); no network.
 
-## M0-5 · Characterization: OSI/Deribit instrument parsing  [tier: fable] [status: ready] [deps: --]
+## M0-5 · Characterization: OSI/Deribit instrument parsing  [tier: fable] [status: done] [deps: --]
 Goal: pin instrument-name parsing in gex.rb (Deribit: BTC-27MAR26-100000-C
       shapes) and gex_us.rb (OSI: IBIT260327C00100000 shapes): expiry,
       strike, type extraction; malformed-input behavior as-is.
