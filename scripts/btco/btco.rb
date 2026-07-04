@@ -12,11 +12,15 @@
 #
 # Data flow: static fundamentals (BTC held, share counts, senior claims,
 # convert tranches) live in universe.json with per-field as-of dates and
-# are HUMAN-MAINTAINED; live inputs are share prices (Stooq CSV, keyless,
-# covers US+JP), FX (Stooq), and BTC spot (Deribit index). --check-filings
-# closes the loop: it queries EDGAR's submissions API for filings newer
-# than your recorded as-of date and prints URLs (plus a best-effort hint),
-# so the config is updated deliberately, never scraped blindly.
+# are HUMAN-MAINTAINED; live inputs are US share prices (CBOE delayed
+# quotes, keyless), FX (Frankfurter/ECB, keyless), and BTC spot (Deribit
+# index). Non-US listings (Metaplanet) price via manual_px only.
+# (Stooq served quotes+FX until its API died upstream 2026-07 --
+# TOOL-REVIEW.md F-17; universe.json's 'stooq' field is vestigial.)
+# --check-filings closes the loop: it queries EDGAR's submissions API
+# for filings newer than your recorded as-of date and prints URLs (plus
+# a best-effort hint), so the config is updated deliberately, never
+# scraped blindly.
 #
 # Metrics per company:
 #   sats/sh (dil)   BTC * 1e8 / assumed diluted shares
@@ -123,32 +127,42 @@ rescue StandardError => e
   fail_soft("deribit index: #{e.message}")
 end
 
-syms = cos.map { |c| c['stooq'] }.compact
-ccys = cos.map { |c| (c['ccy'] || 'USD').upcase }.uniq - ['USD']
-syms += ccys.map { |x| "usd#{x.downcase}" }
+CBOE = 'https://cdn.cboe.com/api/global/delayed_quotes/options'
 
-quotes = {}
-begin
-  csv = get("https://stooq.com/q/l/?s=#{syms.join('+')}&f=sd2t2ohlcv&h&e=csv")
-  csv.lines.drop(1).each do |ln|
-    f = ln.strip.split(',')
-    next if f.size < 7 || f[6] == 'N/D'
+quotes = {} # ticker -> price in listing ccy (US listings only)
+cos.each do |c|
+  next unless (c['ccy'] || 'USD').upcase == 'USD'
 
-    quotes[f[0].downcase] = f[6].to_f
+  begin
+    d = get_json("#{CBOE}/#{c['ticker']}.json")['data']
+    next unless d
+
+    px = (d['current_price'] || d['close']).to_f
+    px = d['close'].to_f if px <= 0
+    quotes[c['ticker']] = px if px > 0
+  rescue StandardError => e
+    warn "#{c['ticker']}: quote failed (#{e.message})"
   end
-rescue StandardError => e
-  warn "stooq: #{e.message} (manual_px fallbacks only)"
 end
 
+ccys = cos.map { |c| (c['ccy'] || 'USD').upcase }.uniq - ['USD']
 fx = Hash.new(1.0) # ccy -> units per USD
-ccys.each { |x| fx[x] = quotes["usd#{x.downcase}"] || 0.0 }
+unless ccys.empty?
+  begin
+    rates = get_json("https://api.frankfurter.dev/v1/latest?base=USD&symbols=#{ccys.join(',')}")['rates'] || {}
+    ccys.each { |x| fx[x] = rates[x].to_f }
+  rescue StandardError => e
+    warn "fx: #{e.message}"
+    ccys.each { |x| fx[x] = 0.0 }
+  end
+end
 
 # ---- per-company metrics -----------------------------------------------------
 now  = Time.now.utc
 rows = []
 cos.each do |c|
   ccy = (c['ccy'] || 'USD').upcase
-  px  = quotes[c['stooq'].to_s.downcase] || c['manual_px']
+  px  = quotes[c['ticker']] || c['manual_px']
   next warn("#{c['ticker']}: no price, skipped") unless px
 
   rate = ccy == 'USD' ? 1.0 : fx[ccy]
