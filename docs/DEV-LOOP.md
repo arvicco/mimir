@@ -48,31 +48,34 @@ cheaper models do most of the work in later stages.
 
 ## 2. Model tiering policy
 
-**Principle: Fable hardens the legacy and sets the patterns; Opus writes
-code that has a pattern and an oracle; the test suite gatekeeps
-regardless of who wrote the code.**
-
-**Stage 0 override: only Fable touches code.** During Stage 0 (Phases
-0-1) every code-writing or code-modifying packet is Fable, regardless of
-how mechanical it looks -- reviewing and refactoring untested legacy
-code is exactly where a cheaper model's plausible-but-wrong output is
-most expensive. Opus/Sonnet may only do non-code chores (worklog
-housekeeping, summarizing) in Stage 0.
-
-From Stage A on:
+**Principle (revised at Gate 1, owner-ruled 2026-07-04): Fable
+orchestrates, designs, and reviews; cheaper models write most of the
+code; the test suite + frozen contracts + CI gatekeep regardless of
+who wrote it.** Fable-writes-everything was a Stage 0 rule for
+hardening untested legacy analytics; it ended with Stage 0. Phase 1
+retrospective: harness design and bug hunts (F-18/F-20/F-22) needed
+Fable; fixture entries, canned bodies, and pattern-copied contract
+pins did not.
 
 | Tier | Used for | Rationale |
 |---|---|---|
-| **Fable** | `publish/kv_client.rb` (secret redaction, retry semantics -- security-sensitive); the FIRST chart spec (`gex_profile`, sets the family pattern); review of auth/header logic in `web/`; phase-gate reviews of the whole phase diff; adjudicating `blocked` packets | Mistakes here are cross-cutting or expensive; everything downstream copies these patterns |
-| **Opus** | Every second-and-later chart spec; `publish/publish.rb` orchestrator against the Fable-approved kv_client; `worker.js` / `app.js` / `preview.html` (small, fully specified in ARCHITECTURE.md); envelope/retry/dry-run test batteries following pinned patterns; RUNBOOK.md drafting; prepared (not installed) cron/launchd entries | Pattern-following work with a reference implementation and an oracle to grade it |
-| **Sonnet** | Non-coding chores only: fixture READMEs, worklog/backlog housekeeping, summarizing dry-run artifacts | Cheap and adequate for prose; **never writes code** |
+| **Fable** | Phase/architecture design and packet elaboration; FIRST-of-family patterns (the first chart spec, `publish/kv_client.rb` with its secret redaction/retry semantics); anything touching analytics semantics, frozen contracts, or the extraction prompt (proposal-only -- final say stays with the owner); review of every delegated diff before commit; auth/header logic in `web/`; phase-gate reviews; adjudicating `blocked` packets; upstream-breakage forensics (the F-16..F-23 class) | Mistakes here are cross-cutting, expensive, or subtle; everything downstream copies these patterns. Review is ~10x cheaper than writing -- Fable reads every delegated diff, it just stops typing the boilerplate |
+| **Opus** | Standard implementation against a written spec: second-and-later chart specs, `publish/publish.rb` orchestration glue, `worker.js` / `app.js` / `preview.html` (fully specified in ARCHITECTURE.md), API-call plumbing behind the `BTC::Http` seam, retry/dry-run test batteries, RUNBOOK.md drafting, prepared (not installed) cron/launchd entries | Pattern-following work with a reference implementation and an oracle to grade it |
+| **Sonnet** | Pattern-following with a deterministic oracle: new tests copying an established pattern, fixture/registry/shim entries, mechanical refactors the suite fully pins, doc syncs, worklog/backlog housekeeping | The gate catches failures cheaply; a wrong attempt costs one red run, not a bad foundation |
 
-**Only Fable and Opus write code, ever.** Heuristic for tagging a coding
-packet in Stages A/B: **first-of-kind or cross-cutting or
-secret-adjacent -> Fable; everything else -> Opus.** When in doubt, tag
-Opus and rely on the escalation rule (section 4) -- a wrongly-tagged
-packet fails verification and gets bumped up, costing one retry, not a
-bad foundation.
+**Tagging rules:**
+- Every packet gets its tier assigned at elaboration. `fable` is NOT
+  the default: a `[tier: fable]` tag on a coding packet carries a
+  one-line justification (first-of-kind / cross-cutting /
+  secret-adjacent / semantics-adjacent).
+- When in doubt between two tiers, tag the cheaper one and rely on the
+  escalation rule (section 4): a wrongly-tagged packet fails
+  verification and gets bumped one tier, costing one retry, not a bad
+  foundation.
+- The dispatching Fable session reviews every delegated diff against
+  the packet's acceptance criteria and the self-review checklist
+  before committing -- delegation moves the typing, not the
+  accountability.
 
 Hard rule regardless of tier and stage: **no model changes analytics
 semantics, frozen contract fields, or `universe.json`.** Those become
@@ -111,12 +114,13 @@ Each iteration, regardless of execution vehicle (section 5):
    path, additionally diff the output field set against the contract.
 5. **Commit** on the current phase branch (`phase-N`), conventional
    message referencing the packet ID. Update backlog + worklog.
-6. **Escalate on failure**: two failed attempts -> mark
-   `blocked: <diagnosis>`, move on. Never thrash. `blocked` packets are
-   adjudicated by Fable at the next gate (or sooner if everything is
-   blocked -> stop and notify the owner). Packets touching semantics or
-   contracts skip attempts entirely and go straight to
-   `blocked: decision-item`.
+6. **Escalate on failure**: two failed attempts at the packet's tier ->
+   bump one tier (sonnet -> opus -> fable) and retry once; two failed
+   attempts AT Fable tier -> mark `blocked: <diagnosis>`, move on.
+   Never thrash. `blocked` packets are adjudicated by Fable at the next
+   gate (or sooner if everything is blocked -> stop and notify the
+   owner). Packets touching semantics or contracts skip attempts
+   entirely and go straight to `blocked: decision-item`.
 7. **Pre-gate: update `README.md`** -- the user-facing document
    describing the capabilities and commands implemented up to this
    point, honest about what does not work yet. A newcomer reading only
@@ -172,20 +176,26 @@ for the memo review, refactor-list approval, and both gates; sessions
 work packet-by-packet with the owner able to steer between packets, not
 in a fire-and-forget loop. **Every code-touching packet is Fable.**
 
-**Stage A (Phases 2-3): new features -- Fable-led sessions, semi-attended.**
-Legacy is now trustworthy; new-feature work begins. A Fable session does
-the design-heavy packets itself (kv_client, first chart spec) and
-delegates `tier: opus` packets via the Agent tool. Owner is around
+**Stage A (Phases 2-3): new features -- Fable-orchestrated, semi-attended.**
+Legacy is now trustworthy; new-feature work begins. A Fable session
+elaborates packets, writes only the `[tier: fable]` ones itself
+(first-of-family, secret-adjacent, semantics-adjacent -- each with its
+one-line justification), and dispatches everything else to Opus/Sonnet
+subagents via the Agent tool at the packet's tier, reviewing each diff
+against acceptance criteria before committing. Most implementation
+code in Stage A is written by Opus, most pattern-copied tests and
+registry plumbing by Sonnet (section 2 table). Owner is around
 intermittently.
 
 **Stage B (Phases 4-5): assembly line -- Opus-led, mostly unattended.**
 The patterns exist; Phase 4 is ~80 lines of specified JS, Phase 5 is
 drafting ops artifacts. Run the loop as an **Opus main session**
-(`/loop`, or headless `claude -p --model opus` per packet) that spawns
-**Fable subagents only** for gate reviews and blocked-packet
-adjudication. Fresh context per packet prevents drift; the backlog file
-carries all state. Phase 5's installations and the one-week soak are
-inherently human-paced; the loop only drafts artifacts.
+(`/loop`, or headless `claude -p --model opus` per packet) that
+dispatches `tier: sonnet` packets downward and spawns **Fable
+subagents only** for gate reviews and blocked-packet adjudication.
+Fresh context per packet prevents drift; the backlog file carries all
+state. Phase 5's installations and the one-week soak are inherently
+human-paced; the loop only drafts artifacts.
 
 Cloud scheduled agents are not proposed: the runtime target is a local
 Mac mesh and every deploy-adjacent action is human anyway.
