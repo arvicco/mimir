@@ -196,6 +196,9 @@ full freedom -- the boundary itself is hard.**
 - Writing `scripts/btco/universe.json` directly.
 
 **Loop discipline:**
+- Owner-facing verification requests are always SPECIFIC: exact
+  command lines to run and files to check, plus what good/bad looks
+  like -- never a bare "take a look".
 - Two-strike rule bounds spend on any packet.
 - The loop never marks its own phase done -- a phase ends at
   owner-executed gate actions, full stop.
