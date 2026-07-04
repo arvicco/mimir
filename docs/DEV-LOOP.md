@@ -196,6 +196,9 @@ full freedom -- the boundary itself is hard.**
 - Writing `scripts/btco/universe.json` directly.
 
 **Loop discipline:**
+- Owner-facing verification requests are always SPECIFIC: exact
+  command lines to run and files to check, plus what good/bad looks
+  like -- never a bare "take a look".
 - Two-strike rule bounds spend on any packet.
 - The loop never marks its own phase done -- a phase ends at
   owner-executed gate actions, full stop.
@@ -278,22 +281,18 @@ architecture is exercised on every change. No gems to install (stdlib +
 bundled minitest), so both jobs are fast and dependency-free. Becomes a
 Phase 0 packet (M0-1 scope) if approved.
 
-## 10. Next steps (require owner approval -- nothing below has run)
+## 10. Decisions (approved by owner, 2026-07-03)
 
-1. **Approve this revision** (Stage 0 structure, Fable-only Stage 0
-   tiering, README gate rule, Ruby 3.3+/Apple Silicon retarget --
-   already reflected in CLAUDE.md and ARCHITECTURE.md, pending your
-   review).
-2. ~~Decide git hosting~~ **Decided 2026-07-03:** repo initialized and
-   pushed to private `arvicco/mimir` (main). Remaining sub-decision:
-   whether the loop pushes `phase-N` branches + opens PRs (nabu policy,
-   enables CI per section 9) or phases merge locally. `main` stays
-   owner-merged either way.
-3. On approval, execute M0-1: `phase-0` branch, permission profile, CI
-   workflow (if approved), elaborate Phase 0 packets into
-   `docs/BACKLOG.md`.
-4. Owner supplies the one Phase 0 input the loop cannot get itself:
-   pre-import `--json` captures for Gate 0 (run each tool once, save
-   output; the loop can print the exact commands to run).
-5. Stage 0 begins: interactive Fable sessions work the Phase 0 backlog,
-   starting with the tool inventory memo.
+1. **Plan approved** with amendments incorporated (Ruby 3.3+/Apple
+   Silicon retarget; Stage 0 legacy hardening, interactive, Fable-only
+   code; README updated before every gate).
+2. **Git hosting:** private `arvicco/mimir`. **Push policy:** the loop
+   pushes `phase-N` branches and opens PRs; `main` stays owner-merged
+   (nabu policy -- makes the CI oracle bite on every PR).
+3. **In effect:** `docs/BACKLOG.md` carries the elaborated packets,
+   `.claude/settings.json` carries the permission profile,
+   `.github/workflows/ci.yml` runs compat+test on ubuntu and
+   macos-arm64, work proceeds on `phase-N` branches (M0-1 done).
+4. **Outstanding owner input:** pre-import `--json` captures for
+   Gate 0 -- run each tool once, save output (the loop prints the
+   exact commands when Gate 0 approaches).

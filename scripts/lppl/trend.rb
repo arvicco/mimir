@@ -28,21 +28,21 @@
 require_relative 'common'
 
 NAME    = 'trend'
-CACHE   = File.join(Common::DATA, 'trend_scores.csv')
+CACHE   = File.join(Lppl::DATA, 'trend_scores.csv')
 HORIZ   = [30, 90, 180].freeze
 EVAL0   = Time.utc(2017, 1, 1)
 WIN_REC = 1095 # rows in the "recent" power-law window
 MINFIT  = 1460 # min rows of history before a fit is scored
 
 begin
-  p = Common.load_prices
+  p = Lppl.load_prices
 rescue StandardError => e
-  Common.fail_soft(NAME, e.message)
+  Lppl.fail_soft(NAME, e.message)
 end
 
 n     = p[:dates].size
 xs    = p[:days].map { |d| Math.log(d) }
-reg   = Common::RangeReg.new(xs, p[:lnp])
+reg   = Lppl::RangeReg.new(xs, p[:lnp])
 
 # prefix sums of daily log-diffs for the RW sigma
 dd  = Array.new(n, 0.0)
@@ -152,7 +152,7 @@ score = if bf_yr >= 1.0
           0
         end
 
-Common.report(NAME, score,
+Lppl.report(NAME, score,
               format('trailing-1y log10 BF (pl_full vs best rival) %+.2f  [30d %+.2f / 90d %+.2f / 180d %+.2f]',
                      bf_yr, per_h[30], per_h[90], per_h[180]),
               'bf' => bf_yr,

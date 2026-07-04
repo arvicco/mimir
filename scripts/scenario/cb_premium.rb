@@ -17,12 +17,12 @@ require_relative 'common'
 NAME = 'cb_premium'
 
 begin
-  cb = Common.get_json('https://api.exchange.coinbase.com/products/BTC-USD/ticker')['price'].to_f
-  bn = Common.get_json('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT')['price'].to_f
+  cb = Scenario.get_json('https://api.exchange.coinbase.com/products/BTC-USD/ticker')['price'].to_f
+  bn = Scenario.get_json('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT')['price'].to_f
 rescue StandardError => e
-  Common.fail_soft(NAME, e.message)
+  Scenario.fail_soft(NAME, e.message)
 end
-Common.fail_soft(NAME, 'bad quote') if cb <= 0 || bn <= 0
+Scenario.fail_soft(NAME, 'bad quote') if cb <= 0 || bn <= 0
 
 prem  = (cb / bn - 1.0) * 10_000
 score = if prem >= 10
@@ -33,6 +33,6 @@ score = if prem >= 10
           0
         end
 
-Common.report(NAME, score,
+Scenario.report(NAME, score,
               format('coinbase %+.1f bps vs binance (CB %.2f / BN %.2f)',
                      prem, cb, bn))

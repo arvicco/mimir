@@ -13,18 +13,24 @@
 #   ruby scenario.rb              # table + composite
 #   ruby scenario.rb --json       # full machine dump
 #   ruby scenario.rb --tmux       # one line -> /tmp/scenario.status
-#   ruby scenario.rb --history    # append JSONL to ~/.scenario_history.jsonl
+#   ruby scenario.rb --history    # append data/history.jsonl (legacy
+#                                 #   ~/.scenario_history.jsonl auto-migrates)
 #
 # Modules run as subprocesses: a crash/hang in any one degrades it to
 # score 0 without breaking the composite. Each module is independently
 # runnable for its own detailed view. Weights reflect lead time and
 # reliability: flows > positioning/premium/macro > slow on-chain gauges.
+# Module stdout discipline: in --json mode a module must print exactly
+# one JSON line (this aggregator parses the LAST stdout line; anything
+# else degrades that module to score 0).
 #
 # Ruby >= 2.5, stdlib only.
 
 require 'json'
 require 'time'
-require 'timeout'
+require_relative '../../lib/btc/env'
+require_relative '../../lib/btc/suite'
+require_relative '../../lib/btc/report'
 
 DIR = File.expand_path(__dir__)
 
@@ -46,11 +52,7 @@ LABELS = {
 
 results = MODULES.map do |mod, w|
   begin
-    out = nil
-    Timeout.timeout(45) do
-      out = IO.popen(['ruby', File.join(DIR, "#{mod}.rb"), '--json'], &:read)
-    end
-    r = JSON.parse(out.to_s.lines.last.to_s)
+    r = BTC::Suite.run_module(DIR, mod, 45)
     { mod: mod, w: w, score: r['score'].to_i, headline: r['headline'].to_s }
   rescue StandardError => e
     { mod: mod, w: w, score: 0, headline: "module failed (#{e.class})" }
@@ -75,7 +77,14 @@ regime = if composite <= -0.40
 ts = Time.now.utc
 
 if ARGV.include?('--history')
-  File.open(File.join(ENV['HOME'], '.scenario_history.jsonl'), 'a') do |f|
+  require 'fileutils'
+  hist_dir = BTC::Env.data_dir('scenario', File.join(DIR, 'data'))
+  FileUtils.mkdir_p(hist_dir)
+  hist = File.join(hist_dir, 'history.jsonl')
+  # one-time migration from the pre-2026-07 location
+  legacy = File.join(ENV['HOME'].to_s, '.scenario_history.jsonl')
+  FileUtils.mv(legacy, hist) if File.exist?(legacy) && !File.exist?(hist)
+  File.open(hist, 'a') do |f|
     f.puts JSON.generate(ts: ts.iso8601, composite: composite.round(3),
                          regime: regime,
                          scores: Hash[results.map { |r| [r[:mod], r[:score]] }])
@@ -87,7 +96,7 @@ line = format('SCN %s %+.2f %s', regime, composite,
                      .join(' '))
 
 if ARGV.include?('--tmux')
-  File.write('/tmp/scenario.status', line + "\n")
+  BTC::Report.status('scenario', line)
   exit
 end
 

@@ -20,17 +20,24 @@
 #   ruby lppl.rb                # table + verdict
 #   ruby lppl.rb --json        # machine dump
 #   ruby lppl.rb --tmux        # one line -> /tmp/lppl.status
-#   ruby lppl.rb --history     # append data/ledger.jsonl
+#   ruby lppl.rb --history     # append data/ledger.jsonl (+ fit history)
 #   ruby lppl.rb --skip-update # use cached prices (offline/backtest)
+#
+# Module stdout discipline: in --json mode a test must print exactly one
+# JSON line (this aggregator parses the LAST stdout line; anything else
+# degrades that test to score 0).
 #
 # Ruby >= 2.5, stdlib only.
 
 require 'json'
 require 'time'
-require 'timeout'
+require_relative '../../lib/btc/env'
+require_relative '../../lib/btc/suite'
+require_relative '../../lib/btc/report'
 
 DIR    = File.expand_path(__dir__)
-LEDGER = File.join(DIR, 'data', 'ledger.jsonl')
+LEDGER = File.join(BTC::Env.data_dir('lppl', File.join(DIR, 'data')),
+                   'ledger.jsonl')
 
 TESTS = [
   ['trend',       3, 400],
@@ -41,11 +48,7 @@ TESTS = [
 ].freeze
 
 def run_module(name, timeout, extra = [])
-  out = nil
-  Timeout.timeout(timeout) do
-    out = IO.popen(['ruby', File.join(DIR, "#{name}.rb"), '--json'] + extra, &:read)
-  end
-  JSON.parse(out.to_s.lines.last.to_s)
+  BTC::Suite.run_module(DIR, name, timeout, extra)
 rescue StandardError => e
   { 'name' => name, 'score' => 0, 'headline' => "module failed (#{e.class})" }
 end
@@ -56,7 +59,10 @@ unless ARGV.include?('--skip-update')
 end
 
 results = TESTS.map do |name, w, to|
-  r = run_module(name, to)
+  # fit.rb's stability tracker only appends on --history runs; pass the
+  # flag through so the daily cron run keeps feeding it.
+  extra = name == 'fit' && ARGV.include?('--history') ? ['--history'] : []
+  r = run_module(name, to, extra)
   { name: name, w: w, score: r['score'].to_i,
     headline: r['headline'].to_s, detail: r }
 end
@@ -118,7 +124,7 @@ line = format('LPPL %s %+.2f BF%s r%s trough %s/%s w%s p%s Z%s@%s%s',
               d['percentile']['record'] ? '!' : '')
 
 if ARGV.include?('--tmux')
-  File.write('/tmp/lppl.status', line + "\n")
+  BTC::Report.status('lppl', line)
   exit
 end
 

@@ -43,14 +43,18 @@ rake test                 # full minitest suite (must pass before any commit)
 rake test:unit            # math/parsing only
 rake test:contract        # --json field-set contracts (fixtures)
 rake compat               # ruby -c syntax check of every Ruby file
+rake health               # offline conventions/interface + source-registry scan
+rake health:sources       # probe upstream data sources -- NETWORK, read-only
 rake fixtures:record      # refresh API fixtures -- NETWORK, ask first
 rake golden:approve       # bless regenerated chart specs after visual review
 ruby scripts/lppl/lppl.rb --skip-update   # run suites offline against cache
 PUBLISH_DRY_RUN=1 ruby publish/publish.rb # publish pipeline, no network
 ```
 
-`rake compat` and `rake test` are the pre-commit gate; both green or the
-commit does not happen.
+`rake compat`, `rake health` and `rake test` are the pre-commit gate
+(= `rake`); all green or the commit does not happen. New hard-coded
+data sources MUST be registered in lib/btc/health.rb's SOURCES in the
+same commit (`rake health` fails on registry drift).
 
 ## Workflow (every task)
 
@@ -112,7 +116,8 @@ commit does not happen.
 
 ## Git conventions
 
-- Branch per task: `phase0/characterize-rangereg`, `phase3/gex-spec`.
+- Work happens on phase branches (`phase-0`, `phase-1`, ...) pushed to
+  origin; `main` is owner-merged at gates (see docs/DEV-LOOP.md).
 - Conventional commits: `feat:`, `fix:`, `test:`, `refactor:`, `docs:`,
   `chore:`; imperative subject <= 72 chars; body explains WHY.
 - One logical change per commit; tests in the same commit as the code

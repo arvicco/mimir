@@ -62,9 +62,12 @@ btc-analytics/
     scenario/   (common.rb, 7 modules, scenario.rb, README.md)
     lppl/       (common.rb, prices.rb, 5 tests, lppl.rb, README.md)
     btco/       (btco.rb, ingest.rb, universe.json, capstruct/)
-  lib/                       shared code extracted in Phase 1
+  lib/                       shared code (seams + extracted duplicates)
     btc/http.rb              single HTTP seam (injectable for tests)
     btc/env.rb               ENV access, data-dir resolution
+    btc/options.rb           options math + instrument parsing (gex family)
+    btc/report.rb            suite module report/fail_soft contract
+    btc/util.rb              tiny CLI helpers
   publish/
     kv_client.rb             Cloudflare KV REST client (PUT/GET, retries)
     chart_specs.rb           ECharts option builders (pure functions)
@@ -85,8 +88,10 @@ btc-analytics/
 ```
 
 `scripts/` keeps its internal `data/` dirs by default (behavior-preserving);
-Phase 1 adds optional `BTC_DATA_DIR` override so a repo checkout can keep
-runtime data out of the tree.
+the `BTC_DATA_DIR` override (implemented Phase 0) routes all runtime
+artifacts to `$BTC_DATA_DIR/<suite>/` so a checkout stays clean. Status
+lines stay in /tmp (tmux-facing); btco's `capstruct/` is a committed
+audit trail, not runtime data.
 
 ## 4. Data contracts
 
@@ -164,7 +169,7 @@ EDGAR_UA             'name email' -- SEC-required identifying UA (btco)
 ANTHROPIC_API_KEY    Claude API for ingest.rb extraction (optional;
                      heuristic fallback without it)
 BTCO_MODEL           extraction model override (default claude-sonnet-4-6)
-BTC_DATA_DIR         optional data-dir override (Phase 1+)
+BTC_DATA_DIR         optional data-dir override ($BTC_DATA_DIR/<suite>/)
 PUBLISH_DRY_RUN=1    write artifacts to data/publish_preview/, no network
 ```
 
@@ -204,8 +209,8 @@ BEFORE any new feature work. Stage 0 runs interactively with the owner.
   pre-import captures); review memo accepted; README v1 accepted.
 
 ### Phase 1 -- seams, contracts + reviewed refactoring
-- Extract `lib/btc/http.rb`; suites' `Common.get_json` delegates to it.
-  Injectable transport for tests; fixtures recorded via
+- `lib/btc/http.rb` seam + all call-site migration: delivered early in
+  Phase 0 (F-13). Remaining here: fixtures recorded via
   `rake fixtures:record` (network task, run manually).
 - Contract tests in `test/contract/` for every module's `--json`,
   including btco.rb, plus the ingest proposal schema (extraction JSON
@@ -214,7 +219,7 @@ BEFORE any new feature work. Stage 0 runs interactively with the owner.
   only; behavior-preserving, characterization tests first; duplication
   across the disparate tools consolidated into `lib/`. Bugs found are
   decision items (a fix changes published behavior), never silent.
-- Optional `BTC_DATA_DIR` (defaults preserve current paths).
+- Optional `BTC_DATA_DIR` (delivered early in Phase 0, F-8).
 - **Gate 1:** field-set diff empty for all modules; cron behavior
   unchanged; refactor list fully resolved (done or explicitly deferred).
   Legacy code is now in good shape -- new feature work may begin.

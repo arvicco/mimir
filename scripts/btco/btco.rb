@@ -12,11 +12,15 @@
 #
 # Data flow: static fundamentals (BTC held, share counts, senior claims,
 # convert tranches) live in universe.json with per-field as-of dates and
-# are HUMAN-MAINTAINED; live inputs are share prices (Stooq CSV, keyless,
-# covers US+JP), FX (Stooq), and BTC spot (Deribit index). --check-filings
-# closes the loop: it queries EDGAR's submissions API for filings newer
-# than your recorded as-of date and prints URLs (plus a best-effort hint),
-# so the config is updated deliberately, never scraped blindly.
+# are HUMAN-MAINTAINED; live inputs are US share prices (CBOE delayed
+# quotes, keyless), FX (Frankfurter/ECB, keyless), and BTC spot (Deribit
+# index). Non-US listings (Metaplanet) price via manual_px only.
+# (Stooq served quotes+FX until its API died upstream 2026-07 --
+# TOOL-REVIEW.md F-17; universe.json's 'stooq' field is vestigial.)
+# --check-filings closes the loop: it queries EDGAR's submissions API
+# for filings newer than your recorded as-of date and prints URLs (plus
+# a best-effort hint), so the config is updated deliberately, never
+# scraped blindly.
 #
 # Metrics per company:
 #   sats/sh (dil)   BTC * 1e8 / assumed diluted shares
@@ -29,6 +33,8 @@
 #   netNAV          market cap / (BTC NAV - senior claims)
 #   EV/BTC          (mcap + senior) / BTC  -- price paid per coin
 #   lev             senior claims / BTC NAV
+#   Market cap is px * shares_BASIC (the market observable) by design;
+#   per-share entitlement metrics (sats/sh, CEBE) use diluted counts.
 #
 # Verdict (per company, on netNAV with peer-median context):
 #   DEEP-DISC < 0.90 | UNDER < 1.10 | FAIR < 1.45 | RICH < 1.90 | OVER >=
@@ -40,45 +46,45 @@
 #   bands: <25 CALM, <50 ELEVATED, <75 STRESSED, >=75 CRITICAL
 #   suite score: +1 if stress <= 30, -1 if >= 60, else 0
 #
+# Fail-soft: a dead input (universe, Deribit index, no priced companies)
+# degrades to a score-0 report with exit 0, matching the scenario/lppl
+# module contract; it never crashes an aggregate.
+#
 # Ruby >= 2.5, stdlib only.
 
-require 'net/http'
 require 'json'
 require 'time'
+require_relative 'metrics'
+require_relative '../../lib/btc/report'
+require_relative '../../lib/btc/util'
+require_relative '../../lib/btc/http'
+require_relative '../../lib/btc/deribit'
 
-def arg(flag)
-  i = ARGV.index(flag)
-  i && ARGV[i + 1]
-end
-
-UNIVERSE = arg('--universe') || File.join(File.expand_path(__dir__), 'universe.json')
-STALE_D  = 120
+UNIVERSE = BTC::Util.arg('--universe') ||
+           File.join(File.expand_path(__dir__), 'universe.json')
 
 def get(url, headers = {})
-  uri = URI(url)
-  Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https',
-                  open_timeout: 5, read_timeout: 30) do |http|
-    req = Net::HTTP::Get.new(uri.request_uri,
-                             { 'User-Agent' => ENV['EDGAR_UA'] || 'btco.rb (set EDGAR_UA=name email)' }
-                               .merge(headers))
-    res = http.request(req)
-    raise "HTTP #{res.code}" unless res.code.to_i == 200
-
-    res.body
-  end
+  ua = ENV['EDGAR_UA'] || 'btco.rb (set EDGAR_UA=name email)'
+  BTC::Http.get(url, { 'User-Agent' => ua }.merge(headers), read_timeout: 30)
 end
 
 def get_json(url, headers = {})
   JSON.parse(get(url, headers))
 end
 
+# Suite convention (scenario/lppl): a dead data source degrades to a
+# score-0 report and exit 0, never a crash.
+def fail_soft(reason)
+  BTC::Report.fail_soft('btco', reason, name_w: 6)
+end
+
 begin
   uni = JSON.parse(File.read(UNIVERSE))
 rescue StandardError => e
-  abort "universe: #{e.class}: #{e.message}"
+  fail_soft("universe: #{e.class}: #{e.message}")
 end
 cos = uni['companies'] || []
-abort 'empty universe' if cos.empty?
+fail_soft('empty universe') if cos.empty?
 
 # ---- filings check mode ------------------------------------------------------
 if ARGV.include?('--check-filings')
@@ -116,78 +122,55 @@ end
 
 # ---- live inputs -------------------------------------------------------------
 begin
-  btc_px = get_json('https://www.deribit.com/api/v2/public/get_index_price?index_name=btc_usd')
-           .fetch('result').fetch('index_price').to_f
+  btc_px = BTC::Deribit.index_price('btc_usd')
 rescue StandardError => e
-  abort "deribit index: #{e.message}"
+  fail_soft("deribit index: #{e.message}")
 end
 
-syms = cos.map { |c| c['stooq'] }.compact
-ccys = cos.map { |c| (c['ccy'] || 'USD').upcase }.uniq - ['USD']
-syms += ccys.map { |x| "usd#{x.downcase}" }
+CBOE = 'https://cdn.cboe.com/api/global/delayed_quotes/options'
 
-quotes = {}
-begin
-  csv = get("https://stooq.com/q/l/?s=#{syms.join('+')}&f=sd2t2ohlcv&h&e=csv")
-  csv.lines.drop(1).each do |ln|
-    f = ln.strip.split(',')
-    next if f.size < 7 || f[6] == 'N/D'
+quotes = {} # ticker -> price in listing ccy (US listings only)
+cos.each do |c|
+  next unless (c['ccy'] || 'USD').upcase == 'USD'
 
-    quotes[f[0].downcase] = f[6].to_f
+  begin
+    d = get_json("#{CBOE}/#{c['ticker']}.json")['data']
+    next unless d
+
+    px = (d['current_price'] || d['close']).to_f
+    px = d['close'].to_f if px <= 0
+    quotes[c['ticker']] = px if px > 0
+  rescue StandardError => e
+    warn "#{c['ticker']}: quote failed (#{e.message})"
   end
-rescue StandardError => e
-  warn "stooq: #{e.message} (manual_px fallbacks only)"
 end
 
+ccys = cos.map { |c| (c['ccy'] || 'USD').upcase }.uniq - ['USD']
 fx = Hash.new(1.0) # ccy -> units per USD
-ccys.each { |x| fx[x] = quotes["usd#{x.downcase}"] || 0.0 }
+unless ccys.empty?
+  begin
+    rates = get_json("https://api.frankfurter.dev/v1/latest?base=USD&symbols=#{ccys.join(',')}")['rates'] || {}
+    ccys.each { |x| fx[x] = rates[x].to_f }
+  rescue StandardError => e
+    warn "fx: #{e.message}"
+    ccys.each { |x| fx[x] = 0.0 }
+  end
+end
 
 # ---- per-company metrics -----------------------------------------------------
 now  = Time.now.utc
 rows = []
 cos.each do |c|
   ccy = (c['ccy'] || 'USD').upcase
-  px  = quotes[c['stooq'].to_s.downcase] || c['manual_px']
+  px  = quotes[c['ticker']] || c['manual_px']
   next warn("#{c['ticker']}: no price, skipped") unless px
 
-  rate   = ccy == 'USD' ? 1.0 : fx[ccy]
+  rate = ccy == 'USD' ? 1.0 : fx[ccy]
   next warn("#{c['ticker']}: no FX #{ccy}, skipped") if rate.zero?
 
-  px_usd = px / rate
-  btc    = c['btc'].to_f
-  shs_b  = c['shares_basic'].to_f
-  shs_d  = [c['shares_diluted'].to_f, shs_b].max
-
-  itm_sh = 0.0
-  otm_fc = 0.0
-  (c['converts'] || []).each do |t|
-    cp = t['conv_price'].to_f / rate # conv prices quoted in listing ccy
-    if cp > 0 && px > cp * rate
-      itm_sh += t['face'].to_f / (cp * rate) / rate # shares = face_usd/conv_usd
-    else
-      otm_fc += t['face'].to_f
-    end
-  end
-  senior = otm_fc + c['debt_face'].to_f + c['pref_liq'].to_f
-  shs_a  = shs_d + itm_sh
-
-  nav      = btc * btc_px
-  mcap     = px_usd * shs_b
-  net_nav  = nav - senior
-  sats_d   = btc * 1e8 / shs_d
-  cebe     = [net_nav, 0.0].max / btc_px * 1e8 / shs_a
-  mnav     = nav.zero? ? nil : mcap / nav
-  netm     = net_nav > 0 ? mcap / net_nav : nil
-  ev_btc   = btc.zero? ? nil : (mcap + senior) / btc
-  lev      = nav.zero? ? 0.0 : senior / nav
-  stale    = c['btc_as_of'] && (now - Time.parse(c['btc_as_of'] + ' 00:00:00 UTC')) / 86_400 > STALE_D
-
-  rows << { t: c['ticker'], px: px, ccy: ccy, btc: btc, sats_d: sats_d,
-            cebe: cebe, mnav: mnav, netm: netm, ev: ev_btc, lev: lev,
-            mcap: mcap, nav: nav, stale: stale, as_of: c['btc_as_of'],
-            ph: c['placeholder'] }
+  rows << Btco.company_row(c, px, rate, btc_px, now)
 end
-abort 'no companies priced' if rows.empty?
+fail_soft('no companies priced') if rows.empty?
 
 med = lambda do |a|
   s = a.compact.sort
@@ -254,7 +237,7 @@ line = format('BTCO %d %s <1:%d%% med %.2f lev %.0f%%%s',
               stress, band, (below_w * 100).round, mm, agg_lev * 100,
               n_stale > 0 ? " stale:#{n_stale}" : '')
 if ARGV.include?('--tmux')
-  File.write('/tmp/btco.status', line + "\n")
+  BTC::Report.status('btco', line)
   exit
 end
 

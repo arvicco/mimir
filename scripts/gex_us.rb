@@ -9,7 +9,8 @@
 #   ruby gex_us.rb IBIT               # human output
 #   ruby gex_us.rb IBIT MSTR          # multiple tickers
 #   ruby gex_us.rb IBIT --max-days 45 # near-dated board only
-#   ruby gex_us.rb IBIT --json
+#   ruby gex_us.rb IBIT --json        # single ticker -> ONE OBJECT;
+#   ruby gex_us.rb IBIT MSTR --json   #   multiple -> ARRAY (frozen contract)
 #   ruby gex_us.rb IBIT MSTR --tmux   # one line each -> /tmp/gex_<ticker>.status
 #
 # For spot-BTC ETFs (IBIT, FBTC, ...) every price output is annotated with
@@ -19,45 +20,30 @@
 # calls / short puts (call gamma +, put gamma -); on OPRA customer flow
 # this assumption is more defensible than on Deribit. Quotes are ~15 min
 # delayed; open interest is previous-day (OPRA updates OI overnight).
+# US expiry approximated at 21:00 UTC year-round (4pm ET ignoring DST);
+# worst case 1h of T error, negligible at daily horizons.
+#
+# Failure mode: aborts with a message on stderr, exit != 0 (no fail-soft
+# JSON) -- downstream consumers must treat nonzero exit as keep-last-good.
 
-require 'net/http'
 require 'json'
 require 'time'
+require_relative '../lib/btc/options'
+require_relative '../lib/btc/util'
+require_relative '../lib/btc/http'
+require_relative '../lib/btc/deribit'
+require_relative '../lib/btc/report'
+require_relative '../lib/btc/format'
 
 CBOE = 'https://cdn.cboe.com/api/global/delayed_quotes/options'
 MULT = 100.0 # shares per contract
 BTC_ETFS = %w[IBIT FBTC BITB ARKB GBTC BTC HODL BTCO BRRR EZBC].freeze
 
 def get_json(url)
-  uri = URI(url)
-  Net::HTTP.start(uri.host, uri.port, use_ssl: true,
-                  open_timeout: 5, read_timeout: 20) do |http|
-    req = Net::HTTP::Get.new(uri.request_uri, 'User-Agent' => 'gex_us.rb')
-    JSON.parse(http.request(req).body)
-  end
+  JSON.parse(BTC::Http.get(url, { 'User-Agent' => 'gex_us.rb' }))
 rescue StandardError => e
   abort "fetch #{url}: #{e.class}: #{e.message}"
 end
-
-def norm_pdf(x)
-  Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math::PI)
-end
-
-def bs_gamma(s, k, t, v)
-  return 0.0 if t <= 0 || v <= 0 || s <= 0 || k <= 0
-
-  sq = v * Math.sqrt(t)
-  d1 = (Math.log(s / k) + 0.5 * v * v * t) / sq
-  norm_pdf(d1) / (s * sq)
-end
-
-# Gamma at hypothetical spot s. Recompute via BS when IV is present;
-# fall back to the CBOE-provided (static) gamma otherwise.
-def gamma_at(o, s)
-  o[:iv] > 0 ? bs_gamma(s, o[:k], o[:t], o[:iv]) : o[:gp]
-end
-
-OSI = /\A[A-Z]+(\d{6})([CP])(\d{8})\z/
 
 def parse_chain(ticker, max_days, now)
   data = get_json("#{CBOE}/#{ticker}.json")['data']
@@ -70,50 +56,46 @@ def parse_chain(ticker, max_days, now)
     oi = o['open_interest'].to_f
     next if oi <= 0
 
-    m = OSI.match(o['option'].to_s.delete(' ')) or next
-    d = m[1]
-    expiry = Time.utc(2000 + d[0, 2].to_i, d[2, 2].to_i, d[4, 2].to_i, 21)
-    t = (expiry - now) / (365.25 * 86_400)
+    expiry, cp, k = BTC::Options.parse_osi(o['option'])
+    next unless expiry
+
+    t = (expiry - now) / BTC::Options::YEAR_S
     next if t <= 0 || (max_days && t * 365.25 > max_days)
 
     iv = o['iv'].to_f
     gp = o['gamma'].to_f
     next if iv <= 0 && gp <= 0
 
-    { k: m[3].to_f / 1000.0, cp: m[2], t: t, iv: iv, oi: oi, gp: gp }
+    { k: k, cp: cp, t: t, iv: iv, oi: oi, gp: gp }
   end.compact
   abort "#{ticker}: no live instruments parsed" if book.empty?
 
   [spot, book]
 end
 
-# Dollar gamma per 1% move at hypothetical spot x.
+# Dollar gamma per 1% move at hypothetical spot x (x IS each
+# instrument's underlying here -- single-name chains).
 def net_gex(book, x)
-  book.sum do |o|
-    sgn = o[:cp] == 'C' ? 1.0 : -1.0
-    sgn * gamma_at(o, x) * o[:oi] * MULT * x * x * 0.01
-  end
-end
-
-def arg(flag)
-  i = ARGV.index(flag)
-  i && ARGV[i + 1]
+  book.sum { |o| BTC::Options.inst_gex(o, x, MULT) }
 end
 
 # ---- main -------------------------------------------------------------------
 tickers  = ARGV.select { |a| a =~ /\A[A-Za-z.]{1,6}\z/ }.map(&:upcase)
 abort 'usage: gex_us.rb TICKER [TICKER ...] [--max-days N] [--json|--tmux]' if tickers.empty?
 
-max_days = arg('--max-days') && arg('--max-days').to_f
+max_days = BTC::Util.arg('--max-days')&.to_f
 now      = Time.now.utc
 
 btc_spot = nil
 if (tickers & BTC_ETFS).any?
-  r = get_json('https://www.deribit.com/api/v2/public/get_index_price?index_name=btc_usd')
-  btc_spot = r['result'] && r['result']['index_price'].to_f
+  begin
+    btc_spot = BTC::Deribit.index_price('btc_usd')
+  rescue StandardError => e
+    abort "fetch deribit index: #{e.class}: #{e.message}"
+  end
 end
 
-fmt_m  = ->(v) { format('%+.1fM', v / 1e6) }
+fmt_m  = BTC::Format.method(:musd)
 fmt_px = ->(v) { v >= 1000 ? format('%.1fk', v / 1000.0) : format('%g', v.round(2)) }
 
 json_acc = []
@@ -122,29 +104,15 @@ tickers.each do |ticker|
   spot, book = parse_chain(ticker, max_days, now)
 
   profile = Hash.new(0.0)
-  book.each do |o|
-    sgn = o[:cp] == 'C' ? 1.0 : -1.0
-    profile[o[:k]] += sgn * gamma_at(o, spot) * o[:oi] * MULT * spot * spot * 0.01
-  end
+  book.each { |o| profile[o[:k]] += BTC::Options.inst_gex(o, spot, MULT) }
 
-  near      = profile.select { |k, _| (k - spot).abs / spot <= 0.30 }
-  call_wall = near.max_by { |_, v| v }
-  put_wall  = near.min_by { |_, v| v }
-  total     = profile.values.sum
+  near, call_wall, put_wall = BTC::Options.walls(profile, spot)
+  total = profile.values.sum
 
-  vals = (0.70..1.30).step(0.005).map do |f|
-    x = spot * f
-    [x, net_gex(book, x)]
-  end
-  cross = vals.each_cons(2).find { |(_, a), (_, b)| a.negative? ^ b.negative? }
-  flip  = cross && begin
-    (x0, y0), (x1, y1) = cross
-    (x0 - y0 * (x1 - x0) / (y1 - y0)).round(2)
-  end
+  flip = BTC::Options.gamma_flip(spot) { |x| net_gex(book, x) }
+  flip = flip && flip.round(2)
 
-  put_oi  = book.sum { |o| o[:cp] == 'P' ? o[:oi] : 0.0 }
-  call_oi = book.sum { |o| o[:cp] == 'C' ? o[:oi] : 0.0 }
-  pc      = call_oi.zero? ? 0.0 : put_oi / call_oi
+  pc = BTC::Options.put_call_ratio(book) { |o| o[:oi] }
 
   ratio  = btc_spot && BTC_ETFS.include?(ticker) ? spot / btc_spot : nil
   to_btc = ->(v) { v && ratio ? v / ratio : nil }
@@ -175,7 +143,7 @@ tickers.each do |ticker|
                 call_wall ? pxb.(call_wall[0]) : '--', pc)
 
   if ARGV.include?('--tmux')
-    File.write("/tmp/gex_#{ticker.downcase}.status", line + "\n")
+    BTC::Report.status("gex_#{ticker.downcase}", line)
     next
   end
 
@@ -192,11 +160,7 @@ tickers.each do |ticker|
   end
 
   puts
-  max_abs = near.values.map(&:abs).max || 1.0
-  profile.select { |k, _| (k - spot).abs / spot <= 0.15 }.sort.each do |k, v|
-    bar = '#' * [(v.abs / max_abs * 40).round, 40].min
-    puts format('%-16s %12s  %s%s', pxb.(k), fmt_m.(v), v.negative? ? '-' : '+', bar)
-  end
+  BTC::Format.profile_bars(profile, near, spot, 16, pxb)
   puts
 end
 

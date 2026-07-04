@@ -3,14 +3,16 @@
 # common.rb -- shared machinery for the LPPL evidence suite.
 # Ruby >= 2.5, stdlib only.
 
-require 'net/http'
 require 'json'
 require 'time'
 require 'fileutils'
+require_relative '../../lib/btc/report'
+require_relative '../../lib/btc/env'
+require_relative '../../lib/btc/http'
 
-module Common
+module Lppl
   GENESIS = Time.utc(2009, 1, 3)
-  DATA    = File.join(File.expand_path(__dir__), 'data')
+  DATA    = BTC::Env.data_dir('lppl', File.join(File.expand_path(__dir__), 'data'))
   PRICES  = File.join(DATA, 'prices.csv')
 
   module_function
@@ -18,35 +20,19 @@ module Common
   # ---- IO / reporting --------------------------------------------------------
 
   def get_json(url, headers = {})
-    uri = URI(url)
-    Net::HTTP.start(uri.host, uri.port, use_ssl: true,
-                    open_timeout: 5, read_timeout: 60) do |http|
-      req = Net::HTTP::Get.new(uri.request_uri,
-                               { 'User-Agent' => 'lppl.rb' }.merge(headers))
-      res = http.request(req)
-      raise "HTTP #{res.code}" unless res.code.to_i == 200
-
-      JSON.parse(res.body)
-    end
+    BTC::Http.get_json(url, { 'User-Agent' => 'lppl.rb' }.merge(headers),
+                       read_timeout: 60)
   end
 
   # Uniform module contract. score in -1/0/+1: +1 supports LPPL-as-regime,
   # -1 is evidence against, 0 neutral/insufficient. detail keys are consumed
   # by the aggregator (lppl.rb).
   def report(name, score, headline, detail = {})
-    detail = detail.reject { |_, v| v.nil? }
-    if ARGV.include?('--json')
-      puts JSON.generate({ name: name, score: score, headline: headline,
-                           ts: Time.now.utc.iso8601 }.merge(detail))
-    else
-      puts format('%-12s [%+d]  %s', name, score, headline)
-      detail.each { |k, v| puts format('  %-16s %s', k, v) }
-    end
+    BTC::Report.report(name, score, headline, detail, name_w: 12, key_w: 16)
   end
 
   def fail_soft(name, err)
-    report(name, 0, "unavailable (#{err})")
-    exit 0
+    BTC::Report.fail_soft(name, err, name_w: 12)
   end
 
   # ---- price cache -----------------------------------------------------------
@@ -147,6 +133,63 @@ module Common
       x[r] = s / m[r][r]
     end
     x
+  end
+
+  # Lomb-Scargle normalized periodogram over an angular-frequency grid,
+  # on the (uneven) sample points u. Returns [powers, peak_power,
+  # peak_frequency]; [[], 0.0, 0.0] for zero-variance input.
+  # (Extracted verbatim from logperiodic.rb for characterization, M0-6.)
+  def lomb(u, r, grid)
+    n    = r.size
+    mu   = r.inject(:+) / n
+    rc   = r.map { |v| v - mu }
+    var  = rc.inject(0.0) { |s, v| s + v * v } / n
+    return [[], 0.0, 0.0] if var <= 0
+
+    pw = grid.map do |w|
+      s2 = 0.0
+      c2 = 0.0
+      (0...n).each do |i|
+        s2 += Math.sin(2 * w * u[i])
+        c2 += Math.cos(2 * w * u[i])
+      end
+      tau = Math.atan2(s2, c2) / (2 * w)
+      sc = 0.0; ss = 0.0; cc = 0.0; s_s = 0.0
+      (0...n).each do |i|
+        cv = Math.cos(w * (u[i] - tau))
+        sv = Math.sin(w * (u[i] - tau))
+        sc += rc[i] * cv
+        s_s += rc[i] * sv
+        cc += cv * cv
+        ss += sv * sv
+      end
+      ((sc * sc / cc) + (s_s * s_s / ss)) / (2 * var)
+    end
+    pk = pw.each_index.max_by { |i| pw[i] }
+    [pw, pw[pk], grid[pk]]
+  end
+
+  # Reciprocal-decay envelope fit E[|r| | side] = a / (Age + b): grid
+  # over b (0..25 step 0.5), weighted linear solve for a, min-SSE
+  # winner. Returns { a:, b:, sse: } or nil. (Extracted verbatim from
+  # percentile.rb's per-side lambda for characterization, M0-6.)
+  def reciprocal_envelope(abs_r, ages)
+    best = nil
+    (0.0..25.0).step(0.5) do |b|
+      sw2 = 0.0
+      srw = 0.0
+      abs_r.each_index do |j|
+        w = 1.0 / (ages[j] + b)
+        sw2 += w * w
+        srw += abs_r[j] * w
+      end
+      next if sw2 <= 0
+
+      a   = srw / sw2
+      sse = abs_r.each_index.inject(0.0) { |s, j| s + (abs_r[j] - a / (ages[j] + b))**2 }
+      best = { a: a, b: b, sse: sse } if best.nil? || sse < best[:sse]
+    end
+    best
   end
 
   # ---- anti-bubble window helpers ---------------------------------------------

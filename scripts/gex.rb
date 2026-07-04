@@ -18,59 +18,37 @@
 # cryptogamma.io. On Deribit treat the SIGN with suspicion (flows are
 # two-sided); the LEVELS (walls, flip, magnitude) are robust to it.
 # Covers BTC/ETH inverse options only, not the USDC-quoted board.
+#
+# Failure mode: aborts with a message on stderr, exit != 0 (no fail-soft
+# JSON) -- downstream consumers must treat nonzero exit as keep-last-good.
 
-require 'net/http'
 require 'json'
 require 'time'
-
-HOST   = 'https://www.deribit.com/api/v2/public'
-MONTHS = Hash[%w[JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC]
-                .each_with_index.map { |m, i| [m, i + 1] }]
-
-def get_json(path)
-  uri = URI("#{HOST}/#{path}")
-  Net::HTTP.start(uri.host, uri.port, use_ssl: true,
-                  open_timeout: 5, read_timeout: 20) do |http|
-    JSON.parse(http.get(uri.request_uri).body).fetch('result')
-  end
-rescue StandardError => e
-  abort "deribit: #{e.class}: #{e.message}"
-end
-
-def arg(flag)
-  i = ARGV.index(flag)
-  i && ARGV[i + 1]
-end
-
-# ---- Black-Scholes gamma ---------------------------------------------------
-def norm_pdf(x)
-  Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math::PI)
-end
-
-def bs_gamma(s, k, t, v)
-  return 0.0 if t <= 0 || v <= 0 || s <= 0 || k <= 0
-
-  sq = v * Math.sqrt(t)
-  d1 = (Math.log(s / k) + 0.5 * v * v * t) / sq
-  norm_pdf(d1) / (s * sq)
-end
+require_relative '../lib/btc/options'
+require_relative '../lib/btc/util'
+require_relative '../lib/btc/deribit'
+require_relative '../lib/btc/report'
+require_relative '../lib/btc/format'
 
 # ---- fetch + parse board ---------------------------------------------------
 ccy      = ARGV.find { |a| %w[BTC ETH].include?(a.upcase) }&.upcase || 'BTC'
-max_days = arg('--max-days')&.to_f
+max_days = BTC::Util.arg('--max-days')&.to_f
 now      = Time.now.utc
 
-spot = get_json("get_index_price?index_name=#{ccy.downcase}_usd")['index_price'].to_f
-rows = get_json("get_book_summary_by_currency?currency=#{ccy}&kind=option")
+begin
+  spot = BTC::Deribit.index_price("#{ccy.downcase}_usd")
+  rows = BTC::Deribit.book_summary(ccy, 'option')
+rescue StandardError => e
+  abort "deribit: #{e.class}: #{e.message}"
+end
 
 book = rows.map do |r|
   oi = r['open_interest'].to_f
   next if oi <= 0
 
   _, exp, strike, cp = r['instrument_name'].split('-')
-  m   = exp&.match(/\A(\d{1,2})([A-Z]{3})(\d{2})\z/) or next
-  mon = MONTHS[m[2]] or next
-  t   = (Time.utc(2000 + m[3].to_i, mon, m[1].to_i, 8) - now) / (365.25 * 86_400)
+  ex = BTC::Options.deribit_expiry(exp) or next
+  t  = (ex - now) / BTC::Options::YEAR_S
   next if t <= 0 || (max_days && t * 365.25 > max_days)
 
   iv = r['mark_iv'].to_f / 100.0
@@ -82,44 +60,26 @@ end.compact
 abort 'no live instruments parsed' if book.empty?
 
 # ---- dollar gamma per 1% move at hypothetical index level x ----------------
-# Each instrument's forward is scaled proportionally with the index.
+# Each instrument's forward is scaled proportionally with the index;
+# notional at s^2 per the R-12 ruling (reconciles with gex_btc_combined).
 def net_gex(book, spot, x)
-  book.sum do |o|
-    s   = o[:u] * x / spot
-    sgn = o[:cp] == 'C' ? 1.0 : -1.0
-    sgn * bs_gamma(s, o[:k], o[:t], o[:iv]) * o[:oi] * x * x * 0.01
-  end
+  book.sum { |o| BTC::Options.inst_gex(o, o[:u] * x / spot) }
 end
 
 # ---- strike profile at current spot ----------------------------------------
 profile = Hash.new(0.0)
-book.each do |o|
-  sgn = o[:cp] == 'C' ? 1.0 : -1.0
-  profile[o[:k]] += sgn * bs_gamma(o[:u], o[:k], o[:t], o[:iv]) *
-                    o[:oi] * spot * spot * 0.01
-end
+book.each { |o| profile[o[:k]] += BTC::Options.inst_gex(o, o[:u]) }
 
-near      = profile.select { |k, _| (k - spot).abs / spot <= 0.30 }
-call_wall = near.max_by { |_, v| v }
-put_wall  = near.min_by { |_, v| v }
-total     = profile.values.sum
+near, call_wall, put_wall = BTC::Options.walls(profile, spot)
+total = profile.values.sum
 
 # ---- flip scan: first zero crossing of net GEX over +/-30% -----------------
-vals = (0.70..1.30).step(0.005).map do |f|
-  x = spot * f
-  [x, net_gex(book, spot, x)]
-end
-cross = vals.each_cons(2).find { |(_, a), (_, b)| a.negative? ^ b.negative? }
-flip  = cross && begin
-  (x0, y0), (x1, y1) = cross
-  (x0 - y0 * (x1 - x0) / (y1 - y0)).round
-end
+flip = BTC::Options.gamma_flip(spot) { |x| net_gex(book, spot, x) }
+flip = flip && flip.round
 
-put_oi  = book.sum { |o| o[:cp] == 'P' ? o[:oi] : 0.0 }
-call_oi = book.sum { |o| o[:cp] == 'C' ? o[:oi] : 0.0 }
-pc      = call_oi.zero? ? 0.0 : put_oi / call_oi
+pc = BTC::Options.put_call_ratio(book) { |o| o[:oi] }
 
-fmt_m = ->(v) { format('%+.1fM', v / 1e6) }
+fmt_m = BTC::Format.method(:musd)
 fmt_k = ->(v) { v ? "#{(v / 1000.0).round(1)}k" : '--' }
 
 # ---- output -----------------------------------------------------------------
@@ -143,7 +103,7 @@ line = format('GEX %s %s flip %s PW %s CW %s P/C %.2f',
               fmt_k.(put_wall&.first), fmt_k.(call_wall&.first), pc)
 
 if ARGV.include?('--tmux')
-  File.write("/tmp/gex_#{ccy.downcase}.status", line + "\n")
+  BTC::Report.status("gex_#{ccy.downcase}", line)
   exit
 end
 
@@ -159,8 +119,4 @@ if call_wall && put_wall
 end
 
 puts
-max_abs = near.values.map(&:abs).max || 1.0
-profile.select { |k, _| (k - spot).abs / spot <= 0.15 }.sort.each do |k, v|
-  bar = '#' * [(v.abs / max_abs * 40).round, 40].min
-  puts format('%-9d %12s  %s%s', k, fmt_m.(v), v.negative? ? '-' : '+', bar)
-end
+BTC::Format.profile_bars(profile, near, spot, 9, ->(k) { format('%d', k) })

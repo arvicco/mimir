@@ -37,6 +37,39 @@ task :compat do
   end
 end
 
+desc 'Offline health scan: conventions/interfaces + source-registry integrity'
+task :health do
+  require_relative 'lib/btc/health'
+  scripts = Hash[Dir.glob('scripts/**/*.rb').map { |f| [f, File.read(f)] }]
+  libs    = Hash[Dir.glob('lib/**/*.rb').map { |f| [f, File.read(f)] }]
+  bad = BTC::Health.scan_conventions(scripts) +
+        BTC::Health.scan_frozen(libs) +
+        BTC::Health.registry_integrity(Dir.pwd)
+
+  if bad.empty?
+    puts "health: OK (#{scripts.size + libs.size} files, " \
+         "#{BTC::Health::SOURCES.size} sources registered)"
+  else
+    puts bad
+    abort "health: #{bad.size} problem(s)"
+  end
+end
+
+namespace :health do
+  desc 'Probe every registered upstream data source (NETWORK, read-only)'
+  task :sources do
+    require_relative 'lib/btc/health'
+    fails = 0
+    BTC::Health::SOURCES.each do |s|
+      status, msg = BTC::Health.probe(s)
+      puts format('%-22s %-5s %s', s[:name], status.to_s.upcase, msg)
+      fails += 1 if status == :fail
+    end
+    abort "health:sources: #{fails} source(s) degraded" if fails > 0
+    puts 'health:sources: all live sources OK'
+  end
+end
+
 namespace :fixtures do
   desc 'Refresh recorded API fixtures (NETWORK -- run manually, review diff)'
   task :record do
@@ -61,4 +94,4 @@ namespace :golden do
   end
 end
 
-task default: %i[compat test]
+task default: %i[compat health test]
