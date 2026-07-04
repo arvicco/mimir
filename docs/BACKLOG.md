@@ -173,7 +173,7 @@ Goal: farside direct -> Internet Archive latest raw snapshot (new
 Acceptance: rake green; fail-soft only when all three legs dead;
       SECRET_ENV redacts the new key; .env.example updated.
 
-## M1-16 · rake fixtures:verify -- automated fixture safety digest  [tier: opus -- spec-driven implementation; registry/probe pattern exists in health.rb to copy] [status: in-progress] [deps: M1-15]
+## M1-16 · rake fixtures:verify -- automated fixture safety digest  [tier: opus -- spec-driven implementation; registry/probe pattern exists in health.rb to copy] [status: done -- first delegated packet under the new tiering; Fable spec + review, Opus implementation] [deps: M1-15]
 Goal: owner-ruled 2026-07-04 ("don't load onto human what automation
       is meant for"): replace the Gate 1 eyeball-the-diff step with an
       offline task printing one digest line per fixture (recorded-at,
@@ -188,11 +188,9 @@ Acceptance: rake fixtures:verify all OK/WARN on the committed
       unit test; no network; rake green.
 
 ## Gate 1 (human)
-First recording done 2026-07-04 (committed 38f991a), but it predated
-the F-20/21/22 recorder fixes: owner re-runs `rake fixtures:record`
-once more and reviews the diff (expect: far-dated live option boards,
-new binance_spot.json, a longer farside page). That flips the 5
-self-gated contract skips to live pins -- `rake test:contract` must
-then show 0 skips. Field-set contracts green for all modules; README
-updated; PR phase-1 -> main merged. (F-4's code half remains a Phase 2
+Recording + keyed re-record done 2026-07-04 (F-20/21/22/23 fixes all
+recorded through). Owner checklist, all automated per the 2026-07-04
+ruling: `rake fixtures:verify` all OK/WARN (digest numbers sane vs
+your screen), `rake test:contract` 0 skips (confirmed), README
+updated; merge PR phase-1 -> main. (F-4's code half remains a Phase 2
 design input.)

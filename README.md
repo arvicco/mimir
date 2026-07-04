@@ -118,7 +118,8 @@ are ledgered in `capstruct/<TICKER>.jsonl`.
 rake                 # compat + health (offline) + tests -- the pre-commit gate
 rake test:unit       # just the unit tests
 rake test:contract   # --json/--tmux field-set contracts (offline, vs fixtures)
-rake fixtures:record # re-record live API fixtures (NETWORK -- review the diff)
+rake fixtures:record # re-record live API fixtures (NETWORK -- prints verify digest)
+rake fixtures:verify # offline digest + safety checks (leaks, drift, aging) -- in the default gate
 rake health:sources  # probe all upstream data sources (network, read-only)
 ```
 
