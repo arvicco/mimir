@@ -226,7 +226,7 @@ Goal: publish/envelope.rb: wrap(key, payload, ttl_hint_s, now:) ->
 Acceptance: exact-value unit tests (fixed now:); contract test on the
       field set; rake green; no IO in the module.
 
-## M2-3 · publish/publish.rb orchestrator (dry-run first)  [tier: opus -- glue against M2-1/M2-2 with a written spec and offline oracle] [status: ready] [deps: M2-1, M2-2]
+## M2-3 · publish/publish.rb orchestrator (dry-run first)  [tier: opus -- glue against M2-1/M2-2 with a written spec and offline oracle] [status: done -- Opus implementation, Fable spec + review] [deps: M2-1, M2-2]
 Goal: collect the four suites' freshest --json outputs (BTC::Suite
       subprocess runs; scenario history + lppl ledger tails per
       ARCHITECTURE 4.1), wrap envelopes, and: PUBLISH_DRY_RUN=1

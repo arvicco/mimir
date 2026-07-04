@@ -26,7 +26,8 @@ module BTC
       'scripts/btco/ingest.rb'        => %w[EDGAR_UA ANTHROPIC_API_KEY BTCO_MODEL],
       'scripts/scenario/macro.rb'     => %w[FRED_API_KEY],
       'scripts/scenario/etf_flows.rb' => %w[COINGLASS_API_KEY],
-      'scripts/scenario/scenario.rb'  => %w[HOME]
+      'scripts/scenario/scenario.rb'  => %w[HOME],
+      'publish/publish.rb'            => %w[PUBLISH_DRY_RUN]
     }.freeze
 
     CM = 'https://community-api.coinmetrics.io/v4/timeseries/asset-metrics'
