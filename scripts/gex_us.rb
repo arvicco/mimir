@@ -40,7 +40,7 @@ MULT = 100.0 # shares per contract
 BTC_ETFS = %w[IBIT FBTC BITB ARKB GBTC BTC HODL BTCO BRRR EZBC].freeze
 
 def get_json(url)
-  JSON.parse(BTC::Http.get(url, 'User-Agent' => 'gex_us.rb'))
+  JSON.parse(BTC::Http.get(url, { 'User-Agent' => 'gex_us.rb' }))
 rescue StandardError => e
   abort "fetch #{url}: #{e.class}: #{e.message}"
 end
