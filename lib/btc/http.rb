@@ -60,6 +60,31 @@ module BTC
                      open_timeout: open_timeout, read_timeout: read_timeout))
     end
 
+    # get() following up to `hops` redirects -- the Internet Archive's
+    # latest-snapshot URLs (web/2id_/...) 302 to the concrete capture
+    # (F-23). Only for redirects does the transport response need to
+    # answer #[] for the Location header (Net::HTTPResponse does; fakes
+    # returning 3xx must too). Non-redirect non-200s raise StatusError
+    # exactly like get().
+    def get_follow(url, headers = {}, open_timeout: 5, read_timeout: 20, hops: 3)
+      (hops + 1).times do
+        uri = URI(url)
+        req = Net::HTTP::Get.new(uri.request_uri, headers)
+        res = Http.transport.call(uri, req, { open_timeout: open_timeout,
+                                              read_timeout: read_timeout })
+        code = res.code.to_i
+        return res.body if code == 200
+        raise StatusError.new(code, res.body) unless
+          [301, 302, 303, 307, 308].include?(code)
+
+        loc = res['location'].to_s
+        raise StatusError.new(code, res.body) if loc.empty?
+
+        url = loc.start_with?('http') ? loc : (uri + loc).to_s
+      end
+      raise StatusError.new(508, 'redirect loop')
+    end
+
     def post(url, body, headers = {}, open_timeout: 5, read_timeout: 120)
       uri = URI(url)
       req = Net::HTTP::Post.new(uri.request_uri, headers)

@@ -5,8 +5,13 @@ Work packets for the dev loop (see `docs/DEV-LOOP.md`). Statuses:
 session updates its packet's status and appends one line to
 `docs/WORKLOG.md`. Phase N+1 packets are elaborated only at Gate N.
 
-Stage 0 rule: every code-touching packet below is `[tier: fable]` --
-no exceptions until Stage A (Phase 2).
+Tiering (revised at Gate 1, owner-ruled 2026-07-04 -- see DEV-LOOP.md
+section 2): tiers are assigned per packet at elaboration; `fable` is
+NOT the default and carries a one-line justification on coding packets
+(first-of-kind / cross-cutting / secret-adjacent / semantics-adjacent);
+default to the cheaper tier when in doubt (failed verification bumps
+one tier, costing one retry). Phases 0-1 below predate this: they ran
+under the Stage 0 all-Fable rule, which ended at Gate 1.
 
 ---
 
@@ -102,14 +107,90 @@ readings, merge PR `phase-0 -> main`.
 
 ---
 
-## Phase 1 -- seams, contracts + reviewed refactoring
-Elaborated at Gate 0. Sketch (DEV-LOOP.md section 8): M1-1 http seam ·
-M1-2..5 per-suite migration · M1-6 fixtures:record · M1-7..11 contract
-tests. All [tier: fable] (Stage 0).
-Delivered early in Phase 0 by owner request: M1-12 BTC_DATA_DIR (F-8);
-memo refactors F-1/F-2/F-5 (fixes), F-14/F-15 (lib/btc extraction),
-F-13 http seam + all call-site migration (M1-1 core, so M1-2..5 are
-done too), F-6 redaction-at-output, F-12 'unavailable' marker.
-Remaining Phase 1 scope: M1-6 fixtures:record + M1-7..11 contract
-tests (which also pin F-9/F-10/F-11/F-12). F-4's code half stays a
-Phase 2 design input.
+## Phase 1 -- fixtures + contract tests (branch: phase-1)
+Gate 0 closed 2026-07-04 (PR #1). M1-1..5 (seam + migration) and M1-12
+(BTC_DATA_DIR) were delivered in Phase 0, as were the memo refactors.
+All [tier: fable] (Stage 0).
+
+## M1-6 · Implement rake fixtures:record  [tier: fable] [status: done -- implementation; recording itself is the owner-run Gate 1 step] [deps: --]
+Goal: replace the Rakefile stub: for each registered upstream response
+      shape, fetch once through BTC::Http, trim to minimum size (drop
+      rows beyond what parsers need), redact anything sensitive, write
+      test/fixtures/<source>_<shape>.json + per-file provenance note
+      (url, retrieved date). Reuses lib/btc/health.rb's SOURCES where
+      shapes align; adds fixture-only shapes (full option book slice,
+      farside HTML sample, EDGAR filing excerpt, stooq gone -- cboe
+      quote). RUNNING it stays owner-only (network; deny-listed).
+Acceptance: task implemented + unit-tested against a fake transport
+      (writes correct layout without network); rake gates green.
+
+## M1-7 · Contract tests: gex family --json  [tier: fable] [status: done -- gex_us pins self-enable once the owner re-records cboe_options.json (F-20)] [deps: M1-6]
+Goal: test/contract/ pins field presence/types (not values) for
+      gex.rb, gex_us.rb (BOTH shapes: single-ticker object, multi
+      array -- F-10), gex_btc_combined.rb (venues[], combined{},
+      profile{}), via fixtures + injected transport.
+Acceptance: red against a mutated fixture, green against real; no network.
+
+## M1-8 · Contract tests: scenario modules + aggregator  [tier: fable] [status: done -- etf_flows/cb_premium success pins self-enable on the owner re-record (F-21/F-22)] [deps: M1-6]
+Goal: per-module --json contract (name/score/headline/ts; the
+      funding/onchain name quirks pinned -- F-11), fail-soft shape with
+      'unavailable': true (F-12), one-JSON-line stdout discipline
+      (F-9), aggregator composite/regime fields.
+Acceptance: every module covered; no network.
+
+## M1-9 · Contract tests: lppl tests + aggregator  [tier: fable] [status: done] [deps: M1-6]
+Goal: per-test --json contracts on a synthetic price cache written to
+      a temp BTC_DATA_DIR (tests run the real scripts offline); ledger
+      line field set; status_line format.
+Acceptance: all five tests + aggregator covered; no network.
+
+## M1-10 · Contract tests: btco --json  [tier: fable] [status: done] [deps: M1-6]
+Goal: success shape (companies[], stress fields) on a synthetic
+      universe + fixture quotes; fail-soft shape; --tmux line format.
+Acceptance: covered incl. STALE/placeholder flags; no network.
+
+## M1-11 · Contract test: ingest proposal schema  [tier: fable] [status: done] [deps: --]
+Goal: proposal JSON shape (ticker/accession/form/diff/extraction keys)
+      + diff computation on fixture excerpts; extraction prompt/schema
+      text pinned verbatim (Golden Rule 5 tripwire).
+Acceptance: no ANTHROPIC_API_KEY, no network.
+
+## M1-14 · F-22: per-row flows parser (BTC::Flows)  [tier: fable] [status: done -- owner-approved analytics fix 2026-07-04] [deps: --]
+Goal: replace etf_flows' tag-strip regex (swallowed each next row's
+      day-of-month: rows halved AND day numbers reported as daily
+      totals) with per-<tr>/<td> parsing; exact-value pins against the
+      recorded real page; scoring/thresholds byte-identical; pre-fix
+      history flagged in README/METHODOLOGY.
+Acceptance: unit pins green (13 rows, -222.6/-296.0/+223.5); recorder
+      trim counts with the new parser; contract skip flips live.
+
+## M1-15 · F-23: etf_flows source chain + CoinGlass leg  [tier: fable] [status: done -- coinglass fixture records on the owner's next keyed run] [deps: M1-14]
+Goal: farside direct -> Internet Archive latest raw snapshot (new
+      BTC::Http.get_follow) -> CoinGlass flow-history (COINGLASS_API_KEY,
+      free Hobbyist), first source with >= 10 rows; additive 'source'
+      field in --json; recorder + health registry mirror the chain
+      (farside direct soft-registered: WARN not FAIL).
+Acceptance: rake green; fail-soft only when all three legs dead;
+      SECRET_ENV redacts the new key; .env.example updated.
+
+## M1-16 · rake fixtures:verify -- automated fixture safety digest  [tier: opus -- spec-driven implementation; registry/probe pattern exists in health.rb to copy] [status: done -- first delegated packet under the new tiering; Fable spec + review, Opus implementation] [deps: M1-15]
+Goal: owner-ruled 2026-07-04 ("don't load onto human what automation
+      is meant for"): replace the Gate 1 eyeball-the-diff step with an
+      offline task printing one digest line per fixture (recorded-at,
+      load-bearing stats: spot, expiry ranges, row counts, last dates)
+      plus hard safety checks (secret-leak scan, JSON/HTML parse,
+      README provenance drift) and aging WARNs (near-expiry boards,
+      old recordings). Runs at the end of fixtures:record and joins
+      the default rake gate.
+Acceptance: rake fixtures:verify all OK/WARN on the committed
+      fixtures; FAIL (nonzero exit) on missing file, unparseable
+      fixture, secret material, or README drift -- each pinned by a
+      unit test; no network; rake green.
+
+## Gate 1 (human)
+Recording + keyed re-record done 2026-07-04 (F-20/21/22/23 fixes all
+recorded through). Owner checklist, all automated per the 2026-07-04
+ruling: `rake fixtures:verify` all OK/WARN (digest numbers sane vs
+your screen), `rake test:contract` 0 skips (confirmed), README
+updated; merge PR phase-1 -> main. (F-4's code half remains a Phase 2
+design input.)

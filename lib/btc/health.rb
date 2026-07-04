@@ -16,15 +16,17 @@
 
 require 'json'
 require_relative 'http'
+require_relative 'flows'
 
 module BTC
   module Health
     # Raw ENV access allowed outside lib/btc/env.rb, per file.
     ALLOWED_ENV = {
-      'scripts/btco/btco.rb'         => %w[EDGAR_UA],
-      'scripts/btco/ingest.rb'       => %w[EDGAR_UA ANTHROPIC_API_KEY BTCO_MODEL],
-      'scripts/scenario/macro.rb'    => %w[FRED_API_KEY],
-      'scripts/scenario/scenario.rb' => %w[HOME]
+      'scripts/btco/btco.rb'          => %w[EDGAR_UA],
+      'scripts/btco/ingest.rb'        => %w[EDGAR_UA ANTHROPIC_API_KEY BTCO_MODEL],
+      'scripts/scenario/macro.rb'     => %w[FRED_API_KEY],
+      'scripts/scenario/etf_flows.rb' => %w[COINGLASS_API_KEY],
+      'scripts/scenario/scenario.rb'  => %w[HOME]
     }.freeze
 
     CM = 'https://community-api.coinmetrics.io/v4/timeseries/asset-metrics'
@@ -70,10 +72,22 @@ module BTC
         marker: 'stablecoins.llama.fi/stablecoins',
         url: 'https://stablecoins.llama.fi/stablecoins?includePrices=false',
         check: ->(b) { JSON.parse(b)['peggedAssets'].to_a.any? { |a| a['symbol'] == 'USDT' } } },
+      # soft: farside direct is intermittently Cloudflare-challenged
+      # (F-23); the module falls back, so degradation here WARNs
+      # instead of failing the probe run.
       { name: 'farside etf flows', src: 'scripts/scenario/etf_flows.rb',
-        marker: 'farside.co.uk/btc',
+        marker: 'farside.co.uk/btc', soft: true,
         url: 'https://farside.co.uk/btc/',
-        check: ->(b) { b.gsub(/<[^>]+>/, ' ') =~ /\d{1,2}\s+[A-Z][a-z]{2}\s+\d{4}/ } },
+        check: ->(b) { Flows.parse_flows(b).size >= 10 } },
+      { name: 'farside archive', src: 'scripts/scenario/etf_flows.rb',
+        marker: 'web.archive.org/web/2id_', follow: true,
+        url: 'https://web.archive.org/web/2id_/https://farside.co.uk/btc/',
+        check: ->(b) { Flows.parse_flows(b).size >= 10 } },
+      { name: 'coinglass etf flows', src: 'scripts/scenario/etf_flows.rb',
+        marker: 'open-api-v4.coinglass.com', env: 'COINGLASS_API_KEY',
+        url: 'https://open-api-v4.coinglass.com/api/etf/bitcoin/flow-history',
+        headers: -> { { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] } },
+        check: ->(b) { j = JSON.parse(b); j['code'].to_s == '0' && !j['data'].to_a.empty? } },
       { name: 'frankfurter fx', src: 'scripts/btco/btco.rb',
         marker: 'api.frankfurter.dev/v1/latest',
         url: 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=JPY',
@@ -85,7 +99,7 @@ module BTC
       { name: 'edgar submissions', src: 'scripts/btco/ingest.rb',
         marker: 'data.sec.gov/submissions/CIK',
         url: 'https://data.sec.gov/submissions/CIK0001050446.json',
-        headers: -> { { 'User-Agent' => ENV['EDGAR_UA'] || 'btc-analytics health (set EDGAR_UA=name email)' } },
+        headers: -> { { 'User-Agent' => ENV['EDGAR_UA'] || 'mimir health (set EDGAR_UA=name email)' } },
         check: ->(b) { JSON.parse(b).fetch('filings').fetch('recent').fetch('form').is_a?(Array) } }
     ].freeze
 
@@ -134,16 +148,21 @@ module BTC
 
     # ---- live: source probes (NETWORK) ---------------------------------
 
-    # -> [:ok] | [:skip, reason] | [:fail, message]
+    # -> [:ok] | [:skip, reason] | [:fail, message] | [:warn, message]
+    # (:warn = a soft-registered source degraded -- a fallback covers it)
     def probe(entry)
       return [:skip, "#{entry[:env]} not set"] if entry[:env] && ENV[entry[:env]].to_s.empty?
 
       url     = entry[:url].respond_to?(:call) ? entry[:url].call : entry[:url]
       headers = entry[:headers] ? entry[:headers].call : {}
-      body    = Http.get(url, headers, read_timeout: 30)
-      entry[:check].call(body) ? [:ok] : [:fail, 'response shape check failed']
+      body    = if entry[:follow]
+                  Http.get_follow(url, headers, read_timeout: 30)
+                else
+                  Http.get(url, headers, read_timeout: 30)
+                end
+      entry[:check].call(body) ? [:ok] : [entry[:soft] ? :warn : :fail, 'response shape check failed']
     rescue StandardError => e
-      [:fail, "#{e.class}: #{e.message[0, 120]}"]
+      [entry[:soft] ? :warn : :fail, "#{e.class}: #{e.message[0, 120]}"]
     end
   end
 end
