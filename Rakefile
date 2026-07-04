@@ -71,17 +71,33 @@ namespace :health do
 end
 
 namespace :fixtures do
-  desc 'Refresh recorded API fixtures (NETWORK -- run manually, review diff)'
-  task :record do
-    require_relative 'lib/btc/fixtures'
-    puts 'Recording live API responses into test/fixtures/ ...'
+  # Print [[file, status, note]] rows in the aligned digest format and
+  # return the number of :fail rows.
+  def print_fixture_rows(rows)
     fails = 0
-    BTC::Fixtures.record_all('test/fixtures').each do |file, status, note|
+    rows.each do |file, status, note|
       puts format('%-26s %-5s %s', file, status.to_s.upcase, note)
       fails += 1 if status == :fail
     end
-    puts "\nReview `git diff test/fixtures/` before committing."
+    fails
+  end
+
+  desc 'Refresh recorded API fixtures (NETWORK -- run manually)'
+  task :record do
+    require_relative 'lib/btc/fixtures'
+    puts 'Recording live API responses into test/fixtures/ ...'
+    fails = print_fixture_rows(BTC::Fixtures.record_all('test/fixtures'))
     abort "fixtures:record: #{fails} failure(s)" if fails > 0
+
+    puts "\nVerify digest (check the numbers against your screen, then commit):"
+    print_fixture_rows(BTC::Fixtures.verify('test/fixtures'))
+  end
+
+  desc 'Offline fixture digest + safety checks (no network)'
+  task :verify do
+    require_relative 'lib/btc/fixtures'
+    fails = print_fixture_rows(BTC::Fixtures.verify('test/fixtures'))
+    abort "fixtures:verify: #{fails} failure(s)" if fails > 0
   end
 end
 
@@ -100,4 +116,4 @@ namespace :golden do
   end
 end
 
-task default: %i[compat health test]
+task default: %i[compat health fixtures:verify test]

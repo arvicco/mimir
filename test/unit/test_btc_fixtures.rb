@@ -196,4 +196,78 @@ class TestBtcFixtures < Minitest::Test
       assert_includes readme, 'rake fixtures:record'
     end
   end
+
+  # ---- M1-16: offline fixtures:verify -------------------------------
+
+  FIXDIR = File.expand_path('../fixtures', __dir__)
+
+  # copy the committed fixtures into a scratch dir and hand it to the block
+  def with_fixture_copy
+    Dir.mktmpdir do |dir|
+      Dir.glob(File.join(FIXDIR, '*')).each { |f| FileUtils.cp(f, dir) }
+      yield dir
+    end
+  end
+
+  def test_verify_committed_fixtures_have_no_fail
+    rows = BTC::Fixtures.verify(FIXDIR)
+    fails = rows.select { |_, s, _| s == :fail }
+    assert_empty fails, fails.inspect
+  end
+
+  def test_verify_missing_non_env_file_fails
+    with_fixture_copy do |dir|
+      File.delete(File.join(dir, 'deribit_index.json'))
+      row = BTC::Fixtures.verify(dir).find { |f, _, _| f == 'deribit_index.json' }
+      assert_equal :fail, row[1]
+      assert_equal 'missing', row[2]
+    end
+  end
+
+  def test_verify_missing_env_gated_file_warns
+    old = ENV.delete('COINGLASS_API_KEY')
+    with_fixture_copy do |dir|
+      File.delete(File.join(dir, 'coinglass_flows.json'))
+      row = BTC::Fixtures.verify(dir).find { |f, _, _| f == 'coinglass_flows.json' }
+      assert_equal :warn, row[1]
+      assert_includes row[2], 'COINGLASS_API_KEY'
+    end
+  ensure
+    ENV['COINGLASS_API_KEY'] = old unless old.nil?
+  end
+
+  def test_verify_leak_scan_flags_api_key_material
+    with_fixture_copy do |dir|
+      File.write(File.join(dir, 'frankfurter_fx.json'),
+                 '{"rates":{"JPY":161.0},"leak":"api_key=abcd1234efgh"}')
+      row = BTC::Fixtures.verify(dir).find { |f, _, _| f == 'leak-scan' }
+      assert_equal :fail, row[1]
+    end
+  end
+
+  def test_verify_readme_drift_fails_on_unlisted_file
+    with_fixture_copy do |dir|
+      FileUtils.cp(File.join(dir, 'deribit_index.json'),
+                   File.join(dir, 'stray_extra.json'))
+      row = BTC::Fixtures.verify(dir).find { |f, _, _| f == 'README.md' }
+      assert_equal :fail, row[1]
+      assert_includes row[2], 'stray_extra.json'
+    end
+  end
+
+  def test_verify_unparseable_json_fails
+    with_fixture_copy do |dir|
+      File.write(File.join(dir, 'binance_spot.json'), '{not valid json')
+      row = BTC::Fixtures.verify(dir).find { |f, _, _| f == 'binance_spot.json' }
+      assert_equal :fail, row[1]
+      assert_includes row[2], 'invalid JSON'
+    end
+  end
+
+  def test_farside_stat_reports_row_count_and_dates
+    content = File.read(File.join(FIXDIR, 'farside_flows.html'))
+    note = BTC::Fixtures::FIXTURES.find { |f| f[:file] == 'farside_flows.html' }[:stat].call(content)
+    assert_includes note, '13 rows'
+    assert_includes note, '..'
+  end
 end
