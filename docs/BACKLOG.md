@@ -205,7 +205,7 @@ PUBLISH_DRY_RUN=1 is the default until Gate 2; nothing here touches
 the network except through BTC::Http, and no model ever runs a real
 publish (Golden Rule 3).
 
-## M2-1 · publish/kv_client.rb  [tier: fable -- secret-adjacent (CF_API_TOKEN) + first-of-family: retry/redaction pattern everything downstream copies] [status: ready] [deps: --]
+## M2-1 · publish/kv_client.rb  [tier: fable -- secret-adjacent (CF_API_TOKEN) + first-of-family: retry/redaction pattern everything downstream copies] [status: in-progress] [deps: --]
 Goal: PUT/GET against the Cloudflare KV REST API through BTC::Http:
       bearer auth from ENV (CF_ACCOUNT_ID/CF_KV_NAMESPACE_ID/
       CF_API_TOKEN), bounded retries with backoff on 429/5xx, never
@@ -216,7 +216,7 @@ Acceptance: unit tests against a fake transport pin: auth header,
       redaction of token in every error path (incl. StatusError
       bodies); rake green; no network in tests.
 
-## M2-2 · publish envelope + index (pure)  [tier: opus -- fully specified in ARCHITECTURE.md 4.2, pure functions with contract tests] [status: ready] [deps: --]
+## M2-2 · publish envelope + index (pure)  [tier: opus -- fully specified in ARCHITECTURE.md 4.2, pure functions with contract tests] [status: done -- Opus implementation, Fable spec + review, zero deviations] [deps: --]
 Goal: publish/envelope.rb: wrap(key, payload, ttl_hint_s, now:) ->
       {v:1, key:, generated_at:, ttl_hint_s:, source:, payload:} per
       ARCHITECTURE 4.2 verbatim (source: hostname); build_index(rows)
