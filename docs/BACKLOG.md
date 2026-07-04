@@ -173,6 +173,20 @@ Goal: farside direct -> Internet Archive latest raw snapshot (new
 Acceptance: rake green; fail-soft only when all three legs dead;
       SECRET_ENV redacts the new key; .env.example updated.
 
+## M1-16 · rake fixtures:verify -- automated fixture safety digest  [tier: opus -- spec-driven implementation; registry/probe pattern exists in health.rb to copy] [status: in-progress] [deps: M1-15]
+Goal: owner-ruled 2026-07-04 ("don't load onto human what automation
+      is meant for"): replace the Gate 1 eyeball-the-diff step with an
+      offline task printing one digest line per fixture (recorded-at,
+      load-bearing stats: spot, expiry ranges, row counts, last dates)
+      plus hard safety checks (secret-leak scan, JSON/HTML parse,
+      README provenance drift) and aging WARNs (near-expiry boards,
+      old recordings). Runs at the end of fixtures:record and joins
+      the default rake gate.
+Acceptance: rake fixtures:verify all OK/WARN on the committed
+      fixtures; FAIL (nonzero exit) on missing file, unparseable
+      fixture, secret material, or README drift -- each pinned by a
+      unit test; no network; rake green.
+
 ## Gate 1 (human)
 First recording done 2026-07-04 (committed 38f991a), but it predated
 the F-20/21/22 recorder fixes: owner re-runs `rake fixtures:record`
