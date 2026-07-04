@@ -5,8 +5,13 @@ Work packets for the dev loop (see `docs/DEV-LOOP.md`). Statuses:
 session updates its packet's status and appends one line to
 `docs/WORKLOG.md`. Phase N+1 packets are elaborated only at Gate N.
 
-Stage 0 rule: every code-touching packet below is `[tier: fable]` --
-no exceptions until Stage A (Phase 2).
+Tiering (revised at Gate 1, owner-ruled 2026-07-04 -- see DEV-LOOP.md
+section 2): tiers are assigned per packet at elaboration; `fable` is
+NOT the default and carries a one-line justification on coding packets
+(first-of-kind / cross-cutting / secret-adjacent / semantics-adjacent);
+default to the cheaper tier when in doubt (failed verification bumps
+one tier, costing one retry). Phases 0-1 below predate this: they ran
+under the Stage 0 all-Fable rule, which ended at Gate 1.
 
 ---
 
