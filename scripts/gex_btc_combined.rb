@@ -47,7 +47,7 @@ ETFS    = %w[IBIT FBTC BITB ARKB GBTC HODL BTCO BRRR EZBC].freeze
 MULT    = 100.0 # shares per US option contract
 
 def get_json(url)
-  JSON.parse(BTC::Http.get(url, 'User-Agent' => 'gex_btc_combined.rb'))
+  JSON.parse(BTC::Http.get(url, { 'User-Agent' => 'gex_btc_combined.rb' }))
 end
 
 # USD gamma per 1% BTC move for one instrument, with BTC at hypothetical
