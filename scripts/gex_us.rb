@@ -33,6 +33,7 @@ require_relative '../lib/btc/util'
 require_relative '../lib/btc/http'
 require_relative '../lib/btc/deribit'
 require_relative '../lib/btc/report'
+require_relative '../lib/btc/format'
 
 CBOE = 'https://cdn.cboe.com/api/global/delayed_quotes/options'
 MULT = 100.0 # shares per contract
@@ -94,7 +95,7 @@ if (tickers & BTC_ETFS).any?
   end
 end
 
-fmt_m  = ->(v) { format('%+.1fM', v / 1e6) }
+fmt_m  = BTC::Format.method(:musd)
 fmt_px = ->(v) { v >= 1000 ? format('%.1fk', v / 1000.0) : format('%g', v.round(2)) }
 
 json_acc = []
@@ -159,11 +160,7 @@ tickers.each do |ticker|
   end
 
   puts
-  max_abs = near.values.map(&:abs).max || 1.0
-  profile.select { |k, _| (k - spot).abs / spot <= 0.15 }.sort.each do |k, v|
-    bar = '#' * [(v.abs / max_abs * 40).round, 40].min
-    puts format('%-16s %12s  %s%s', pxb.(k), fmt_m.(v), v.negative? ? '-' : '+', bar)
-  end
+  BTC::Format.profile_bars(profile, near, spot, 16, pxb)
   puts
 end
 

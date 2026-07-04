@@ -40,6 +40,7 @@ require_relative '../lib/btc/util'
 require_relative '../lib/btc/http'
 require_relative '../lib/btc/deribit'
 require_relative '../lib/btc/report'
+require_relative '../lib/btc/format'
 
 CBOE = 'https://cdn.cboe.com/api/global/delayed_quotes/options'
 ETFS    = %w[IBIT FBTC BITB ARKB GBTC HODL BTCO BRRR EZBC].freeze
@@ -161,7 +162,7 @@ flip = BTC::Options.gamma_flip(btc_spot) do |x|
 end
 flip = flip && flip.round
 
-fmt_m = ->(v) { format('%+.1fM', v / 1e6) }
+fmt_m = BTC::Format.method(:musd)
 fmt_k = ->(v) { v ? format('%gk', (v / 1000.0).round(2)) : '--' }
 
 if ARGV.include?('--json')
@@ -211,8 +212,4 @@ puts format('gamma flip ~ %s   call wall %s (%s)   put wall %s (%s)',
             fmt_k.(put_wall && put_wall[0]),   put_wall  ? fmt_m.(put_wall[1])  : '--')
 
 puts
-max_abs = near.values.map(&:abs).max || 1.0
-profile.select { |k, _| (k - btc_spot).abs / btc_spot <= 0.15 }.sort.each do |k, v|
-  bar = '#' * [(v.abs / max_abs * 40).round, 40].min
-  puts format('%-8s %12s  %s%s', fmt_k.(k), fmt_m.(v), v.negative? ? '-' : '+', bar)
-end
+BTC::Format.profile_bars(profile, near, btc_spot, 8, fmt_k)
