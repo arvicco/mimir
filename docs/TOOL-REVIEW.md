@@ -327,3 +327,14 @@ gitignored). Findings:
 - Minor: CBOE returned 403 for BRRR only (skipped by venue fail-soft);
   scenario composite LEAN-FLUSH -0.167 with macro score-0 here (no
   FRED key in this env -- expected); all other captures sane.
+
+**Resolutions (owner, 2026-07-04):** F-16 signed off (immaterial).
+F-17 signed off and implemented as recommended: CBOE delayed quotes
+(US) + Frankfurter/ECB FX + manual_px (non-US); verified live, 6/7
+priced (08f6727). F-18+ generalized into the health-check framework
+(lib/btc/health.rb: offline conventions scan in the default gate +
+`rake health:sources` probing 14 registered endpoints with shape
+validators and anti-drift markers; 21dfe10) -- whose FIRST live run
+caught **F-19: Coin Metrics community gated CapRealUSD**, silently
+degrading the MVRV module to score 0; fixed by reading CapMVRVCur
+directly with realized price derived as PriceUSD/MVRV (130395a).
