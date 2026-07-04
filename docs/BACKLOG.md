@@ -69,7 +69,7 @@ Goal: pin lppl/envelope.rb percentile-envelope fitting and the
 Acceptance: rake test green; synthetic generators seeded
       (Random.new(42)); tolerances documented in-test; no network.
 
-## M0-7 · Characterization: btco metrics math  [tier: fable] [status: ready] [deps: --]
+## M0-7 · Characterization: btco metrics math  [tier: fable] [status: done] [deps: --]
 Goal: pin CEBE / mNAV / convert ITM-OTM treatment from btco.rb on a
       small synthetic universe (hand-built company entries exercising
       each branch: converts ITM, OTM, at boundary; missing fields).

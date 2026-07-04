@@ -58,7 +58,6 @@ require_relative '../../lib/btc/deribit'
 
 UNIVERSE = BTC::Util.arg('--universe') ||
            File.join(File.expand_path(__dir__), 'universe.json')
-STALE_D  = 120
 
 def get(url, headers = {})
   ua = ENV['EDGAR_UA'] || 'btco.rb (set EDGAR_UA=name email)'
@@ -152,33 +151,10 @@ cos.each do |c|
   px  = quotes[c['stooq'].to_s.downcase] || c['manual_px']
   next warn("#{c['ticker']}: no price, skipped") unless px
 
-  rate   = ccy == 'USD' ? 1.0 : fx[ccy]
+  rate = ccy == 'USD' ? 1.0 : fx[ccy]
   next warn("#{c['ticker']}: no FX #{ccy}, skipped") if rate.zero?
 
-  px_usd = px / rate
-  btc    = c['btc'].to_f
-  shs_b  = c['shares_basic'].to_f
-  shs_d  = [c['shares_diluted'].to_f, shs_b].max
-
-  itm_sh, otm_fc = Btco.convert_split(c['converts'], px, rate)
-  senior = otm_fc + c['debt_face'].to_f + c['pref_liq'].to_f
-  shs_a  = shs_d + itm_sh
-
-  nav      = btc * btc_px
-  mcap     = px_usd * shs_b
-  net_nav  = nav - senior
-  sats_d   = btc * 1e8 / shs_d
-  cebe     = [net_nav, 0.0].max / btc_px * 1e8 / shs_a
-  mnav     = nav.zero? ? nil : mcap / nav
-  netm     = net_nav > 0 ? mcap / net_nav : nil
-  ev_btc   = btc.zero? ? nil : (mcap + senior) / btc
-  lev      = nav.zero? ? 0.0 : senior / nav
-  stale    = c['btc_as_of'] && (now - Time.parse(c['btc_as_of'] + ' 00:00:00 UTC')) / 86_400 > STALE_D
-
-  rows << { t: c['ticker'], px: px, ccy: ccy, btc: btc, sats_d: sats_d,
-            cebe: cebe, mnav: mnav, netm: netm, ev: ev_btc, lev: lev,
-            mcap: mcap, nav: nav, stale: stale, as_of: c['btc_as_of'],
-            ph: c['placeholder'] }
+  rows << Btco.company_row(c, px, rate, btc_px, now)
 end
 fail_soft('no companies priced') if rows.empty?
 
