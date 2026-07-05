@@ -393,7 +393,7 @@ Design spec: docs/DASHBOARD-DESIGN.md (frontend-design pass on top of
 .claude/skills/mimir-design). Deploys stay HUMAN actions (Golden Rule
 3): the loop prepares wrangler.toml and prints exact commands only.
 
-## M4-1 · Worker API: web/worker.js + wrangler.toml + node test harness  [tier: fable -- secret-adjacent (optional AUTH_TOKEN bearer) + first-of-kind runtime/test contract for JS in this repo] [status: todo] [deps: --]
+## M4-1 · Worker API: web/worker.mjs + wrangler.toml + node test harness  [tier: fable -- secret-adjacent (optional AUTH_TOKEN bearer) + first-of-kind runtime/test contract for JS in this repo] [status: done -- .mjs not .js (node ESM without a package.json); 12 node tests incl. URL-normalization pin] [deps: --]
 Goal: GET /api/v1/:key -> KV envelope verbatim (Cache-Control
       public/max-age=60, X-Generated-At, X-Data-Age-Seconds), 404
       unknown key (strict key allowlist regex), 401 when AUTH_TOKEN is
