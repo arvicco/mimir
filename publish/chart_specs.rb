@@ -21,8 +21,29 @@
 
 module Publish
   module Charts
+    # meta (additive envelope field, 2026-07-05): METHODOLOGY-grade
+    # hover help rendered by preview.html/the dashboard -- desc for the
+    # title bubble, axes + help behind the info affordance.
     CHARTS = {
-      'gex_profile' => { inputs: %w[payload_gex_combined.json], fn: :gex_profile },
+      'gex_profile' => {
+        inputs: %w[payload_gex_combined.json], fn: :gex_profile,
+        meta: {
+          'desc' => 'Dollar gamma dealers must re-hedge per 1% BTC move, ' \
+                    'bucketed by BTC-equivalent strike across Deribit and the ' \
+                    'US spot-ETF option chains. Above zero = long gamma ' \
+                    '(dealer hedging pins price); below zero = short gamma ' \
+                    '(hedging amplifies moves). Naive dealer model: trust ' \
+                    'levels and walls more than the sign (METHODOLOGY.md).',
+          'axes' => { 'x' => 'BTC price level (bucketed strikes, zoomed to ' \
+                             'spot +-30% by default; wheel/drag to zoom out)',
+                      'y' => 'net dealer gamma, $M per 1% BTC move' },
+          'help' => 'Legend right: one C (calls, teal) and P (puts, red) ' \
+                    'toggle per venue, DERI = Deribit; venues with no open ' \
+                    'interest are omitted. Hover a level: the C/P rows on ' \
+                    'top are cross-venue aggregates. Lines: flip = net-GEX ' \
+                    'zero crossing, CW/PW = biggest call/put walls.'
+        }
+      },
       'scenario_strip' => {
         inputs: %w[payload_scenario_latest.json payload_scenario_history.json],
         fn: :scenario_strip
@@ -36,36 +57,41 @@ module Publish
 
     module_function
 
-    # gex:combined payload -> per-level put/call bars stacked by venue,
-    # flip + wall markLines, BTC category axis, venue toggle via legend.
+    # gex:combined payload -> per-level put/call bars stacked by venue.
+    # Compact form (owner design review 2026-07-05): venues with no data
+    # at all are OMITTED, values are $M, the hover bubble leads with the
+    # cross-venue C/P aggregates (as two invisible line series ordered
+    # first), the legend sits right of the plot as stacked C/P toggles
+    # per venue (DERI = Deribit), no slider (inside zoom only).
     def gex_profile(gex)
-      venues  = gex['profiles'].keys
-      levels  = gex['profiles'].values.flat_map(&:keys).uniq
-                   .sort_by { |k| k.to_i }
-      labels  = levels.map { |l| level_label(l) }
-      series  = venue_series(gex, venues, levels)
-      series.first['markLine'] = mark_lines(gex, levels) if series.first
+      venues = gex['profiles'].select { |_, per|
+        per.values.any? { |s| s['call'].to_i != 0 || s['put'].to_i != 0 }
+      }.keys
+      levels = venues.flat_map { |v| gex['profiles'][v].keys }.uniq
+                     .sort_by { |k| k.to_i }
+      labels = levels.map { |l| level_label(l) }
+      bars   = venue_series(gex, venues, levels)
+      series = aggregate_series(gex, venues, levels) + bars
+      bars.first['markLine'] = mark_lines(gex, levels) if bars.first
 
       {
-        'title' => {
-          'text' => 'BTC combined GEX',
-          'subtext' => format('spot %s · $ per 1%% move per level · %s',
-                              level_label(gex['btc_spot'].to_i), gex['ts'].to_s)
-        },
+        'title' => { 'text' => format('GEX $M/1%% · spot %s',
+                                      level_label(gex['btc_spot'].to_i)),
+                     'textStyle' => { 'fontSize' => 13 } },
         'tooltip' => { 'trigger' => 'axis', 'axisPointer' => { 'type' => 'shadow' } },
-        'legend' => { 'type' => 'scroll', 'top' => 44 },
-        'grid' => { 'left' => 80, 'right' => 30, 'top' => 96, 'bottom' => 60 },
-        'xAxis' => { 'type' => 'category', 'data' => labels,
-                     'name' => 'BTC level', 'nameLocation' => 'middle',
-                     'nameGap' => 34 },
-        'yAxis' => { 'type' => 'value', 'name' => 'GEX $/1%' },
+        'legend' => { 'orient' => 'vertical', 'right' => 2, 'top' => 26,
+                      'data' => bars.map { |s| s['name'] },
+                      'itemWidth' => 12, 'itemHeight' => 8, 'itemGap' => 3,
+                      'textStyle' => { 'fontSize' => 11 } },
+        'grid' => { 'left' => 52, 'right' => 92, 'top' => 30, 'bottom' => 26 },
+        'xAxis' => { 'type' => 'category', 'data' => labels },
+        'yAxis' => { 'type' => 'value' },
         # all levels stay in the data; the default window shows the
         # +-30% band around spot (deep-OTM tails reachable by zoom-out)
         'dataZoom' => [
           { 'type' => 'inside',
             'startValue' => nearest_label(levels, gex['btc_spot'].to_f * 0.7),
-            'endValue' => nearest_label(levels, gex['btc_spot'].to_f * 1.3) },
-          { 'type' => 'slider', 'height' => 18 }
+            'endValue' => nearest_label(levels, gex['btc_spot'].to_f * 1.3) }
         ],
         'series' => series
       }
@@ -78,15 +104,36 @@ module Publish
       (v % 1000).zero? ? "#{v / 1000}k" : format('%.1fk', v / 1000.0)
     end
 
+    def musd(cents_scale_value)
+      (cents_scale_value.to_f / 1e6).round(2)
+    end
+
+    def venue_label(venue)
+      venue == 'Deribit' ? 'DERI' : venue
+    end
+
+    # Two invisible line series named C / P, ordered FIRST so the axis
+    # hover bubble leads with the cross-venue aggregates in the side
+    # colors ("54k: C 10.5 P -5.33", $M).
+    def aggregate_series(gex, venues, levels)
+      [%w[C call #0f7a5c], %w[P put #c63939]].map do |name, side, color|
+        { 'name' => name, 'type' => 'line', 'showSymbol' => false, 'silent' => true,
+          'lineStyle' => { 'opacity' => 0 }, 'itemStyle' => { 'color' => color },
+          'data' => levels.map { |l|
+            musd(venues.sum { |v| gex['profiles'][v].dig(l, side).to_i })
+          } }
+      end
+    end
+
     def venue_series(gex, venues, levels)
       venues.each_with_index.flat_map do |venue, i|
         per = gex['profiles'][venue]
-        [{ 'name' => "#{venue} calls", 'type' => 'bar', 'stack' => 'calls',
+        [{ 'name' => "#{venue_label(venue)} C", 'type' => 'bar', 'stack' => 'calls',
            'itemStyle' => { 'color' => shade('calls', i, venues.size) },
-           'data' => levels.map { |l| per.dig(l, 'call').to_i } },
-         { 'name' => "#{venue} puts", 'type' => 'bar', 'stack' => 'puts',
+           'data' => levels.map { |l| musd(per.dig(l, 'call').to_i) } },
+         { 'name' => "#{venue_label(venue)} P", 'type' => 'bar', 'stack' => 'puts',
            'itemStyle' => { 'color' => shade('puts', i, venues.size) },
-           'data' => levels.map { |l| per.dig(l, 'put').to_i } }]
+           'data' => levels.map { |l| musd(per.dig(l, 'put').to_i) } }]
       end
     end
 

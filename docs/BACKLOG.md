@@ -314,6 +314,28 @@ Goal: static page rendering every chart_*.json from
 Acceptance: owner can open it and see all four charts rendered from
       the committed preview artifacts; no build step, no npm.
 
+## M3-7 · Gate 3 feedback: envelope meta + compact GEX rework  [tier: fable -- envelope contract change + the compact pattern the other charts copy] [status: done] [deps: M3-6]
+Goal: owner design review 2026-07-05: (a) additive envelope 'meta'
+      (desc/axes/help strings for hover bubbles, chart envelopes only,
+      sourced from METHODOLOGY-grade summaries in the CHARTS registry,
+      passed through the pipeline); (b) gex_profile compaction: venues
+      with all-zero data excluded entirely, series values scaled to $M,
+      call/put aggregate rows pinned to the top of the hover bubble
+      (green/red), right-side vertical legend as venue C/P stacked
+      pairs (DERI for Deribit), no slider (inside zoom only), one-line
+      small title, tight grid margins.
+Acceptance: goldens re-blessed; envelope meta pinned additively; zero
+      venue exclusion + $M scaling + aggregate-first tooltip pinned in
+      unit tests; rake green.
+
+## M3-8 · Gate 3 feedback: compact scenario/lppl/btco + preview hover bubbles  [tier: opus -- applying the M3-7 pattern per written spec] [status: ready] [deps: M3-7]
+Goal: scenario module scoreboard moves right of the chart (vertical),
+      compact one-line titles + tight grids on all three, meta strings
+      for each, preview.html: compact header/status strip, per-card
+      hover bubble rendering envelope meta (title hover = description,
+      i-affordance = axes + UX help).
+Acceptance: goldens re-blessed; rake green; owner re-review.
+
 ## Gate 3 (human)
 Owner opens web/preview.html against a fresh dry-run, eyeballs all
 four charts (the loop provides exact commands + what sane looks

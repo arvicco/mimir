@@ -187,7 +187,8 @@ module Publish
 
       option = Publish::Charts.public_send(spec[:fn], *inputs.map { |k| envelopes[k]['payload'] })
       ttl = inputs.map { |k| envelopes[k]['ttl_hint_s'] }.min
-      envelopes[key] = Publish.wrap(key, option, ttl, now: now, source: source)
+      envelopes[key] = Publish.wrap(key, option, ttl, now: now, source: source,
+                                    meta: spec[:meta])
     rescue StandardError => e
       skip_chart(key, "#{e.class}: #{e.message.to_s[0, 120]}")
     end
