@@ -2,6 +2,8 @@
 
 One line per completed packet: date · packet · commit · notes.
 
+2026-07-05 · gate-3 CLOSED · 68b0965 · Owner merged PR #4 after four visual review rounds (M3-8..11); goldens owner-blessed. Phase 4 opened on phase-4 (Cloudflare layer per ARCHITECTURE Phase 4): design pass with the frontend-design skill, then worker.js + dashboard packets M4-1.. elaborated under the revised tiering; Gate 4 deploy stays a HUMAN action.
+
 2026-07-05 · M3-11 · -- · Review round 4 (fable: third renderer hook is a contract change): scenario/lppl y-axis names moved onto the axis (nameLocation middle, rotated -- top collided with the one-line titles, bottom would hit the time labels); GEX legend collapsed to one line per venue via NEW meta.legend_widget hook ('gex_cp': `(p) DERI (c)`, p/c toggle a side, name toggles both; spec ships legend.show=false so ECharts keeps selection state); GEX call/put columns overlay exactly (barGap -100%, safe with calls>=0/puts<=0). Self-review: headless screenshots + Playwright-vs-system-Chrome interaction run (5/5 toggle semantics incl. dim states); goldens re-blessed, still PROVISIONAL until Gate 3.
 
 ---

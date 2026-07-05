@@ -138,9 +138,10 @@ same commit (`rake health` fails on registry drift).
 
 ## Current phase
 
-Phase 3 (chart specs, branch phase-3; Gate 2 closed 2026-07-04,
-PR #3, first real publish LIVE). Stage A tiering (DEV-LOOP.md section
-2): Fable orchestrates/reviews, Opus/Sonnet write most code; packets
-M3-1..6 in docs/BACKLOG.md. Goldens bless only via rake golden:approve
-after visual review. Consult ARCHITECTURE.md section 6 for Gate 3; update
+Phase 4 (Cloudflare layer: Worker API + dashboard, branch phase-4;
+Gate 3 closed 2026-07-05, PR #4, four chart goldens owner-blessed).
+Stage A tiering (DEV-LOOP.md section 2): Fable orchestrates/reviews,
+Opus/Sonnet write most code; packets M4-1.. in docs/BACKLOG.md. Visual
+work follows .claude/skills/mimir-design; deploys are HUMAN actions
+(Golden Rule 3). Consult ARCHITECTURE.md section 6 for Gate 4; update
 this line at each gate.

@@ -382,7 +382,84 @@ Acceptance: goldens re-blessed after self-screenshot review; hook
       pinned in tests + chart_specs header + mimir-design skill; rake
       green; owner re-review.
 
-## Gate 3 (human)
+## Gate 3 (human)  [status: CLOSED 2026-07-05 -- PR #4 merged after four review rounds; goldens owner-blessed]
 Owner opens web/preview.html against a fresh dry-run, eyeballs all
 four charts (the loop provides exact commands + what sane looks
 like), runs `rake golden:approve`, merges PR phase-3 -> main.
+
+# Phase 4 -- Cloudflare layer (branch phase-4, ARCHITECTURE section 6)
+
+Design spec: docs/DASHBOARD-DESIGN.md (frontend-design pass on top of
+.claude/skills/mimir-design). Deploys stay HUMAN actions (Golden Rule
+3): the loop prepares wrangler.toml and prints exact commands only.
+
+## M4-1 · Worker API: web/worker.js + wrangler.toml + node test harness  [tier: fable -- secret-adjacent (optional AUTH_TOKEN bearer) + first-of-kind runtime/test contract for JS in this repo] [status: todo] [deps: --]
+Goal: GET /api/v1/:key -> KV envelope verbatim (Cache-Control
+      public/max-age=60, X-Generated-At, X-Data-Age-Seconds), 404
+      unknown key (strict key allowlist regex), 401 when AUTH_TOKEN is
+      set and bearer mismatches (constant-time compare; never echo the
+      token), GET /healthz -> {ok:true,worker_ts}. Pure exported
+      handler(request, env) so tests inject a fake KV; wrangler.toml
+      with MIMIR binding prepared, NOT deployed. Test harness:
+      `node --test test/web/` (node built-in runner, zero npm),
+      wired as rake web:test -- joins the default gate when node is
+      present, WARNs otherwise; CI has node on both OSes.
+Acceptance: routing/auth/header matrix pinned incl. 404/401 paths and
+      redaction; rake green; no deploy performed.
+
+## M4-2 · shared renderer web/render.js extracted from preview.html  [tier: opus -- refactor of four-round-reviewed code against a written spec; oracle = pixel-identical preview screenshots + node --check] [status: todo] [deps: --]
+Goal: card builder, staleness math, bubble builder, FORMATTERS +
+      WIDGETS registries, age-ticker util move to web/render.js
+      (plain script, no modules/build); preview.html slims to a
+      loader using it. Hooks then live in ONE place for both surfaces.
+Acceptance: before/after headless screenshots of preview.html match
+      (chart pixels identical; header/badge changes only if M4-3
+      pulls them in later); node --check both files; rake green.
+
+## M4-3 · production dashboard web/index.html  [tier: opus -- implements docs/DASHBOARD-DESIGN.md against the M4-2 renderer; fable reviews with screenshots per DEV-LOOP 6b] [status: todo] [deps: M4-1, M4-2]
+Goal: same-origin /api/v1/ loader with the design doc's header (one
+      line: name, per-key chips, pub HH:MMZ n/11 fresh), live age
+      tickers (the signature), healthz-aware failure banner with
+      directive copy, mono-numeral type system, focus-visible ring,
+      one-column collapse <1100px. Local review path: rake preview
+      serves it against data/publish_preview with a stub /api shim
+      (test-only, in the preview server).
+Acceptance: self-screenshot review (static + Playwright interaction
+      states) BEFORE owner handoff; mimir-design skill checklist
+      passes; rake green.
+
+## M4-4 · ECharts SRI pin on both pages  [tier: sonnet -- mechanical with a deterministic oracle (hash recomputed from the pinned CDN artifact by a checked-in script)] [status: todo] [deps: M4-2, M4-3]
+Goal: integrity= + crossorigin on the ONE pinned CDN tag in
+      preview.html and index.html; tools/sri_check.rb (stdlib)
+      recomputes and compares -- registered so rake health catches
+      drift offline against a committed hash file.
+Acceptance: both pages carry the same pinned version + hash; tamper
+      test red-checked; rake green.
+
+## M4-5 · Gate 4 deploy prep: docs/DEPLOY.md + README  [tier: sonnet -- documentation against implemented behavior, fable reviews] [status: todo] [deps: M4-1, M4-3, M4-4]
+Goal: exact owner-run commands (wrangler deploy, Pages publish,
+      AUTH_TOKEN secret creation), the Gate 4 smoke checklist from
+      ARCHITECTURE (all keys 200, ages sane, 404/401 paths, badge
+      behavior with a stale key), rollback notes; README updated to
+      the Phase 4 capability set (gate rule: honest about what does
+      not work yet).
+Acceptance: a newcomer could deploy from the doc alone; README
+      current; rake green.
+
+## Gate 4 (human)
+Owner creates the Pages project + Worker route, runs wrangler deploy /
+Pages publish, walks the smoke checklist against the live host,
+merges PR phase-4 -> main.
+
+## Decision items for owner ruling at Phase 4 planning
+- D4-a LPPL price-vs-trend panel: needs a NEW published key (price
+  tail from the lppl cache) -- pipeline producer + chart change;
+  analytics-adjacent. Rule in (adds a packet M4-6) or park for v1.1?
+- D4-b BTCo literal sortable HTML table on the dashboard (beyond the
+  bars chart) -- owner wished for it during Phase 3 review. Rule in
+  (packet M4-7, plain <table> + tiny sort, renderer-side from the
+  published btco:latest payload) or park?
+- D4-c Worker auth default: ship with AUTH_TOKEN bearer required, or
+  public-read behind the obscure hostname until Cloudflare Access is
+  set up? (Worker supports both either way; this only picks the
+  Gate 4 default.)
