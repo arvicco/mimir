@@ -18,9 +18,16 @@ you never need it to deploy.
 
 ```
 npm install -g wrangler
-wrangler login            # opens the browser for OAuth; approve it
-wrangler whoami           # EXPECT: your email + account name/id
+wrangler login                          # opens the browser for OAuth; approve it
+env -u CF_API_TOKEN wrangler whoami     # EXPECT: your email + account name/id
 ```
+
+The `env -u` matters: wrangler treats `CF_API_TOKEN` (the *publisher's*
+KV-scoped token from `~/.config/mimir/env`) as a legacy auth alias and
+prefers env tokens over your OAuth login. If `whoami` says
+`logged in with an User API Token` / `Unable to retrieve email`, that's
+this -- the publisher token hijacked auth. `rake deploy` strips it
+automatically; only manual wrangler commands need the `env -u` prefix.
 
 **1.2 Add two lines to `~/.config/mimir/env`** (alongside the existing
 `CF_API_TOKEN`, which stays publisher-only):
@@ -139,7 +146,8 @@ All boxes checked -> Gate 4 accepted.
 | pre-flight `wrangler MISSING` | not installed / not on PATH | `npm install -g wrangler` |
 | pre-flight `working tree dirty` | uncommitted changes | commit/stash; or `DEPLOY_SKIP_CHECKS=1 rake deploy` if intentional |
 | pre-flight `rake gate FAILED` | tests/health red | fix first -- do not deploy over a red gate |
-| `wrangler deploy failed` | login expired / wrong account | `wrangler login`, `wrangler whoami`, re-run |
+| `wrangler deploy failed` | login expired / wrong account | `wrangler login`, `env -u CF_API_TOKEN wrangler whoami`, re-run |
+| wrangler warns `Using "CF_API_TOKEN" ... deprecated` / auth or permission errors on manual commands | the publisher's KV-scoped token hijacked wrangler auth (env token beats OAuth) | prefix manual commands with `env -u CF_API_TOKEN`; `rake deploy` strips it itself |
 | smoke `index` FAIL (404 or stale) | KV empty or old | `ruby publish/publish.rb`, then `DEPLOY_SKIP_CHECKS=1 rake deploy` |
 | smoke `dashboard` FAIL | assets missing from the deploy | check `wrangler.toml` has the `[assets]` block; re-run |
 | deployed the wrong thing | -- | `wrangler deployments list`, then `wrangler rollback --version-id <last-good>` (assets roll back with the worker -- one rollback reverts everything) |
@@ -166,8 +174,11 @@ for the loop.
 required; never printed), `DEPLOY_NAME` (optional hostname),
 `DEPLOY_HOST` (optional -- overrides the smoke-probe host if wrangler's
 output can't be parsed), `DEPLOY_DRY_RUN=1`, `DEPLOY_SKIP_CHECKS=1`.
-`CF_API_TOKEN` is the *publisher's* credential; `rake deploy` does not
-use it (wrangler has its own login).
+`CF_API_TOKEN` is the *publisher's* credential; `rake deploy`
+explicitly UNSETS it for the wrangler child (wrangler would otherwise
+adopt it as a legacy auth alias and fail to deploy -- found live at
+Gate 4). A deliberately exported `CLOUDFLARE_API_TOKEN` (deploy-scoped)
+is honored if you prefer token auth over `wrangler login`.
 
 **Architecture**: the Worker answers `/api/v1/:key` (KV envelope,
 verbatim, `max-age=60`, age headers) and `/healthz`; every other path
