@@ -277,6 +277,8 @@ class TestPublishPipeline < Minitest::Test
     assert_equal 'chart:gex_profile', gex['key']
     assert_equal 1_800, gex['ttl_hint_s'] # inherits gex:combined (1800)
     assert gex['payload'].key?('series')  # a real ECharts option
+    # additive 2026-07-05: hover-help meta rides the chart envelope
+    assert_equal Publish::Charts::CHARTS['gex_profile'][:meta], gex['meta']
 
     lppl = JSON.parse(File.read(File.join(out_dir, 'chart_lppl_regime.json')))
     assert_equal 86_400, lppl['ttl_hint_s'] # min(86400, 86400)

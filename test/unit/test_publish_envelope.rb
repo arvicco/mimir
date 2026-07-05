@@ -36,6 +36,16 @@ class TestPublishEnvelope < Minitest::Test
     assert_equal %w[generated_at key payload source ttl_hint_s v], env.keys.sort
   end
 
+  # additive 2026-07-05: hover-help meta on chart envelopes; the key is
+  # absent entirely without meta (the pin above stays exact).
+  def test_wrap_meta_is_additive_and_optional
+    meta = { 'desc' => 'what this chart shows', 'axes' => { 'x' => 'levels' } }
+    env = Publish.wrap('chart:gex_profile', { 'a' => 1 }, 1800,
+                       now: NOW, source: 'testhost', meta: meta)
+    assert_equal %w[generated_at key meta payload source ttl_hint_s v], env.keys.sort
+    assert_equal meta, env['meta']
+  end
+
   def test_wrap_key_order_is_stable
     env = Publish.wrap('gex:combined', { 'a' => 1 }, 1800,
                        now: NOW, source: 'testhost')

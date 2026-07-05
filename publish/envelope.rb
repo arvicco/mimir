@@ -32,13 +32,17 @@ module Publish
   module_function
 
   # Wrap a payload in the frozen envelope. Raises ArgumentError on an
-  # empty key, nil payload, or non-positive ttl_hint_s.
-  def wrap(key, payload, ttl_hint_s, now:, source:)
+  # empty key, nil payload, or non-positive ttl_hint_s. `meta:` is the
+  # 2026-07-05 ADDITIVE field (owner design review): a hash of
+  # human-facing description strings (desc/axes/help) rendered as hover
+  # bubbles by preview.html and the dashboard; only chart envelopes
+  # carry it, and the key is absent entirely when meta is nil.
+  def wrap(key, payload, ttl_hint_s, now:, source:, meta: nil)
     raise ArgumentError, 'key must not be empty' if key.nil? || key.empty?
     raise ArgumentError, 'payload must not be nil' if payload.nil?
     raise ArgumentError, 'ttl_hint_s must be positive' unless ttl_hint_s.is_a?(Integer) && ttl_hint_s.positive?
 
-    {
+    env = {
       'v' => 1,
       'key' => key,
       'generated_at' => now.utc.iso8601,
@@ -46,6 +50,8 @@ module Publish
       'source' => source,
       'payload' => payload
     }
+    env['meta'] = meta if meta
+    env
   end
 
   # Build the v1:index envelope from already-wrapped entries: one row per

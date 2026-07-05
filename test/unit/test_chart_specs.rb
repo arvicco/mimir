@@ -48,18 +48,52 @@ class TestChartSpecs < Minitest::Test
     @gex_payload ||= JSON.parse(File.read(File.join(PAYLOADS, 'payload_gex_combined.json')))
   end
 
-  def test_gex_profile_two_series_per_venue_stacked_by_side
+  def active_venues
+    gex_payload['profiles'].select { |_, per|
+      per.values.any? { |s| s['call'].to_i != 0 || s['put'].to_i != 0 }
+    }.keys
+  end
+
+  def first_bar(opt)
+    opt['series'].find { |s| s['type'] == 'bar' }
+  end
+
+  def test_gex_profile_two_series_per_active_venue_plus_aggregates
     opt = build('gex_profile')
-    venues = gex_payload['profiles'].keys
-    assert_equal venues.size * 2, opt['series'].size
-    assert_equal venues.map { |v| ["#{v} calls", "#{v} puts"] }.flatten,
-                 opt['series'].map { |s| s['name'] }
-    assert_equal %w[calls puts], opt['series'].map { |s| s['stack'] }.uniq
+    assert_equal 2 + active_venues.size * 2, opt['series'].size
+    # aggregates FIRST so the hover bubble leads with them, side colors
+    assert_equal %w[C P], opt['series'].first(2).map { |s| s['name'] }
+    assert_equal %w[#0f7a5c #c63939],
+                 opt['series'].first(2).map { |s| s['itemStyle']['color'] }
+    labels = active_venues.map { |v| v == 'Deribit' ? 'DERI' : v }
+    assert_equal labels.flat_map { |v| ["#{v} C", "#{v} P"] },
+                 opt['series'].drop(2).map { |s| s['name'] }
+    # legend only lists the venue toggles, right of the plot, vertical
+    assert_equal opt['series'].drop(2).map { |s| s['name'] }, opt['legend']['data']
+    assert_equal 'vertical', opt['legend']['orient']
+  end
+
+  def test_gex_profile_zero_venues_excluded_entirely
+    p2 = JSON.parse(JSON.generate(gex_payload))
+    p2['profiles']['DEADEX'] = { '62000' => { 'call' => 0, 'put' => 0 } }
+    names = Publish::Charts.gex_profile(p2)['series'].map { |s| s['name'] }
+    refute names.any? { |n| n.include?('DEADEX') }
+  end
+
+  def test_gex_profile_values_scaled_to_millions
+    opt = build('gex_profile')
+    level = gex_payload['profiles']['Deribit'].keys.max_by { |l|
+      gex_payload['profiles']['Deribit'][l]['call'].to_i.abs
+    }
+    raw = gex_payload['profiles']['Deribit'][level]['call'].to_i
+    levels = active_venues.flat_map { |v| gex_payload['profiles'][v].keys }.uniq
+                          .sort_by { |k| k.to_i }
+    deri_c = opt['series'].find { |s| s['name'] == 'DERI C' }
+    assert_in_delta raw / 1e6, deri_c['data'][levels.index(level)], 0.01
   end
 
   def test_gex_profile_marklines_flip_and_walls
-    opt = build('gex_profile')
-    marks = opt['series'].first['markLine']['data']
+    marks = first_bar(build('gex_profile'))['markLine']['data']
     labels = marks.map { |m| m['label']['formatter'] }
     assert_equal %w[flip CW PW], labels # the fixture payload has all three
     marks.each { |m| assert_match(/\A\d+(\.\d)?k\z/, m['xAxis']) } # snapped to category
@@ -68,7 +102,7 @@ class TestChartSpecs < Minitest::Test
   def test_gex_profile_no_flip_markline_when_absent
     p2 = JSON.parse(JSON.generate(gex_payload))
     p2['combined']['gamma_flip'] = nil
-    marks = Publish::Charts.gex_profile(p2)['series'].first['markLine']['data']
+    marks = first_bar(Publish::Charts.gex_profile(p2))['markLine']['data']
     refute_includes marks.map { |m| m['label']['formatter'] }, 'flip'
   end
 
