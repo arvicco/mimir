@@ -1,4 +1,5 @@
 {
+  "backgroundColor": "transparent",
   "title": {
     "text": "LPPL STRESSED +0.00",
     "textStyle": {
@@ -26,19 +27,19 @@
     {
       "left": 52,
       "right": 24,
-      "top": 30,
+      "top": 44,
       "height": "19%"
     },
     {
       "left": 52,
       "right": 24,
-      "top": "40%",
+      "top": "42%",
       "height": "19%"
     },
     {
       "left": 52,
       "right": 24,
-      "top": "70%",
+      "top": "72%",
       "height": "19%"
     }
   ],
@@ -86,6 +87,8 @@
       "xAxisIndex": 0,
       "yAxisIndex": 0,
       "showSymbol": true,
+      "symbol": "circle",
+      "symbolSize": 7,
       "data": [
         [
           "2026-07-04T19:48:34Z",
@@ -103,6 +106,7 @@
               "color": "#e6a23c"
             },
             "label": {
+              "position": "insideStartTop",
               "formatter": "bound 0.434"
             }
           },
@@ -113,6 +117,7 @@
               "color": "#c63939"
             },
             "label": {
+              "position": "insideEndBottom",
               "formatter": "floor 0.434"
             }
           }
@@ -138,6 +143,8 @@
       "xAxisIndex": 1,
       "yAxisIndex": 1,
       "showSymbol": true,
+      "symbol": "circle",
+      "symbolSize": 7,
       "data": [
         [
           "2026-07-04T19:48:34Z",
@@ -164,6 +171,8 @@
       "xAxisIndex": 2,
       "yAxisIndex": 2,
       "showSymbol": true,
+      "symbol": "circle",
+      "symbolSize": 7,
       "data": [
         [
           "2026-07-04T19:48:34Z",

@@ -121,6 +121,13 @@ Each iteration, regardless of execution vehicle (section 5):
    gate (or sooner if everything is blocked -> stop and notify the
    owner). Packets touching semantics or contracts skip attempts
    entirely and go straight to `blocked: decision-item`.
+6b. **Visual work reviews itself first.** Anything rendered (charts,
+   web/) gets a headless screenshot (`rake preview` + Chrome
+   `--headless --screenshot`) that the executing session READS and
+   critiques before any owner handoff -- the owner judges design, but
+   never discovers invisible text, clipped series or label collisions
+   the loop could have seen itself. Lean on established design systems
+   (e.g. the ECharts dark theme) over hand-picked colors.
 7. **Pre-gate: update `README.md`** -- the user-facing document
    describing the capabilities and commands implemented up to this
    point, honest about what does not work yet. A newcomer reading only

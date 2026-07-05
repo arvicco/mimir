@@ -350,6 +350,21 @@ Goal: owner review round 2: instant structured hover bubbles (native
 Acceptance: goldens re-blessed; hooks pinned (opt-in only); rake
       green; owner re-review.
 
+## M3-10 · Gate 3 feedback round 3: dark theme + visual self-review loop  [tier: fable -- render-contract change (theme) + a new loop practice] [status: done] [deps: M3-9]
+Goal: owner review round 3 ("grey text too dark; active/inactive legend
+      inverted; do you lack design intuition?"): root cause was ECharts
+      LIGHT-theme defaults on a dark page (title/legend text #333,
+      inactive legend brighter than active) AND the loop designing
+      blind. Fixed: renderer inits with the built-in dark theme (specs
+      set backgroundColor transparent), page greys brightened, sparse
+      series get filled 7px symbols (default emptyCircle ring is
+      invisible on dark), lppl bound/floor labels separated to opposite
+      line ends, panel grid clears the title. NEW LOOP PRACTICE: the
+      loop headless-screenshots preview.html (Chrome --headless) and
+      reviews the pixels itself before every owner handoff.
+Acceptance: goldens re-blessed; self-review screenshot attached to the
+      handoff; rake green.
+
 ## Gate 3 (human)
 Owner opens web/preview.html against a fresh dry-run, eyeballs all
 four charts (the loop provides exact commands + what sane looks

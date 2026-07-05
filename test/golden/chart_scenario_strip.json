@@ -1,4 +1,5 @@
 {
+  "backgroundColor": "transparent",
   "title": {
     "text": "Scenario LEAN-FLUSH -0.17",
     "textStyle": {
@@ -106,6 +107,7 @@
       "xAxisIndex": 0,
       "yAxisIndex": 0,
       "showSymbol": true,
+      "symbol": "circle",
       "symbolSize": 6,
       "lineStyle": {
         "color": "#3b6ea5"
