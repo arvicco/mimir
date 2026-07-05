@@ -304,7 +304,7 @@ Goal: Pipeline.run generates the four chart envelopes from the
 Acceptance: dry-run preview carries chart_*.json; unit pins updated;
       rake green.
 
-## M3-6 · web/preview.html offline review harness  [tier: opus -- small fully-specified JS; flagged web/: minimal dumb JS, ECharts via pinned CDN tag, no npm] [status: ready] [deps: M3-5]
+## M3-6 · web/preview.html offline review harness  [tier: opus -- small fully-specified JS; flagged web/: minimal dumb JS, ECharts via pinned CDN tag, no npm] [status: done -- Opus implementation, Fable spec + review; serve command fixed to python3 (webrick left the Ruby stdlib)] [deps: M3-5]
 Goal: static page rendering every chart_*.json from
       data/publish_preview/ side by side (fetch relative paths; run
       via `ruby -run -e httpd data/publish_preview` or file://-safe

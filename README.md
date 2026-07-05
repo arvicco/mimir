@@ -123,9 +123,31 @@ fail-soft suite publishes its honest `unavailable` state. Status line:
 first human-run publish); retries are bounded and error paths never
 carry the token or payloads.
 
+## Chart specs + offline preview
+
+The publish run also builds four pre-rendered chart specs
+(`v1:chart:gex_profile / scenario_strip / lppl_regime / btco_table`) --
+each payload is a complete ECharts option the dashboard renders with
+one `setOption` call. Review them offline:
+
+```
+PUBLISH_DRY_RUN=1 ruby publish/publish.rb   # fresh artifact set
+python3 -m http.server 8000                 # from the repo root
+open http://localhost:8000/web/preview.html
+```
+
+Chart output is pinned by golden files (`test/golden/`) regenerated
+deterministically from committed payload fixtures; a red golden diff
+is presented for review and re-blessed only via `rake golden:approve`
+after looking at the rendered result. Known v1 presentation choices:
+the LPPL chart plots the evidence ledger (a published price-vs-trend
+panel would need a new data key -- deferred), and the BTCo view is
+labeled bars + stress gauge rather than a literal table (pure-JSON
+ECharts has no table type).
+
 ## Not implemented yet (roadmap in ARCHITECTURE.md)
 
-- Chart specs, the Worker API and the dashboard (Phases 3-4).
+- The Worker API and the public dashboard (Phase 4).
 - Cron/launchd install, runbook (Phase 5).
 
 ## Development
