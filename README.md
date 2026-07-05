@@ -132,7 +132,7 @@ one `setOption` call. Review them offline:
 
 ```
 PUBLISH_DRY_RUN=1 ruby publish/publish.rb   # fresh artifact set
-python3 -m http.server 8000                 # from the repo root
+rake preview                                # stdlib server, localhost:8000
 open http://localhost:8000/web/preview.html
 ```
 

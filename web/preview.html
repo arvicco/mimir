@@ -5,7 +5,7 @@
   publish dry-run in ../data/publish_preview/. Static, dumb, no build.
 
   SERVE (file:// blocks fetch) -- from the repo root:
-    python3 -m http.server 8000
+    rake preview
   then open  http://localhost:8000/web/preview.html
 
   ECharts is pinned to ONE exact CDN version below. The pin is deliberate;
@@ -73,7 +73,7 @@
   <div id="grid" class="grid"></div>
   <footer>
     Served statically. From the repo root run
-    <code>python3 -m http.server 8000</code>, then open
+    <code>rake preview</code>, then open
     <code>http://localhost:8000/web/preview.html</code>.<br>
     ECharts pinned at 5.6.0 via jsDelivr. Chart payloads are rendered verbatim --
     if a chart looks wrong the fix belongs in the publish spec, not here.
