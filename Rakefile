@@ -124,4 +124,16 @@ namespace :golden do
   end
 end
 
-task default: %i[compat health fixtures:verify test]
+namespace :web do
+  desc 'Worker API tests (node built-in runner, zero npm); WARN-skips without node'
+  task :test do
+    if system('node --version', out: File::NULL, err: File::NULL)
+      files = Dir.glob('test/web/*.test.mjs')
+      sh "node --test #{files.join(' ')}" unless files.empty?
+    else
+      warn 'web:test SKIP: node not found (Worker API tests not run)'
+    end
+  end
+end
+
+task default: %i[compat health fixtures:verify test web:test]
