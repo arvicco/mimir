@@ -1,152 +1,103 @@
-# DEPLOY.md -- deploying the mimir Cloudflare layer (Phase 4)
+# Deploying mimir to Cloudflare
 
-Deploys are **HUMAN actions** (CLAUDE.md Golden Rule 3). The loop
-prepares `wrangler.toml`, the `rake deploy` task, and this document; the
-**owner** runs the commands. `rake deploy` refuses to run under CI
-(`ENV['CI']` set) and is deny-listed for the loop exactly like
-`fixtures:record`.
+**One deploy, one host.** `rake deploy` ships the Worker (the API) AND
+the dashboard (the static files in `web/`) together to a single
+`https://<name>.<your-subdomain>.workers.dev` host. There is no Pages
+project, no routing setup, no second step.
 
-There are two independent surfaces:
-
-- **Worker + KV** (the API at `/api/v1/:key`, `/healthz`) -- deployed by
-  `rake deploy` (section 3).
-- **Pages** (the static dashboard: `web/index.html`, `web/render.js`, the
-  pinned ECharts tag) -- a **separate owner step** (section 2). `rake
-  deploy` does NOT touch it and prints a reminder.
-
-Prerequisites: `wrangler` on PATH (`npm i -g wrangler`, or `npx
-wrangler`), a Cloudflare account, and the KV namespace + scoped token
-already created (the Gate 2 step -- the same namespace the publisher
-writes to). Environment (from `~/.config/mimir/env`, never the repo):
-
-```
-CF_ACCOUNT_ID        Cloudflare account id
-CF_KV_NAMESPACE_ID   the MIMIR KV namespace id
-CF_API_TOKEN         token scoped to that namespace (publisher only; not
-                     needed by rake deploy, which uses wrangler's own login)
-DEPLOY_HOST          (optional) override the smoke-test host, e.g.
-                     https://mimir.<subdomain>.workers.dev
-```
-
-`rake deploy` never prints any `CF_*` value: the pre-flight table says
-`set` or `MISSING`, the generated config's id line is written but never
-echoed, and the dry-run command shows `CLOUDFLARE_ACCOUNT_ID=<from
-CF_ACCOUNT_ID>` as a placeholder.
+You run everything below yourself (CLAUDE.md Golden Rule 3 -- the loop
+and CI cannot deploy). Sections 1-3 are the instructions, in order.
+Section 4 is what to do when a step fails. Section 5 is background --
+you never need it to deploy.
 
 ---
 
-## 1. First-time Cloudflare setup (once, console + wrangler)
+## 1. One-time setup (~10 minutes)
 
-All console/CLI work; done once by the owner.
+**1.1 Install wrangler and log in:**
 
-1. **Authenticate wrangler**: `wrangler login` (OAuth) or export
-   `CLOUDFLARE_API_TOKEN` with Workers-edit scope. Confirm with
-   `wrangler whoami`.
-2. **KV namespace** (if not already created at Gate 2):
-   `wrangler kv namespace create MIMIR` -> note the id -> set it as
-   `CF_KV_NAMESPACE_ID` in `~/.config/mimir/env`. The publisher and the
-   Worker binding must point at the **same** namespace.
-3. **Worker route / hostname**: the default is the free
-   `mimir.<your-subdomain>.workers.dev` host (nothing to configure --
-   `wrangler deploy` prints it). To serve on a custom domain instead, add
-   a route in the dashboard (Workers & Pages -> your Worker -> Triggers ->
-   Routes) or `[routes]` in `wrangler.toml`; keep the namespace-id
-   placeholder untouched.
-4. **Pages project** (for the dashboard): create a Pages project pointed
-   at the repo's `web/` directory (dashboard -> Workers & Pages -> Create
-   -> Pages -> Direct Upload, or connect the repo with build output
-   `web/`).
-   - **Name it unguessably.** Owner ruling D4-c: Gate 4 ships
-     **public-read** (no bearer in the browser). The only front-line
-     mitigations are `max-age=60`, an **unguessable project name**, and
-     `noindex`. Do not use `mimir` as the Pages project name; pick a
-     random slug (e.g. `mimir-a7f3k9`).
-   - **noindex**: serve `X-Robots-Tag: noindex` (Pages -> Settings ->
-     Headers, or a `web/_headers` file: `/*` then
-     `X-Robots-Tag: noindex`) so the dashboard host never lands in a
-     search index. The Worker responses are `no-store`/short-cache and
-     carry no HTML, so this is a Pages concern.
-   - Same-origin: the dashboard calls `/api/v1/...` relative, so the
-     Pages host must route those paths to the Worker (custom domain with
-     both, or a Worker route on the Pages domain). If you keep the Worker
-     on `*.workers.dev` and Pages elsewhere, point the dashboard at the
-     Worker host or add the route.
+```
+npm install -g wrangler
+wrangler login            # opens the browser for OAuth; approve it
+wrangler whoami           # EXPECT: your email + account name/id
+```
+
+**1.2 Add two lines to `~/.config/mimir/env`** (alongside the existing
+`CF_API_TOKEN`, which stays publisher-only):
+
+```
+export CF_ACCOUNT_ID=...        # shown by `wrangler whoami`
+export CF_KV_NAMESPACE_ID=...   # the Gate 2 namespace: `wrangler kv namespace list`
+```
+
+**1.3 Pick the public hostname** (recommended): the worker's *name* is
+its hostname, and the Gate 4 ruling is public-read behind an
+unguessable name. Add one more line:
+
+```
+export DEPLOY_NAME=mimir-<random>     # e.g. mimir-a7f3k9 -- lowercase/digits/hyphens
+```
+
+Without `DEPLOY_NAME` the host is `mimir.<subdomain>.workers.dev` --
+guessable; fine for a first test, not for staying up.
+
+Done. You never repeat this section.
 
 ---
 
-## 2. Pages publish (separate owner step -- NOT automated)
+## 2. Deploy
 
-`rake deploy` deploys only the Worker. Publish the static dashboard by
-hand whenever `web/` changes:
-
-```
-wrangler pages deploy web --project-name <your-unguessable-pages-name>
-```
-
-(or drag-drop `web/` in the dashboard). Then confirm the pinned ECharts
-tag loads (SRI hash is checked offline by `rake health`; the browser
-enforces it at load).
-
----
-
-## 3. Routine deploy -- `rake deploy`
+**2.1 Load the env and dry-run first:**
 
 ```
-rake deploy                    # full: pre-flight -> generate -> deploy -> smoke
-DEPLOY_DRY_RUN=1 rake deploy   # assemble + print the would-run command, deploy nothing
-DEPLOY_SKIP_CHECKS=1 rake deploy   # skip tree-clean + rake-gate (fast re-runs)
+source ~/.config/mimir/env
+DEPLOY_DRY_RUN=1 rake deploy
 ```
 
-### Pre-flight table (what each line means)
+EXPECT: a pre-flight table of five `[ok]` rows, then
+`would run: ... wrangler deploy -c data/wrangler.generated.toml`.
+Nothing has been deployed. If a row says `MISSING`, see section 4.
+
+**2.2 Make sure KV has data** (first deploy, or after long sleep):
 
 ```
-pre-flight:
-  [ok  ] wrangler             4.106.0        wrangler is on PATH and runs
-  [ok  ] CF_ACCOUNT_ID        set            CF_ACCOUNT_ID present (value hidden)
-  [ok  ] CF_KV_NAMESPACE_ID   set            CF_KV_NAMESPACE_ID present (value hidden)
-  [ok  ] working tree         clean          `git status --porcelain` empty
-  [ok  ] rake gate            green          `rake` (compat+health+tests) passed
+ruby publish/publish.rb        # real publish -- expects PUB LIVE 11/11
 ```
 
-Any `FAIL` row aborts before deploying. `MISSING` means the env var is
-unset. `dirty (N files)` means uncommitted changes -- commit or stash, or
-use `DEPLOY_SKIP_CHECKS=1` to skip the tree + gate checks on a re-run
-after a failed smoke. In **dry run** the table is informational and never
-blocks (a dev box without wrangler still proves the pipeline).
+**2.3 Deploy for real:**
 
-### What it does
+```
+rake deploy
+```
 
-1. Generates `data/wrangler.generated.toml` from the committed
-   `wrangler.toml` template, substituting the namespace id from
-   `CF_KV_NAMESPACE_ID`. `data/` is gitignored, so the filled config is
-   never committable.
-2. Runs `wrangler deploy -c data/wrangler.generated.toml`, exporting
-   `CLOUDFLARE_ACCOUNT_ID` from `CF_ACCOUNT_ID` for the child process
-   only.
-3. Smoke-probes the deployed host (`DEPLOY_HOST`, else the `*.workers.dev`
-   URL parsed from wrangler's output):
+EXPECT, in order: the pre-flight table (all `[ok]`), the generated-
+config line, `deploying: wrangler deploy ...`, `deployed host:
+https://<name>.<subdomain>.workers.dev`, and four smoke probes:
 
 ```
 post-deploy smoke:
   [PASS] GET /healthz                      200 {ok:true}
   [PASS] GET /api/v1/index                 200 envelope, age 0.3h
   [PASS] GET /api/v1/definitely:missing    404 as expected
+  [PASS] GET / (dashboard)                 200 dashboard html
 ```
 
-Any `FAIL` -> nonzero exit. `/api/v1/index` fails if the envelope does
-not parse or its `generated_at` is in the future or older than 7 days
-(publish first, then re-deploy or re-run the smoke).
+**2.4 Open the printed host in a browser.** That's the dashboard, live.
+
+That's the whole routine -- every future deploy is 2.1 + 2.3.
 
 ---
 
-## 4. Gate 4 smoke checklist (against the live host)
+## 3. Gate 4 acceptance checklist (once, against the live host)
 
-Beyond the automated three probes, walk the full surface once by hand.
-Substitute your host for `$H` (e.g.
-`H=https://mimir.<subdomain>.workers.dev`).
+Set `H` to your deployed host first: `H=https://<name>.<subdomain>.workers.dev`
 
-**All published keys 200 with sane ages** (the eleven keys of a full
-publish -- `index`, four `chart:*`, and the six data keys):
+**3.1 In the browser** (open `$H`):
+- [ ] all four charts render; the BTCo table strip sorts when you click headers
+- [ ] header chips + `pub HH:MMZ · n/11 fresh` present; age badges tick up live
+- [ ] hover a chart title -> the description bubble appears instantly
+
+**3.2 All eleven keys answer 200 with sane ages:**
 
 ```
 for k in index gex:combined scenario:latest scenario:history \
@@ -154,74 +105,85 @@ for k in index gex:combined scenario:latest scenario:history \
          chart:gex_profile chart:scenario_strip chart:lppl_regime chart:btco_table; do
   printf '%-24s ' "$k"
   curl -s -o /dev/null -w '%{http_code}  ' "$H/api/v1/$k"
-  curl -sI "$H/api/v1/$k" | grep -i x-data-age-seconds
+  curl -sI "$H/api/v1/$k" | tr -d '\r' | grep -i x-data-age-seconds
 done
 ```
 
-Each should print `200` and an `X-Data-Age-Seconds` within its cadence
-(gex minutes, btco ~an hour, lppl up to a day). Confirm
-`Cache-Control: public, max-age=60` on a data key:
-`curl -sI "$H/api/v1/index" | grep -i cache-control`.
+Sane age = within the key's cadence: gex/scenario minutes-to-an-hour,
+btco ~an hour, lppl up to a day.
 
-**404 path**:
+**3.3 Error paths and headers:**
 
 ```
-curl -s -o /dev/null -w '%{http_code}\n' "$H/api/v1/definitely:missing"   # 404
-curl -s -o /dev/null -w '%{http_code}\n' "$H/api/v1/BAD..key"             # 404 (rejected pre-KV)
+curl -s -o /dev/null -w '%{http_code}\n' "$H/api/v1/definitely:missing"  # EXPECT 404
+curl -s -o /dev/null -w '%{http_code}\n' "$H/api/v1/BAD..key"            # EXPECT 404
+curl -sI "$H/api/v1/index" | tr -d '\r' | grep -i cache-control          # EXPECT public, max-age=60
+curl -sI "$H/" | tr -d '\r' | grep -i x-robots-tag                       # EXPECT noindex
 ```
 
-**Health**: `curl -s "$H/healthz"` -> `{"ok":true,"worker_ts":...}`.
+**3.4 Staleness honesty**: the dashboard must read *stale, never down*
+when the Macs sleep. `lppl:latest` is daily, so it goes amber first --
+check its card badge turns amber/red once
+`curl -sI "$H/api/v1/lppl:latest" | grep -i x-data-age-seconds` exceeds
+its ttl (86400) / 3x ttl.
 
-**Badge behaviour with a stale key**: the dashboard colours each card
-from the envelope's `generated_at`/`ttl_hint_s` (green <= ttl, amber <=
-3x, red beyond) and ticks the age live. Verify against a genuinely old
-key -- e.g. open the dashboard when `lppl:latest` is >1 day old (daily
-cadence) and confirm the card badge is amber/red and the age ticker
-counts up. To force it, temporarily point the dashboard at a key whose
-`generated_at` you know is old, or inspect the age header:
-
-```
-curl -sI "$H/api/v1/lppl:latest" | grep -i x-data-age-seconds
-```
-
-The dashboard must stay **correct-and-honest when the Macs sleep**
-(ARCHITECTURE principle 3): stale, never down.
+All boxes checked -> Gate 4 accepted.
 
 ---
 
-## 5. Rollback
+## 4. When something fails
 
-`wrangler` keeps prior Worker versions:
+| symptom | cause | fix |
+|---|---|---|
+| pre-flight `CF_... MISSING` | env not loaded in this shell | `source ~/.config/mimir/env`, re-run |
+| pre-flight `wrangler MISSING` | not installed / not on PATH | `npm install -g wrangler` |
+| pre-flight `working tree dirty` | uncommitted changes | commit/stash; or `DEPLOY_SKIP_CHECKS=1 rake deploy` if intentional |
+| pre-flight `rake gate FAILED` | tests/health red | fix first -- do not deploy over a red gate |
+| `wrangler deploy failed` | login expired / wrong account | `wrangler login`, `wrangler whoami`, re-run |
+| smoke `index` FAIL (404 or stale) | KV empty or old | `ruby publish/publish.rb`, then `DEPLOY_SKIP_CHECKS=1 rake deploy` |
+| smoke `dashboard` FAIL | assets missing from the deploy | check `wrangler.toml` has the `[assets]` block; re-run |
+| deployed the wrong thing | -- | `wrangler deployments list`, then `wrangler rollback --version-id <last-good>` (assets roll back with the worker -- one rollback reverts everything) |
 
-```
-wrangler deployments list                 # find the last-good version id
-wrangler rollback [--version-id <id>]     # instant revert to it
-```
-
-Or re-deploy a known-good commit: `git checkout <good-sha> -- wrangler.toml
-web/worker.mjs` (or check out the commit), then `rake deploy` again. For
-the dashboard, re-run the Pages publish (section 2) from the good commit,
-or use the Pages "Rollback to this deployment" button in the dashboard.
-
-KV values are the publisher's responsibility, not the Worker's -- a bad
-key is fixed by re-publishing (see the publish pipeline), not by a Worker
-rollback.
+A bad KV *value* is a publisher problem, not a deploy problem: fix by
+re-publishing, never by rollback.
 
 ---
 
-## 6. AUTH_TOKEN activation (queue-tail, no code change)
+## 5. Background (not needed to deploy)
 
-Gate 4 ships public-read (D4-c). The Worker already carries a **dormant**
-bearer branch: it enforces a `Bearer` token **iff** the `AUTH_TOKEN`
-secret exists. Activating it needs no deploy of code, just the secret:
+**What `rake deploy` actually does**: (1) pre-flight -- wrangler
+present, `CF_*` env set (printed as `set`/`MISSING`, values never
+echoed), tree clean, `rake` gate green; (2) writes
+`data/wrangler.generated.toml` from the committed `wrangler.toml`
+template, filling the KV namespace id from env and the worker name
+from `DEPLOY_NAME` (the generated file lives in gitignored `data/`, so
+real ids are never committable); (3) runs `wrangler deploy -c` that
+file, passing `CLOUDFLARE_ACCOUNT_ID` to the child process only;
+(4) probes the deployed host. It refuses under CI and is deny-listed
+for the loop.
 
-```
-wrangler secret put AUTH_TOKEN            # paste the token; wrangler stores it encrypted
-```
+**Env reference**: `CF_ACCOUNT_ID`, `CF_KV_NAMESPACE_ID` (both
+required; never printed), `DEPLOY_NAME` (optional hostname),
+`DEPLOY_HOST` (optional -- overrides the smoke-probe host if wrangler's
+output can't be parsed), `DEPLOY_DRY_RUN=1`, `DEPLOY_SKIP_CHECKS=1`.
+`CF_API_TOKEN` is the *publisher's* credential; `rake deploy` does not
+use it (wrangler has its own login).
 
-From then on `/api/v1/*` requires `Authorization: Bearer <token>` (401
-otherwise; `/healthz` stays public). Remove it with
-`wrangler secret delete AUTH_TOKEN` to return to public-read. The
-stronger lock -- Cloudflare Access (email OTP / service tokens) in front
-of Pages+Worker -- is console-only work at the queue tail and likewise
-needs no code change.
+**Architecture**: the Worker answers `/api/v1/:key` (KV envelope,
+verbatim, `max-age=60`, age headers) and `/healthz`; every other path
+is served from the `web/` static assets bundled in the same deploy
+(`[assets]` in `wrangler.toml`) -- so the dashboard and its API are
+same-origin by construction. `web/_headers` adds `X-Robots-Tag:
+noindex` (public-read mitigation, with the unguessable name and the
+short cache). This replaces the ARCHITECTURE Phase 4 "Pages publish"
+step -- amended at Gate 4 (owner feedback, 2026-07-05). `web/preview.html`
+also ships in the bundle; it is the offline review page and shows
+error cards on a live host (its data paths don't exist there) --
+harmless.
+
+**Security posture**: public-read by owner ruling D4-c. To lock the
+API later without any code change: `wrangler secret put AUTH_TOKEN`
+(the Worker's dormant bearer branch activates; `/healthz` stays
+public; `wrangler secret delete AUTH_TOKEN` reverts). The fuller lock,
+Cloudflare Access in front of the host, is console-only work at the
+queue tail.

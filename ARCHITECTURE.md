@@ -32,8 +32,9 @@ novo (launchd/cron, Ruby 3.3+, arm64)
   scripts/btco/ingest.rb                 daily, human-reviewed │ HTTPS PUT
 Cloudflare                                                     ▼ (stdlib Net::HTTP)
   KV namespace   MIMIR   small JSON values, key-per-artifact
-  Worker         GET /api/:key -> KV; cache + staleness headers; auth
-  Pages          static index.html + generic ECharts spec loader
+  Worker         GET /api/:key -> KV; cache + staleness headers; auth;
+                 serves web/ as static assets on the same host (amended
+                 at Gate 4, 2026-07-05: replaces the separate Pages step)
   Access (opt)   Zero Trust gate (email OTP / service token; no Google dep)
 ```
 
@@ -253,11 +254,14 @@ BEFORE any new feature work. Stage 0 runs interactively with the owner.
 - **Gate 3:** visual review in preview harness; goldens approved.
 
 ### Phase 4 -- Cloudflare layer
-- `web/worker.js` + `wrangler.toml` (KV binding, route), `public/`
-  loader with staleness badges, `/healthz`.
+- `web/worker.mjs` + `wrangler.toml` (KV binding + `[assets]` serving
+  `web/` on the same host -- amended at Gate 4, 2026-07-05: one deploy,
+  same-origin by construction, no Pages project), dashboard loader with
+  staleness badges, `/healthz`.
 - JS stays dumb and dependency-free; ECharts pinned by version + SRI hash.
-- **Gate 4:** human runs `wrangler deploy` / Pages publish; smoke checklist
-  (all keys 200, ages sane, 404/401 paths, badge behavior with a stale key).
+- **Gate 4:** human runs `rake deploy` (owner-run wrapper; loop/CI
+  refused); smoke checklist (all keys 200, ages sane, 404/401 paths,
+  badge behavior with a stale key) -- docs/DEPLOY.md.
 
 ### Phase 5 -- ops integration
 - launchd/cron entries on novo (publisher after each suite run, btco.rb

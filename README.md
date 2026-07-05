@@ -187,8 +187,10 @@ rake deploy                    # OWNER-RUN: pre-flight -> deploy -> smoke
 
 Full instructions -- first-time Cloudflare setup, the Gate 4 smoke
 checklist, rollback, and AUTH_TOKEN activation -- are in
-[docs/DEPLOY.md](docs/DEPLOY.md). The static Pages publish of `web/` is a
-separate owner step (not automated); `rake deploy` prints a reminder.
+[docs/DEPLOY.md](docs/DEPLOY.md). The same deploy ships the dashboard:
+`wrangler.toml`'s `[assets]` block serves `web/` on the Worker's own
+host, so there is no separate Pages step and the API is same-origin by
+construction.
 
 ## Not implemented yet (roadmap in ARCHITECTURE.md)
 
@@ -197,8 +199,8 @@ separate owner step (not automated); `rake deploy` prints a reminder.
   the tmux bar, and the operational runbook (rotate token, re-create
   namespace, purge a key, recover from stale-everything) -- Phase 5.
 - Queue-tail hardening: Cloudflare Access (email OTP / service tokens) in
-  front of Pages+Worker, and the LPPL price-vs-trend panel (needs a new
-  published `v1:lppl:price` key + chart).
+  front of the Worker host, and the LPPL price-vs-trend panel (needs a
+  new published `v1:lppl:price` key + chart).
 
 ## Development
 
