@@ -26,8 +26,10 @@
 #      age sane), /api/v1/definitely:missing (404), via BTC::Http; a
 #      PASS/FAIL line each, nonzero exit on any FAIL.
 #
-# Pages publish (the static web/ files) is a SEPARATE owner step and is
-# deliberately NOT automated here (docs/DEPLOY.md section 2).
+# The SAME deploy ships the static dashboard: wrangler.toml's [assets]
+# block serves web/ on the worker's host (owner feedback at Gate 4 --
+# one surface, same-origin by construction; the earlier separate Pages
+# step is gone). DEPLOY_NAME optionally renames the worker (= hostname).
 #
 # SECURITY: CF_* values are never printed. Env checks say 'set' or
 # 'MISSING' only; the generated config's id line is written, never
@@ -73,9 +75,9 @@ module BTC
       'are HUMAN actions -- never run by the loop or CI. Run this by hand.'
     end
 
-    def pages_reminder
-      'REMINDER: Pages publish (the static web/ files) is a SEPARATE owner ' \
-      'step -- not automated here. See docs/DEPLOY.md section 2.'
+    def dashboard_note
+      'The dashboard ships IN this deploy ([assets] serves web/ on the ' \
+      'same host) -- open the deployed host in a browser to see it.'
     end
 
     # ---- pre-flight ----------------------------------------------------
@@ -132,11 +134,22 @@ module BTC
       template.sub(PLACEHOLDER, namespace_id)
     end
 
+    # Optional worker rename (DEPLOY_NAME): the worker name IS the public
+    # hostname, and ruling D4-c wants it unguessable. Replaces only the
+    # `name = "..."` line; empty/absent name leaves the template's default.
+    def substitute_name(content, name)
+      return content if name.to_s.empty?
+      raise Error, "DEPLOY_NAME #{name.inspect} is not a valid worker name" unless name.match?(/\A[a-z0-9-]{1,54}\z/)
+
+      content.sub(/^name = ".*"$/, "name = \"#{name}\"")
+    end
+
     def generate_config(env: ENV, template_path: TEMPLATE_PATH, out_path: GENERATED_PATH)
       ns = env['CF_KV_NAMESPACE_ID'].to_s
       raise Error, 'CF_KV_NAMESPACE_ID not set' if ns.empty?
 
       content = substitute_template(File.read(template_path), ns)
+      content = substitute_name(content, env['DEPLOY_NAME'])
       FileUtils.mkdir_p(File.dirname(out_path))
       File.write(out_path, content)
       out_path
@@ -192,13 +205,22 @@ module BTC
       code == 404 ? [true, '404 as expected'] : [false, "expected 404, got #{code || 'error'}"]
     end
 
-    # Run the three probes against `host`; -> [[name, ok, detail], ...].
+    # The same deploy ships the static dashboard ([assets] in
+    # wrangler.toml): GET / must answer with the index.html shell.
+    def verdict_dashboard(code, body)
+      return [false, "expected 200, got #{code || 'error'}"] unless code == 200
+
+      body.to_s.include?('<title>mimir</title>') ? [true, '200 dashboard html'] : [false, '200 but not the dashboard shell']
+    end
+
+    # Run the four probes against `host`; -> [[name, ok, detail], ...].
     def smoke(host, http: BTC::Http, now: Time.now.utc)
       base = host.to_s.chomp('/')
       [
         ['GET /healthz', *verdict_healthz(*get_result(http, "#{base}/healthz"))],
         ['GET /api/v1/index', *verdict_index(*get_result(http, "#{base}/api/v1/index"), now)],
-        ['GET /api/v1/definitely:missing', *verdict_missing(*get_result(http, "#{base}/api/v1/definitely:missing"))]
+        ['GET /api/v1/definitely:missing', *verdict_missing(*get_result(http, "#{base}/api/v1/definitely:missing"))],
+        ['GET / (dashboard)', *verdict_dashboard(*get_result(http, "#{base}/"))]
       ]
     end
 
@@ -249,7 +271,7 @@ module BTC
         io.puts ''
         io.puts 'DRY RUN (DEPLOY_DRY_RUN=1) -- wrangler and smoke probes NOT run.'
         io.puts format('would run: CLOUDFLARE_ACCOUNT_ID=<from CF_ACCOUNT_ID> %s', cmd.join(' '))
-        io.puts pages_reminder
+        io.puts dashboard_note
         return 0
       end
 
@@ -274,7 +296,7 @@ module BTC
       results.each do |name, probe_ok, detail|
         io.puts format('  [%-4s] %-32s %s', probe_ok ? 'PASS' : 'FAIL', name, detail)
       end
-      io.puts pages_reminder
+      io.puts dashboard_note
 
       results.count { |_, probe_ok, _| !probe_ok }.zero? ? 0 : 1
     end

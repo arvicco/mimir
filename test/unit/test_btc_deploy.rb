@@ -69,6 +69,28 @@ class TestBtcDeploy < Minitest::Test
     assert_includes out, 'name = "mimir"'
   end
 
+  # ---- DEPLOY_NAME worker rename (ruling D4-c: unguessable hostname) --
+
+  def test_substitute_name_replaces_only_the_name_line
+    content = %(name = "mimir"\nmain = "web/worker.mjs"\n)
+    out = BTC::Deploy.substitute_name(content, 'mimir-a7f3k9')
+    assert_includes out, 'name = "mimir-a7f3k9"'
+    assert_includes out, 'main = "web/worker.mjs"'
+    refute_includes out, %(name = "mimir"\n)
+  end
+
+  def test_substitute_name_noop_when_unset
+    content = %(name = "mimir"\n)
+    assert_equal content, BTC::Deploy.substitute_name(content, nil)
+    assert_equal content, BTC::Deploy.substitute_name(content, '')
+  end
+
+  def test_substitute_name_rejects_invalid_worker_names
+    ['Has Space', 'UPPER', 'a' * 60, 'semi;colon'].each do |bad|
+      assert_raises(BTC::Deploy::Error) { BTC::Deploy.substitute_name('name = "x"', bad) }
+    end
+  end
+
   def test_substitute_raises_when_placeholder_absent
     e = assert_raises(BTC::Deploy::Error) { BTC::Deploy.substitute_template('no marker here', 'x') }
     assert_match(/missing/, e.message)
@@ -175,7 +197,7 @@ class TestBtcDeploy < Minitest::Test
       assert_includes text, 'wrangler deploy -c ' + out
       assert_includes text, 'DRY RUN'
       assert_includes text, 'CLOUDFLARE_ACCOUNT_ID=<from CF_ACCOUNT_ID>'
-      assert_includes text, 'docs/DEPLOY.md section 2' # Pages reminder
+      assert_includes text, 'ships IN this deploy' # dashboard-in-same-deploy note
       # secret discipline: no CF_* value anywhere in output
       refute_includes text, ACCOUNT
       refute_includes text, NAMESPACE
@@ -213,10 +235,20 @@ class TestBtcDeploy < Minitest::Test
     transport_for(
       '/healthz' => FakeRes.new('200', '{"ok":true,"worker_ts":"x"}'),
       '/api/v1/index' => FakeRes.new('200', %({"v":1,"generated_at":"#{gen}","payload":{}})),
-      '/api/v1/definitely:missing' => FakeRes.new('404', '{"error":"unknown key"}')
+      '/api/v1/definitely:missing' => FakeRes.new('404', '{"error":"unknown key"}'),
+      '/' => FakeRes.new('200', '<html><head><title>mimir</title></head></html>')
     )
     results = BTC::Deploy.smoke('https://mimir.example.workers.dev', now: now)
+    assert_equal 4, results.size # healthz, index, 404 path, dashboard
     assert(results.all? { |_, ok, _| ok }, results.inspect)
+  end
+
+  def test_smoke_dashboard_verdict
+    assert BTC::Deploy.verdict_dashboard(200, '<title>mimir</title>').first
+    ok, detail = BTC::Deploy.verdict_dashboard(200, '<html>somebody else</html>')
+    refute ok
+    assert_match(/not the dashboard shell/, detail)
+    refute BTC::Deploy.verdict_dashboard(404, '').first
   end
 
   def test_smoke_healthz_wrong_body_fails
