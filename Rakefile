@@ -138,4 +138,19 @@ namespace :web do
   end
 end
 
+desc 'Deploy the Worker to Cloudflare (OWNER-RUN; never in CI -- Golden ' \
+     'Rule 3). Pre-flight, generate data/wrangler.generated.toml (gitignored, ' \
+     'never committed), wrangler deploy, post-deploy smoke. ' \
+     'DEPLOY_DRY_RUN=1 assembles without deploying; DEPLOY_SKIP_CHECKS=1 ' \
+     'skips tree/gate on re-runs. Not in the default gate.'
+task :deploy do
+  require_relative 'lib/btc/deploy'
+  begin
+    code = BTC::Deploy.run
+  rescue BTC::Deploy::Error => e
+    abort BTC::Env.redact(e.message)
+  end
+  exit code
+end
+
 task default: %i[compat health fixtures:verify test web:test]
