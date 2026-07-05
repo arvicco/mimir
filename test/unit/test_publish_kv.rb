@@ -12,8 +12,8 @@ class TestPublishKv < Minitest::Test
   FakeRes = Struct.new(:code, :body)
 
   TOKEN = 'cf-secret-token-12345'
-  ENV_OK = { 'CF_ACCOUNT_ID' => 'acct1', 'CF_KV_NAMESPACE_ID' => 'ns1',
-             'CF_API_TOKEN' => TOKEN }.freeze
+  ENV_OK = { 'CLOUDFLARE_ACCOUNT_ID' => 'acct1', 'CLOUDFLARE_KV_NAMESPACE_ID' => 'ns1',
+             'CLOUDFLARE_API_TOKEN' => TOKEN }.freeze
 
   def teardown
     BTC::Http.transport = nil
@@ -91,9 +91,9 @@ class TestPublishKv < Minitest::Test
 
   def test_missing_env_raises_named_variable_without_values
     e = assert_raises(Publish::KV::Error) do
-      Publish::KV.put('k', 'v', env: { 'CF_ACCOUNT_ID' => 'a' }, sleeper: sleeper)
+      Publish::KV.put('k', 'v', env: { 'CLOUDFLARE_ACCOUNT_ID' => 'a' }, sleeper: sleeper)
     end
-    assert_match(/CF_KV_NAMESPACE_ID/, e.message)
+    assert_match(/CLOUDFLARE_KV_NAMESPACE_ID/, e.message)
     refute_match(/\ba\b/, e.message) # names only, never values
   end
 end

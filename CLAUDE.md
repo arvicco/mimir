@@ -33,7 +33,7 @@ the phases, data contracts, and review gates that govern this repo.
 7. **Minimal diffs.** These scripts run in production cron. Prefer the
    smallest behavior-preserving change; do not reformat, rename, or
    "clean up" beyond the task's scope.
-8. Secrets (`CF_API_TOKEN`, `FRED_API_KEY`) come from ENV only. Never
+8. Secrets (`CLOUDFLARE_API_TOKEN`, `FRED_API_KEY`) come from ENV only. Never
    read, print, or commit them; error paths must redact.
 
 ## Commands

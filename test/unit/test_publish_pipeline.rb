@@ -229,8 +229,8 @@ class TestPublishPipeline < Minitest::Test
   # -- real mode: v1:-prefixed PUTs + 403 abort ----------------------------
 
   FakeRes = Struct.new(:code, :body)
-  ENV_OK = { 'CF_ACCOUNT_ID' => 'acct1', 'CF_KV_NAMESPACE_ID' => 'ns1',
-             'CF_API_TOKEN' => 'cf-secret' }.freeze
+  ENV_OK = { 'CLOUDFLARE_ACCOUNT_ID' => 'acct1', 'CLOUDFLARE_KV_NAMESPACE_ID' => 'ns1',
+             'CLOUDFLARE_API_TOKEN' => 'cf-secret' }.freeze
 
   def inject_kv(&blk)
     calls = []

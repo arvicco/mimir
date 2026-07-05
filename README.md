@@ -114,7 +114,7 @@ are ledgered in `capstruct/<TICKER>.jsonl`.
 
 ```
 PUBLISH_DRY_RUN=1 ruby publish/publish.rb   # DEFAULT: artifact set -> data/publish_preview/
-PUBLISH_DRY_RUN=0 ruby publish/publish.rb   # KV PUTs; needs CF_ACCOUNT_ID/CF_KV_NAMESPACE_ID/CF_API_TOKEN
+PUBLISH_DRY_RUN=0 ruby publish/publish.rb   # KV PUTs; needs CLOUDFLARE_ACCOUNT_ID/CLOUDFLARE_KV_NAMESPACE_ID/CLOUDFLARE_API_TOKEN
 ```
 
 Runs the four suites, wraps every payload in the frozen envelope
@@ -175,7 +175,7 @@ static dashboard renders the pre-built chart specs.
   the four charts, and the BTCo sortable table.
 - **Deploy** (`rake deploy`, **owner-run**): pre-flight (wrangler + CF_*
   env + clean tree + green gate), generate the live `wrangler.toml` from
-  the committed template with the namespace id from `CF_KV_NAMESPACE_ID`,
+  the committed template with the namespace id from `CLOUDFLARE_KV_NAMESPACE_ID`,
   `wrangler deploy`, then smoke-probe the live host (healthz, index, a 404
   path). Deploys are **human actions** (Golden Rule 3): the task refuses
   under CI and is deny-listed for the automation loop.
