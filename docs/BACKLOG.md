@@ -245,3 +245,76 @@ Owner reviews the dry-run artifact set (data/publish_preview/ -- the
 loop provides exact files + what sane looks like), creates the KV
 namespace + scoped token (dashboard or wrangler, human-only), runs the
 first real publish by hand. README updated before the gate.
+
+---
+
+## Phase 3 -- chart specs (branch: phase-3)
+Gate 2 closed 2026-07-04 (PR #3; first real publish 7/7 keys LIVE).
+Scope: ARCHITECTURE.md section 6 Phase 3 -- publish/chart_specs.rb as
+pure payload->ECharts-option functions, golden-file tests, offline
+preview harness. Chart payloads ARE the ECharts option object
+(envelope adds provenance; the dashboard just calls setOption) -- the
+option's top-level structure is a frozen contract per chart once its
+golden is blessed. Goldens are DETERMINISTIC: generated from committed
+payload fixtures (recorded real suite outputs), never from live runs;
+`rake golden:approve` re-generates from fixtures and blesses only
+after the human eyeballs preview.html (Gate 3).
+
+## M3-1 · gex_profile spec + golden harness + payload fixtures  [tier: fable -- first-of-family: sets the chart-spec pattern, the golden workflow, and an additive analytics-output change] [status: ready] [deps: --]
+Goal: (a) record committed payload fixtures (test/fixtures/
+      payload_<suite>.json) from the live dry-run artifacts;
+      (b) additive gex_btc_combined.rb --json field: per-level
+      put/call split and per-venue profiles (the chart needs them;
+      combined profile today is net-only) -- ADDITIVE, contract test
+      updated same commit, no scoring/semantics change;
+      (c) publish/chart_specs.rb with gex_profile(payload): per-strike
+      bars (put/call split), flip + wall markLines, per-venue legend
+      toggle, BTC axis; (d) the golden test harness: spec generated
+      from the payload fixture byte-diffed against test/golden/
+      chart_gex_profile.json, failing diff PRESENTED never
+      auto-blessed; rake golden:approve reworked to regenerate from
+      fixtures (deterministic) post-review.
+Acceptance: rake green with the golden present; harness red on any
+      spec drift; gex_btc_combined contract test covers the additive
+      field; no network.
+
+## M3-2 · scenario_strip spec  [tier: opus -- pattern-following against M3-1's harness + a written spec] [status: ready] [deps: M3-1]
+Goal: scenario_strip(latest, history): composite time series from the
+      history tail + current module score heat-strip (7 modules,
+      -1/0/+1 colors), regime bands annotated.
+Acceptance: golden green from payload fixtures; rake green.
+
+## M3-3 · lppl_regime spec  [tier: opus -- pattern-following, same harness] [status: ready] [deps: M3-1]
+Goal: lppl_regime(latest, ledger): log price vs trend + damping
+      envelope bands, projected trough marker, BF sparkline,
+      percentile/Z panel (grid layout).
+Acceptance: golden green from payload fixtures; rake green.
+
+## M3-4 · btco_table spec  [tier: opus -- pattern-following, same harness] [status: ready] [deps: M3-1]
+Goal: btco_table(latest): universe table via ECharts dataset (sortable
+      columns), stress gauge, STALE/placeholder rows visually flagged.
+Acceptance: golden green from payload fixtures; rake green.
+
+## M3-5 · publish pipeline emits v1:chart:* keys  [tier: opus -- glue against the M3-1 pattern; PUB status count changes are contract-test updates in the same commit] [status: ready] [deps: M3-1, M3-2, M3-3, M3-4]
+Goal: Pipeline.run generates the four chart envelopes from the
+      just-collected payloads (chart ttl = its source key's ttl) and
+      publishes/previews them; expected-count in the PUB status line
+      grows accordingly (frozen contract: tests updated same commit).
+      A skipped source key skips its chart.
+Acceptance: dry-run preview carries chart_*.json; unit pins updated;
+      rake green.
+
+## M3-6 · web/preview.html offline review harness  [tier: opus -- small fully-specified JS; flagged web/: minimal dumb JS, ECharts via pinned CDN tag, no npm] [status: ready] [deps: M3-5]
+Goal: static page rendering every chart_*.json from
+      data/publish_preview/ side by side (fetch relative paths; run
+      via `ruby -run -e httpd data/publish_preview` or file://-safe
+      inline loader), staleness badge from each envelope's
+      generated_at/ttl_hint_s. ECharts pinned to an exact CDN version
+      tag. This is the Gate 3 visual-review surface.
+Acceptance: owner can open it and see all four charts rendered from
+      the committed preview artifacts; no build step, no npm.
+
+## Gate 3 (human)
+Owner opens web/preview.html against a fresh dry-run, eyeballs all
+four charts (the loop provides exact commands + what sane looks
+like), runs `rake golden:approve`, merges PR phase-3 -> main.
