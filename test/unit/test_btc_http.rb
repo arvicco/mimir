@@ -61,6 +61,23 @@ class TestBtcHttp < Minitest::Test
     assert_equal 120, c[:opts][:read_timeout]
   end
 
+  def test_put_sends_body_and_headers
+    calls = inject { FakeRes.new('200', 'ok') }
+    BTC::Http.put('https://api.example.com/v1/values/k', 'raw-value',
+                  { 'Authorization' => 'Bearer t' })
+    c = calls.first
+    assert_kind_of Net::HTTP::Put, c[:req]
+    assert_equal 'raw-value', c[:req].body
+    assert_equal 'Bearer t', c[:req]['Authorization']
+    assert_equal 60, c[:opts][:read_timeout]
+  end
+
+  def test_put_raises_status_error_like_get
+    inject { FakeRes.new('429', 'slow down') }
+    e = assert_raises(BTC::Http::StatusError) { BTC::Http.put('https://x.example/v', 'b') }
+    assert_equal 429, e.code
+  end
+
   # For 3xx responses get_follow reads the Location header via #[].
   class RedirectRes < FakeRes
     def initialize(code, body, location = nil)

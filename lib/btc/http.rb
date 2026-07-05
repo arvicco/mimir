@@ -92,6 +92,14 @@ module BTC
       run(uri, req, open_timeout: open_timeout, read_timeout: read_timeout)
     end
 
+    # Added for the KV REST API (Phase 2); semantics identical to post.
+    def put(url, body, headers = {}, open_timeout: 5, read_timeout: 60)
+      uri = URI(url)
+      req = Net::HTTP::Put.new(uri.request_uri, headers)
+      req.body = body
+      run(uri, req, open_timeout: open_timeout, read_timeout: read_timeout)
+    end
+
     def run(uri, req, opts)
       res = Http.transport.call(uri, req, opts)
       raise StatusError.new(res.code.to_i, res.body) unless res.code.to_i == 200
