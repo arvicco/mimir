@@ -1,0 +1,257 @@
+{
+  "title": {
+    "text": "Scenario composite",
+    "subtext": "LEAN-FLUSH · composite -0.167 · 2026-07-05T05:08:55Z"
+  },
+  "tooltip": {
+    "trigger": "axis"
+  },
+  "grid": [
+    {
+      "left": 92,
+      "right": 96,
+      "top": 70,
+      "height": "54%"
+    },
+    {
+      "left": 92,
+      "right": 96,
+      "top": "74%",
+      "height": "15%"
+    }
+  ],
+  "xAxis": [
+    {
+      "type": "time",
+      "gridIndex": 0
+    },
+    {
+      "type": "category",
+      "gridIndex": 1,
+      "data": [
+        "etf_flows",
+        "funding_basis",
+        "cb_premium",
+        "macro",
+        "hash_ribbons",
+        "onchain_value",
+        "stables"
+      ],
+      "axisLabel": {
+        "interval": 0,
+        "rotate": 30
+      }
+    }
+  ],
+  "yAxis": [
+    {
+      "type": "value",
+      "gridIndex": 0,
+      "min": -1,
+      "max": 1,
+      "name": "composite"
+    },
+    {
+      "type": "category",
+      "gridIndex": 1,
+      "data": [
+        "score"
+      ]
+    }
+  ],
+  "visualMap": [
+    {
+      "type": "piecewise",
+      "show": false,
+      "seriesIndex": 1,
+      "dimension": 2,
+      "min": -1,
+      "max": 1,
+      "pieces": [
+        {
+          "value": -1,
+          "color": "#c63939"
+        },
+        {
+          "value": 0,
+          "color": "#9aa0a6"
+        },
+        {
+          "value": 1,
+          "color": "#0f7a5c"
+        }
+      ]
+    }
+  ],
+  "series": [
+    {
+      "name": "composite",
+      "type": "line",
+      "xAxisIndex": 0,
+      "yAxisIndex": 0,
+      "showSymbol": true,
+      "symbolSize": 6,
+      "lineStyle": {
+        "color": "#3b6ea5"
+      },
+      "data": [
+        [
+          "2026-07-04T19:48:13Z",
+          -0.333
+        ]
+      ],
+      "markLine": {
+        "symbol": "none",
+        "silent": true,
+        "data": [
+          {
+            "yAxis": -0.4,
+            "lineStyle": {
+              "type": "dashed",
+              "color": "#c9ccd1"
+            },
+            "label": {
+              "position": "start",
+              "formatter": "-0.40"
+            }
+          },
+          {
+            "yAxis": -0.1,
+            "lineStyle": {
+              "type": "dashed",
+              "color": "#c9ccd1"
+            },
+            "label": {
+              "position": "start",
+              "formatter": "-0.10"
+            }
+          },
+          {
+            "yAxis": 0.1,
+            "lineStyle": {
+              "type": "dashed",
+              "color": "#c9ccd1"
+            },
+            "label": {
+              "position": "start",
+              "formatter": "+0.10"
+            }
+          },
+          {
+            "yAxis": 0.4,
+            "lineStyle": {
+              "type": "dashed",
+              "color": "#c9ccd1"
+            },
+            "label": {
+              "position": "start",
+              "formatter": "+0.40"
+            }
+          },
+          {
+            "yAxis": -0.7,
+            "lineStyle": {
+              "opacity": 0
+            },
+            "label": {
+              "position": "end",
+              "formatter": "FLUSH",
+              "color": "#6b7178"
+            }
+          },
+          {
+            "yAxis": -0.25,
+            "lineStyle": {
+              "opacity": 0
+            },
+            "label": {
+              "position": "end",
+              "formatter": "LEAN-FLUSH",
+              "color": "#6b7178"
+            }
+          },
+          {
+            "yAxis": 0.0,
+            "lineStyle": {
+              "opacity": 0
+            },
+            "label": {
+              "position": "end",
+              "formatter": "NEUTRAL",
+              "color": "#6b7178"
+            }
+          },
+          {
+            "yAxis": 0.25,
+            "lineStyle": {
+              "opacity": 0
+            },
+            "label": {
+              "position": "end",
+              "formatter": "BASE",
+              "color": "#6b7178"
+            }
+          },
+          {
+            "yAxis": 0.7,
+            "lineStyle": {
+              "opacity": 0
+            },
+            "label": {
+              "position": "end",
+              "formatter": "RECOVERY",
+              "color": "#6b7178"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "modules",
+      "type": "heatmap",
+      "xAxisIndex": 1,
+      "yAxisIndex": 1,
+      "data": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0
+        ],
+        [
+          4,
+          0,
+          -1
+        ],
+        [
+          5,
+          0,
+          0
+        ],
+        [
+          6,
+          0,
+          -1
+        ]
+      ],
+      "label": {
+        "show": true,
+        "formatter": "{@[2]}"
+      }
+    }
+  ]
+}

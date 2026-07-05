@@ -278,19 +278,19 @@ Acceptance: rake green with the golden present; harness red on any
       spec drift; gex_btc_combined contract test covers the additive
       field; no network.
 
-## M3-2 · scenario_strip spec  [tier: opus -- pattern-following against M3-1's harness + a written spec] [status: ready] [deps: M3-1]
+## M3-2 · scenario_strip spec  [tier: opus -- pattern-following against M3-1's harness + a written spec] [status: done -- Opus batch, Fable spec + review; goldens PROVISIONAL until Gate 3] [deps: M3-1]
 Goal: scenario_strip(latest, history): composite time series from the
       history tail + current module score heat-strip (7 modules,
       -1/0/+1 colors), regime bands annotated.
 Acceptance: golden green from payload fixtures; rake green.
 
-## M3-3 · lppl_regime spec  [tier: opus -- pattern-following, same harness] [status: ready] [deps: M3-1]
+## M3-3 · lppl_regime spec  [tier: opus -- pattern-following, same harness] [status: done -- Opus batch, Fable spec + review; goldens PROVISIONAL until Gate 3] [deps: M3-1]
 Goal: lppl_regime(latest, ledger): log price vs trend + damping
       envelope bands, projected trough marker, BF sparkline,
       percentile/Z panel (grid layout).
 Acceptance: golden green from payload fixtures; rake green.
 
-## M3-4 · btco_table spec  [tier: opus -- pattern-following, same harness] [status: ready] [deps: M3-1]
+## M3-4 · btco_table spec  [tier: opus -- pattern-following, same harness] [status: done -- Opus batch, Fable spec + review; goldens PROVISIONAL until Gate 3] [deps: M3-1]
 Goal: btco_table(latest): universe table via ECharts dataset (sortable
       columns), stress gauge, STALE/placeholder rows visually flagged.
 Acceptance: golden green from payload fixtures; rake green.

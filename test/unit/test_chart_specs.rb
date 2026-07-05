@@ -82,4 +82,142 @@ class TestChartSpecs < Minitest::Test
       assert_equal labels.size, s['data'].size, "#{s['name']} misaligned with axis"
     end
   end
+
+  # ---- scenario_strip structure ----------------------------------------
+
+  def scn_latest
+    @scn_latest ||= JSON.parse(File.read(File.join(PAYLOADS, 'payload_scenario_latest.json')))
+  end
+
+  def test_scenario_heatmap_one_cell_per_module_with_scores
+    opt = build('scenario_strip')
+    heat = opt['series'].find { |s| s['type'] == 'heatmap' }['data']
+    scores = scn_latest['modules'].map { |m| m['score'] }
+    assert_equal 7, heat.size
+    assert_equal scn_latest['modules'].size, heat.size
+    # [col, row, score]; columns 0..6, single row, scores in order/-1..1
+    assert_equal (0...heat.size).to_a, heat.map { |c| c[0] }
+    assert_equal [0], heat.map { |c| c[1] }.uniq
+    assert_equal scores, heat.map { |c| c[2] }
+    heat.each { |c| assert_includes(-1..1, c[2]) }
+  end
+
+  def test_scenario_visual_map_hidden_and_scoped_to_heatmap
+    vm = build('scenario_strip')['visualMap'].first
+    assert_equal false, vm['show']
+    assert_equal 1, vm['seriesIndex'] # the heatmap, not the line
+    assert_equal 2, vm['dimension']
+    assert_equal [-1, 0, 1], vm['pieces'].map { |p| p['value'] }
+  end
+
+  def test_scenario_composite_axis_fixed_and_bands_labelled
+    opt = build('scenario_strip')
+    y0 = opt['yAxis'].first
+    assert_equal(-1, y0['min'])
+    assert_equal 1, y0['max']
+    marks = opt['series'].first['markLine']['data']
+    # four numeric boundaries + five band labels = nine markLine entries
+    assert_equal 9, marks.size
+    assert_equal [-0.40, -0.10, 0.10, 0.40],
+                 marks.map { |m| m['label']['formatter'] }.grep(/\A[+-]0\.\d0\z/).map(&:to_f)
+    assert_equal %w[FLUSH LEAN-FLUSH NEUTRAL BASE RECOVERY],
+                 marks.map { |m| m['label']['formatter'] } & %w[FLUSH LEAN-FLUSH NEUTRAL BASE RECOVERY]
+  end
+
+  def test_scenario_composite_series_reads_history_entries
+    opt = build('scenario_strip')
+    hist = JSON.parse(File.read(File.join(PAYLOADS, 'payload_scenario_history.json')))
+    data = opt['series'].first['data']
+    assert_equal hist['entries'].map { |e| [e['ts'], e['composite']] }, data
+  end
+
+  # ---- lppl_regime structure -------------------------------------------
+
+  def lppl_latest
+    @lppl_latest ||= JSON.parse(File.read(File.join(PAYLOADS, 'payload_lppl_latest.json')))
+  end
+
+  def lppl_ledger
+    @lppl_ledger ||= JSON.parse(File.read(File.join(PAYLOADS, 'payload_lppl_ledger.json')))
+  end
+
+  def test_lppl_three_panels_ratio_bf_z
+    opt = build('lppl_regime')
+    assert_equal 3, opt['grid'].size
+    assert_equal %w[ratio log10\ BF Z], opt['series'].map { |s| s['name'] }
+    # each panel bound to its own grid via matching axis indices
+    opt['series'].each_with_index do |s, i|
+      assert_equal i, s['xAxisIndex']
+      assert_equal i, s['yAxisIndex']
+    end
+  end
+
+  def test_lppl_envelope_lines_from_latest_detail
+    marks = build('lppl_regime')['series'].first['markLine']['data']
+    env = lppl_latest['tests'].find { |t| t['name'] == 'envelope' }['detail']
+    ys = marks.map { |m| m['yAxis'] }
+    assert_includes ys, env['bound']
+    assert_includes ys, env['floor']
+  end
+
+  def test_lppl_skips_null_ledger_fields_without_crashing
+    led = JSON.parse(JSON.generate(lppl_ledger))
+    led['entries'].first['bf'] = nil # a dead point
+    opt = Publish::Charts.lppl_regime(lppl_latest, led)
+    bf = opt['series'].find { |s| s['name'] == 'log10 BF' }
+    assert_empty bf['data'] # the null point is dropped, ratio/z survive
+    assert_equal 1, opt['series'].first['data'].size
+  end
+
+  def test_lppl_trough_note_added_only_when_present
+    # fixture fit detail carries no trough -> single title hash, no note
+    assert_kind_of Hash, build('lppl_regime')['title']
+    lat = JSON.parse(JSON.generate(lppl_latest))
+    fit = lat['tests'].find { |t| t['name'] == 'fit' }['detail']
+    fit['trough_date'] = '2025-09-08'
+    fit['trough_px'] = 27_700
+    title = Publish::Charts.lppl_regime(lat, lppl_ledger)['title']
+    assert_kind_of Array, title
+    assert_match(/trough ~2025-09-08 @27700/, title.last['text'])
+  end
+
+  # ---- btco_table structure --------------------------------------------
+
+  def btco_latest
+    @btco_latest ||= JSON.parse(File.read(File.join(PAYLOADS, 'payload_btco_latest.json')))
+  end
+
+  def test_btco_sorted_by_btc_desc_with_flagged_rows
+    opt = build('btco_table')
+    labels = opt['yAxis']['data']
+    # MSTR holds the most BTC in the fixture -> first category
+    assert_match(/\AMSTR\b/, labels.first)
+    # every fixture row is both placeholder and stale -> both flags visible
+    labels.each do |l|
+      assert_includes l, '*', "#{l} missing placeholder flag"
+      assert_includes l, 'STALE', "#{l} missing stale flag"
+    end
+    btcs = btco_latest['companies'].sort_by { |c| -c['btc'] }.map { |c| c['btc'] }
+    assert_equal btcs, btcs.sort.reverse # sanity: descending
+  end
+
+  def test_btco_netnav_nulls_left_as_gaps
+    opt = build('btco_table')
+    companies = btco_latest['companies'].sort_by { |c| -c['btc'] }
+    net = opt['series'].find { |s| s['name'] == 'netNAV' }['data']
+    assert_equal companies.map { |c| c['net_mnav'] }, net
+    assert_includes net, nil # GME carries a null net_mnav
+  end
+
+  def test_btco_gauge_value_is_stress_with_band_detail
+    gauge = build('btco_table')['series'].find { |s| s['type'] == 'gauge' }
+    assert_equal btco_latest['stress'], gauge['data'].first['value']
+    assert_equal btco_latest['band'], gauge['detail']['formatter']
+  end
+
+  def test_btco_nav_parity_markline_at_one
+    marks = build('btco_table')['series'].first['markLine']['data']
+    parity = marks.find { |m| m['label']['formatter'] == 'NAV parity' }
+    assert_equal 1.0, parity['xAxis']
+  end
 end
