@@ -17,9 +17,7 @@
     }
   },
   "legend": {
-    "orient": "vertical",
-    "right": 2,
-    "top": 26,
+    "show": false,
     "data": [
       "DERI C",
       "DERI P",
@@ -29,13 +27,7 @@
       "FBTC P",
       "GBTC C",
       "GBTC P"
-    ],
-    "itemWidth": 12,
-    "itemHeight": 8,
-    "itemGap": 3,
-    "textStyle": {
-      "fontSize": 11
-    }
+    ]
   },
   "grid": {
     "left": 52,
@@ -610,6 +602,7 @@
       "name": "DERI C",
       "type": "bar",
       "stack": "calls",
+      "barGap": "-100%",
       "itemStyle": {
         "color": "#167a5c"
       },
@@ -829,6 +822,7 @@
       "name": "DERI P",
       "type": "bar",
       "stack": "puts",
+      "barGap": "-100%",
       "itemStyle": {
         "color": "#c63939"
       },
@@ -1012,6 +1006,7 @@
       "name": "IBIT C",
       "type": "bar",
       "stack": "calls",
+      "barGap": "-100%",
       "itemStyle": {
         "color": "#48947e"
       },
@@ -1195,6 +1190,7 @@
       "name": "IBIT P",
       "type": "bar",
       "stack": "puts",
+      "barGap": "-100%",
       "itemStyle": {
         "color": "#ce6363"
       },
@@ -1378,6 +1374,7 @@
       "name": "FBTC C",
       "type": "bar",
       "stack": "calls",
+      "barGap": "-100%",
       "itemStyle": {
         "color": "#7baf9f"
       },
@@ -1561,6 +1558,7 @@
       "name": "FBTC P",
       "type": "bar",
       "stack": "puts",
+      "barGap": "-100%",
       "itemStyle": {
         "color": "#d68d8d"
       },
@@ -1744,6 +1742,7 @@
       "name": "GBTC C",
       "type": "bar",
       "stack": "calls",
+      "barGap": "-100%",
       "itemStyle": {
         "color": "#adc9c1"
       },
@@ -1927,6 +1926,7 @@
       "name": "GBTC P",
       "type": "bar",
       "stack": "puts",
+      "barGap": "-100%",
       "itemStyle": {
         "color": "#deb7b7"
       },

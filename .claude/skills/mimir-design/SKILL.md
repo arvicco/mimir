@@ -19,9 +19,13 @@ another. When a new ruling lands, add it here in the same commit.
   text/axis/legend colors the theme already tunes — the light-theme
   defaults (near-black titles, inactive-brighter-than-active legends)
   are exactly what the owner rejected.
-- Exactly two renderer hooks exist, declared in envelope meta:
-  `tooltip_formatter` (a NAME in the renderer's registry) and `height`
-  (card pixels). Add a new hook only with an owner ruling.
+- Exactly three renderer hooks exist, declared in envelope meta:
+  `tooltip_formatter` (a NAME in the renderer's formatter registry),
+  `height` (card pixels), and `legend_widget` (a NAME in the renderer's
+  HTML widget registry; the spec ships `legend.show=false` but keeps
+  `legend.data` so ECharts still owns selection state and the widget
+  drives it via legend actions). Add a new hook only with an owner
+  ruling.
 - Every chart registers `meta` (desc / axes / help) — 2-4 sentences
   compressed from docs/METHODOLOGY.md, rendered as hover bubbles.
 - Goldens regenerate deterministically from test/fixtures/payloads/. A
@@ -70,6 +74,24 @@ on dark. A single point must read as a clear dot.
 **Labels never collide.** Near-equal markLines (bound/floor) get
 labels at opposite line ends; panel grids clear the title row. If two
 labels CAN overlap for plausible data, they eventually will.
+
+**Axis names ride the axis, not the title row.** A y-axis `name` at
+the default top position lands in the title's line (round 4: scenario
+and LPPL collided). Use `nameLocation: 'middle'` (rotated, in the left
+gutter, `nameGap` ~44 with grid left ~60); the bottom would collide
+with the time labels instead.
+
+**Paired series toggles collapse to one line per entity.** Not one
+legend row per series: `(p) DERI (c)` — click `(p)`/`(c)` for one
+side, the entity name for both (both-shown → both hidden, anything
+else → both shown). Sides keep their series colors; a fully hidden
+entity dims whole. This is HTML the canvas legend can't draw — the
+`legend_widget` hook exists for it.
+
+**Opposing bar stacks overlay exactly.** When one stack is ≥0 and the
+other ≤0 (calls/puts), set `barGap: '-100%'` so both sit on the same
+x — the default side-by-side placement reads as misalignment (round
+4).
 
 **Bright = active, dim = inactive.** The dark theme handles this;
 never override into the inversion.
