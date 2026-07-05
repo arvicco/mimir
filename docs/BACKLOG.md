@@ -245,3 +245,144 @@ Owner reviews the dry-run artifact set (data/publish_preview/ -- the
 loop provides exact files + what sane looks like), creates the KV
 namespace + scoped token (dashboard or wrangler, human-only), runs the
 first real publish by hand. README updated before the gate.
+
+---
+
+## Phase 3 -- chart specs (branch: phase-3)
+Gate 2 closed 2026-07-04 (PR #3; first real publish 7/7 keys LIVE).
+Scope: ARCHITECTURE.md section 6 Phase 3 -- publish/chart_specs.rb as
+pure payload->ECharts-option functions, golden-file tests, offline
+preview harness. Chart payloads ARE the ECharts option object
+(envelope adds provenance; the dashboard just calls setOption) -- the
+option's top-level structure is a frozen contract per chart once its
+golden is blessed. Goldens are DETERMINISTIC: generated from committed
+payload fixtures (recorded real suite outputs), never from live runs;
+`rake golden:approve` re-generates from fixtures and blesses only
+after the human eyeballs preview.html (Gate 3).
+
+## M3-1 · gex_profile spec + golden harness + payload fixtures  [tier: fable -- first-of-family: sets the chart-spec pattern, the golden workflow, and an additive analytics-output change] [status: done -- golden is PROVISIONAL until Gate 3 visual review re-blesses] [deps: --]
+Goal: (a) record committed payload fixtures (test/fixtures/
+      payload_<suite>.json) from the live dry-run artifacts;
+      (b) additive gex_btc_combined.rb --json field: per-level
+      put/call split and per-venue profiles (the chart needs them;
+      combined profile today is net-only) -- ADDITIVE, contract test
+      updated same commit, no scoring/semantics change;
+      (c) publish/chart_specs.rb with gex_profile(payload): per-strike
+      bars (put/call split), flip + wall markLines, per-venue legend
+      toggle, BTC axis; (d) the golden test harness: spec generated
+      from the payload fixture byte-diffed against test/golden/
+      chart_gex_profile.json, failing diff PRESENTED never
+      auto-blessed; rake golden:approve reworked to regenerate from
+      fixtures (deterministic) post-review.
+Acceptance: rake green with the golden present; harness red on any
+      spec drift; gex_btc_combined contract test covers the additive
+      field; no network.
+
+## M3-2 · scenario_strip spec  [tier: opus -- pattern-following against M3-1's harness + a written spec] [status: done -- Opus batch, Fable spec + review; goldens PROVISIONAL until Gate 3] [deps: M3-1]
+Goal: scenario_strip(latest, history): composite time series from the
+      history tail + current module score heat-strip (7 modules,
+      -1/0/+1 colors), regime bands annotated.
+Acceptance: golden green from payload fixtures; rake green.
+
+## M3-3 · lppl_regime spec  [tier: opus -- pattern-following, same harness] [status: done -- Opus batch, Fable spec + review; goldens PROVISIONAL until Gate 3] [deps: M3-1]
+Goal: lppl_regime(latest, ledger): log price vs trend + damping
+      envelope bands, projected trough marker, BF sparkline,
+      percentile/Z panel (grid layout).
+Acceptance: golden green from payload fixtures; rake green.
+
+## M3-4 · btco_table spec  [tier: opus -- pattern-following, same harness] [status: done -- Opus batch, Fable spec + review; goldens PROVISIONAL until Gate 3] [deps: M3-1]
+Goal: btco_table(latest): universe table via ECharts dataset (sortable
+      columns), stress gauge, STALE/placeholder rows visually flagged.
+Acceptance: golden green from payload fixtures; rake green.
+
+## M3-5 · publish pipeline emits v1:chart:* keys  [tier: opus -- glue against the M3-1 pattern; PUB status count changes are contract-test updates in the same commit] [status: done -- Opus implementation, Fable spec + review] [deps: M3-1, M3-2, M3-3, M3-4]
+Goal: Pipeline.run generates the four chart envelopes from the
+      just-collected payloads (chart ttl = its source key's ttl) and
+      publishes/previews them; expected-count in the PUB status line
+      grows accordingly (frozen contract: tests updated same commit).
+      A skipped source key skips its chart.
+Acceptance: dry-run preview carries chart_*.json; unit pins updated;
+      rake green.
+
+## M3-6 · web/preview.html offline review harness  [tier: opus -- small fully-specified JS; flagged web/: minimal dumb JS, ECharts via pinned CDN tag, no npm] [status: done -- Opus implementation, Fable spec + review; serve command fixed to python3 (webrick left the Ruby stdlib)] [deps: M3-5]
+Goal: static page rendering every chart_*.json from
+      data/publish_preview/ side by side (fetch relative paths; run
+      via `ruby -run -e httpd data/publish_preview` or file://-safe
+      inline loader), staleness badge from each envelope's
+      generated_at/ttl_hint_s. ECharts pinned to an exact CDN version
+      tag. This is the Gate 3 visual-review surface.
+Acceptance: owner can open it and see all four charts rendered from
+      the committed preview artifacts; no build step, no npm.
+
+## M3-7 · Gate 3 feedback: envelope meta + compact GEX rework  [tier: fable -- envelope contract change + the compact pattern the other charts copy] [status: done] [deps: M3-6]
+Goal: owner design review 2026-07-05: (a) additive envelope 'meta'
+      (desc/axes/help strings for hover bubbles, chart envelopes only,
+      sourced from METHODOLOGY-grade summaries in the CHARTS registry,
+      passed through the pipeline); (b) gex_profile compaction: venues
+      with all-zero data excluded entirely, series values scaled to $M,
+      call/put aggregate rows pinned to the top of the hover bubble
+      (green/red), right-side vertical legend as venue C/P stacked
+      pairs (DERI for Deribit), no slider (inside zoom only), one-line
+      small title, tight grid margins.
+Acceptance: goldens re-blessed; envelope meta pinned additively; zero
+      venue exclusion + $M scaling + aggregate-first tooltip pinned in
+      unit tests; rake green.
+
+## M3-8 · Gate 3 feedback: compact scenario/lppl/btco + preview hover bubbles  [tier: opus -- applying the M3-7 pattern per written spec] [status: done -- Opus implementation, Fable spec + review] [deps: M3-7]
+Goal: scenario module scoreboard moves right of the chart (vertical),
+      compact one-line titles + tight grids on all three, meta strings
+      for each, preview.html: compact header/status strip, per-card
+      hover bubble rendering envelope meta (title hover = description,
+      i-affordance = axes + UX help).
+Acceptance: goldens re-blessed; rake green; owner re-review.
+
+## M3-9 · Gate 3 feedback round 2: hover UX + tooltip aggregation + significance filter  [tier: fable -- introduces the renderer-hook contract (named formatter registry + height hint)] [status: done] [deps: M3-8]
+Goal: owner review round 2: instant structured hover bubbles (native
+      title= tooltips too slow/unformattable -- CSS popover anchored
+      inside the card, desc/axes/help paragraphs, viewport-safe);
+      ECharts tooltips confined to the viewport on all charts; gex
+      hover restructured to one line per venue ("DERI: 10.5M -5.33M",
+      calls green puts red) with cross-venue totals on the level
+      header line -- needs the new meta.tooltip_formatter renderer
+      hook ('gex_levels'); venues invisible at $M display precision
+      (<0.05M everywhere) excluded from the chart completely;
+      scenario card height-hinted to half a quadrant (meta.height).
+Acceptance: goldens re-blessed; hooks pinned (opt-in only); rake
+      green; owner re-review.
+
+## M3-10 · Gate 3 feedback round 3: dark theme + visual self-review loop  [tier: fable -- render-contract change (theme) + a new loop practice] [status: done] [deps: M3-9]
+Goal: owner review round 3 ("grey text too dark; active/inactive legend
+      inverted; do you lack design intuition?"): root cause was ECharts
+      LIGHT-theme defaults on a dark page (title/legend text #333,
+      inactive legend brighter than active) AND the loop designing
+      blind. Fixed: renderer inits with the built-in dark theme (specs
+      set backgroundColor transparent), page greys brightened, sparse
+      series get filled 7px symbols (default emptyCircle ring is
+      invisible on dark), lppl bound/floor labels separated to opposite
+      line ends, panel grid clears the title. NEW LOOP PRACTICE: the
+      loop headless-screenshots preview.html (Chrome --headless) and
+      reviews the pixels itself before every owner handoff.
+Acceptance: goldens re-blessed; self-review screenshot attached to the
+      handoff; rake green.
+
+## M3-11 · Gate 3 feedback round 4: axis-name collisions, grouped C/P toggles, bar overlay  [tier: fable -- adds a third renderer hook (legend_widget contract) + coupled visual iteration; the spec tweaks alone would be sonnet] [status: done -- goldens PROVISIONAL until Gate 3] [deps: M3-10]
+Goal: owner review round 4: (a) scenario/lppl y-axis names collided
+      with the one-line titles -- names now ride the axis itself
+      (nameLocation middle, rotated in the left gutter; bottom
+      placement would collide with the time labels instead);
+      (b) GEX legend's two lines per venue -> one-line grouped toggle
+      `(p) DERI (c)`: p/c click one side, the venue name clicks both.
+      Needs an HTML control the canvas legend can't express -> THIRD
+      renderer hook meta.legend_widget (name in a renderer widget
+      registry, same pattern as tooltip_formatter); spec ships
+      legend.show=false so ECharts still owns selection state;
+      (c) GEX call/put columns at the same level now overlay exactly
+      (barGap -100%; safe -- calls >= 0, puts <= 0).
+Acceptance: goldens re-blessed after self-screenshot review; hook
+      pinned in tests + chart_specs header + mimir-design skill; rake
+      green; owner re-review.
+
+## Gate 3 (human)
+Owner opens web/preview.html against a fresh dry-run, eyeballs all
+four charts (the loop provides exact commands + what sane looks
+like), runs `rake golden:approve`, merges PR phase-3 -> main.

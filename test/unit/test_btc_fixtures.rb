@@ -201,10 +201,12 @@ class TestBtcFixtures < Minitest::Test
 
   FIXDIR = File.expand_path('../fixtures', __dir__)
 
-  # copy the committed fixtures into a scratch dir and hand it to the block
+  # copy the committed fixtures (top-level files only -- verify ignores
+  # subdirs like payloads/) into a scratch dir and hand it to the block
   def with_fixture_copy
     Dir.mktmpdir do |dir|
-      Dir.glob(File.join(FIXDIR, '*')).each { |f| FileUtils.cp(f, dir) }
+      Dir.glob(File.join(FIXDIR, '*')).select { |f| File.file?(f) }
+         .each { |f| FileUtils.cp(f, dir) }
       yield dir
     end
   end

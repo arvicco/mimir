@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<!--
+  preview.html -- Gate 3 visual-review surface (work packet M3-6).
+  Renders the four chart artifacts + an index health strip from a real
+  publish dry-run in ../data/publish_preview/. Static, dumb, no build.
+
+  SERVE (file:// blocks fetch) -- from the repo root:
+    rake preview
+  then open  http://localhost:8000/web/preview.html
+
+  ECharts is pinned to ONE exact CDN version below. The pin is deliberate;
+  bump it only intentionally (verify the payload contract still renders).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mimir -- publish preview</title>
+<!-- Pinned ECharts. Do not float this version; update only on purpose. -->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js"></script>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px;
+    background: #14171c; color: #d7dce3;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 13px;
+  }
+  #head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 10px; }
+  h1 { font-size: 15px; font-weight: 600; margin: 0; }
+  .sub { color: #a9b3bf; font-size: 11px; }
+  #banner {
+    display: none; background: #4a1414; border: 1px solid #a33;
+    color: #ffd7d7; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px;
+  }
+  #strip {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 3px 12px;
+    background: #1b1f26; border: 1px solid #2a2f38; border-radius: 6px;
+    padding: 6px 10px; margin-bottom: 14px;
+  }
+  .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #c3cad4; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+  .green { background: #35c46a; } .amber { background: #e2a52b; } .red { background: #e04b4b; }
+  .grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+  }
+  @media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } }
+  .card {
+    background: #1b1f26; border: 1px solid #2a2f38; border-radius: 8px;
+    padding: 10px 12px; min-width: 0;
+  }
+  .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .card-head .key { font-weight: 600; font-size: 13px; }
+  .card { position: relative; }
+  /* Instant structured hover bubble (native title= tooltips are slow and
+     unformattable). Anchored inside the card so it can never leave the
+     viewport; appears on hovering the title or the info glyph. */
+  .hover { cursor: help; }
+  .key.hover { text-decoration: underline dotted #4a515c; text-underline-offset: 3px; }
+  .info { font-size: 12px; color: #7f8896; cursor: help; }
+  .bubble {
+    display: none; position: absolute; left: 10px; right: 10px; top: 34px;
+    z-index: 40; background: #232933; border: 1px solid #3a424e;
+    border-radius: 8px; padding: 10px 14px; font-size: 12px; line-height: 1.55;
+    color: #ccd3dc; box-shadow: 0 6px 24px rgba(0,0,0,.45);
+  }
+  .bubble p { margin: 0 0 8px; }
+  .bubble p:last-child { margin-bottom: 0; }
+  .bubble .lbl { color: #8fa3bd; font-weight: 600; }
+  .card-head:has(.hover:hover) ~ .bubble, .bubble:hover { display: block; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px; margin-left: auto;
+    font-size: 11px; padding: 2px 8px; border-radius: 20px;
+    border: 1px solid #2a2f38; color: #b9c0ca;
+  }
+  .chart { width: 100%; height: 500px; }
+  /* Grouped (p) VENUE (c) legend widget (meta.legend_widget hook) --
+     one line per venue over the chart's right margin. Bright = shown,
+     dim = hidden; sides keep their series colors. */
+  .cp-legend {
+    position: absolute; right: 16px; top: 68px; z-index: 30;
+    display: flex; flex-direction: column; gap: 4px;
+    font-size: 11px; line-height: 1.3; user-select: none; text-align: center;
+  }
+  .cp-row { white-space: nowrap; }
+  .cp { cursor: pointer; padding: 0 1px; }
+  .cp-p { color: #ef6b6b; }
+  .cp-c { color: #2fbf8f; }
+  .cp-v { color: #d7dce3; font-weight: 600; }
+  .cp.off { color: #4a515c; }
+  .card.err { border-color: #a33; background: #2a1616; }
+  .card.err .msg { color: #ffb3b3; font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+  footer { color: #8a93a0; font-size: 12px; margin-top: 28px; line-height: 1.6; }
+  code { background: #0f1216; padding: 2px 6px; border-radius: 4px; color: #a9d1ff; }
+</style>
+</head>
+<body>
+  <div id="head">
+    <h1>mimir -- publish preview</h1>
+    <span class="sub">Gate 3 visual review of <code>data/publish_preview/</code> (last dry-run)</span>
+  </div>
+  <div id="banner"></div>
+  <div id="strip"></div>
+  <div id="grid" class="grid"></div>
+  <footer>
+    Served statically. From the repo root run
+    <code>rake preview</code>, then open
+    <code>http://localhost:8000/web/preview.html</code>.<br>
+    ECharts pinned at 5.6.0 via jsDelivr. Chart payloads are rendered verbatim --
+    if a chart looks wrong the fix belongs in the publish spec, not here.
+  </footer>
+
+<script>
+"use strict";
+// ---- config -----------------------------------------------------------
+var DATA = "../data/publish_preview/";
+// Fallback chart list, used ONLY if index.json can't be loaded. Normally the
+// chart set is derived from index.json's payload.keys (keys starting "chart:").
+var FALLBACK_CHARTS = ["chart:btco_table", "chart:gex_profile",
+                       "chart:lppl_regime", "chart:scenario_strip"];
+
+// Envelope key -> artifact filename: swap the ':' namespace sep for '_'.
+// e.g. "chart:gex_profile" -> "chart_gex_profile.json".
+function fileFor(key) { return DATA + key.replace(/:/g, "_") + ".json"; }
+
+// Staleness class from age vs ttl: <=ttl green, <=3x amber, else red.
+function staleClass(generatedAt, ttlSec) {
+  var age = (Date.now() - new Date(generatedAt).getTime()) / 1000;
+  if (age <= ttlSec) return "green";
+  if (age <= ttlSec * 3) return "amber";
+  return "red";
+}
+
+// UTC HH:MM from an ISO instant, for the compact "key@HH:MM" strip chips.
+function hhmm(iso) {
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return "?";
+  function p(n) { return (n < 10 ? "0" : "") + n; }
+  return p(d.getUTCHours()) + ":" + p(d.getUTCMinutes());
+}
+
+// Structured hover bubble from a chart envelope's meta: description
+// paragraph, axis meanings, then UX help. Text-node built (no HTML
+// injection from data); missing pieces are simply omitted.
+function buildBubble(meta) {
+  var b = document.createElement("div");
+  b.className = "bubble";
+  function para(label, text) {
+    if (!text) return;
+    var p = document.createElement("p");
+    if (label) {
+      var s = document.createElement("span");
+      s.className = "lbl";
+      s.textContent = label + " ";
+      p.appendChild(s);
+    }
+    p.appendChild(document.createTextNode(text));
+    b.appendChild(p);
+  }
+  para(null, meta.desc);
+  var a = meta.axes || {};
+  para("x —", a.x);
+  para("y —", a.y);
+  para("how —", meta.help);
+  return b;
+}
+
+// ---- renderer formatter registry ---------------------------------------
+// Sanctioned deviation from setOption(payload)-verbatim #1 (see
+// publish/chart_specs.rb header): a chart's meta.tooltip_formatter names a
+// function here; unknown names fall back to the default tooltip.
+var FORMATTERS = {
+  // gex_profile: header = level + cross-venue C/P totals, then one line
+  // per venue -- calls green, puts red, zero-zero venues omitted.
+  gex_levels: function (params) {
+    if (!params || !params.length) return "";
+    var G = "#2fbf8f", R = "#ef6b6b";
+    function fm(v) { return (Math.round(v * 100) / 100) + "M"; }
+    function span(c, t) { return '<span style="color:' + c + '">' + t + "</span>"; }
+    var head = params[0].axisValueLabel || params[0].axisValue || "";
+    var aggC = 0, aggP = 0, order = [], venues = {};
+    params.forEach(function (p) {
+      var v = Number(Array.isArray(p.value) ? p.value[1] : p.value) || 0;
+      if (p.seriesName === "C") { aggC = v; return; }
+      if (p.seriesName === "P") { aggP = v; return; }
+      var m = /^(.*) ([CP])$/.exec(p.seriesName || "");
+      if (!m) return;
+      if (!venues[m[1]]) { venues[m[1]] = { C: 0, P: 0 }; order.push(m[1]); }
+      venues[m[1]][m[2]] = v;
+    });
+    var out = ["<b>" + head + "</b>: " + span(G, fm(aggC)) + " " + span(R, fm(aggP))];
+    order.forEach(function (n) {
+      var v = venues[n];
+      if (!v.C && !v.P) return; // nothing at this level for this venue
+      out.push(n + ": " + span(G, fm(v.C)) + " " + span(R, fm(v.P)));
+    });
+    return out.join("<br>");
+  }
+};
+
+// ---- renderer legend-widget registry ------------------------------------
+// Sanctioned deviation #2 (chart_specs.rb header, owner review round 4):
+// meta.legend_widget names a builder here that replaces the chart's drawn
+// legend (the spec ships legend.show=false but keeps legend.data, so
+// ECharts still owns selection state and the widget drives it via legend
+// actions). Unknown names simply render no widget.
+var WIDGETS = {
+  // gex_cp: one compact line per venue -- "(p) DERI (c)". Clicking (p) or
+  // (c) toggles that side's series alone; clicking the venue name toggles
+  // both together (both shown -> both hidden, anything else -> both shown).
+  gex_cp: function (card, chart, option) {
+    var venues = [], sides = {};
+    (option.series || []).forEach(function (s) {
+      var m = /^(.*) ([CP])$/.exec(s.name || "");
+      if (!m) return;
+      if (!sides[m[1]]) { sides[m[1]] = {}; venues.push(m[1]); }
+      sides[m[1]][m[2]] = s.name;
+    });
+    if (!venues.length) return;
+
+    var sel = {}; // series start selected; tracked via legendselectchanged
+    venues.forEach(function (v) { sel[sides[v].C] = true; sel[sides[v].P] = true; });
+    var rows = [];
+    function paint() {
+      rows.forEach(function (r) {
+        r.p.classList.toggle("off", !sel[sides[r.v].P]);
+        r.c.classList.toggle("off", !sel[sides[r.v].C]);
+        r.name.classList.toggle("off", !sel[sides[r.v].P] && !sel[sides[r.v].C]);
+      });
+    }
+    function setTo(names, target) {
+      names.forEach(function (n) {
+        if (!!sel[n] !== target) chart.dispatchAction({ type: "legendToggleSelect", name: n });
+      });
+    }
+    chart.on("legendselectchanged", function (ev) { sel = ev.selected; paint(); });
+
+    var box = document.createElement("div");
+    box.className = "cp-legend";
+    venues.forEach(function (v) {
+      var row = document.createElement("div");
+      row.className = "cp-row";
+      function piece(txt, cls, onclick) {
+        var el = document.createElement("span");
+        el.className = "cp " + cls;
+        el.textContent = txt;
+        el.onclick = onclick;
+        row.appendChild(el);
+        return el;
+      }
+      var p = piece("(p)", "cp-p", function () { setTo([sides[v].P], !sel[sides[v].P]); });
+      row.appendChild(document.createTextNode(" "));
+      var name = piece(v, "cp-v", function () {
+        setTo([sides[v].P, sides[v].C], !(sel[sides[v].P] && sel[sides[v].C]));
+      });
+      row.appendChild(document.createTextNode(" "));
+      var c = piece("(c)", "cp-c", function () { setTo([sides[v].C], !sel[sides[v].C]); });
+      rows.push({ v: v, p: p, c: c, name: name });
+      box.appendChild(row);
+    });
+    card.appendChild(box);
+  }
+};
+
+async function getJSON(url) {
+  var r = await fetch(url);
+  if (!r.ok) throw new Error("HTTP " + r.status + " " + r.statusText);
+  return r.json();
+}
+
+// ---- index health strip ----------------------------------------------
+// SIMPLIFICATION (per spec): index payload rows carry only key + generated_at,
+// not a per-key ttl. So each strip dot is coloured against the INDEX
+// envelope's own ttl_hint_s (the MIN across published keys). Per-chart ttl is
+// still used for the accurate per-card badges below.
+async function loadIndex() {
+  var strip = document.getElementById("strip");
+  try {
+    var idx = await getJSON(DATA + "index.json");
+    var rows = (idx.payload && idx.payload.keys) || [];
+    var idxTtl = idx.ttl_hint_s;
+    rows.forEach(function (row) {
+      var el = document.createElement("span");
+      el.className = "chip";
+      var dot = document.createElement("span");
+      dot.className = "dot " + staleClass(row.generated_at, idxTtl);
+      el.appendChild(dot);
+      el.appendChild(document.createTextNode(row.key + "@" + hhmm(row.generated_at)));
+      strip.appendChild(el);
+    });
+    return rows.filter(function (r) { return r.key.indexOf("chart:") === 0; })
+               .map(function (r) { return r.key; });
+  } catch (e) {
+    var warn = document.createElement("span");
+    warn.className = "chip";
+    var wdot = document.createElement("span"); wdot.className = "dot red";
+    warn.appendChild(wdot);
+    warn.appendChild(document.createTextNode("index.json: " + e.message + " -- using fallback chart list"));
+    strip.appendChild(warn);
+    return FALLBACK_CHARTS;
+  }
+}
+
+// ---- one chart card ---------------------------------------------------
+var charts = []; // for resize
+
+function errCard(key, msg) {
+  var card = document.createElement("div");
+  card.className = "card err";
+  card.innerHTML = '<div class="card-head"><span class="key">' + key + '</span></div>' +
+                   '<div class="msg"></div>';
+  card.querySelector(".msg").textContent = msg;
+  return card;
+}
+
+async function loadChart(key) {
+  var grid = document.getElementById("grid");
+  var url = fileFor(key);
+  var env;
+  try {
+    env = await getJSON(url);
+  } catch (e) {
+    grid.appendChild(errCard(key, "fetch/parse failed: " + url + "\n" + e.message));
+    return;
+  }
+  try {
+    var card = document.createElement("div");
+    card.className = "card";
+    var badgeCls = staleClass(env.generated_at, env.ttl_hint_s);
+    var meta = env.meta || null;
+    var head = document.createElement("div");
+    head.className = "card-head";
+
+    // title + ⓘ both trigger the instant structured bubble (built from
+    // meta); no meta means no bubble and no hover affordance.
+    var keySpan = document.createElement("span");
+    keySpan.className = "key" + (meta ? " hover" : "");
+    keySpan.textContent = env.key || key;
+    head.appendChild(keySpan);
+    if (meta) {
+      var info = document.createElement("span");
+      info.className = "info hover";
+      info.textContent = "ⓘ"; // ⓘ
+      head.appendChild(info);
+    }
+    var badge = document.createElement("span");
+    badge.className = "badge";
+    badge.innerHTML = '<span class="dot ' + badgeCls + '"></span>' +
+      badgeCls + ' &middot; ttl ' + env.ttl_hint_s + 's';
+    head.appendChild(badge);
+
+    var div = document.createElement("div");
+    div.className = "chart";
+    if (meta && meta.height) div.style.height = meta.height + "px";
+    card.appendChild(head);
+    if (meta) card.appendChild(buildBubble(meta));
+    card.appendChild(div);
+    grid.appendChild(card);
+
+    // Built-in DARK THEME: professionally tuned text/legend/axis colors
+    // for dark surfaces (bright active legend entries, dim inactive --
+    // the light-theme defaults invert that on our background). Specs set
+    // backgroundColor transparent so the card surface shows through.
+    var chart = echarts.init(div, "dark");
+    chart.setOption(env.payload); // verbatim -- payload IS the contract...
+    // ...except the meta-declared renderer hooks (chart_specs.rb header)
+    if (meta && meta.tooltip_formatter && FORMATTERS[meta.tooltip_formatter]) {
+      chart.setOption({ tooltip: { formatter: FORMATTERS[meta.tooltip_formatter] } });
+    }
+    if (meta && meta.legend_widget && WIDGETS[meta.legend_widget]) {
+      WIDGETS[meta.legend_widget](card, chart, env.payload);
+    }
+    charts.push(chart);
+  } catch (e) {
+    grid.appendChild(errCard(key, "render failed: " + url + "\n" + e.message));
+  }
+}
+
+// ---- boot -------------------------------------------------------------
+(async function () {
+  if (typeof echarts === "undefined") {
+    var b = document.getElementById("banner");
+    b.style.display = "block";
+    b.textContent = "ECharts CDN unreachable -- preview needs network for the one pinned script.";
+    // Still render the strip so index health is visible offline.
+    await loadIndex();
+    return;
+  }
+  var chartKeys = await loadIndex();
+  for (var i = 0; i < chartKeys.length; i++) {
+    await loadChart(chartKeys[i]);
+  }
+  window.addEventListener("resize", function () {
+    charts.forEach(function (c) { c.resize(); });
+  });
+})();
+</script>
+</body>
+</html>

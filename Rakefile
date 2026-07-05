@@ -101,17 +101,25 @@ namespace :fixtures do
   end
 end
 
-namespace :golden do
-  desc 'Approve regenerated chart specs after visual review in preview.html'
-  task :approve do
-    src = 'data/publish_preview'
-    abort "no #{src}/ -- run PUBLISH_DRY_RUN=1 first" unless Dir.exist?(src)
+desc 'Serve the repo for web/preview.html review (stdlib TCPServer, localhost only)'
+task :preview do
+  require_relative 'lib/btc/preview_server'
+  BTC::PreviewServer.serve(Dir.pwd, (ENV['PORT'] || 8000).to_i)
+end
 
+namespace :golden do
+  desc 'Bless chart goldens after visual review in preview.html (deterministic: regenerates from test/fixtures/payloads/)'
+  task :approve do
+    require_relative 'publish/chart_specs'
+    require 'json'
     require 'fileutils'
     FileUtils.mkdir_p('test/golden')
-    Dir.glob("#{src}/chart_*.json").each do |f|
-      FileUtils.cp(f, File.join('test/golden', File.basename(f)))
-      puts "approved #{File.basename(f)}"
+    Publish::Charts::CHARTS.each do |name, spec|
+      payloads = spec[:inputs].map { |f| JSON.parse(File.read(File.join('test/fixtures/payloads', f))) }
+      option = Publish::Charts.public_send(spec[:fn], *payloads)
+      File.write(File.join('test/golden', "chart_#{name}.json"),
+                 JSON.pretty_generate(option) + "\n")
+      puts "blessed chart_#{name}.json"
     end
   end
 end

@@ -147,11 +147,18 @@ end
 total  = per_venue.inject(0.0) { |a, v| a + v[:net] }
 pc_all = BTC::Options.put_call_ratio(all_book) { |o| oi_btc(o, btc_spot) }
 
-# Bucketed profile on the BTC price axis.
-profile = Hash.new(0.0)
-all_book.each do |o|
-  b = (o[:k_btc] / bin).round * bin
-  profile[b] += gex_at(o, btc_spot, btc_spot)
+# Bucketed profile on the BTC price axis; per-venue put/call split kept
+# alongside (additive --json field for the gex_profile chart, 2026-07-05;
+# call+put per level sums to the net profile by construction).
+profile  = Hash.new(0.0)
+profiles = Hash.new { |h, k| h[k] = Hash.new { |g, l| g[l] = { 'call' => 0.0, 'put' => 0.0 } } }
+venues.each do |name, book|
+  book.each do |o|
+    b = (o[:k_btc] / bin).round * bin
+    g = gex_at(o, btc_spot, btc_spot)
+    profile[b] += g
+    profiles[name][b][o[:cp] == 'C' ? 'call' : 'put'] += g
+  end
 end
 
 near, call_wall, put_wall = BTC::Options.walls(profile, btc_spot)
@@ -181,7 +188,12 @@ if ARGV.include?('--json')
       put_call_oi_btc: pc_all.round(3),
       instruments: all_book.size
     },
-    profile: Hash[profile.sort.map { |k, v| [k.round, v.round] }]
+    profile: Hash[profile.sort.map { |k, v| [k.round, v.round] }],
+    profiles: Hash[profiles.map { |name, per|
+      [name, Hash[per.sort.map { |k, v|
+        [k.round, { call: v['call'].round, put: v['put'].round }]
+      }]]
+    }]
   )
   exit
 end
