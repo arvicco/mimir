@@ -26,7 +26,8 @@ module BTC
       'scripts/btco/ingest.rb'        => %w[EDGAR_UA ANTHROPIC_API_KEY BTCO_MODEL],
       'scripts/scenario/macro.rb'     => %w[FRED_API_KEY],
       'scripts/scenario/etf_flows.rb' => %w[COINGLASS_API_KEY],
-      'scripts/scenario/scenario.rb'  => %w[HOME]
+      'scripts/scenario/scenario.rb'  => %w[HOME],
+      'publish/publish.rb'            => %w[PUBLISH_DRY_RUN]
     }.freeze
 
     CM = 'https://community-api.coinmetrics.io/v4/timeseries/asset-metrics'
@@ -100,7 +101,13 @@ module BTC
         marker: 'data.sec.gov/submissions/CIK',
         url: 'https://data.sec.gov/submissions/CIK0001050446.json',
         headers: -> { { 'User-Agent' => ENV['EDGAR_UA'] || 'mimir health (set EDGAR_UA=name email)' } },
-        check: ->(b) { JSON.parse(b).fetch('filings').fetch('recent').fetch('form').is_a?(Array) } }
+        check: ->(b) { JSON.parse(b).fetch('filings').fetch('recent').fetch('form').is_a?(Array) } },
+      # list-keys limit must be >= 10 (the API 400s below that)
+      { name: 'cloudflare kv', src: 'publish/kv_client.rb',
+        marker: 'api.cloudflare.com/client/v4', env: 'CF_API_TOKEN',
+        url: -> { "https://api.cloudflare.com/client/v4/accounts/#{ENV['CF_ACCOUNT_ID']}/storage/kv/namespaces/#{ENV['CF_KV_NAMESPACE_ID']}/keys?limit=10" },
+        headers: -> { { 'Authorization' => "Bearer #{ENV['CF_API_TOKEN']}" } },
+        check: ->(b) { JSON.parse(b)['success'] == true } }
     ].freeze
 
     module_function
