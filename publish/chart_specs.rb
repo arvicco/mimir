@@ -161,6 +161,10 @@ module Publish
       bars.first['markLine'] = mark_lines(gex, levels) if bars.first
 
       {
+        # the renderer inits with the ECharts DARK THEME (professionally
+        # tuned text/legend/axis colors incl. dim-inactive legend states);
+        # transparent bg lets the card surface show through
+        'backgroundColor' => 'transparent',
         'title' => { 'text' => format('GEX $M/1%% · spot %s',
                                       level_label(gex['btc_spot'].to_i)),
                      'textStyle' => { 'fontSize' => 13 } },
@@ -285,6 +289,10 @@ module Publish
       heat     = modules.each_with_index.map { |m, i| [0, i, m['score']] }
 
       {
+        # the renderer inits with the ECharts DARK THEME (professionally
+        # tuned text/legend/axis colors incl. dim-inactive legend states);
+        # transparent bg lets the card surface show through
+        'backgroundColor' => 'transparent',
         'title' => {
           'text' => format('Scenario %s %+.2f', latest['regime'].to_s,
                            latest['composite'].to_f),
@@ -321,7 +329,7 @@ module Publish
         ],
         'series' => [
           { 'name' => 'composite', 'type' => 'line', 'xAxisIndex' => 0,
-            'yAxisIndex' => 0, 'showSymbol' => true, 'symbolSize' => 6,
+            'yAxisIndex' => 0, 'showSymbol' => true, 'symbol' => 'circle', 'symbolSize' => 6,
             'lineStyle' => { 'color' => '#3b6ea5' }, 'data' => comp,
             'markLine' => scenario_bands },
           { 'name' => 'modules', 'type' => 'heatmap', 'xAxisIndex' => 1,
@@ -371,7 +379,8 @@ module Publish
 
       ratio_series = {
         'name' => 'ratio', 'type' => 'line', 'xAxisIndex' => 0, 'yAxisIndex' => 0,
-        'showSymbol' => true, 'data' => ratio, 'markLine' => envelope_lines(env)
+        'showSymbol' => true, 'symbol' => 'circle', 'symbolSize' => 7, # a 1-entry ledger must still show as a filled dot
+        'data' => ratio, 'markLine' => envelope_lines(env)
       }
       unless ratio.empty?
         ratio_series['markPoint'] = {
@@ -393,14 +402,18 @@ module Publish
       end
 
       {
+        # the renderer inits with the ECharts DARK THEME (professionally
+        # tuned text/legend/axis colors incl. dim-inactive legend states);
+        # transparent bg lets the card surface show through
+        'backgroundColor' => 'transparent',
         'title' => titles.size == 1 ? titles.first : titles,
         'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 }, 'axisPointer' => { 'type' => 'cross' } },
         'axisPointer' => { 'link' => [{ 'xAxisIndex' => 'all' }] },
         # three tight, evenly-spaced panels under a one-line title
         'grid' => [
-          { 'left' => 52, 'right' => 24, 'top' => 30, 'height' => '19%' },
-          { 'left' => 52, 'right' => 24, 'top' => '40%', 'height' => '19%' },
-          { 'left' => 52, 'right' => 24, 'top' => '70%', 'height' => '19%' }
+          { 'left' => 52, 'right' => 24, 'top' => 44, 'height' => '19%' },
+          { 'left' => 52, 'right' => 24, 'top' => '42%', 'height' => '19%' },
+          { 'left' => 52, 'right' => 24, 'top' => '72%', 'height' => '19%' }
         ],
         'xAxis' => [
           { 'type' => 'time', 'gridIndex' => 0, 'axisLabel' => { 'show' => false } },
@@ -415,13 +428,13 @@ module Publish
         'series' => [
           ratio_series,
           { 'name' => 'log10 BF', 'type' => 'line', 'xAxisIndex' => 1,
-            'yAxisIndex' => 1, 'showSymbol' => true, 'data' => bf,
+            'yAxisIndex' => 1, 'showSymbol' => true, 'symbol' => 'circle', 'symbolSize' => 7, 'data' => bf,
             'markLine' => { 'symbol' => 'none', 'silent' => true,
                             'data' => [{ 'yAxis' => 0,
                                          'lineStyle' => { 'type' => 'dashed',
                                                           'color' => '#9aa0a6' } }] } },
           { 'name' => 'Z', 'type' => 'line', 'xAxisIndex' => 2, 'yAxisIndex' => 2,
-            'showSymbol' => true, 'data' => z }
+            'showSymbol' => true, 'symbol' => 'circle', 'symbolSize' => 7, 'data' => z }
         ]
       }
     end
@@ -440,13 +453,17 @@ module Publish
     # Dashed constant lines for the current envelope bound and floor.
     def envelope_lines(env)
       data = []
+      # labels at opposite ends: bound and floor are often near-equal and
+      # collide into garble if both sit at the line end
       if env['bound']
         data << { 'yAxis' => env['bound'], 'lineStyle' => { 'type' => 'dashed', 'color' => '#e6a23c' },
-                  'label' => { 'formatter' => format('bound %.3f', env['bound'].to_f) } }
+                  'label' => { 'position' => 'insideStartTop',
+                               'formatter' => format('bound %.3f', env['bound'].to_f) } }
       end
       if env['floor']
         data << { 'yAxis' => env['floor'], 'lineStyle' => { 'type' => 'dashed', 'color' => '#c63939' },
-                  'label' => { 'formatter' => format('floor %.3f', env['floor'].to_f) } }
+                  'label' => { 'position' => 'insideEndBottom',
+                               'formatter' => format('floor %.3f', env['floor'].to_f) } }
       end
       { 'symbol' => 'none', 'silent' => true, 'data' => data }
     end
@@ -475,6 +492,10 @@ module Publish
       labels    = companies.map { |c| btco_label(c) }
 
       {
+        # the renderer inits with the ECharts DARK THEME (professionally
+        # tuned text/legend/axis colors incl. dim-inactive legend states);
+        # transparent bg lets the card surface show through
+        'backgroundColor' => 'transparent',
         'title' => {
           'text' => format('BTCo stress %s %s', latest['stress'], latest['band'].to_s),
           'textStyle' => { 'fontSize' => 13 }
