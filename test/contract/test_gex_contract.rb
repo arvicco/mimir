@@ -15,7 +15,7 @@ class TestGexContract < Minitest::Test
   GEX_US_KEYS = %w[ticker spot ts net_gex_usd_per_1pct regime gamma_flip
                    gamma_flip_btc call_wall put_wall put_call_oi
                    instruments profile].freeze
-  COMBINED_KEYS = %w[ts btc_spot bin venues combined profile].freeze
+  COMBINED_KEYS = %w[ts btc_spot bin venues combined profile profiles].freeze
   VENUE_KEYS    = %w[name net_gex_usd_per_1pct instruments put_call_oi_btc].freeze
   COMBINED_SUB  = %w[net_gex_usd_per_1pct regime gamma_flip call_wall
                      put_wall put_call_oi_btc instruments].freeze
@@ -146,6 +146,21 @@ class TestGexContract < Minitest::Test
     j['profile'].each do |k, v|
       assert_match(/\A-?\d+\z/, k)
       assert_kind_of Integer, v
+    end
+
+    # additive 2026-07-05: per-venue put/call split; call+put sums back
+    # to the net profile by construction (same gex_at per instrument)
+    assert_equal names.sort, j['profiles'].keys.sort
+    j['profiles'].each_value do |per|
+      per.each do |k, v|
+        assert_match(/\A-?\d+\z/, k)
+        assert_equal %w[call put], v.keys.sort
+      end
+    end
+    summed = Hash.new(0)
+    j['profiles'].each_value { |per| per.each { |k, v| summed[k] += v['call'] + v['put'] } }
+    j['profile'].each do |k, net|
+      assert_in_delta net, summed[k], j['profiles'].size + 1, "profile[#{k}] != sum of splits"
     end
   end
 
