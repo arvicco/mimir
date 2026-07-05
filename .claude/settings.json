@@ -57,5 +57,8 @@
       "Read(.env)",
       "Read(**/*.token)"
     ]
+  },
+  "enabledPlugins": {
+    "example-skills@anthropic-agent-skills": true
   }
 }
