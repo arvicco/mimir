@@ -75,6 +75,20 @@
     border: 1px solid #2a2f38; color: #b9c0ca;
   }
   .chart { width: 100%; height: 500px; }
+  /* Grouped (p) VENUE (c) legend widget (meta.legend_widget hook) --
+     one line per venue over the chart's right margin. Bright = shown,
+     dim = hidden; sides keep their series colors. */
+  .cp-legend {
+    position: absolute; right: 16px; top: 68px; z-index: 30;
+    display: flex; flex-direction: column; gap: 4px;
+    font-size: 11px; line-height: 1.3; user-select: none; text-align: center;
+  }
+  .cp-row { white-space: nowrap; }
+  .cp { cursor: pointer; padding: 0 1px; }
+  .cp-p { color: #ef6b6b; }
+  .cp-c { color: #2fbf8f; }
+  .cp-v { color: #d7dce3; font-weight: 600; }
+  .cp.off { color: #4a515c; }
   .card.err { border-color: #a33; background: #2a1616; }
   .card.err .msg { color: #ffb3b3; font-size: 12px; white-space: pre-wrap; word-break: break-word; }
   footer { color: #8a93a0; font-size: 12px; margin-top: 28px; line-height: 1.6; }
@@ -153,7 +167,7 @@ function buildBubble(meta) {
 }
 
 // ---- renderer formatter registry ---------------------------------------
-// The ONE sanctioned deviation from setOption(payload)-verbatim (see
+// Sanctioned deviation from setOption(payload)-verbatim #1 (see
 // publish/chart_specs.rb header): a chart's meta.tooltip_formatter names a
 // function here; unknown names fall back to the default tooltip.
 var FORMATTERS = {
@@ -182,6 +196,70 @@ var FORMATTERS = {
       out.push(n + ": " + span(G, fm(v.C)) + " " + span(R, fm(v.P)));
     });
     return out.join("<br>");
+  }
+};
+
+// ---- renderer legend-widget registry ------------------------------------
+// Sanctioned deviation #2 (chart_specs.rb header, owner review round 4):
+// meta.legend_widget names a builder here that replaces the chart's drawn
+// legend (the spec ships legend.show=false but keeps legend.data, so
+// ECharts still owns selection state and the widget drives it via legend
+// actions). Unknown names simply render no widget.
+var WIDGETS = {
+  // gex_cp: one compact line per venue -- "(p) DERI (c)". Clicking (p) or
+  // (c) toggles that side's series alone; clicking the venue name toggles
+  // both together (both shown -> both hidden, anything else -> both shown).
+  gex_cp: function (card, chart, option) {
+    var venues = [], sides = {};
+    (option.series || []).forEach(function (s) {
+      var m = /^(.*) ([CP])$/.exec(s.name || "");
+      if (!m) return;
+      if (!sides[m[1]]) { sides[m[1]] = {}; venues.push(m[1]); }
+      sides[m[1]][m[2]] = s.name;
+    });
+    if (!venues.length) return;
+
+    var sel = {}; // series start selected; tracked via legendselectchanged
+    venues.forEach(function (v) { sel[sides[v].C] = true; sel[sides[v].P] = true; });
+    var rows = [];
+    function paint() {
+      rows.forEach(function (r) {
+        r.p.classList.toggle("off", !sel[sides[r.v].P]);
+        r.c.classList.toggle("off", !sel[sides[r.v].C]);
+        r.name.classList.toggle("off", !sel[sides[r.v].P] && !sel[sides[r.v].C]);
+      });
+    }
+    function setTo(names, target) {
+      names.forEach(function (n) {
+        if (!!sel[n] !== target) chart.dispatchAction({ type: "legendToggleSelect", name: n });
+      });
+    }
+    chart.on("legendselectchanged", function (ev) { sel = ev.selected; paint(); });
+
+    var box = document.createElement("div");
+    box.className = "cp-legend";
+    venues.forEach(function (v) {
+      var row = document.createElement("div");
+      row.className = "cp-row";
+      function piece(txt, cls, onclick) {
+        var el = document.createElement("span");
+        el.className = "cp " + cls;
+        el.textContent = txt;
+        el.onclick = onclick;
+        row.appendChild(el);
+        return el;
+      }
+      var p = piece("(p)", "cp-p", function () { setTo([sides[v].P], !sel[sides[v].P]); });
+      row.appendChild(document.createTextNode(" "));
+      var name = piece(v, "cp-v", function () {
+        setTo([sides[v].P, sides[v].C], !(sel[sides[v].P] && sel[sides[v].C]));
+      });
+      row.appendChild(document.createTextNode(" "));
+      var c = piece("(c)", "cp-c", function () { setTo([sides[v].C], !sel[sides[v].C]); });
+      rows.push({ v: v, p: p, c: c, name: name });
+      box.appendChild(row);
+    });
+    card.appendChild(box);
   }
 };
 
@@ -289,6 +367,9 @@ async function loadChart(key) {
     // ...except the meta-declared renderer hooks (chart_specs.rb header)
     if (meta && meta.tooltip_formatter && FORMATTERS[meta.tooltip_formatter]) {
       chart.setOption({ tooltip: { formatter: FORMATTERS[meta.tooltip_formatter] } });
+    }
+    if (meta && meta.legend_widget && WIDGETS[meta.legend_widget]) {
+      WIDGETS[meta.legend_widget](card, chart, env.payload);
     }
     charts.push(chart);
   } catch (e) {

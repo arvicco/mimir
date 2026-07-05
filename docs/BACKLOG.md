@@ -365,6 +365,23 @@ Goal: owner review round 3 ("grey text too dark; active/inactive legend
 Acceptance: goldens re-blessed; self-review screenshot attached to the
       handoff; rake green.
 
+## M3-11 · Gate 3 feedback round 4: axis-name collisions, grouped C/P toggles, bar overlay  [tier: fable -- adds a third renderer hook (legend_widget contract) + coupled visual iteration; the spec tweaks alone would be sonnet] [status: done -- goldens PROVISIONAL until Gate 3] [deps: M3-10]
+Goal: owner review round 4: (a) scenario/lppl y-axis names collided
+      with the one-line titles -- names now ride the axis itself
+      (nameLocation middle, rotated in the left gutter; bottom
+      placement would collide with the time labels instead);
+      (b) GEX legend's two lines per venue -> one-line grouped toggle
+      `(p) DERI (c)`: p/c click one side, the venue name clicks both.
+      Needs an HTML control the canvas legend can't express -> THIRD
+      renderer hook meta.legend_widget (name in a renderer widget
+      registry, same pattern as tooltip_formatter); spec ships
+      legend.show=false so ECharts still owns selection state;
+      (c) GEX call/put columns at the same level now overlay exactly
+      (barGap -100%; safe -- calls >= 0, puts <= 0).
+Acceptance: goldens re-blessed after self-screenshot review; hook
+      pinned in tests + chart_specs header + mimir-design skill; rake
+      green; owner re-review.
+
 ## Gate 3 (human)
 Owner opens web/preview.html against a fresh dry-run, eyeballs all
 four charts (the loop provides exact commands + what sane looks

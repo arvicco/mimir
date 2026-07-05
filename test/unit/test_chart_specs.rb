@@ -56,9 +56,11 @@ class TestChartSpecs < Minitest::Test
     metas = Publish::Charts::CHARTS.transform_values { |s| s[:meta] }
     assert_equal 'gex_levels', metas['gex_profile']['tooltip_formatter']
     assert_equal 250, metas['scenario_strip']['height'] # half-quadrant card
+    assert_equal 'gex_cp', metas['gex_profile']['legend_widget'] # (p) DERI (c)
     # hooks are opt-in: nobody else declares them
     assert_nil metas['lppl_regime']['tooltip_formatter']
     assert_nil metas['btco_table']['height']
+    assert_nil metas['scenario_strip']['legend_widget']
   end
 
   # ---- gex_profile structure -------------------------------------------
@@ -87,9 +89,28 @@ class TestChartSpecs < Minitest::Test
     labels = active_venues.map { |v| v == 'Deribit' ? 'DERI' : v }
     assert_equal labels.flat_map { |v| ["#{v} C", "#{v} P"] },
                  opt['series'].drop(2).map { |s| s['name'] }
-    # legend only lists the venue toggles, right of the plot, vertical
+    # drawn legend hidden in favour of the renderer's (p) VENUE (c)
+    # widget; data kept so the component still owns selection state
     assert_equal opt['series'].drop(2).map { |s| s['name'] }, opt['legend']['data']
-    assert_equal 'vertical', opt['legend']['orient']
+    assert_equal false, opt['legend']['show']
+  end
+
+  def test_gex_profile_call_and_put_columns_overlay_exactly
+    # round 4: the calls stack sits exactly on the puts stack at each
+    # level (barGap -100%), not side by side
+    build('gex_profile')['series'].each do |s|
+      assert_equal '-100%', s['barGap'], "#{s['name']}" if s['type'] == 'bar'
+    end
+  end
+
+  def test_value_axis_names_ride_the_axis_not_the_title_row
+    # round 4: names at the axis top collided with the one-line titles;
+    # rotated mid-axis placement in the left gutter cannot
+    y0 = build('scenario_strip')['yAxis'].first
+    assert_equal %w[middle 44], [y0['nameLocation'], y0['nameGap'].to_s]
+    build('lppl_regime')['yAxis'].each do |y|
+      assert_equal 'middle', y['nameLocation'], y['name']
+    end
   end
 
   def test_gex_profile_zero_and_negligible_venues_excluded_entirely

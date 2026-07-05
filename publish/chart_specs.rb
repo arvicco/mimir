@@ -18,7 +18,7 @@
 # (positional args, in order) + builder function + meta.
 #
 # RENDERER HOOKS (2026-07-05, owner design review): setOption(payload)
-# stays verbatim, with exactly two meta-declared exceptions the render
+# stays verbatim, with exactly three meta-declared exceptions the render
 # layer (preview.html, later the dashboard) owns:
 #   meta['tooltip_formatter'] -- the NAME of a formatter in the
 #     renderer's registry (currently only 'gex_levels': header line =
@@ -26,8 +26,14 @@
 #     green / puts red -- aggregation no JSON string template can do).
 #     An unknown name renders with the default tooltip.
 #   meta['height'] -- card pixel-height hint (scenario strip is half a
-#     quadrant). Both are part of the chart contract; add a hook only
-#     with an owner ruling.
+#     quadrant).
+#   meta['legend_widget'] -- the NAME of an HTML legend widget in the
+#     renderer's registry (currently only 'gex_cp': one line per venue,
+#     `(p) DERI (c)` -- p/c toggle one side, the venue name both; owner
+#     review round 4). The spec ships legend.show=false so ECharts still
+#     owns series selection; the widget drives it via legend actions.
+# All three are part of the chart contract; add a hook only with an
+# owner ruling.
 #
 # No IO, no ENV, no network in this file.
 
@@ -49,15 +55,18 @@ module Publish
           'axes' => { 'x' => 'BTC price level (bucketed strikes, zoomed to ' \
                              'spot +-30% by default; wheel/drag to zoom out)',
                       'y' => 'net dealer gamma, $M per 1% BTC move' },
-          'help' => 'Legend right: one C (calls, teal) and P (puts, red) ' \
-                    'toggle per venue, DERI = Deribit; venues with no open ' \
-                    'interest are omitted. Hover a level: the header line is ' \
-                    'the cross-venue total, then one line per venue with ' \
-                    'calls green / puts red. Lines: flip = net-GEX zero ' \
-                    'crossing, CW/PW = biggest call/put walls.',
-          # renderer hook (header note): per-venue one-line hover rows
-          # need aggregation no string template can express
-          'tooltip_formatter' => 'gex_levels'
+          'help' => 'Toggles right, one line per venue: (p) DERI (c) -- ' \
+                    'click (c)/(p) to show/hide that side (calls teal, puts ' \
+                    'red), click the venue name for both; DERI = Deribit; ' \
+                    'venues with no open interest are omitted. Hover a level: ' \
+                    'the header line is the cross-venue total, then one line ' \
+                    'per venue with calls green / puts red. Lines: flip = ' \
+                    'net-GEX zero crossing, CW/PW = biggest call/put walls.',
+          # renderer hooks (header note): per-venue one-line hover rows
+          # need aggregation, and the grouped (p) VENUE (c) toggles need
+          # HTML, neither of which a JSON option can express
+          'tooltip_formatter' => 'gex_levels',
+          'legend_widget' => 'gex_cp'
         }
       },
       'scenario_strip' => {
@@ -139,8 +148,10 @@ module Publish
     # Compact form (owner design review 2026-07-05): venues with no data
     # at all are OMITTED, values are $M, the hover bubble leads with the
     # cross-venue C/P aggregates (as two invisible line series ordered
-    # first), the legend sits right of the plot as stacked C/P toggles
-    # per venue (DERI = Deribit), no slider (inside zoom only).
+    # first), the built-in legend is hidden (show false, data kept so it
+    # still owns selection state) in favour of the renderer's grouped
+    # (p) VENUE (c) toggle widget (meta.legend_widget, owner review
+    # round 4), no slider (inside zoom only).
     # A venue earns a place on the chart only if it is VISIBLE at the
     # $M display precision somewhere -- venues whose whole book rounds
     # to 0.00M everywhere are noise rows in the legend and hover
@@ -169,10 +180,10 @@ module Publish
                                       level_label(gex['btc_spot'].to_i)),
                      'textStyle' => { 'fontSize' => 13 } },
         'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 }, 'axisPointer' => { 'type' => 'shadow' } },
-        'legend' => { 'orient' => 'vertical', 'right' => 2, 'top' => 26,
-                      'data' => bars.map { |s| s['name'] },
-                      'itemWidth' => 12, 'itemHeight' => 8, 'itemGap' => 3,
-                      'textStyle' => { 'fontSize' => 11 } },
+        # hidden: the renderer's (p) VENUE (c) widget (meta.legend_widget)
+        # replaces the drawn legend; the component stays so legend actions
+        # keep driving series selection
+        'legend' => { 'show' => false, 'data' => bars.map { |s| s['name'] } },
         'grid' => { 'left' => 52, 'right' => 92, 'top' => 30, 'bottom' => 26 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
         'yAxis' => { 'type' => 'value' },
@@ -218,10 +229,16 @@ module Publish
     def venue_series(gex, venues, levels)
       venues.each_with_index.flat_map do |venue, i|
         per = gex['profiles'][venue]
+        # barGap -100% overlays the calls stack exactly on the puts stack
+        # at each level (safe: calls >= 0, puts <= 0 -- they never cover
+        # each other); the default side-by-side placement read as a
+        # misalignment (owner review round 4)
         [{ 'name' => "#{venue_label(venue)} C", 'type' => 'bar', 'stack' => 'calls',
+           'barGap' => '-100%',
            'itemStyle' => { 'color' => shade('calls', i, venues.size) },
            'data' => levels.map { |l| musd(per.dig(l, 'call').to_i) } },
          { 'name' => "#{venue_label(venue)} P", 'type' => 'bar', 'stack' => 'puts',
+           'barGap' => '-100%',
            'itemStyle' => { 'color' => shade('puts', i, venues.size) },
            'data' => levels.map { |l| musd(per.dig(l, 'put').to_i) } }]
       end
@@ -301,7 +318,7 @@ module Publish
         'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 } },
         # main grid (composite) left, tight; narrow heatmap column right of it
         'grid' => [
-          { 'left' => 52, 'right' => 122, 'top' => 30, 'bottom' => 26 },
+          { 'left' => 60, 'right' => 122, 'top' => 30, 'bottom' => 26 },
           { 'right' => 12, 'width' => 20, 'top' => 30, 'bottom' => 26 }
         ],
         'xAxis' => [
@@ -310,8 +327,11 @@ module Publish
             'axisLabel' => { 'show' => false }, 'axisTick' => { 'show' => false } }
         ],
         'yAxis' => [
+          # name rides the axis (rotated, left gutter): at the default top
+          # position it collided with the one-line title, and at the bottom
+          # it would collide with the time labels (owner review round 4)
           { 'type' => 'value', 'gridIndex' => 0, 'min' => -1, 'max' => 1,
-            'name' => 'composite' },
+            'name' => 'composite', 'nameLocation' => 'middle', 'nameGap' => 44 },
           { 'type' => 'category', 'gridIndex' => 1, 'data' => names,
             'inverse' => true, 'axisTick' => { 'show' => false },
             'axisLabel' => { 'interval' => 0, 'fontSize' => 11 } }
@@ -411,19 +431,24 @@ module Publish
         'axisPointer' => { 'link' => [{ 'xAxisIndex' => 'all' }] },
         # three tight, evenly-spaced panels under a one-line title
         'grid' => [
-          { 'left' => 52, 'right' => 24, 'top' => 44, 'height' => '19%' },
-          { 'left' => 52, 'right' => 24, 'top' => '42%', 'height' => '19%' },
-          { 'left' => 52, 'right' => 24, 'top' => '72%', 'height' => '19%' }
+          { 'left' => 60, 'right' => 24, 'top' => 44, 'height' => '19%' },
+          { 'left' => 60, 'right' => 24, 'top' => '42%', 'height' => '19%' },
+          { 'left' => 60, 'right' => 24, 'top' => '72%', 'height' => '19%' }
         ],
         'xAxis' => [
           { 'type' => 'time', 'gridIndex' => 0, 'axisLabel' => { 'show' => false } },
           { 'type' => 'time', 'gridIndex' => 1, 'axisLabel' => { 'show' => false } },
           { 'type' => 'time', 'gridIndex' => 2 }
         ],
+        # panel names ride their axes (rotated, left gutter): at the top
+        # they collided with the title row (owner review round 4)
         'yAxis' => [
-          { 'type' => 'value', 'gridIndex' => 0, 'name' => 'ratio' },
-          { 'type' => 'value', 'gridIndex' => 1, 'name' => 'log10 BF' },
-          { 'type' => 'value', 'gridIndex' => 2, 'name' => 'Z' }
+          { 'type' => 'value', 'gridIndex' => 0, 'name' => 'ratio',
+            'nameLocation' => 'middle', 'nameGap' => 44 },
+          { 'type' => 'value', 'gridIndex' => 1, 'name' => 'log10 BF',
+            'nameLocation' => 'middle', 'nameGap' => 44 },
+          { 'type' => 'value', 'gridIndex' => 2, 'name' => 'Z',
+            'nameLocation' => 'middle', 'nameGap' => 44 }
         ],
         'series' => [
           ratio_series,

@@ -25,19 +25,19 @@
   },
   "grid": [
     {
-      "left": 52,
+      "left": 60,
       "right": 24,
       "top": 44,
       "height": "19%"
     },
     {
-      "left": 52,
+      "left": 60,
       "right": 24,
       "top": "42%",
       "height": "19%"
     },
     {
-      "left": 52,
+      "left": 60,
       "right": 24,
       "top": "72%",
       "height": "19%"
@@ -67,17 +67,23 @@
     {
       "type": "value",
       "gridIndex": 0,
-      "name": "ratio"
+      "name": "ratio",
+      "nameLocation": "middle",
+      "nameGap": 44
     },
     {
       "type": "value",
       "gridIndex": 1,
-      "name": "log10 BF"
+      "name": "log10 BF",
+      "nameLocation": "middle",
+      "nameGap": 44
     },
     {
       "type": "value",
       "gridIndex": 2,
-      "name": "Z"
+      "name": "Z",
+      "nameLocation": "middle",
+      "nameGap": 44
     }
   ],
   "series": [
