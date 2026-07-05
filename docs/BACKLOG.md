@@ -436,7 +436,7 @@ Goal: integrity= + crossorigin on the ONE pinned CDN tag in
 Acceptance: both pages carry the same pinned version + hash; tamper
       test red-checked; rake green.
 
-## M4-5 · rake deploy task + docs/DEPLOY.md + README  [tier: opus -- owner-run automation wrapping wrangler with pre-flight checks; fable reviews (deploy adjacency)] [status: todo] [deps: M4-1, M4-3, M4-4]
+## M4-5 · rake deploy task + docs/DEPLOY.md + README  [tier: opus -- owner-run automation wrapping wrangler with pre-flight checks; fable reviews (deploy adjacency)] [status: done -- lib/btc/deploy.rb (pure preflight/substitute/smoke + injectable runner/http orchestrator), rake deploy (refuses under CI, not in default gate, deny-list target), 21 unit tests, docs/DEPLOY.md, README->Phase 4] [deps: M4-1, M4-3, M4-4]
 Goal: owner ruling 2026-07-05 -- automation over a command list: a
       `rake deploy` task the OWNER runs (never the loop / never CI --
       Golden Rule 3 stands; the task refuses under CI env). Pre-flight:
