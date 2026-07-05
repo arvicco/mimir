@@ -138,9 +138,9 @@ same commit (`rake health` fails on registry drift).
 
 ## Current phase
 
-Phase 2 (publish pipeline, branch phase-2; Gate 1 closed 2026-07-04,
-PR #2). Stage A under the revised tiering policy (DEV-LOOP.md section
+Phase 3 (chart specs, branch phase-3; Gate 2 closed 2026-07-04,
+PR #3, first real publish LIVE). Stage A tiering (DEV-LOOP.md section
 2): Fable orchestrates/reviews, Opus/Sonnet write most code; packets
-M2-1..3 in docs/BACKLOG.md. PUBLISH_DRY_RUN=1 is the default until
-Gate 2. Consult ARCHITECTURE.md section 6 for Gate 2 criteria; update
+M3-1..6 in docs/BACKLOG.md. Goldens bless only via rake golden:approve
+after visual review. Consult ARCHITECTURE.md section 6 for Gate 3; update
 this line at each gate.
