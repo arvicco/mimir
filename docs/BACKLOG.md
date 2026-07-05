@@ -407,7 +407,7 @@ Goal: GET /api/v1/:key -> KV envelope verbatim (Cache-Control
 Acceptance: routing/auth/header matrix pinned incl. 404/401 paths and
       redaction; rake green; no deploy performed.
 
-## M4-2 · shared renderer web/render.js extracted from preview.html  [tier: opus -- refactor of four-round-reviewed code against a written spec; oracle = pixel-identical preview screenshots + node --check] [status: todo] [deps: --]
+## M4-2 · shared renderer web/render.js extracted from preview.html  [tier: opus -- refactor of four-round-reviewed code against a written spec; oracle = pixel-identical preview screenshots + node --check] [status: done] [deps: --]
 Goal: card builder, staleness math, bubble builder, FORMATTERS +
       WIDGETS registries, age-ticker util move to web/render.js
       (plain script, no modules/build); preview.html slims to a
