@@ -295,7 +295,7 @@ Goal: btco_table(latest): universe table via ECharts dataset (sortable
       columns), stress gauge, STALE/placeholder rows visually flagged.
 Acceptance: golden green from payload fixtures; rake green.
 
-## M3-5 · publish pipeline emits v1:chart:* keys  [tier: opus -- glue against the M3-1 pattern; PUB status count changes are contract-test updates in the same commit] [status: ready] [deps: M3-1, M3-2, M3-3, M3-4]
+## M3-5 · publish pipeline emits v1:chart:* keys  [tier: opus -- glue against the M3-1 pattern; PUB status count changes are contract-test updates in the same commit] [status: done -- Opus implementation, Fable spec + review] [deps: M3-1, M3-2, M3-3, M3-4]
 Goal: Pipeline.run generates the four chart envelopes from the
       just-collected payloads (chart ttl = its source key's ttl) and
       publishes/previews them; expected-count in the PUB status line

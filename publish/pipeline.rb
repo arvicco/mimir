@@ -22,12 +22,20 @@
 # - TAILS read a jsonl history file and publish only the trailing window
 #   (90d scenario, 365d lppl) of lines whose 'ts' is >= now - window.
 #   Absent/unreadable file or zero surviving lines -> key SKIPPED.
+# - CHARTS (M3-5): after the sources are collected, each entry in
+#   Publish::Charts::CHARTS is built from THIS run's payloads -- every
+#   input fixture filename maps 1:1 onto an artifact key
+#   (payload_gex_combined.json -> gex:combined). A chart is wrapped as
+#   'chart:<name>' (ttl = MIN of its inputs' ttls) only if ALL its inputs
+#   were published; a missing input or a builder that raises SKIPs just
+#   that chart (redacted warn) -- never the source keys or the run.
 # - REAL mode: a single KV PUT failure aborts the run (raises
 #   Publish::KV::Error) so cron alarms on the exit code; nothing further
 #   is attempted. Error text stays redacted (kv_client's pattern).
-# - STATUS (NEW frozen --tmux contract): /tmp/publish.status carries
+# - STATUS (frozen --tmux contract): /tmp/publish.status carries
 #   `PUB DRY|LIVE <published>/<expected> keys HH:MM UTC` where
-#   expected = producers + tails + 1 (the index). Pinned in the tests.
+#   expected = producers + tails + charts + 1 (the index) = n/11. Pinned
+#   in the tests.
 #
 # DATA SOURCES: the four scripts/ suites (subprocess), plus the scenario
 # history + lppl ledger jsonl under BTC::Env.data_dir(<suite>). No direct
@@ -42,6 +50,7 @@ require 'time'
 require 'timeout'
 require 'fileutils'
 require_relative 'envelope'
+require_relative 'chart_specs'
 require_relative 'kv_client'
 require_relative '../lib/btc/env'
 require_relative '../lib/btc/report'
@@ -97,12 +106,16 @@ module Publish
         payload ? envelopes[key] = Publish.wrap(key, payload, ttl, now: now, source: source) : skipped << key
       end
 
+      Publish::Charts::CHARTS.each do |name, spec|
+        chart(name, spec, envelopes, now, source) or skipped << ('chart:' + name)
+      end
+
       records = envelopes.to_a
       records << ['index', Publish.build_index(envelopes.values, now: now, source: source)] unless envelopes.empty?
 
       published = dry_run ? write_preview(records, out_dir) : write_kv(records, env)
 
-      expected = PRODUCERS.size + TAILS.size + 1
+      expected = PRODUCERS.size + TAILS.size + Publish::Charts::CHARTS.size + 1
       BTC::Report.status('publish',
                          format('PUB %s %d/%d keys %s', dry_run ? 'DRY' : 'LIVE',
                                 published, expected, now.utc.strftime('%H:%M UTC')))
@@ -156,6 +169,37 @@ module Publish
     end
 
     def skip_tail(key, reason)
+      warn BTC::Env.redact("publish: SKIP #{key} (#{reason})")
+      nil
+    end
+
+    # Build one registered chart from THIS run's collected payloads and
+    # insert it as 'chart:<name>' (ttl = MIN of its inputs' ttls). Returns
+    # the wrapped envelope on success, nil (with a redacted warn) if any
+    # input is absent or the builder raises -- the caller then counts the
+    # skip. Never propagates a builder error.
+    def chart(name, spec, envelopes, now, source)
+      key = 'chart:' + name
+      inputs = spec[:inputs].map { |f| chart_input_key(f) }
+      unless inputs.all? { |k| envelopes.key?(k) }
+        return skip_chart(key, 'inputs not published')
+      end
+
+      option = Publish::Charts.public_send(spec[:fn], *inputs.map { |k| envelopes[k]['payload'] })
+      ttl = inputs.map { |k| envelopes[k]['ttl_hint_s'] }.min
+      envelopes[key] = Publish.wrap(key, option, ttl, now: now, source: source)
+    rescue StandardError => e
+      skip_chart(key, "#{e.class}: #{e.message.to_s[0, 120]}")
+    end
+
+    # payload_<x>.json -> <x> with '_' -> ':'. The chart registry names
+    # its inputs by fixture file; each maps 1:1 onto a runtime artifact
+    # key (payload_gex_combined.json -> 'gex:combined').
+    def chart_input_key(fixture)
+      fixture.delete_prefix('payload_').delete_suffix('.json').tr('_', ':')
+    end
+
+    def skip_chart(key, reason)
       warn BTC::Env.redact("publish: SKIP #{key} (#{reason})")
       nil
     end
