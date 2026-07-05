@@ -46,13 +46,72 @@ module Publish
       },
       'scenario_strip' => {
         inputs: %w[payload_scenario_latest.json payload_scenario_history.json],
-        fn: :scenario_strip
+        fn: :scenario_strip,
+        meta: {
+          'desc' => 'Seven cheap, independent signals -- ETF flows, funding, ' \
+                    'Coinbase premium, macro liquidity, hash ribbons, MVRV, ' \
+                    'stablecoin supply -- each scored -1/0/+1 for whether the ' \
+                    'tape supports flush, base or recovery at its own horizon. ' \
+                    'The weighted composite (sum(weight*score)/12) is banded ' \
+                    'FLUSH/LEAN-FLUSH/NEUTRAL/BASE/RECOVERY; its DRIFT across ' \
+                    'successive readings is the signal, not any single print ' \
+                    '(METHODOLOGY.md).',
+          'axes' => { 'x' => 'time -- successive composite readings (watch the ' \
+                             'drift, not one print)',
+                      'y' => 'weighted composite, fixed -1..+1; dashed lines ' \
+                             'mark the five regime-band boundaries' },
+          'help' => 'Right column: one heatmap cell per module (red -1 / grey ' \
+                    '0 / teal +1), the seven current scores top to bottom. ' \
+                    'Inside band labels name each composite zone; hover the ' \
+                    'line for each reading.'
+        }
       },
       'lppl_regime' => {
         inputs: %w[payload_lppl_latest.json payload_lppl_ledger.json],
-        fn: :lppl_regime
+        fn: :lppl_regime,
+        meta: {
+          'desc' => 'The LPPL-as-regime claim -- BTC log price is an ' \
+                    'anti-bubble around a genesis-anchored power law -- is not ' \
+                    'proven but continually FALSIFIED: four independent tests ' \
+                    'run daily and accumulate evidence either way, any one able ' \
+                    'to kill it. This chart plots the evidence LEDGER over ' \
+                    'time, not price vs trend (METHODOLOGY.md).',
+          'axes' => { 'x' => 'time -- daily evaluation points across the ledger',
+                      'y' => 'three stacked panels: (top) price/trend ratio vs ' \
+                             'the damping-envelope bound/floor; (mid) ' \
+                             'trailing-1y log10 Bayes factor pl_full vs best ' \
+                             'rival, with its zero line; (bottom) age-adjusted ' \
+                             'percentile Z' },
+          'help' => 'markLines: envelope bound (amber) and floor (red) on the ' \
+                    'ratio panel, zero line on BF; the pin marks the latest ' \
+                    'ratio. Read the SIGN and drift of BF, not its absolute ' \
+                    'size; a trough note appears over Z only when the fit ' \
+                    'names an interior bottom.'
+        }
       },
-      'btco_table' => { inputs: %w[payload_btco_latest.json], fn: :btco_table }
+      'btco_table' => {
+        inputs: %w[payload_btco_latest.json], fn: :btco_table,
+        meta: {
+          'desc' => 'Bitcoin treasury companies are levered, reflexive ' \
+                    'holders: above BTC NAV they issue shares to buy more ' \
+                    '(flywheel on), below NAV they risk becoming forced ' \
+                    'sellers. The 0-100 stress score is BTC-weighted -- 45% ' \
+                    'share of universe below mNAV 1, 35% median-mNAV shortfall ' \
+                    'below 1.40, 20% aggregate leverage -- banded ' \
+                    'CALM/ELEVATED/STRESSED/CRITICAL. Rows flagged * ' \
+                    '(placeholder) or STALE are not yet trustworthy ' \
+                    '(METHODOLOGY.md).',
+          'axes' => { 'x' => 'NAV multiple (mcap / BTC NAV); dashed line at ' \
+                             '1.0 is NAV parity',
+                      'y' => 'company, sorted by BTC held (largest at top); ' \
+                             '* = placeholder seed, STALE = btc_as_of > 120d' },
+          'help' => 'Two bars per row: mNAV (market cap / BTC NAV) and netNAV ' \
+                    '(premium on the equity claim after senior claims), nulls ' \
+                    'left as gaps. The gauge shows aggregate stress 0-100 in ' \
+                    'green/amber/orange/red bands with the regime band as its ' \
+                    'detail text.'
+        }
+      }
     }.freeze
 
     module_function
@@ -175,13 +234,15 @@ module Publish
 
     # ---- scenario_strip (M3-2) ----------------------------------------
     #
-    # scenario:latest + scenario:history -> a two-grid strip. Top grid is
-    # the composite path (history entries on a time axis, fixed [-1, 1]);
-    # dashed markLines mark the four regime boundaries and label the five
-    # bands on the right. Bottom grid is a one-row heatmap of the CURRENT
-    # seven module scores, coloured by a hidden piecewise visualMap
-    # (-1 red / 0 grey / +1 teal). Degenerate-safe: a single history point
-    # renders as one symbol, no ratios or windows are computed.
+    # scenario:latest + scenario:history -> a two-grid strip. Compact form
+    # (owner design review 2026-07-05): one-line 13px title carries regime +
+    # composite, no subtext. The MAIN grid (left) is the composite path
+    # (history entries on a time axis, fixed [-1, 1]); dashed markLines mark
+    # the four regime boundaries with band labels sitting INSIDE at the left
+    # edge. The heatmap is now a narrow vertical COLUMN right of the main
+    # grid: one cell per module (1 col x 7 rows), module names on its y axis,
+    # coloured by a hidden piecewise visualMap (-1 red / 0 grey / +1 teal).
+    # Degenerate-safe: a single history point renders as one symbol.
 
     # Regime boundaries and the band each interval maps to (band label is
     # anchored at the interval midpoint so it rides beside its zone).
@@ -193,28 +254,32 @@ module Publish
       modules  = latest['modules'] || []
       names    = modules.map { |m| m['mod'] }
       comp     = (history['entries'] || []).map { |e| [e['ts'], e['composite']] }
-      heat     = modules.each_with_index.map { |m, i| [i, 0, m['score']] }
+      # heatmap is now a vertical column: [col 0, row = module index, score]
+      heat     = modules.each_with_index.map { |m, i| [0, i, m['score']] }
 
       {
         'title' => {
-          'text' => 'Scenario composite',
-          'subtext' => format('%s · composite %+.3f · %s', latest['regime'].to_s,
-                              latest['composite'].to_f, latest['ts'].to_s)
+          'text' => format('Scenario %s %+.2f', latest['regime'].to_s,
+                           latest['composite'].to_f),
+          'textStyle' => { 'fontSize' => 13 }
         },
         'tooltip' => { 'trigger' => 'axis' },
+        # main grid (composite) left, tight; narrow heatmap column right of it
         'grid' => [
-          { 'left' => 92, 'right' => 96, 'top' => 70, 'height' => '54%' },
-          { 'left' => 92, 'right' => 96, 'top' => '74%', 'height' => '15%' }
+          { 'left' => 52, 'right' => 122, 'top' => 30, 'bottom' => 26 },
+          { 'right' => 12, 'width' => 20, 'top' => 30, 'bottom' => 26 }
         ],
         'xAxis' => [
           { 'type' => 'time', 'gridIndex' => 0 },
-          { 'type' => 'category', 'gridIndex' => 1, 'data' => names,
-            'axisLabel' => { 'interval' => 0, 'rotate' => 30 } }
+          { 'type' => 'category', 'gridIndex' => 1, 'data' => ['now'],
+            'axisLabel' => { 'show' => false }, 'axisTick' => { 'show' => false } }
         ],
         'yAxis' => [
           { 'type' => 'value', 'gridIndex' => 0, 'min' => -1, 'max' => 1,
             'name' => 'composite' },
-          { 'type' => 'category', 'gridIndex' => 1, 'data' => ['score'] }
+          { 'type' => 'category', 'gridIndex' => 1, 'data' => names,
+            'inverse' => true, 'axisTick' => { 'show' => false },
+            'axisLabel' => { 'interval' => 0, 'fontSize' => 11 } }
         ],
         # scoped to the heatmap (seriesIndex 1, dimension 2 = the score);
         # hidden -- it is a colour scale, not a user control.
@@ -246,9 +311,12 @@ module Publish
         { 'yAxis' => t, 'lineStyle' => { 'type' => 'dashed', 'color' => '#c9ccd1' },
           'label' => { 'position' => 'start', 'formatter' => format('%+.2f', t) } }
       end
+      # band labels sit INSIDE the plot at the left edge so the narrow
+      # heatmap column can hug the right without a wide right margin.
       bands = SCN_BANDS.map do |y, name|
         { 'yAxis' => y, 'lineStyle' => { 'opacity' => 0 },
-          'label' => { 'position' => 'end', 'formatter' => name, 'color' => '#6b7178' } }
+          'label' => { 'position' => 'insideStartTop', 'formatter' => name,
+                       'color' => '#6b7178' } }
       end
       { 'symbol' => 'none', 'silent' => true, 'data' => thresholds + bands }
     end
@@ -256,7 +324,9 @@ module Publish
     # ---- lppl_regime (M3-3) -------------------------------------------
     #
     # lppl:latest + lppl:ledger -> three time-aligned panels of the
-    # EVIDENCE trajectory (the published payloads carry no price series, so
+    # EVIDENCE trajectory. Compact form (owner design review 2026-07-05):
+    # one-line 13px title carries verdict + composite, no subtext, tight
+    # evenly-spaced grids. (The published payloads carry no price series, so
     # the ARCHITECTURE log-price panel is out of scope here): ratio vs the
     # current damping envelope (bound/floor from latest's envelope test),
     # log10 Bayes factor vs its zero line, and the Z path. Null ledger
@@ -284,13 +354,13 @@ module Publish
       end
 
       titles = [{
-        'text' => 'LPPL evidence',
-        'subtext' => format('%s · composite %+.2f · %s', latest['verdict'].to_s,
-                            latest['composite'].to_f, latest['ts'].to_s)
+        'text' => format('LPPL %s %+.2f', latest['verdict'].to_s,
+                        latest['composite'].to_f),
+        'textStyle' => { 'fontSize' => 13 }
       }]
       note = trough_note(fit)
       if note
-        titles << { 'text' => note, 'top' => '68%', 'right' => 24,
+        titles << { 'text' => note, 'top' => '70%', 'right' => 24,
                     'textStyle' => { 'fontSize' => 11, 'fontWeight' => 'normal',
                                      'color' => '#6b7178' } }
       end
@@ -299,10 +369,11 @@ module Publish
         'title' => titles.size == 1 ? titles.first : titles,
         'tooltip' => { 'trigger' => 'axis', 'axisPointer' => { 'type' => 'cross' } },
         'axisPointer' => { 'link' => [{ 'xAxisIndex' => 'all' }] },
+        # three tight, evenly-spaced panels under a one-line title
         'grid' => [
-          { 'left' => 72, 'right' => 30, 'top' => 70, 'height' => '18%' },
-          { 'left' => 72, 'right' => 30, 'top' => '42%', 'height' => '18%' },
-          { 'left' => 72, 'right' => 30, 'top' => '68%', 'height' => '18%' }
+          { 'left' => 52, 'right' => 24, 'top' => 30, 'height' => '19%' },
+          { 'left' => 52, 'right' => 24, 'top' => '40%', 'height' => '19%' },
+          { 'left' => 52, 'right' => 24, 'top' => '70%', 'height' => '19%' }
         ],
         'xAxis' => [
           { 'type' => 'time', 'gridIndex' => 0, 'axisLabel' => { 'show' => false } },
@@ -363,6 +434,8 @@ module Publish
     #
     # btco:latest -> labelled horizontal bars plus a stress gauge (a true
     # sortable table is not expressible in callback-free ECharts JSON).
+    # Compact form (owner design review 2026-07-05): one-line 13px title
+    # carries stress + band, no subtext, tight margins, gauge sized up.
     # Companies sort by BTC held, descending (largest at top via inverse
     # category axis); rows carry ' *' (placeholder) / ' STALE' (stale)
     # flags in the tick label. Two bars per row (mNAV, netNAV) with nulls
@@ -376,12 +449,12 @@ module Publish
 
       {
         'title' => {
-          'text' => 'BTCo universe',
-          'subtext' => format('%s · %s', latest['headline'].to_s, latest['ts'].to_s)
+          'text' => format('BTCo stress %s %s', latest['stress'], latest['band'].to_s),
+          'textStyle' => { 'fontSize' => 13 }
         },
         'tooltip' => { 'trigger' => 'axis', 'axisPointer' => { 'type' => 'shadow' } },
-        'legend' => { 'top' => 44, 'data' => %w[mNAV netNAV] },
-        'grid' => { 'left' => 120, 'right' => '34%', 'top' => 96, 'bottom' => 40 },
+        'legend' => { 'top' => 26, 'data' => %w[mNAV netNAV] },
+        'grid' => { 'left' => 100, 'right' => '32%', 'top' => 50, 'bottom' => 32 },
         'xAxis' => { 'type' => 'value', 'name' => 'x NAV' },
         'yAxis' => { 'type' => 'category', 'data' => labels, 'inverse' => true },
         'series' => [
@@ -395,7 +468,7 @@ module Publish
           { 'name' => 'netNAV', 'type' => 'bar', 'itemStyle' => { 'color' => '#6aa9ff' },
             'data' => companies.map { |c| c['net_mnav'] } },
           { 'name' => 'stress', 'type' => 'gauge', 'min' => 0, 'max' => 100,
-            'center' => ['84%', '58%'], 'radius' => '40%',
+            'center' => ['84%', '56%'], 'radius' => '48%',
             'axisLine' => { 'lineStyle' => { 'width' => 14, 'color' => [
               [0.25, '#0f7a5c'], [0.5, '#e6a23c'], [0.75, '#e08e0b'], [1, '#c63939']
             ] } },

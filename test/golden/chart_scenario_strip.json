@@ -1,23 +1,25 @@
 {
   "title": {
-    "text": "Scenario composite",
-    "subtext": "LEAN-FLUSH · composite -0.167 · 2026-07-05T05:08:55Z"
+    "text": "Scenario LEAN-FLUSH -0.17",
+    "textStyle": {
+      "fontSize": 13
+    }
   },
   "tooltip": {
     "trigger": "axis"
   },
   "grid": [
     {
-      "left": 92,
-      "right": 96,
-      "top": 70,
-      "height": "54%"
+      "left": 52,
+      "right": 122,
+      "top": 30,
+      "bottom": 26
     },
     {
-      "left": 92,
-      "right": 96,
-      "top": "74%",
-      "height": "15%"
+      "right": 12,
+      "width": 20,
+      "top": 30,
+      "bottom": 26
     }
   ],
   "xAxis": [
@@ -29,17 +31,13 @@
       "type": "category",
       "gridIndex": 1,
       "data": [
-        "etf_flows",
-        "funding_basis",
-        "cb_premium",
-        "macro",
-        "hash_ribbons",
-        "onchain_value",
-        "stables"
+        "now"
       ],
       "axisLabel": {
-        "interval": 0,
-        "rotate": 30
+        "show": false
+      },
+      "axisTick": {
+        "show": false
       }
     }
   ],
@@ -55,8 +53,22 @@
       "type": "category",
       "gridIndex": 1,
       "data": [
-        "score"
-      ]
+        "etf_flows",
+        "funding_basis",
+        "cb_premium",
+        "macro",
+        "hash_ribbons",
+        "onchain_value",
+        "stables"
+      ],
+      "inverse": true,
+      "axisTick": {
+        "show": false
+      },
+      "axisLabel": {
+        "interval": 0,
+        "fontSize": 11
+      }
     }
   ],
   "visualMap": [
@@ -154,7 +166,7 @@
               "opacity": 0
             },
             "label": {
-              "position": "end",
+              "position": "insideStartTop",
               "formatter": "FLUSH",
               "color": "#6b7178"
             }
@@ -165,7 +177,7 @@
               "opacity": 0
             },
             "label": {
-              "position": "end",
+              "position": "insideStartTop",
               "formatter": "LEAN-FLUSH",
               "color": "#6b7178"
             }
@@ -176,7 +188,7 @@
               "opacity": 0
             },
             "label": {
-              "position": "end",
+              "position": "insideStartTop",
               "formatter": "NEUTRAL",
               "color": "#6b7178"
             }
@@ -187,7 +199,7 @@
               "opacity": 0
             },
             "label": {
-              "position": "end",
+              "position": "insideStartTop",
               "formatter": "BASE",
               "color": "#6b7178"
             }
@@ -198,7 +210,7 @@
               "opacity": 0
             },
             "label": {
-              "position": "end",
+              "position": "insideStartTop",
               "formatter": "RECOVERY",
               "color": "#6b7178"
             }
@@ -218,33 +230,33 @@
           0
         ],
         [
+          0,
           1,
-          0,
           0
         ],
         [
+          0,
           2,
-          0,
           0
         ],
         [
+          0,
           3,
-          0,
           0
         ],
         [
-          4,
           0,
+          4,
           -1
         ],
         [
-          5,
           0,
+          5,
           0
         ],
         [
-          6,
           0,
+          6,
           -1
         ]
       ],

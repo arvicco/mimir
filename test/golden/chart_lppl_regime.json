@@ -1,7 +1,9 @@
 {
   "title": {
-    "text": "LPPL evidence",
-    "subtext": "STRESSED · composite +0.00 · 2026-07-05T05:08:58Z"
+    "text": "LPPL STRESSED +0.00",
+    "textStyle": {
+      "fontSize": 13
+    }
   },
   "tooltip": {
     "trigger": "axis",
@@ -18,22 +20,22 @@
   },
   "grid": [
     {
-      "left": 72,
-      "right": 30,
-      "top": 70,
-      "height": "18%"
+      "left": 52,
+      "right": 24,
+      "top": 30,
+      "height": "19%"
     },
     {
-      "left": 72,
-      "right": 30,
-      "top": "42%",
-      "height": "18%"
+      "left": 52,
+      "right": 24,
+      "top": "40%",
+      "height": "19%"
     },
     {
-      "left": 72,
-      "right": 30,
-      "top": "68%",
-      "height": "18%"
+      "left": 52,
+      "right": 24,
+      "top": "70%",
+      "height": "19%"
     }
   ],
   "xAxis": [

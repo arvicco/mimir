@@ -129,11 +129,34 @@ class TestChartSpecs < Minitest::Test
     scores = scn_latest['modules'].map { |m| m['score'] }
     assert_equal 7, heat.size
     assert_equal scn_latest['modules'].size, heat.size
-    # [col, row, score]; columns 0..6, single row, scores in order/-1..1
-    assert_equal (0...heat.size).to_a, heat.map { |c| c[0] }
-    assert_equal [0], heat.map { |c| c[1] }.uniq
+    # compact form: vertical column [col 0, row 0..6, score]; single column,
+    # one row per module (names on the y axis), scores in order/-1..1
+    assert_equal [0], heat.map { |c| c[0] }.uniq
+    assert_equal (0...heat.size).to_a, heat.map { |c| c[1] }
     assert_equal scores, heat.map { |c| c[2] }
     heat.each { |c| assert_includes(-1..1, c[2]) }
+  end
+
+  def test_scenario_heatmap_is_narrow_right_column_with_module_names
+    opt = build('scenario_strip')
+    # grid[1] is a narrow fixed-width column pinned to the right, not a row
+    g1 = opt['grid'][1]
+    assert_equal 20, g1['width']
+    assert_equal 12, g1['right']
+    # module names live on the heatmap's category y axis (7 rows), no rotate
+    heat = opt['series'].find { |s| s['type'] == 'heatmap' }
+    yheat = opt['yAxis'][heat['yAxisIndex']]
+    assert_equal 'category', yheat['type']
+    assert_equal scn_latest['modules'].map { |m| m['mod'] }, yheat['data']
+    assert_equal 7, yheat['data'].size
+    refute yheat['axisLabel'].key?('rotate')
+  end
+
+  def test_scenario_title_is_one_line_carrying_regime_and_composite
+    opt = build('scenario_strip')
+    refute opt['title'].key?('subtext')
+    assert_equal 13, opt['title']['textStyle']['fontSize']
+    assert_equal 'Scenario LEAN-FLUSH -0.17', opt['title']['text']
   end
 
   def test_scenario_visual_map_hidden_and_scoped_to_heatmap
@@ -215,6 +238,14 @@ class TestChartSpecs < Minitest::Test
     assert_match(/trough ~2025-09-08 @27700/, title.last['text'])
   end
 
+  def test_lppl_title_is_one_line_carrying_verdict_and_composite
+    # no-trough fixture -> title is a single hash (see trough test above)
+    title = build('lppl_regime')['title']
+    refute title.key?('subtext')
+    assert_equal 13, title['textStyle']['fontSize']
+    assert_equal 'LPPL STRESSED +0.00', title['text']
+  end
+
   # ---- btco_table structure --------------------------------------------
 
   def btco_latest
@@ -253,5 +284,25 @@ class TestChartSpecs < Minitest::Test
     marks = build('btco_table')['series'].first['markLine']['data']
     parity = marks.find { |m| m['label']['formatter'] == 'NAV parity' }
     assert_equal 1.0, parity['xAxis']
+  end
+
+  def test_btco_title_is_one_line_carrying_stress_and_band
+    title = build('btco_table')['title']
+    refute title.key?('subtext')
+    assert_equal 13, title['textStyle']['fontSize']
+    assert_equal 'BTCo stress 70 STRESSED', title['text']
+  end
+
+  # ---- meta registry (hover help) --------------------------------------
+
+  def test_every_chart_registers_meta_with_desc_axes_help
+    Publish::Charts::CHARTS.each do |name, spec|
+      meta = spec[:meta]
+      refute_nil meta, "#{name} is missing its meta hover help"
+      assert_kind_of String, meta['desc']
+      assert_kind_of Hash, meta['axes']
+      assert(meta['axes']['x'] && meta['axes']['y'], "#{name} axes need x + y")
+      assert_kind_of String, meta['help']
+    end
   end
 end
