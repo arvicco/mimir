@@ -416,7 +416,7 @@ Acceptance: before/after headless screenshots of preview.html match
       (chart pixels identical; header/badge changes only if M4-3
       pulls them in later); node --check both files; rake green.
 
-## M4-3 · production dashboard web/index.html  [tier: opus -- implements docs/DASHBOARD-DESIGN.md against the M4-2 renderer; fable reviews with screenshots per DEV-LOOP 6b] [status: todo] [deps: M4-1, M4-2]
+## M4-3 · production dashboard web/index.html  [tier: opus -- implements docs/DASHBOARD-DESIGN.md against the M4-2 renderer; fable reviews with screenshots per DEV-LOOP 6b] [status: done] [deps: M4-1, M4-2]
 Goal: same-origin /api/v1/ loader with the design doc's header (one
       line: name, per-key chips, pub HH:MMZ n/11 fresh), live age
       tickers (the signature), healthz-aware failure banner with
