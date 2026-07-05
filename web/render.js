@@ -143,7 +143,10 @@ var WIDGETS = {
       var row = document.createElement("div");
       row.className = "cp-row";
       function piece(txt, cls, onclick) {
-        var el = document.createElement("span");
+        // Real <button> (reset via .cp CSS in both host pages) so the toggle
+        // is keyboard-operable with a :focus-visible ring; behavior unchanged.
+        var el = document.createElement("button");
+        el.type = "button";
         el.className = "cp " + cls;
         el.textContent = txt;
         el.onclick = onclick;
@@ -200,6 +203,7 @@ function buildChartCard(env, key) {
     var info = document.createElement("span");
     info.className = "info hover";
     info.textContent = "ⓘ"; // ⓘ
+    info.tabIndex = 0; // keyboard-reachable: focus opens the bubble (card-head :focus-within)
     head.appendChild(info);
   }
   var badge = document.createElement("span");

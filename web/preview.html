@@ -71,7 +71,10 @@
   .bubble p { margin: 0 0 8px; }
   .bubble p:last-child { margin-bottom: 0; }
   .bubble .lbl { color: #8fa3bd; font-weight: 600; }
-  .card-head:has(.hover:hover) ~ .bubble, .bubble:hover { display: block; }
+  .card-head:has(.hover:hover) ~ .bubble,
+  .card-head:focus-within ~ .bubble,
+  .bubble:hover { display: block; }
+  .info:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
   .badge {
     display: inline-flex; align-items: center; gap: 6px; margin-left: auto;
     font-size: 11px; padding: 2px 8px; border-radius: 20px;
@@ -87,7 +90,13 @@
     font-size: 11px; line-height: 1.3; user-select: none; text-align: center;
   }
   .cp-row { white-space: nowrap; }
-  .cp { cursor: pointer; padding: 0 1px; }
+  /* Reset the real <button> (render.js) back to inline text -- the toggle is
+     keyboard-operable but must look identical to the old <span>. */
+  .cp {
+    cursor: pointer; padding: 0 1px; background: none; border: 0;
+    font: inherit; color: inherit; vertical-align: baseline; line-height: inherit;
+  }
+  .cp:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
   .cp-p { color: #ef6b6b; }
   .cp-c { color: #2fbf8f; }
   .cp-v { color: #d7dce3; font-weight: 600; }
