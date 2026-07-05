@@ -70,6 +70,20 @@ collapses to one column under 1100px (as preview). No npm, no build:
 ECharts via the ONE pinned CDN tag + SRI hash; render code shared
 with preview.html via plain `<script src="render.js">`.
 
+## Rulings at planning (owner, 2026-07-05)
+
+- Public-read at Gate 4 (D4-c): no auth in the dashboard, no token
+  handling anywhere client-side. Cloudflare Access sits at the queue
+  tail as pure console work.
+- BTCo literal sortable table ruled in (M4-7): plain <table> beside
+  the bars -- ticker / BTC held / mNAV / netNAV / leverage / as_of,
+  STALE and placeholder flags carried over, mono numerals, click-to-
+  sort headers (vanilla, real <button>s in <th>, focus-visible ring,
+  aria-sort). Density rules apply: no pagination, no row hover
+  theatrics; sorted column's header brightens (bright = active).
+- Deploy is `rake deploy`, owner-run (M4-5) -- the dashboard has no
+  deploy affordances.
+
 ## Architecture consequences
 
 - `web/render.js` -- the single renderer: card builder, staleness

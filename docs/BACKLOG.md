@@ -436,30 +436,53 @@ Goal: integrity= + crossorigin on the ONE pinned CDN tag in
 Acceptance: both pages carry the same pinned version + hash; tamper
       test red-checked; rake green.
 
-## M4-5 · Gate 4 deploy prep: docs/DEPLOY.md + README  [tier: sonnet -- documentation against implemented behavior, fable reviews] [status: todo] [deps: M4-1, M4-3, M4-4]
-Goal: exact owner-run commands (wrangler deploy, Pages publish,
-      AUTH_TOKEN secret creation), the Gate 4 smoke checklist from
-      ARCHITECTURE (all keys 200, ages sane, 404/401 paths, badge
-      behavior with a stale key), rollback notes; README updated to
-      the Phase 4 capability set (gate rule: honest about what does
-      not work yet).
-Acceptance: a newcomer could deploy from the doc alone; README
-      current; rake green.
+## M4-5 · rake deploy task + docs/DEPLOY.md + README  [tier: opus -- owner-run automation wrapping wrangler with pre-flight checks; fable reviews (deploy adjacency)] [status: todo] [deps: M4-1, M4-3, M4-4]
+Goal: owner ruling 2026-07-05 -- automation over a command list: a
+      `rake deploy` task the OWNER runs (never the loop / never CI --
+      Golden Rule 3 stands; the task refuses under CI env). Pre-flight:
+      rake green, wrangler + CF_* env present, config generated from
+      the committed wrangler.toml template with the namespace id from
+      ENV; then wrangler deploy + Pages publish, post-deploy smoke
+      probes (healthz 200, index key 200 + sane age, one 404 path).
+      docs/DEPLOY.md documents the task, first-time setup (Pages
+      project, route), rollback; README updated to the Phase 4
+      capability set (honest about what does not work yet).
+Acceptance: dry-run mode proves the pipeline without network; the
+      task is deny-listed for the loop like fixtures:record; a
+      newcomer could deploy from the doc alone; rake green.
+
+## M4-7 · BTCo literal sortable table on the dashboard  [tier: opus -- renderer-side HTML from the published btco:latest payload against the design doc addendum; no new keys, no analytics] [status: todo -- ruled in by owner (D4-b) 2026-07-05] [deps: M4-2, M4-3]
+Goal: plain <table> next to the bars chart: ticker, BTC held, mNAV,
+      netNAV, leverage, as_of; STALE/placeholder flags carried over;
+      tiny vanilla column sort (click header, mono numerals, no
+      libraries). Renders from the same v1:btco:latest envelope the
+      chart uses.
+Acceptance: self-screenshot + Playwright sort-interaction review
+      before owner handoff; mimir-design checklist passes; rake green.
 
 ## Gate 4 (human)
-Owner creates the Pages project + Worker route, runs wrangler deploy /
-Pages publish, walks the smoke checklist against the live host,
-merges PR phase-4 -> main.
+Owner does first-time CF setup (Pages project + Worker route), runs
+`rake deploy` (M4-5), walks the smoke checklist against the live
+host, merges PR phase-4 -> main.
 
-## Decision items for owner ruling at Phase 4 planning
-- D4-a LPPL price-vs-trend panel: needs a NEW published key (price
-  tail from the lppl cache) -- pipeline producer + chart change;
-  analytics-adjacent. Rule in (adds a packet M4-6) or park for v1.1?
-- D4-b BTCo literal sortable HTML table on the dashboard (beyond the
-  bars chart) -- owner wished for it during Phase 3 review. Rule in
-  (packet M4-7, plain <table> + tiny sort, renderer-side from the
-  published btco:latest payload) or park?
-- D4-c Worker auth default: ship with AUTH_TOKEN bearer required, or
-  public-read behind the obscure hostname until Cloudflare Access is
-  set up? (Worker supports both either way; this only picks the
-  Gate 4 default.)
+## Decision items -- RESOLVED at Phase 4 planning (owner, 2026-07-05)
+- D4-a LPPL price-vs-trend panel: PARKED for v1.1 (needs a new
+  published price-series key; analytics-adjacent).
+- D4-b BTCo literal sortable table: RULED IN -> M4-7.
+- D4-c Worker auth: PUBLIC-READ at Gate 4. Trade-off recorded: a
+  bearer token in a browser dashboard is the weakest option (token
+  must live client-side; caching goes private); Cloudflare Access is
+  the real lock but is console-config, addable later with NO code
+  change. Payloads are derived market analytics (no secrets);
+  exposure = hostname discovery + KV read quota, mitigated by
+  max-age=60, unguessable project name, noindex. AUTH work pushed to
+  the END of the queue (below). The worker keeps the dormant
+  AUTH_TOKEN branch from the committed M4-1 spec so flipping it on
+  never needs a code change.
+
+## Queue tail (post-Gate 5 / v1.1 candidates, owner-ruled order)
+- AUTH: Cloudflare Access in front of Pages+Worker (email OTP; free
+  tier; service-token headers for curl/tmux consumers) -- or simply
+  set the AUTH_TOKEN secret for API-only consumers. Console/ops work;
+  no code change required.
+- D4-a LPPL price-vs-trend panel (new v1:lppl:price key + chart).
