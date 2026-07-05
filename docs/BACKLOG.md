@@ -328,7 +328,7 @@ Acceptance: goldens re-blessed; envelope meta pinned additively; zero
       venue exclusion + $M scaling + aggregate-first tooltip pinned in
       unit tests; rake green.
 
-## M3-8 · Gate 3 feedback: compact scenario/lppl/btco + preview hover bubbles  [tier: opus -- applying the M3-7 pattern per written spec] [status: ready] [deps: M3-7]
+## M3-8 · Gate 3 feedback: compact scenario/lppl/btco + preview hover bubbles  [tier: opus -- applying the M3-7 pattern per written spec] [status: done -- Opus implementation, Fable spec + review] [deps: M3-7]
 Goal: scenario module scoreboard moves right of the chart (vertical),
       compact one-line titles + tight grids on all three, meta strings
       for each, preview.html: compact header/status strip, per-card
