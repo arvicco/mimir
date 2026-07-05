@@ -451,7 +451,7 @@ Acceptance: dry-run mode proves the pipeline without network; the
       task is deny-listed for the loop like fixtures:record; a
       newcomer could deploy from the doc alone; rake green.
 
-## M4-7 · BTCo literal sortable table on the dashboard  [tier: opus -- renderer-side HTML from the published btco:latest payload against the design doc addendum; no new keys, no analytics] [status: todo -- ruled in by owner (D4-b) 2026-07-05] [deps: M4-2, M4-3]
+## M4-7 · BTCo literal sortable table on the dashboard  [tier: opus -- renderer-side HTML from the published btco:latest payload against the design doc addendum; no new keys, no analytics] [status: done -- ruled in by owner (D4-b) 2026-07-05] [deps: M4-2, M4-3]
 Goal: plain <table> next to the bars chart: ticker, BTC held, mNAV,
       netNAV, leverage, as_of; STALE/placeholder flags carried over;
       tiny vanilla column sort (click header, mono numerals, no
