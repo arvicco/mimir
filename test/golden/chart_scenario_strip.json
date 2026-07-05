@@ -6,7 +6,11 @@
     }
   },
   "tooltip": {
-    "trigger": "axis"
+    "trigger": "axis",
+    "confine": true,
+    "textStyle": {
+      "fontSize": 11
+    }
   },
   "grid": [
     {

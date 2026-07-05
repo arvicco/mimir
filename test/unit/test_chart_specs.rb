@@ -42,6 +42,25 @@ class TestChartSpecs < Minitest::Test
     end
   end
 
+  # ---- design-review round 2 (2026-07-05) --------------------------------
+
+  def test_every_tooltip_confined_to_the_viewport
+    Publish::Charts::CHARTS.each_key do |name|
+      tip = build(name)['tooltip']
+      assert_equal true, tip['confine'], "#{name}: tooltip must not escape the screen"
+      assert_equal 11, tip['textStyle']['fontSize']
+    end
+  end
+
+  def test_renderer_hooks_declared_in_meta
+    metas = Publish::Charts::CHARTS.transform_values { |s| s[:meta] }
+    assert_equal 'gex_levels', metas['gex_profile']['tooltip_formatter']
+    assert_equal 250, metas['scenario_strip']['height'] # half-quadrant card
+    # hooks are opt-in: nobody else declares them
+    assert_nil metas['lppl_regime']['tooltip_formatter']
+    assert_nil metas['btco_table']['height']
+  end
+
   # ---- gex_profile structure -------------------------------------------
 
   def gex_payload
@@ -50,7 +69,7 @@ class TestChartSpecs < Minitest::Test
 
   def active_venues
     gex_payload['profiles'].select { |_, per|
-      per.values.any? { |s| s['call'].to_i != 0 || s['put'].to_i != 0 }
+      per.values.any? { |s| s['call'].to_i.abs >= 50_000 || s['put'].to_i.abs >= 50_000 }
     }.keys
   end
 
@@ -73,11 +92,14 @@ class TestChartSpecs < Minitest::Test
     assert_equal 'vertical', opt['legend']['orient']
   end
 
-  def test_gex_profile_zero_venues_excluded_entirely
+  def test_gex_profile_zero_and_negligible_venues_excluded_entirely
     p2 = JSON.parse(JSON.generate(gex_payload))
     p2['profiles']['DEADEX'] = { '62000' => { 'call' => 0, 'put' => 0 } }
-    names = Publish::Charts.gex_profile(p2)['series'].map { |s| s['name'] }
-    refute names.any? { |n| n.include?('DEADEX') }
+    # a live-but-invisible book: rounds to 0.00M at display precision
+    p2['profiles']['DUSTEX'] = { '62000' => { 'call' => 9_000, 'put' => -8_000 } }
+    opt = Publish::Charts.gex_profile(p2)
+    names = opt['series'].map { |s| s['name'] } + opt['legend']['data']
+    refute names.any? { |n| n.include?('DEADEX') || n.include?('DUSTEX') }
   end
 
   def test_gex_profile_values_scaled_to_millions
