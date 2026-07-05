@@ -1,0 +1,146 @@
+{
+  "title": {
+    "text": "BTCo universe",
+    "subtext": "stress 70 (STRESSED): 96% of BTC-weighted universe below mNAV 1, median mNAV 1.09, lev 33% · 2026-07-05T05:09:02Z"
+  },
+  "tooltip": {
+    "trigger": "axis",
+    "axisPointer": {
+      "type": "shadow"
+    }
+  },
+  "legend": {
+    "top": 44,
+    "data": [
+      "mNAV",
+      "netNAV"
+    ]
+  },
+  "grid": {
+    "left": 120,
+    "right": "34%",
+    "top": 96,
+    "bottom": 40
+  },
+  "xAxis": {
+    "type": "value",
+    "name": "x NAV"
+  },
+  "yAxis": {
+    "type": "category",
+    "data": [
+      "MSTR * STALE",
+      "XXI * STALE",
+      "DJT * STALE",
+      "NAKA * STALE",
+      "GME * STALE",
+      "SMLR * STALE"
+    ],
+    "inverse": true
+  },
+  "series": [
+    {
+      "name": "mNAV",
+      "type": "bar",
+      "itemStyle": {
+        "color": "#0f7a5c"
+      },
+      "data": [
+        0.743,
+        0.69,
+        2.522,
+        1.09,
+        34.573,
+        0.707
+      ],
+      "markLine": {
+        "symbol": "none",
+        "silent": true,
+        "data": [
+          {
+            "xAxis": 1.0,
+            "label": {
+              "formatter": "NAV parity"
+            },
+            "lineStyle": {
+              "type": "dashed",
+              "color": "#e6a23c"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "netNAV",
+      "type": "bar",
+      "itemStyle": {
+        "color": "#6aa9ff"
+      },
+      "data": [
+        1.077,
+        0.839,
+        2.522,
+        1.09,
+        null,
+        1.102
+      ]
+    },
+    {
+      "name": "stress",
+      "type": "gauge",
+      "min": 0,
+      "max": 100,
+      "center": [
+        "84%",
+        "58%"
+      ],
+      "radius": "40%",
+      "axisLine": {
+        "lineStyle": {
+          "width": 14,
+          "color": [
+            [
+              0.25,
+              "#0f7a5c"
+            ],
+            [
+              0.5,
+              "#e6a23c"
+            ],
+            [
+              0.75,
+              "#e08e0b"
+            ],
+            [
+              1,
+              "#c63939"
+            ]
+          ]
+        }
+      },
+      "pointer": {
+        "width": 4
+      },
+      "title": {
+        "offsetCenter": [
+          0,
+          "-40%"
+        ]
+      },
+      "detail": {
+        "formatter": "STRESSED",
+        "fontSize": 14,
+        "offsetCenter": [
+          0,
+          "72%"
+        ]
+      },
+      "data": [
+        {
+          "value": 70,
+          "name": "stress"
+        }
+      ]
+    }
+  ]
+}
