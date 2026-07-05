@@ -260,7 +260,7 @@ payload fixtures (recorded real suite outputs), never from live runs;
 `rake golden:approve` re-generates from fixtures and blesses only
 after the human eyeballs preview.html (Gate 3).
 
-## M3-1 · gex_profile spec + golden harness + payload fixtures  [tier: fable -- first-of-family: sets the chart-spec pattern, the golden workflow, and an additive analytics-output change] [status: ready] [deps: --]
+## M3-1 · gex_profile spec + golden harness + payload fixtures  [tier: fable -- first-of-family: sets the chart-spec pattern, the golden workflow, and an additive analytics-output change] [status: done -- golden is PROVISIONAL until Gate 3 visual review re-blesses] [deps: --]
 Goal: (a) record committed payload fixtures (test/fixtures/
       payload_<suite>.json) from the live dry-run artifacts;
       (b) additive gex_btc_combined.rb --json field: per-level
