@@ -336,6 +336,20 @@ Goal: scenario module scoreboard moves right of the chart (vertical),
       i-affordance = axes + UX help).
 Acceptance: goldens re-blessed; rake green; owner re-review.
 
+## M3-9 · Gate 3 feedback round 2: hover UX + tooltip aggregation + significance filter  [tier: fable -- introduces the renderer-hook contract (named formatter registry + height hint)] [status: done] [deps: M3-8]
+Goal: owner review round 2: instant structured hover bubbles (native
+      title= tooltips too slow/unformattable -- CSS popover anchored
+      inside the card, desc/axes/help paragraphs, viewport-safe);
+      ECharts tooltips confined to the viewport on all charts; gex
+      hover restructured to one line per venue ("DERI: 10.5M -5.33M",
+      calls green puts red) with cross-venue totals on the level
+      header line -- needs the new meta.tooltip_formatter renderer
+      hook ('gex_levels'); venues invisible at $M display precision
+      (<0.05M everywhere) excluded from the chart completely;
+      scenario card height-hinted to half a quadrant (meta.height).
+Acceptance: goldens re-blessed; hooks pinned (opt-in only); rake
+      green; owner re-review.
+
 ## Gate 3 (human)
 Owner opens web/preview.html against a fresh dry-run, eyeballs all
 four charts (the loop provides exact commands + what sane looks

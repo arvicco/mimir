@@ -15,7 +15,19 @@
 #
 # CHARTS is the registry the golden test, rake golden:approve and the
 # publish pipeline (M3-5) all iterate: name -> payload fixture inputs
-# (positional args, in order) + builder function.
+# (positional args, in order) + builder function + meta.
+#
+# RENDERER HOOKS (2026-07-05, owner design review): setOption(payload)
+# stays verbatim, with exactly two meta-declared exceptions the render
+# layer (preview.html, later the dashboard) owns:
+#   meta['tooltip_formatter'] -- the NAME of a formatter in the
+#     renderer's registry (currently only 'gex_levels': header line =
+#     level + cross-venue C/P totals, then one line per venue, calls
+#     green / puts red -- aggregation no JSON string template can do).
+#     An unknown name renders with the default tooltip.
+#   meta['height'] -- card pixel-height hint (scenario strip is half a
+#     quadrant). Both are part of the chart contract; add a hook only
+#     with an owner ruling.
 #
 # No IO, no ENV, no network in this file.
 
@@ -39,9 +51,13 @@ module Publish
                       'y' => 'net dealer gamma, $M per 1% BTC move' },
           'help' => 'Legend right: one C (calls, teal) and P (puts, red) ' \
                     'toggle per venue, DERI = Deribit; venues with no open ' \
-                    'interest are omitted. Hover a level: the C/P rows on ' \
-                    'top are cross-venue aggregates. Lines: flip = net-GEX ' \
-                    'zero crossing, CW/PW = biggest call/put walls.'
+                    'interest are omitted. Hover a level: the header line is ' \
+                    'the cross-venue total, then one line per venue with ' \
+                    'calls green / puts red. Lines: flip = net-GEX zero ' \
+                    'crossing, CW/PW = biggest call/put walls.',
+          # renderer hook (header note): per-venue one-line hover rows
+          # need aggregation no string template can express
+          'tooltip_formatter' => 'gex_levels'
         }
       },
       'scenario_strip' => {
@@ -63,7 +79,10 @@ module Publish
           'help' => 'Right column: one heatmap cell per module (red -1 / grey ' \
                     '0 / teal +1), the seven current scores top to bottom. ' \
                     'Inside band labels name each composite zone; hover the ' \
-                    'line for each reading.'
+                    'line for each reading.',
+          # renderer hook: half-height card (owner review 2026-07-05 --
+          # the strip was vertically stretched at full quadrant height)
+          'height' => 250
         }
       },
       'lppl_regime' => {
@@ -122,9 +141,17 @@ module Publish
     # cross-venue C/P aggregates (as two invisible line series ordered
     # first), the legend sits right of the plot as stacked C/P toggles
     # per venue (DERI = Deribit), no slider (inside zoom only).
+    # A venue earns a place on the chart only if it is VISIBLE at the
+    # $M display precision somewhere -- venues whose whole book rounds
+    # to 0.00M everywhere are noise rows in the legend and hover
+    # (owner review round 2).
+    GEX_MIN_MUSD = 0.05
+
     def gex_profile(gex)
       venues = gex['profiles'].select { |_, per|
-        per.values.any? { |s| s['call'].to_i != 0 || s['put'].to_i != 0 }
+        per.values.any? { |s|
+          musd(s['call']).abs >= GEX_MIN_MUSD || musd(s['put']).abs >= GEX_MIN_MUSD
+        }
       }.keys
       levels = venues.flat_map { |v| gex['profiles'][v].keys }.uniq
                      .sort_by { |k| k.to_i }
@@ -137,7 +164,7 @@ module Publish
         'title' => { 'text' => format('GEX $M/1%% · spot %s',
                                       level_label(gex['btc_spot'].to_i)),
                      'textStyle' => { 'fontSize' => 13 } },
-        'tooltip' => { 'trigger' => 'axis', 'axisPointer' => { 'type' => 'shadow' } },
+        'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 }, 'axisPointer' => { 'type' => 'shadow' } },
         'legend' => { 'orient' => 'vertical', 'right' => 2, 'top' => 26,
                       'data' => bars.map { |s| s['name'] },
                       'itemWidth' => 12, 'itemHeight' => 8, 'itemGap' => 3,
@@ -263,7 +290,7 @@ module Publish
                            latest['composite'].to_f),
           'textStyle' => { 'fontSize' => 13 }
         },
-        'tooltip' => { 'trigger' => 'axis' },
+        'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 } },
         # main grid (composite) left, tight; narrow heatmap column right of it
         'grid' => [
           { 'left' => 52, 'right' => 122, 'top' => 30, 'bottom' => 26 },
@@ -367,7 +394,7 @@ module Publish
 
       {
         'title' => titles.size == 1 ? titles.first : titles,
-        'tooltip' => { 'trigger' => 'axis', 'axisPointer' => { 'type' => 'cross' } },
+        'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 }, 'axisPointer' => { 'type' => 'cross' } },
         'axisPointer' => { 'link' => [{ 'xAxisIndex' => 'all' }] },
         # three tight, evenly-spaced panels under a one-line title
         'grid' => [
@@ -452,7 +479,7 @@ module Publish
           'text' => format('BTCo stress %s %s', latest['stress'], latest['band'].to_s),
           'textStyle' => { 'fontSize' => 13 }
         },
-        'tooltip' => { 'trigger' => 'axis', 'axisPointer' => { 'type' => 'shadow' } },
+        'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 }, 'axisPointer' => { 'type' => 'shadow' } },
         'legend' => { 'top' => 26, 'data' => %w[mNAV netNAV] },
         'grid' => { 'left' => 100, 'right' => '32%', 'top' => 50, 'bottom' => 32 },
         'xAxis' => { 'type' => 'value', 'name' => 'x NAV' },

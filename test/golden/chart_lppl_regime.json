@@ -7,6 +7,10 @@
   },
   "tooltip": {
     "trigger": "axis",
+    "confine": true,
+    "textStyle": {
+      "fontSize": 11
+    },
     "axisPointer": {
       "type": "cross"
     }

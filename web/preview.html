@@ -52,8 +52,23 @@
   }
   .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
   .card-head .key { font-weight: 600; font-size: 13px; }
-  .card-head .key[title] { cursor: help; text-decoration: underline dotted #4a515c; text-underline-offset: 3px; }
+  .card { position: relative; }
+  /* Instant structured hover bubble (native title= tooltips are slow and
+     unformattable). Anchored inside the card so it can never leave the
+     viewport; appears on hovering the title or the info glyph. */
+  .hover { cursor: help; }
+  .key.hover { text-decoration: underline dotted #4a515c; text-underline-offset: 3px; }
   .info { font-size: 12px; color: #7f8896; cursor: help; }
+  .bubble {
+    display: none; position: absolute; left: 10px; right: 10px; top: 34px;
+    z-index: 40; background: #232933; border: 1px solid #3a424e;
+    border-radius: 8px; padding: 10px 14px; font-size: 12px; line-height: 1.55;
+    color: #ccd3dc; box-shadow: 0 6px 24px rgba(0,0,0,.45);
+  }
+  .bubble p { margin: 0 0 8px; }
+  .bubble p:last-child { margin-bottom: 0; }
+  .bubble .lbl { color: #8fa3bd; font-weight: 600; }
+  .card-head:has(.hover:hover) ~ .bubble, .bubble:hover { display: block; }
   .badge {
     display: inline-flex; align-items: center; gap: 6px; margin-left: auto;
     font-size: 11px; padding: 2px 8px; border-radius: 20px;
@@ -111,17 +126,64 @@ function hhmm(iso) {
   return p(d.getUTCHours()) + ":" + p(d.getUTCMinutes());
 }
 
-// Flatten a chart envelope's meta into the info bubble's title text:
-// "AXES: x ... / y ... — <help>". Missing pieces are simply omitted.
-function infoText(meta) {
+// Structured hover bubble from a chart envelope's meta: description
+// paragraph, axis meanings, then UX help. Text-node built (no HTML
+// injection from data); missing pieces are simply omitted.
+function buildBubble(meta) {
+  var b = document.createElement("div");
+  b.className = "bubble";
+  function para(label, text) {
+    if (!text) return;
+    var p = document.createElement("p");
+    if (label) {
+      var s = document.createElement("span");
+      s.className = "lbl";
+      s.textContent = label + " ";
+      p.appendChild(s);
+    }
+    p.appendChild(document.createTextNode(text));
+    b.appendChild(p);
+  }
+  para(null, meta.desc);
   var a = meta.axes || {};
-  var parts = [];
-  if (a.x) parts.push("x " + a.x);
-  if (a.y) parts.push("y " + a.y);
-  var axes = parts.length ? "AXES: " + parts.join(" / ") : "";
-  if (meta.help) return axes ? axes + " — " + meta.help : meta.help;
-  return axes;
+  para("x —", a.x);
+  para("y —", a.y);
+  para("how —", meta.help);
+  return b;
 }
+
+// ---- renderer formatter registry ---------------------------------------
+// The ONE sanctioned deviation from setOption(payload)-verbatim (see
+// publish/chart_specs.rb header): a chart's meta.tooltip_formatter names a
+// function here; unknown names fall back to the default tooltip.
+var FORMATTERS = {
+  // gex_profile: header = level + cross-venue C/P totals, then one line
+  // per venue -- calls green, puts red, zero-zero venues omitted.
+  gex_levels: function (params) {
+    if (!params || !params.length) return "";
+    var G = "#2fbf8f", R = "#ef6b6b";
+    function fm(v) { return (Math.round(v * 100) / 100) + "M"; }
+    function span(c, t) { return '<span style="color:' + c + '">' + t + "</span>"; }
+    var head = params[0].axisValueLabel || params[0].axisValue || "";
+    var aggC = 0, aggP = 0, order = [], venues = {};
+    params.forEach(function (p) {
+      var v = Number(Array.isArray(p.value) ? p.value[1] : p.value) || 0;
+      if (p.seriesName === "C") { aggC = v; return; }
+      if (p.seriesName === "P") { aggP = v; return; }
+      var m = /^(.*) ([CP])$/.exec(p.seriesName || "");
+      if (!m) return;
+      if (!venues[m[1]]) { venues[m[1]] = { C: 0, P: 0 }; order.push(m[1]); }
+      venues[m[1]][m[2]] = v;
+    });
+    var out = ["<b>" + head + "</b>: " + span(G, fm(aggC)) + " " + span(R, fm(aggP))];
+    order.forEach(function (n) {
+      var v = venues[n];
+      if (!v.C && !v.P) return; // nothing at this level for this venue
+      out.push(n + ": " + span(G, fm(v.C)) + " " + span(R, fm(v.P)));
+    });
+    return out.join("<br>");
+  }
+};
 
 async function getJSON(url) {
   var r = await fetch(url);
@@ -192,18 +254,16 @@ async function loadChart(key) {
     var head = document.createElement("div");
     head.className = "card-head";
 
-    // title span -> native bubble from meta.desc; ⓘ span -> axes + help.
-    // No meta means no bubbles (the span carries no title attribute).
+    // title + ⓘ both trigger the instant structured bubble (built from
+    // meta); no meta means no bubble and no hover affordance.
     var keySpan = document.createElement("span");
-    keySpan.className = "key";
+    keySpan.className = "key" + (meta ? " hover" : "");
     keySpan.textContent = env.key || key;
-    if (meta && meta.desc) keySpan.title = meta.desc;
     head.appendChild(keySpan);
     if (meta) {
       var info = document.createElement("span");
-      info.className = "info";
+      info.className = "info hover";
       info.textContent = "ⓘ"; // ⓘ
-      info.title = infoText(meta);
       head.appendChild(info);
     }
     var badge = document.createElement("span");
@@ -214,11 +274,18 @@ async function loadChart(key) {
 
     var div = document.createElement("div");
     div.className = "chart";
-    card.appendChild(head); card.appendChild(div);
+    if (meta && meta.height) div.style.height = meta.height + "px";
+    card.appendChild(head);
+    if (meta) card.appendChild(buildBubble(meta));
+    card.appendChild(div);
     grid.appendChild(card);
 
     var chart = echarts.init(div);
-    chart.setOption(env.payload); // verbatim -- payload IS the contract
+    chart.setOption(env.payload); // verbatim -- payload IS the contract...
+    // ...except the meta-declared renderer hooks (chart_specs.rb header)
+    if (meta && meta.tooltip_formatter && FORMATTERS[meta.tooltip_formatter]) {
+      chart.setOption({ tooltip: { formatter: FORMATTERS[meta.tooltip_formatter] } });
+    }
     charts.push(chart);
   } catch (e) {
     grid.appendChild(errCard(key, "render failed: " + url + "\n" + e.message));
