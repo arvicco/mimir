@@ -277,7 +277,14 @@ module BTC
 
       io.puts ''
       io.puts "deploying: #{cmd.join(' ')}"
-      ok, out = runner.call(cmd, { 'CLOUDFLARE_ACCOUNT_ID' => env['CF_ACCOUNT_ID'].to_s })
+      # CF_API_TOKEN is the PUBLISHER's KV-scoped token, but wrangler
+      # honors it as a legacy auth alias and prefers env tokens over the
+      # OAuth login -- with it inherited, deploys authenticate as a token
+      # that cannot deploy (found live at Gate 4). nil UNSETS it in the
+      # child, so wrangler falls back to `wrangler login`. A deliberate
+      # CLOUDFLARE_API_TOKEN (deploy-scoped) is left untouched.
+      ok, out = runner.call(cmd, { 'CLOUDFLARE_ACCOUNT_ID' => env['CF_ACCOUNT_ID'].to_s,
+                                   'CF_API_TOKEN' => nil })
       unless ok
         io.puts BTC::Env.redact(out.to_s).lines.last(5).join
         raise Error, 'wrangler deploy failed (see output above)'

@@ -243,6 +243,39 @@ class TestBtcDeploy < Minitest::Test
     assert(results.all? { |_, ok, _| ok }, results.inspect)
   end
 
+  def test_real_deploy_child_env_sets_account_and_unsets_publisher_token
+    # wrangler prefers env tokens over its OAuth login and honors the
+    # legacy CF_API_TOKEN alias -- the publisher's KV-scoped token must
+    # therefore be UNSET (nil) for the wrangler deploy child, or deploys
+    # authenticate as a token that cannot deploy (found live at Gate 4).
+    now = Time.utc(2026, 7, 5, 12, 0, 0)
+    gen = (now - 60).iso8601
+    transport_for(
+      '/healthz' => FakeRes.new('200', '{"ok":true,"worker_ts":"x"}'),
+      '/api/v1/index' => FakeRes.new('200', %({"generated_at":"#{gen}"})),
+      '/api/v1/definitely:missing' => FakeRes.new('404', '{}'),
+      '/' => FakeRes.new('200', '<title>mimir</title>')
+    )
+    Dir.mktmpdir do |dir|
+      tmpl = File.join(dir, 'wrangler.toml')
+      out  = File.join(dir, 'data', 'wrangler.generated.toml')
+      File.write(tmpl, %(id = "#{BTC::Deploy::PLACEHOLDER}"\n))
+      calls = []
+      runner = lambda do |cmd, overrides = {}|
+        calls << { cmd: cmd, env: overrides }
+        [true, cmd[1] == 'deploy' ? 'https://mimir.acct.workers.dev' : 'wrangler 4.0.0']
+      end
+      code = BTC::Deploy.run(env: ENV_OK.merge('DEPLOY_SKIP_CHECKS' => '1'),
+                             runner: runner, io: StringIO.new, now: now,
+                             template_path: tmpl, out_path: out)
+      assert_equal 0, code
+      dep = calls.find { |c| c[:cmd][1] == 'deploy' }
+      assert_equal ACCOUNT, dep[:env]['CLOUDFLARE_ACCOUNT_ID']
+      assert dep[:env].key?('CF_API_TOKEN'), 'publisher token must be explicitly cleared'
+      assert_nil dep[:env]['CF_API_TOKEN']
+    end
+  end
+
   def test_smoke_dashboard_verdict
     assert BTC::Deploy.verdict_dashboard(200, '<title>mimir</title>').first
     ok, detail = BTC::Deploy.verdict_dashboard(200, '<html>somebody else</html>')
