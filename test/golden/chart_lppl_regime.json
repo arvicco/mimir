@@ -1,0 +1,190 @@
+{
+  "backgroundColor": "transparent",
+  "title": {
+    "text": "LPPL STRESSED +0.00",
+    "textStyle": {
+      "fontSize": 13
+    }
+  },
+  "tooltip": {
+    "trigger": "axis",
+    "confine": true,
+    "textStyle": {
+      "fontSize": 11
+    },
+    "axisPointer": {
+      "type": "cross"
+    }
+  },
+  "axisPointer": {
+    "link": [
+      {
+        "xAxisIndex": "all"
+      }
+    ]
+  },
+  "grid": [
+    {
+      "left": 60,
+      "right": 24,
+      "top": 44,
+      "height": "19%"
+    },
+    {
+      "left": 60,
+      "right": 24,
+      "top": "42%",
+      "height": "19%"
+    },
+    {
+      "left": 60,
+      "right": 24,
+      "top": "72%",
+      "height": "19%"
+    }
+  ],
+  "xAxis": [
+    {
+      "type": "time",
+      "gridIndex": 0,
+      "axisLabel": {
+        "show": false
+      }
+    },
+    {
+      "type": "time",
+      "gridIndex": 1,
+      "axisLabel": {
+        "show": false
+      }
+    },
+    {
+      "type": "time",
+      "gridIndex": 2
+    }
+  ],
+  "yAxis": [
+    {
+      "type": "value",
+      "gridIndex": 0,
+      "name": "ratio",
+      "nameLocation": "middle",
+      "nameGap": 44
+    },
+    {
+      "type": "value",
+      "gridIndex": 1,
+      "name": "log10 BF",
+      "nameLocation": "middle",
+      "nameGap": 44
+    },
+    {
+      "type": "value",
+      "gridIndex": 2,
+      "name": "Z",
+      "nameLocation": "middle",
+      "nameGap": 44
+    }
+  ],
+  "series": [
+    {
+      "name": "ratio",
+      "type": "line",
+      "xAxisIndex": 0,
+      "yAxisIndex": 0,
+      "showSymbol": true,
+      "symbol": "circle",
+      "symbolSize": 7,
+      "data": [
+        [
+          "2026-07-04T19:48:34Z",
+          0.464
+        ]
+      ],
+      "markLine": {
+        "symbol": "none",
+        "silent": true,
+        "data": [
+          {
+            "yAxis": 0.434,
+            "lineStyle": {
+              "type": "dashed",
+              "color": "#e6a23c"
+            },
+            "label": {
+              "position": "insideStartTop",
+              "formatter": "bound 0.434"
+            }
+          },
+          {
+            "yAxis": 0.434,
+            "lineStyle": {
+              "type": "dashed",
+              "color": "#c63939"
+            },
+            "label": {
+              "position": "insideEndBottom",
+              "formatter": "floor 0.434"
+            }
+          }
+        ]
+      },
+      "markPoint": {
+        "symbol": "pin",
+        "symbolSize": 40,
+        "data": [
+          {
+            "coord": [
+              "2026-07-04T19:48:34Z",
+              0.464
+            ],
+            "value": "0.464"
+          }
+        ]
+      }
+    },
+    {
+      "name": "log10 BF",
+      "type": "line",
+      "xAxisIndex": 1,
+      "yAxisIndex": 1,
+      "showSymbol": true,
+      "symbol": "circle",
+      "symbolSize": 7,
+      "data": [
+        [
+          "2026-07-04T19:48:34Z",
+          -425.52
+        ]
+      ],
+      "markLine": {
+        "symbol": "none",
+        "silent": true,
+        "data": [
+          {
+            "yAxis": 0,
+            "lineStyle": {
+              "type": "dashed",
+              "color": "#9aa0a6"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Z",
+      "type": "line",
+      "xAxisIndex": 2,
+      "yAxisIndex": 2,
+      "showSymbol": true,
+      "symbol": "circle",
+      "symbolSize": 7,
+      "data": [
+        [
+          "2026-07-04T19:48:34Z",
+          -1.82
+        ]
+      ]
+    }
+  ]
+}
