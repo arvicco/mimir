@@ -59,6 +59,89 @@ class TestHealthConventions < Minitest::Test
   end
 end
 
+class TestHealthSRI < Minitest::Test
+  PIN = BTC::Health::ECHARTS_PIN
+  VER  = PIN[:version]
+  HASH = PIN[:sha384]
+
+  GOOD_TAG = <<~HTML
+    <script src="https://cdn.jsdelivr.net/npm/echarts@#{VER}/dist/echarts.min.js"
+            integrity="sha384-#{HASH}"
+            crossorigin="anonymous"></script>
+  HTML
+
+  def good_pages
+    { 'web/preview.html' => GOOD_TAG, 'web/index.html' => GOOD_TAG }
+  end
+
+  def test_clean_pages_pass
+    assert_empty BTC::Health.scan_sri(good_pages)
+  end
+
+  def test_real_files_pass
+    root = File.expand_path('../..', __dir__)
+    pages = {
+      'web/preview.html' => File.read(File.join(root, 'web/preview.html')),
+      'web/index.html'   => File.read(File.join(root, 'web/index.html'))
+    }
+    assert_empty BTC::Health.scan_sri(pages)
+  end
+
+  def test_flags_missing_integrity
+    tag = <<~HTML
+      <script src="https://cdn.jsdelivr.net/npm/echarts@#{VER}/dist/echarts.min.js"
+              crossorigin="anonymous"></script>
+    HTML
+    bad = BTC::Health.scan_sri('web/preview.html' => tag, 'web/index.html' => GOOD_TAG)
+    assert bad.any? { |m| m.include?('missing integrity') }
+  end
+
+  def test_flags_missing_crossorigin
+    tag = <<~HTML
+      <script src="https://cdn.jsdelivr.net/npm/echarts@#{VER}/dist/echarts.min.js"
+              integrity="sha384-#{HASH}"></script>
+    HTML
+    bad = BTC::Health.scan_sri('web/preview.html' => tag, 'web/index.html' => GOOD_TAG)
+    assert bad.any? { |m| m.include?('missing crossorigin') }
+  end
+
+  def test_flags_wrong_hash
+    tag = <<~HTML
+      <script src="https://cdn.jsdelivr.net/npm/echarts@#{VER}/dist/echarts.min.js"
+              integrity="sha384-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+              crossorigin="anonymous"></script>
+    HTML
+    bad = BTC::Health.scan_sri('web/preview.html' => tag, 'web/index.html' => GOOD_TAG)
+    assert bad.any? { |m| m.include?('integrity hash mismatch') || m.include?('disagree on echarts SRI hash') }
+  end
+
+  def test_flags_version_mismatch_between_pages
+    old_tag = <<~HTML
+      <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"
+              integrity="sha384-#{HASH}"
+              crossorigin="anonymous"></script>
+    HTML
+    bad = BTC::Health.scan_sri('web/preview.html' => old_tag, 'web/index.html' => GOOD_TAG)
+    # should flag the wrong version on the old_tag page AND/OR cross-page disagreement
+    assert bad.any? { |m| m.include?('5.5.0') || m.include?('disagree on echarts version') }
+  end
+
+  def test_flags_hash_disagreement_between_pages
+    alt_tag = <<~HTML
+      <script src="https://cdn.jsdelivr.net/npm/echarts@#{VER}/dist/echarts.min.js"
+              integrity="sha384-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+              crossorigin="anonymous"></script>
+    HTML
+    bad = BTC::Health.scan_sri('web/preview.html' => alt_tag, 'web/index.html' => GOOD_TAG)
+    assert bad.any? { |m| m.include?('disagree on echarts SRI hash') || m.include?('mismatch') }
+  end
+
+  def test_flags_missing_script_tag
+    bad = BTC::Health.scan_sri('web/preview.html' => '<html></html>', 'web/index.html' => GOOD_TAG)
+    assert bad.any? { |m| m.include?('echarts script tag not found') }
+  end
+end
+
 class TestHealthRegistry < Minitest::Test
   ROOT = File.expand_path('../..', __dir__)
 

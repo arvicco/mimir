@@ -428,7 +428,7 @@ Acceptance: self-screenshot review (static + Playwright interaction
       states) BEFORE owner handoff; mimir-design skill checklist
       passes; rake green.
 
-## M4-4 · ECharts SRI pin on both pages  [tier: sonnet -- mechanical with a deterministic oracle (hash recomputed from the pinned CDN artifact by a checked-in script)] [status: todo] [deps: M4-2, M4-3]
+## M4-4 · ECharts SRI pin on both pages  [tier: sonnet -- mechanical with a deterministic oracle (hash recomputed from the pinned CDN artifact by a checked-in script)] [status: done -- integrity= + crossorigin= added to both pages; drift check lives in BTC::Health.scan_sri (lib/btc/health.rb), wired into rake health; 7 unit tests in test/unit/test_btc_health.rb] [deps: M4-2, M4-3]
 Goal: integrity= + crossorigin on the ONE pinned CDN tag in
       preview.html and index.html; tools/sri_check.rb (stdlib)
       recomputes and compares -- registered so rake health catches

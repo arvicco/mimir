@@ -110,6 +110,13 @@ module BTC
         check: ->(b) { JSON.parse(b)['success'] == true } }
     ].freeze
 
+    # Expected ECharts CDN artifact.  Update only intentionally (bump both
+    # HTML pages together; recompute with the recipe in the HTML comment).
+    ECHARTS_PIN = {
+      version: '5.6.0',
+      sha384:  'pPi0zxBAoDu6+JXW/C68UZLvBUUtU+7zonhif43rqj7pxsGyqyqzcian2Rj37Rss'
+    }.freeze
+
     module_function
 
     # ---- offline: conventions scan -------------------------------------
@@ -141,6 +148,62 @@ module BTC
     def scan_frozen(files)
       files.reject { |_, c| c.lines.first(3).any? { |l| l.include?('frozen_string_literal: true') } }
            .map { |path, _| "#{path}: missing frozen_string_literal" }
+    end
+
+    # SRI drift check for the pinned ECharts CDN tag.
+    # pages: { path => html_content }
+    # Returns an array of problem strings (empty = all clear).
+    def scan_sri(pages)
+      bad = []
+      pin = ECHARTS_PIN
+      expected_ver  = pin[:version]
+      expected_hash = pin[:sha384]
+      # Regex matches the echarts script tag across one or two lines --
+      # capture the src version, the integrity hash, and crossorigin presence.
+      tag_re = %r{
+        <script[^>]*
+        cdn\.jsdelivr\.net/npm/echarts@([0-9.]+)/dist/echarts\.min\.js[^>]*
+        >
+      }mx
+
+      pages.each do |path, html|
+        m = tag_re.match(html)
+        unless m
+          bad << "#{path}: echarts script tag not found"
+          next
+        end
+        tag = m[0]
+        ver = m[1]
+        bad << "#{path}: echarts version #{ver} != pinned #{expected_ver}" if ver != expected_ver
+
+        integrity_m = tag.match(/integrity="sha384-([^"]+)"/)
+        if integrity_m
+          bad << "#{path}: integrity hash mismatch (got #{integrity_m[1]})" if integrity_m[1] != expected_hash
+        else
+          bad << "#{path}: echarts script tag missing integrity attribute"
+        end
+
+        bad << "#{path}: echarts script tag missing crossorigin attribute" unless tag.include?('crossorigin=')
+      end
+
+      # Cross-page consistency: all pages must agree on version + hash.
+      versions = pages.filter_map do |path, html|
+        m = tag_re.match(html)
+        m ? [path, m[1]] : nil
+      end.to_h
+      hashes = pages.filter_map do |path, html|
+        m = html.match(/integrity="sha384-([^"]+)"/)
+        m ? [path, m[1]] : nil
+      end.to_h
+
+      if versions.values.uniq.size > 1
+        bad << "pages disagree on echarts version: #{versions.map { |p, v| "#{p}=#{v}" }.join(', ')}"
+      end
+      if hashes.values.uniq.size > 1
+        bad << "pages disagree on echarts SRI hash: #{hashes.map { |p, h| "#{p}=#{h[0, 12]}..." }.join(', ')}"
+      end
+
+      bad
     end
 
     # Every registry entry's marker must appear in its src file.

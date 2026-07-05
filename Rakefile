@@ -42,9 +42,11 @@ task :health do
   require_relative 'lib/btc/health'
   scripts = Hash[Dir.glob('{scripts,publish}/**/*.rb').map { |f| [f, File.read(f)] }]
   libs    = Hash[Dir.glob('lib/**/*.rb').map { |f| [f, File.read(f)] }]
+  pages   = Hash[%w[web/preview.html web/index.html].map { |f| [f, File.read(f)] }]
   bad = BTC::Health.scan_conventions(scripts) +
         BTC::Health.scan_frozen(libs) +
-        BTC::Health.registry_integrity(Dir.pwd)
+        BTC::Health.registry_integrity(Dir.pwd) +
+        BTC::Health.scan_sri(pages)
 
   if bad.empty?
     puts "health: OK (#{scripts.size + libs.size} files, " \
