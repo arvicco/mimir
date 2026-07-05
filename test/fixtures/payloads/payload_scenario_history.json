@@ -1,0 +1,18 @@
+{
+  "entries": [
+    {
+      "ts": "2026-07-04T19:48:13Z",
+      "composite": -0.333,
+      "regime": "LEAN-FLUSH",
+      "scores": {
+        "etf_flows": 0,
+        "funding_basis": 0,
+        "cb_premium": 0,
+        "macro": -1,
+        "hash_ribbons": -1,
+        "onchain_value": 0,
+        "stables": -1
+      }
+    }
+  ]
+}

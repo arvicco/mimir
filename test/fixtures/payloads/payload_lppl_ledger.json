@@ -1,0 +1,27 @@
+{
+  "entries": [
+    {
+      "ts": "2026-07-04T19:48:34Z",
+      "composite": 0.0,
+      "verdict": "STRESSED",
+      "bf": -425.52,
+      "ratio": 0.464,
+      "days_below_strong": 0,
+      "trough_date": null,
+      "trough_px": null,
+      "omega": 8.6,
+      "p_lp": 0.307,
+      "z": -1.82,
+      "pct_emp": 0.19,
+      "z_record": true,
+      "days_le_p01": 18,
+      "scores": {
+        "trend": -1,
+        "envelope": 1,
+        "fit": 0,
+        "logperiodic": 0,
+        "percentile": 0
+      }
+    }
+  ]
+}
