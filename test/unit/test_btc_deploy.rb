@@ -17,7 +17,7 @@ class TestBtcDeploy < Minitest::Test
 
   ACCOUNT   = 'acct-SECRET-1234'
   NAMESPACE = 'ns-SECRET-5678'
-  ENV_OK = { 'CF_ACCOUNT_ID' => ACCOUNT, 'CF_KV_NAMESPACE_ID' => NAMESPACE }.freeze
+  ENV_OK = { 'CLOUDFLARE_ACCOUNT_ID' => ACCOUNT, 'CLOUDFLARE_KV_NAMESPACE_ID' => NAMESPACE }.freeze
 
   def teardown
     BTC::Http.transport = nil
@@ -109,7 +109,7 @@ class TestBtcDeploy < Minitest::Test
 
   def test_generate_config_requires_namespace
     e = assert_raises(BTC::Deploy::Error) { BTC::Deploy.generate_config(env: {}) }
-    assert_match(/CF_KV_NAMESPACE_ID/, e.message)
+    assert_match(/CLOUDFLARE_KV_NAMESPACE_ID/, e.message)
   end
 
   # ---- pre-flight report shape ---------------------------------------
@@ -117,8 +117,8 @@ class TestBtcDeploy < Minitest::Test
   def test_preflight_missing_env_reports_MISSING_never_the_value
     calls = []
     pf = BTC::Deploy.preflight(env: {}, runner: ok_runner(calls), skip_checks: true)
-    account = pf.rows.find { |r| r[0] == 'CF_ACCOUNT_ID' }
-    ns      = pf.rows.find { |r| r[0] == 'CF_KV_NAMESPACE_ID' }
+    account = pf.rows.find { |r| r[0] == 'CLOUDFLARE_ACCOUNT_ID' }
+    ns      = pf.rows.find { |r| r[0] == 'CLOUDFLARE_KV_NAMESPACE_ID' }
     assert_equal 'MISSING', account[1]
     assert_equal 'MISSING', ns[1]
     refute pf.ok # missing env fails the table
@@ -196,7 +196,7 @@ class TestBtcDeploy < Minitest::Test
       text = io.string
       assert_includes text, 'wrangler deploy -c ' + out
       assert_includes text, 'DRY RUN'
-      assert_includes text, 'CLOUDFLARE_ACCOUNT_ID=<from CF_ACCOUNT_ID>'
+      assert_includes text, 'would run: wrangler deploy -c '
       assert_includes text, 'ships IN this deploy' # dashboard-in-same-deploy note
       # secret discipline: no CF_* value anywhere in output
       refute_includes text, ACCOUNT
@@ -243,11 +243,13 @@ class TestBtcDeploy < Minitest::Test
     assert(results.all? { |_, ok, _| ok }, results.inspect)
   end
 
-  def test_real_deploy_child_env_sets_account_and_unsets_publisher_token
-    # wrangler prefers env tokens over its OAuth login and honors the
-    # legacy CF_API_TOKEN alias -- the publisher's KV-scoped token must
-    # therefore be UNSET (nil) for the wrangler deploy child, or deploys
-    # authenticate as a token that cannot deploy (found live at Gate 4).
+  def test_real_deploy_child_env_strips_only_the_legacy_token_name
+    # One token, one name (Gate 4 ruling): wrangler reads
+    # CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID from the inherited
+    # env untouched. The child override must clear ONLY the legacy
+    # CF_API_TOKEN alias (a stale env line would make wrangler warn or,
+    # if it holds an old narrow token, hijack auth) -- and must NEVER
+    # unset the canonical token name.
     now = Time.utc(2026, 7, 5, 12, 0, 0)
     gen = (now - 60).iso8601
     transport_for(
@@ -270,9 +272,9 @@ class TestBtcDeploy < Minitest::Test
                              template_path: tmpl, out_path: out)
       assert_equal 0, code
       dep = calls.find { |c| c[:cmd][1] == 'deploy' }
-      assert_equal ACCOUNT, dep[:env]['CLOUDFLARE_ACCOUNT_ID']
-      assert dep[:env].key?('CF_API_TOKEN'), 'publisher token must be explicitly cleared'
-      assert_nil dep[:env]['CF_API_TOKEN']
+      assert_equal({ 'CF_API_TOKEN' => nil }, dep[:env])
+      refute dep[:env].key?('CLOUDFLARE_API_TOKEN'),
+             'canonical token name must pass through untouched'
     end
   end
 

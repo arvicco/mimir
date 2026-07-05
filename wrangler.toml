@@ -1,7 +1,7 @@
 # wrangler.toml -- mimir Worker API deploy TEMPLATE (M4-1).
 #
 # This file is a template, not a live config: the KV namespace id is
-# filled from CF_KV_NAMESPACE_ID by the owner-run `rake deploy` task
+# filled from CLOUDFLARE_KV_NAMESPACE_ID by the owner-run `rake deploy` task
 # (M4-5) into a generated config passed via `wrangler -c`. Never put a
 # real account/namespace id or any token here (env-only policy).
 #
@@ -26,7 +26,7 @@ directory = "web"
 
 [[kv_namespaces]]
 binding = "MIMIR"
-id = "FILLED_FROM_CF_KV_NAMESPACE_ID_BY_RAKE_DEPLOY"
+id = "FILLED_FROM_CLOUDFLARE_KV_NAMESPACE_ID_BY_RAKE_DEPLOY"
 
 # AUTH_TOKEN is an optional Worker secret (wrangler secret put
 # AUTH_TOKEN), NOT a var. Owner ruling D4-c: Gate 4 ships public-read;

@@ -16,12 +16,13 @@
 #      green (the last two skippable together via DEPLOY_SKIP_CHECKS=1).
 #      In DRY RUN the table is informational (never blocks): a dev box
 #      without wrangler / a dirty tree still proves the pipeline.
-#   2. generate config -- substitute CF_KV_NAMESPACE_ID into the committed
+#   2. generate config -- substitute CLOUDFLARE_KV_NAMESPACE_ID into the committed
 #      wrangler.toml template, write data/wrangler.generated.toml (data/
 #      is gitignored, so the filled config is never committable).
-#   3. deploy -- `wrangler deploy -c data/wrangler.generated.toml`, with
-#      CLOUDFLARE_ACCOUNT_ID exported from CF_ACCOUNT_ID for the child
-#      process ONLY.
+#   3. deploy -- `wrangler deploy -c data/wrangler.generated.toml`;
+#      wrangler reads CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID from
+#      the inherited env (one-token ruling); the legacy CF_API_TOKEN
+#      name is unset in the child in case a stale env file exports it.
 #   4. smoke -- GET /healthz (200 {ok:true}), /api/v1/index (200 envelope,
 #      age sane), /api/v1/definitely:missing (404), via BTC::Http; a
 #      PASS/FAIL line each, nonzero exit on any FAIL.
@@ -31,11 +32,10 @@
 # one surface, same-origin by construction; the earlier separate Pages
 # step is gone). DEPLOY_NAME optionally renames the worker (= hostname).
 #
-# SECURITY: CF_* values are never printed. Env checks say 'set' or
-# 'MISSING' only; the generated config's id line is written, never
-# echoed; the dry-run "would run" line shows CLOUDFLARE_ACCOUNT_ID as a
-# <placeholder>, not the value; all external output passes BTC::Env.redact
-# as defense in depth.
+# SECURITY: CLOUDFLARE_* values are never printed. Env checks say 'set'
+# or 'MISSING' only; the generated config's id line is written, never
+# echoed; all external output passes BTC::Env.redact as defense in
+# depth.
 
 require 'json'
 require 'time'
@@ -49,8 +49,8 @@ module BTC
 
     TEMPLATE_PATH  = 'wrangler.toml'
     GENERATED_PATH = 'data/wrangler.generated.toml'
-    PLACEHOLDER    = 'FILLED_FROM_CF_KV_NAMESPACE_ID_BY_RAKE_DEPLOY'
-    CF_ENV         = %w[CF_ACCOUNT_ID CF_KV_NAMESPACE_ID].freeze
+    PLACEHOLDER    = 'FILLED_FROM_CLOUDFLARE_KV_NAMESPACE_ID_BY_RAKE_DEPLOY'
+    CF_ENV         = %w[CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_KV_NAMESPACE_ID].freeze
     MAX_AGE_S      = 7 * 24 * 3600 # index envelope older than a week -> stale
     SKEW_S         = 300           # tolerate small clock skew on "future" ages
 
@@ -83,7 +83,7 @@ module BTC
     # ---- pre-flight ----------------------------------------------------
 
     # Env rows for the pre-flight table: 'set' / 'MISSING' only, NEVER the
-    # value (values are secret-adjacent -- CF_ACCOUNT_ID/CF_KV_NAMESPACE_ID).
+    # value (values are secret-adjacent -- CLOUDFLARE_ACCOUNT_ID/CLOUDFLARE_KV_NAMESPACE_ID).
     def env_rows(env)
       CF_ENV.map do |name|
         set = !env[name].to_s.empty?
@@ -145,8 +145,8 @@ module BTC
     end
 
     def generate_config(env: ENV, template_path: TEMPLATE_PATH, out_path: GENERATED_PATH)
-      ns = env['CF_KV_NAMESPACE_ID'].to_s
-      raise Error, 'CF_KV_NAMESPACE_ID not set' if ns.empty?
+      ns = env['CLOUDFLARE_KV_NAMESPACE_ID'].to_s
+      raise Error, 'CLOUDFLARE_KV_NAMESPACE_ID not set' if ns.empty?
 
       content = substitute_template(File.read(template_path), ns)
       content = substitute_name(content, env['DEPLOY_NAME'])
@@ -241,7 +241,7 @@ module BTC
     def print_table(io, title, rows)
       io.puts "#{title}:"
       rows.each do |label, status, ok|
-        io.puts format('  [%-4s] %-20s %s', ok ? 'ok' : 'FAIL', label, status)
+        io.puts format('  [%-4s] %-27s %s', ok ? 'ok' : 'FAIL', label, status)
       end
     end
 
@@ -264,27 +264,27 @@ module BTC
       end
 
       path = generate_config(env: env, template_path: template_path, out_path: out_path)
-      io.puts format('generated config: %s (gitignored; namespace id from CF_KV_NAMESPACE_ID)', path)
+      io.puts format('generated config: %s (gitignored; namespace id from CLOUDFLARE_KV_NAMESPACE_ID)', path)
       cmd = deploy_command(path)
 
       if dry
         io.puts ''
         io.puts 'DRY RUN (DEPLOY_DRY_RUN=1) -- wrangler and smoke probes NOT run.'
-        io.puts format('would run: CLOUDFLARE_ACCOUNT_ID=<from CF_ACCOUNT_ID> %s', cmd.join(' '))
+        io.puts format('would run: %s', cmd.join(' '))
         io.puts dashboard_note
         return 0
       end
 
       io.puts ''
       io.puts "deploying: #{cmd.join(' ')}"
-      # CF_API_TOKEN is the PUBLISHER's KV-scoped token, but wrangler
-      # honors it as a legacy auth alias and prefers env tokens over the
-      # OAuth login -- with it inherited, deploys authenticate as a token
-      # that cannot deploy (found live at Gate 4). nil UNSETS it in the
-      # child, so wrangler falls back to `wrangler login`. A deliberate
-      # CLOUDFLARE_API_TOKEN (deploy-scoped) is left untouched.
-      ok, out = runner.call(cmd, { 'CLOUDFLARE_ACCOUNT_ID' => env['CF_ACCOUNT_ID'].to_s,
-                                   'CF_API_TOKEN' => nil })
+      # One token, one name (owner ruling, Gate 4): wrangler reads
+      # CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID natively from the
+      # inherited env -- nothing to map. The only override UNSETS the
+      # legacy CF_API_TOKEN name (nil removes it in the child) in case a
+      # stale env file still exports it: wrangler would adopt it as a
+      # deprecated alias and warn (or, if it is an old narrow token,
+      # fail to deploy).
+      ok, out = runner.call(cmd, { 'CF_API_TOKEN' => nil })
       unless ok
         io.puts BTC::Env.redact(out.to_s).lines.last(5).join
         raise Error, 'wrangler deploy failed (see output above)'

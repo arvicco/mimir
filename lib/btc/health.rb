@@ -104,9 +104,9 @@ module BTC
         check: ->(b) { JSON.parse(b).fetch('filings').fetch('recent').fetch('form').is_a?(Array) } },
       # list-keys limit must be >= 10 (the API 400s below that)
       { name: 'cloudflare kv', src: 'publish/kv_client.rb',
-        marker: 'api.cloudflare.com/client/v4', env: 'CF_API_TOKEN',
-        url: -> { "https://api.cloudflare.com/client/v4/accounts/#{ENV['CF_ACCOUNT_ID']}/storage/kv/namespaces/#{ENV['CF_KV_NAMESPACE_ID']}/keys?limit=10" },
-        headers: -> { { 'Authorization' => "Bearer #{ENV['CF_API_TOKEN']}" } },
+        marker: 'api.cloudflare.com/client/v4', env: 'CLOUDFLARE_API_TOKEN',
+        url: -> { "https://api.cloudflare.com/client/v4/accounts/#{ENV['CLOUDFLARE_ACCOUNT_ID']}/storage/kv/namespaces/#{ENV['CLOUDFLARE_KV_NAMESPACE_ID']}/keys?limit=10" },
+        headers: -> { { 'Authorization' => "Bearer #{ENV['CLOUDFLARE_API_TOKEN']}" } },
         check: ->(b) { JSON.parse(b)['success'] == true } }
     ].freeze
 

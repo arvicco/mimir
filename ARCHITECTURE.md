@@ -162,9 +162,11 @@ are contract changes (Golden Rule 5 in CLAUDE.md applies).
 ## 5. Environment
 
 ```
-CF_ACCOUNT_ID        Cloudflare account
-CF_KV_NAMESPACE_ID   KV namespace for MIMIR
-CF_API_TOKEN         token scoped to that namespace, Workers KV write
+CLOUDFLARE_ACCOUNT_ID        Cloudflare account
+CLOUDFLARE_KV_NAMESPACE_ID   KV namespace for MIMIR
+CLOUDFLARE_API_TOKEN         ONE token, both jobs (owner ruling, Gate 4):
+                             Workers KV write + Workers Scripts edit;
+                             shared by publisher and wrangler
 FRED_API_KEY         (existing, scenario/macro.rb)
 EDGAR_UA             'name email' -- SEC-required identifying UA (btco)
 ANTHROPIC_API_KEY    Claude API for ingest.rb extraction (optional;
