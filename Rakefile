@@ -101,6 +101,12 @@ namespace :fixtures do
   end
 end
 
+desc 'Serve the repo for web/preview.html review (stdlib TCPServer, localhost only)'
+task :preview do
+  require_relative 'lib/btc/preview_server'
+  BTC::PreviewServer.serve(Dir.pwd, (ENV['PORT'] || 8000).to_i)
+end
+
 namespace :golden do
   desc 'Bless chart goldens after visual review in preview.html (deterministic: regenerates from test/fixtures/payloads/)'
   task :approve do
