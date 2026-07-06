@@ -540,7 +540,7 @@ Acceptance: contract tests pin fresh/amber/red/missing/garbled cases
       byte-exactly (injected clock + path); exit 0 in all cases; rake
       green.
 
-## M5-3 · docs/RUNBOOK.md  [tier: opus -- runbook drafting is named at this tier in DEV-LOOP; fable reviews against the runbook-style ruling (numbered do-this steps + EXPECT lines, background quarantined at the end)] [status: ready] [deps: M5-1, M5-2]
+## M5-3 · docs/RUNBOOK.md  [tier: opus -- runbook drafting is named at this tier in DEV-LOOP; fable reviews against the runbook-style ruling (numbered do-this steps + EXPECT lines, background quarantined at the end)] [status: done -- opus draft; fable review fixed publish-summary literals, --binding MIMIR, realistic waits -- 03ae48e] [deps: M5-1, M5-2]
 Goal: the owner's operations runbook, one numbered procedure per
       section, exact commands + EXPECT lines: install the launchd
       agents on novo (sed paths, cp to ~/Library/LaunchAgents,
@@ -559,7 +559,7 @@ Acceptance: every command copy-pasteable with an EXPECT line; a
       newcomer could operate novo from this doc alone; README gains a
       one-line pointer; no secrets anywhere.
 
-## M5-4 · Gate 5 soak checklist + README refresh  [tier: fable -- gate-defining document, cross-cutting review of the whole phase] [status: ready] [deps: M5-1..3, M5-5]
+## M5-4 · Gate 5 soak checklist + README refresh  [tier: fable -- gate-defining document, cross-cutting review of the whole phase] [status: done] [deps: M5-1..3, M5-5]
 Goal: BACKLOG Gate 5 entry expanded into the concrete soak protocol:
       owner installs agents (RUNBOOK), verifies green for ~48h, then
       the week-long soak continues in parallel with Phase 6 and closes
@@ -599,12 +599,24 @@ Acceptance: unit tests with a fake runner pin file shape, date-guard,
 Status note: done (sonnet first pass, no deviations; fable review
       clean) -- 78f24d1.
 
-## Gate 5 (human)
-Owner installs the launchd agents (publish + gex snapshot) on novo per
-RUNBOOK and verifies them green for ~48h (first scheduled publish on
-the dashboard, first snapshot file on disk, tmux line green). The
-week-long soak continues in parallel; PR phase-5 -> main merges here;
-the v1 tag waits for Gate 6.
+## Gate 5 (human) -- concrete checklist (M5-4)
+Day 0 (install, ~15 min, all commands in docs/RUNBOOK.md):
+1. RUNBOOK section 1: env file present + private, keys present
+   (names-only check), wrapper smoke test.
+2. RUNBOOK section 2: install BOTH agents, kickstart each once,
+   verify: log markers, `publish LIVE: 11 written`, dashboard header
+   at the current minute, dated gex_history file on disk.
+3. RUNBOOK section 3: tmux line added, shows green.
+Day 1-2 (green-for-48h = the gate condition):
+4. Twice, roughly a day apart: dashboard header `pub HH:MMZ · 11/11
+   fresh` with age < 2h, tmux line green, `ls` shows a new snapshot
+   file for each calendar day.
+5. Any failure: RUNBOOK section 8 (strict diagnose order); log the
+   incident as date · key · cause · minutes-stale in a soak note.
+Then: merge PR phase-5 -> main. The week-long soak continues in
+parallel (daily 1-minute check = step 4 + RUNBOOK section 9 weekly
+checks); it closes at Gate 6 with the KV-quota review (expect ~132
+writes/day) and the v1 tag.
 
 ---
 
