@@ -170,6 +170,30 @@ var WIDGETS = {
 // ---- one chart card ---------------------------------------------------
 var charts = []; // live echarts instances, for resize
 
+// Universal viewport-aware tooltip position (ruling: overlays never clip
+// at the viewport). confine:true only pins the tooltip inside the CHART
+// CONTAINER -- a bottom-row container extends below the fold, so a
+// confined tooltip still clips (owner review round 5). JSON payloads
+// cannot carry functions, so the render layer owns this policy for
+// every chart: right/below the pointer by default, flipping left/above
+// when the viewport edge is near.
+function tooltipPosition(container) {
+  return function (point, params, dom, rect, size) {
+    var margin = 16;
+    var view = size.viewSize, tip = size.contentSize;
+    var x = point[0] + margin;
+    if (x + tip[0] > view[0]) x = Math.max(0, point[0] - tip[0] - margin);
+    var y = point[1] + margin;
+    var top = container.getBoundingClientRect().top;
+    if (top + y + tip[1] > window.innerHeight) {
+      y = point[1] - tip[1] - margin; // flip above the pointer
+      // pathological case (huge tooltip near the fold): clamp on-screen
+      if (top + y < 0) y = Math.max(-top, window.innerHeight - top - tip[1] - 2);
+    }
+    return [x, y];
+  };
+}
+
 function errCard(key, msg) {
   var card = document.createElement("div");
   card.className = "card err";
@@ -247,6 +271,12 @@ function buildChartCard(env, key) {
   var chart = echarts.init(div, "dark");
   chart.setOption(env.payload); // verbatim -- payload IS the contract...
   // ...except the meta-declared renderer hooks (chart_specs.rb header)
+  // and the universal never-clip tooltip policy above (render-layer
+  // behavior, like the dark theme -- not a per-chart option).
+  // confine:false is REQUIRED here: ECharts applies confine AFTER the
+  // position callback and would clamp a flipped tooltip back into the
+  // (below-the-fold) container -- the callback owns containment now.
+  chart.setOption({ tooltip: { position: tooltipPosition(div), confine: false } });
   if (meta && meta.tooltip_formatter && FORMATTERS[meta.tooltip_formatter]) {
     chart.setOption({ tooltip: { formatter: FORMATTERS[meta.tooltip_formatter] } });
   }
