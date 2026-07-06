@@ -43,16 +43,17 @@ wrangler whoami                 # EXPECT: "logged in with an User API Token",
                                 # your account id, NO deprecation warning
 ```
 
-**1.2 Pick the public hostname** (recommended): the worker's *name* is
-its hostname, and the Gate 4 ruling is public-read behind an
-unguessable name. Add one more line:
+**1.2 Pick the public hostname** (REQUIRED -- pre-flight fails without
+it): the worker's *name* is its hostname, and the Gate 4 ruling is
+public-read behind an unguessable name, so it must be chosen
+deliberately -- there is no silent default. Add one more line:
 
 ```
 export DEPLOY_NAME=mimir-<random>     # e.g. mimir-a7f3k9 -- lowercase/digits/hyphens
 ```
 
-Without `DEPLOY_NAME` the host is `mimir.<subdomain>.workers.dev` --
-guessable; fine for a first test, not for staying up.
+(A guessable name like plain `mimir` still works if you explicitly
+set it -- the check forbids *forgetting*, not choosing.)
 
 Done. You never repeat this section.
 
@@ -67,7 +68,9 @@ source ~/.config/mimir/env
 DEPLOY_DRY_RUN=1 rake deploy
 ```
 
-EXPECT: a pre-flight table of five `[ok]` rows, then
+EXPECT: a pre-flight table of seven `[ok]` rows (wrangler, token,
+account, namespace, DEPLOY_NAME -- shown, it is the hostname -- tree,
+gate), then
 `would run: ... wrangler deploy -c data/wrangler.generated.toml`.
 Nothing has been deployed. If a row says `MISSING`, see section 4.
 
