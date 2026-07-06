@@ -9,6 +9,12 @@
 #                         # status-file age, newest snapshot
 #   rake ops:uninstall    # confirm, bootout both agents, remove installed
 #                         # plists
+#   rake ops:tmux         # OWNER-RUN, interactive: inspect the LIVE tmux
+#                         # status bar and install the publish health token.
+#                         # Probes the running server (never edits any file),
+#                         # proposes ONE fitted status-format change, optionally
+#                         # applies it live (reversible set -g), and ALWAYS
+#                         # prints the exact ~/.tmux.conf line(s) to persist.
 #
 # Golden Rule 3 (CLAUDE.md): installing launchd agents, real publishes and
 # KV mutation are HUMAN actions. These tasks are never run by the loop and
@@ -406,6 +412,159 @@ module BTC
       0
     end
 
+    # ---- tmux health line ----------------------------------------------
+
+    # The command tmux runs to draw the token, and its dedicated-line form
+    # (own right-aligned section). ALWAYS the REAL absolute repo path -- a
+    # placeholder left in is the #1 silent failure, so there is no
+    # placeholder here to leave in.
+    def tmux_health_cmd(repo)
+      "#(ruby #{File.join(repo, 'ops', 'publish_health.rb')})"
+    end
+
+    def tmux_dedicated_value(repo)
+      "#[align=right]#{tmux_health_cmd(repo)}"
+    end
+
+    # `tmux show -gv status` prints a count, or 'on'/'off' on older configs
+    # (treat 'on' as 1, 'off' as 0). Unset/parse-fail -> 1 (the default).
+    def tmux_status_count(runner)
+      ok, out = runner.call(['tmux', 'show', '-gv', 'status'])
+      return 1 unless ok
+
+      v = out.to_s.strip
+      return 1 if v.empty? || v == 'on'
+      return 0 if v == 'off'
+
+      Integer(v)
+    rescue ArgumentError
+      1
+    end
+
+    def tmux_status_interval(runner)
+      ok, out = runner.call(['tmux', 'show', '-gv', 'status-interval'])
+      ok ? out.to_s.strip : ''
+    end
+
+    # An unset status-format[i] for i>=1 comes back empty or an error --
+    # both mean "free".
+    def tmux_status_format(runner, idx)
+      ok, out = runner.call(['tmux', 'show', '-gv', "status-format[#{idx}]"])
+      return '' unless ok
+
+      out.to_s.chomp
+    end
+
+    def tmux_interval_active?(interval)
+      n = Integer(interval.to_s.strip)
+      n.positive?
+    rescue ArgumentError
+      false
+    end
+
+    # Inspect the LIVE server and install the publish health token. NEVER
+    # writes any file -- it drives the running server via `set -g` (which
+    # the owner can undo by reload) and prints the persistence line(s) to
+    # paste by hand. Fully injectable (runner/io/input) for tests.
+    def tmux(home:, repo:, env:, runner:, io:, input:)
+      _ = home # never touched: this command writes NO file (pinned in tests)
+      _ = env
+      health_cmd = tmux_health_cmd(repo)
+
+      # 1a. tmux on PATH.
+      tmux_ok, = runner.call(['which', 'tmux'])
+      unless tmux_ok
+        io.puts 'tmux: not found on PATH -- install tmux (or add it to PATH), then re-run.'
+        return 1
+      end
+
+      # 1b. server running? A dead server can only take the static snippet.
+      up, = runner.call(['tmux', 'display', '-p', 'ok'])
+      unless up
+        io.puts 'tmux: no server running -- start tmux, then re-run to inspect the live bar.'
+        io.puts 'For now add this to ~/.tmux.conf by hand (real repo path baked in):'
+        print_tmux_persist(io, ["set -g status 2",
+                                "set -g status-format[1] '#{tmux_dedicated_value(repo)}'",
+                                'set -g status-interval 30'])
+        return 0
+      end
+
+      # 1c. show the token the bar will draw + its current output.
+      tok_ok, tok_out = runner.call(['ruby', File.join(repo, 'ops', 'publish_health.rb')])
+      io.puts "health command: #{health_cmd}"
+      io.puts format('current output: %s', tok_ok ? tok_out.to_s.strip : '(publish_health.rb did not run)')
+
+      # 2. inspect the live status bar.
+      count    = tmux_status_count(runner)
+      interval = tmux_status_interval(runner)
+      formats  = {}
+      # scan 0..count-1 plus a couple beyond for the token / free lines.
+      (0...(count + 2)).each { |i| formats[i] = tmux_status_format(runner, i) }
+      io.puts format('status bar: status=%d, status-interval=%s', count,
+                     interval.empty? ? '(unset)' : interval)
+
+      # 2b. already present? idempotent -- report where, offer nothing.
+      present = formats.keys.sort.find { |i| formats[i].include?('publish_health.rb') }
+      if present
+        io.puts format('token already present in status-format[%d] -- nothing to do.', present)
+        io.puts 'For reference, the line that carries it:'
+        print_tmux_persist(io, ["set -g status-format[#{present}] '#{formats[present]}'"])
+        return 0
+      end
+
+      # 3. propose ONE variant fitted to what we found. Prefer a dedicated
+      # line on the first FREE index at the current status count (never grow
+      # the bar unprompted); else merge onto the last occupied line.
+      free_index = (1...count).find { |i| formats[i].to_s.empty? }
+      occupied   = (0...count).select { |i| !formats[i].to_s.empty? }
+      if free_index
+        index   = free_index
+        value   = tmux_dedicated_value(repo)
+        variant = 'dedicated line'
+      elsif occupied.empty?
+        index   = 1 # degenerate: no occupied line -- fall back to a fresh 2nd line
+        value   = tmux_dedicated_value(repo)
+        variant = 'dedicated line (new)'
+      else
+        index   = occupied.max
+        value   = formats[index] + tmux_dedicated_value(repo)
+        variant = 'merge onto last line'
+      end
+
+      io.puts ''
+      io.puts format('proposed change (%s, index %d):', variant, index)
+      io.puts "  status-format[#{index}] = '#{value}'"
+
+      # 4. apply live? reversible set -g on the running server (nothing
+      # persisted). Then make sure the bar actually refreshes.
+      eff_interval = tmux_interval_active?(interval) ? interval : '30'
+      if ask?(io, input, 'apply live now? [y/N]')
+        runner.call(['tmux', 'set', '-g', "status-format[#{index}]", value])
+        unless tmux_interval_active?(interval)
+          if ask?(io, input, 'status-interval is 0/unset; set it to 30s now? [y/N]')
+            runner.call(['tmux', 'set', '-g', 'status-interval', '30'])
+          end
+        end
+        io.puts ''
+        io.puts format("EXPECT: the PUB token appears at the bar's right edge within %ss.", eff_interval)
+      end
+
+      # 5. ALWAYS print the exact ~/.tmux.conf line(s) to persist.
+      lines = ["set -g status-format[#{index}] '#{value}'"]
+      lines << 'set -g status-interval 30' unless tmux_interval_active?(interval)
+      print_tmux_persist(io, lines)
+      0
+    end
+
+    # Print the persistence block (paste into ~/.tmux.conf). The script
+    # itself NEVER writes the file -- this is copy-paste only.
+    def print_tmux_persist(io, lines)
+      io.puts ''
+      io.puts 'Persist across restarts -- paste into ~/.tmux.conf:'
+      io.puts ''
+      lines.each { |l| io.puts "  #{l}" }
+    end
+
     # ---- prompt + table + default runner -------------------------------
 
     # Ask a [y/N] question on +io+/+input+; only an explicit y/yes is true.
@@ -449,8 +608,10 @@ module BTC
                uid: uid, status_path: status_path)
       when 'uninstall'
         uninstall(home: home, runner: runner, io: io, input: input, uid: uid)
+      when 'tmux'
+        tmux(home: home, repo: repo, env: env, runner: runner, io: io, input: input)
       else
-        raise Error, "unknown ops command: #{argv.first.inspect} (expected install|status|uninstall)"
+        raise Error, "unknown ops command: #{argv.first.inspect} (expected install|status|uninstall|tmux)"
       end
     end
   end

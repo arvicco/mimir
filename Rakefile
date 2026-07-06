@@ -187,6 +187,15 @@ namespace :ops do
   task :uninstall do
     ops_run('uninstall')
   end
+
+  desc 'Install the publish health token in the LIVE tmux status bar ' \
+       '(OWNER-RUN, interactive; refuses under CI and without a TTY). ' \
+       'Inspects the running server, proposes ONE fitted status-format ' \
+       'change, optionally applies it live (reversible), and ALWAYS prints ' \
+       'the ~/.tmux.conf line(s) to persist. NEVER edits any file.'
+  task :tmux do
+    ops_run('tmux')
+  end
 end
 
 task default: %i[compat health fixtures:verify test web:test]
