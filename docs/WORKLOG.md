@@ -2,6 +2,8 @@
 
 One line per completed packet: date · packet · commit · notes.
 
+2026-07-06 · M5-5 · 78f24d1 · ops/gex_snapshot.rb: daily dated archive of gex_btc_combined + gex_us IBIT MSTR --json (verbatim, local-only under data/gex_history) -- date-guard idempotency, per-capture redacted errors, atomic tmp+rename, exit 1 only on both-fail; wrapper + StartCalendarInterval 08:15 plist in the M5-1 shape. Sonnet vs spec, no deviations. U3 (Phase 9) consumes this archive.
+
 2026-07-06 · M5-2 · 732b2d1 · ops/publish_health.rb: tmux status-right one-liner over the frozen publish.status format + mtime -- green fresh / yellow amber-or-incomplete-or-DRY / red stale / PUB ? fail-soft (always exit 0). New frozen --tmux contract, 12 byte-exact pins (injected clock + utime, no sleeps). Sonnet vs spec, no deviations; review: ops/ joined rake compat RUBY_DIRS.
 
 2026-07-06 · M5-1 · 63c6157 · ops/run_publish.sh (env-file sourcing w/ secret-free exit-78 refusal, ~/Library/Logs/mimir logging, PUBLISH_DRY_RUN=0, exec passthrough so launchd alarms on publish failure) + com.mimir.publish.plist template (__REPO__ placeholder, StartInterval 7200 per D5-a, RunAtLoad false). rake health gains the offline ops scan: bash -n, dry-run guarantee, repo-wide --apply ban (shells AND plists -- review addition), rexml plist checks (plutil absent on ubuntu CI). Opus implementation vs spec; wrapper behavior pinned by shelling tests under a fake HOME.
