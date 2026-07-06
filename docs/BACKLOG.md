@@ -732,7 +732,14 @@ Acceptance: characterization pins current no-flag behavior BEFORE the
       unchanged (additive only: replay mode may add an `as_of` field
       -- contract test in the same commit); rake green.
 
-## M6-2 · staged backfill driver + verification protocol  [tier: fable protocol, opus driver] [status: todo] [deps: M6-1]
+## M6-2 · staged backfill driver + verification protocol  [tier: fable (wrote driver too -- held all replay semantics)] [status: done 2026-07-06, cf494e2] [deps: M6-1]
+Review notes: executed same day -- 273 days (2025-10-06 peak, matching
+D7-a exactly -> 2026-07-05) staged clean in ~14 min; stage-B overlap
+diff = MATCH on every field for both recorded days (ts excluded as
+documented; the 07-05 live duplicate collapses to first entry).
+Promotion commands printed by rake lppl:backfill_diff, owner runs them
+at Gate 6. Staged history: STRESSED all 273 days, bf -333 -> -426,
+ratio 1.11 -> 0.47, fit appears ~day 90 (183 fit-history entries).
 Goal: rake `lppl:backfill` -- sequential day-by-day replay from the
       Oct-2025 cycle peak (D7-a) to the day before the live ledger
       starts, writing ledger + fit_history into a STAGING dir via the
@@ -791,7 +798,17 @@ Acceptance: dry-run publish shows 12/12 with v1:gex_mstr:latest +
       v1:chart:gex_mstr in the index; golden reviewed at real
       geometry; contract tests updated additively; rake green.
 
-## M6-4 · MSTR quadrant presentation  [tier: opus impl, fable design review] [status: todo] [deps: M6-3]
+## M6-4 · MSTR quadrant presentation  [tier: opus impl, fable design review] [status: done 2026-07-06, 4c96867] [deps: M6-3]
+Review notes: fable review fix -- delegated roving tabindex had no
+arrow-key handlers (inactive tab keyboard-unreachable); all tab
+buttons stay naturally focusable (.sortbtn convention). Implementer
+corrected the packet premise: goldens carry the OPTION only (meta
+lives in the envelope), so tab meta changes NO golden. Playwright 6/6
+at real geometry on both pages; badge ticker compatible with both
+badge shapes; SKILL.md hook count 3 -> 4 updated by fable (agent
+correctly blocked from the out-of-scope file). Follow-up commit
+e95989a: M6-3's fixture+golden were untracked (commit -am stages only
+tracked files) -- CI red on the three intermediate commits.
 Goal: render chart:gex_mstr per D7-c ruling (Option A): card TABS in
       the GEX quadrant -- new `tab_group` meta hook + tab widget in
       render.js (registry pattern like legend_widget); grouped chart
@@ -815,6 +832,39 @@ Goal: README updated for replay + MSTR capabilities (honest about the
       here), D7-b answer recorded.
 Acceptance: newcomer-readable README; gate checklist is runbook-style
       (numbered steps + EXPECT lines).
+
+## Gate 6 (human) -- concrete checklist (M6-5)
+All commands run in ~/Dev/mimir on gold. ~10 min + your judgement.
+1. Ledger promotion (D7-a/b: the one-shot historical write).
+   Run: `rake lppl:backfill_diff`
+   EXPECT: `2026-07-04: match`, `2026-07-05: match`, a `live only`
+   line for each day after the staging run, and a two-command
+   promotion block (cp backup + sed/cat merge).
+   Eyeball the staged history first if you like:
+   `ruby -rjson -e 'File.foreach("data/lppl_backfill_staging/lppl/ledger.jsonl"){|l|e=JSON.parse(l);puts "#{e["ts"][0,10]} #{e["verdict"]} #{e["composite"]}"}' | less`
+   Then paste the two printed promotion commands. Do the same-shaped
+   backup+merge for fit_history.jsonl if you want fit stability to see
+   the backfilled past (recommended; commands parallel the ledger's --
+   or ask the loop to print them).
+   EXPECT after: `wc -l scripts/lppl/data/ledger.jsonl` = 273 + the
+   organic count; next live publish's lppl:ledger tail carries the
+   history; the dashboard lppl_regime chart shows the full curve.
+2. MSTR + tabs visual sign-off.
+   Run: `PUBLISH_DRY_RUN=1 ruby publish/publish.rb && rake preview`
+   EXPECT: `publish DRY: 13 written, 0 skipped`; on the preview page
+   the GEX quadrant shows [BTC][MSTR] tabs, BTC default, MSTR tab
+   swaps chart + title + hover help; 2x2 grid intact.
+   If it looks right, no golden action needed (goldens already pinned).
+3. Publish-count expectation moves 11 -> 13 everywhere ops-visible.
+   After the next LIVE publish on gold (bi-hourly agent), EXPECT the
+   tmux token `PUB 13/13 H:MM` and the dashboard header n/13. KV
+   budget becomes 156 writes/day (15.6% of free tier) -- the soak
+   note's 132/day expectation is superseded from this merge on.
+4. Soak week review (Gate 5 carry-over; window ends ~Jul 13).
+   If reviewing at/after Jul 13: RUNBOOK section 9 weekly checks +
+   the KV write count vs 156/day; log any incident lines in the soak
+   note. If Gate 6 lands earlier, this item moves to Gate 7.
+5. Merge PR phase-6 -> main.
 
 **Phase 7 -- BTCo ingest to real data** (pushed back: owner-interactive;
 Gate 7 = v1 tag): ingest flow characterization tests; discovery-alert
