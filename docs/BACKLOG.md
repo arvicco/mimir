@@ -600,7 +600,15 @@ Status note: done (sonnet first pass, no deviations; fable review
       clean) -- 78f24d1.
 
 ## Gate 5 (human) -- concrete checklist (M5-4)
-Day 0 (install, ~15 min, all commands in docs/RUNBOOK.md):
+Staged rollout (owner ruling 2026-07-06): the first install happens on
+GOLD as staging, novo gets it only after the 48h-green proof. The KV
+namespace is shared -- staging publishes are real publishes (that is
+the point: they prove the pipeline against the live dashboard). At
+promotion: run the same install on novo, then BOOTOUT the gold agents
+(RUNBOOK section 4) so there is exactly one writer (two would double
+the 132/day KV write expectation), and copy data/gex_history/ across
+once so the snapshot archive has no gap.
+Day 0 (install on gold, ~15 min, all commands in docs/RUNBOOK.md):
 1. RUNBOOK section 1: env file present + private, keys present
    (names-only check), wrapper smoke test.
 2. RUNBOOK section 2: install BOTH agents, kickstart each once,
