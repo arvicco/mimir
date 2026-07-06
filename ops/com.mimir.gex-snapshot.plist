@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  com.mimir.gex-snapshot : launchd user agent for the daily GEX snapshot.
+  (XML comments forbid a double hyphen, so this block uses colons/parens.)
+
+  INSTALL (HUMAN action, Golden Rule 3; full steps in docs/RUNBOOK.md):
+    Substitute the __REPO__ placeholder with the absolute repo path, e.g.
+      sed "s#__REPO__#$HOME/Dev/mimir#g" ops/com.mimir.gex-snapshot.plist \
+        > ~/Library/LaunchAgents/com.mimir.gex-snapshot.plist
+    then:
+      launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mimir.gex-snapshot.plist
+
+  StartCalendarInterval Hour=8 Minute=15 fires once per calendar day at
+  08:15 local time (exact hour is uncritical: the date-guard in
+  gex_snapshot.rb makes re-runs harmless). If the machine is asleep at
+  08:15, launchd runs the job at the next wake per calendar semantics.
+
+  RunAtLoad false: do not run immediately on agent load (the owner decides
+  when the first snapshot is due). No KeepAlive: this is a one-shot daily
+  job, not a service to respawn.
+-->
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.mimir.gex-snapshot</string>
+    <key>ProgramArguments</key>
+    <array>
+      <string>__REPO__/ops/run_gex_snapshot.sh</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+      <key>Hour</key>
+      <integer>8</integer>
+      <key>Minute</key>
+      <integer>15</integer>
+    </dict>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>ProcessType</key>
+    <string>Background</string>
+  </dict>
+</plist>
