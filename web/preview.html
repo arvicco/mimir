@@ -34,19 +34,43 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-size: 13px;
   }
-  #head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 10px; }
-  h1 { font-size: 15px; font-weight: 600; margin: 0; }
-  .sub { color: #a9b3bf; font-size: 11px; }
+  /* unified one-line header (owner ruling 2026-07-06): title left,
+     dot-only liveness cluster right-aligned, pub/fresh slot -- built by
+     the SHARED renderer (MimirRender.liveHeader), same as index.html */
+  #head {
+    display: flex; align-items: baseline; gap: 0 14px;
+    flex-wrap: nowrap; white-space: nowrap;
+    position: relative; /* anchors #livebubble */
+    margin-bottom: 12px;
+  }
+  h1 { font-size: 15px; font-weight: 600; margin: 0; flex: 0 0 auto; }
+  #chips {
+    display: flex; align-items: center; gap: 0 7px;
+    flex: 0 0 auto; margin-left: auto;
+  }
+  #pub {
+    flex: 0 0 auto; color: #c3cad4; white-space: nowrap;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums; font-size: 11px;
+  }
+  .ldot {
+    width: 10px; height: 10px; border-radius: 50%;
+    border: 0; padding: 0; cursor: help; display: inline-block;
+  }
+  .ldot:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
+  #livebubble {
+    display: none; position: absolute; right: 0; top: calc(100% + 4px);
+    z-index: 40; background: #232933; border: 1px solid #3a424e;
+    border-radius: 6px; padding: 5px 10px; font-size: 11px;
+    color: #ccd3dc; box-shadow: 0 6px 24px rgba(0,0,0,.45);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
   #banner {
     display: none; background: #4a1414; border: 1px solid #a33;
     color: #ffd7d7; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px;
+    font-size: 12px; line-height: 1.5;
   }
-  #strip {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 3px 12px;
-    background: #1b1f26; border: 1px solid #2a2f38; border-radius: 6px;
-    padding: 6px 10px; margin-bottom: 14px;
-  }
-  .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #c3cad4; }
   .dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
   .green { background: #35c46a; } .amber { background: #e2a52b; } .red { background: #e04b4b; }
   .grid {
@@ -117,13 +141,15 @@
 <body>
   <div id="head">
     <h1>mimir -- publish preview</h1>
-    <span class="sub">Gate 3 visual review of <code>data/publish_preview/</code> (last dry-run)</span>
+    <span id="chips"></span>
+    <span id="pub"></span>
+    <div id="livebubble" role="status"></div>
   </div>
   <div id="banner"></div>
-  <div id="strip"></div>
   <div id="grid" class="grid"></div>
   <footer>
-    Served statically. From the repo root run
+    Offline visual review of <code>data/publish_preview/</code> (last
+    dry-run). Served statically. From the repo root run
     <code>rake preview</code>, then open
     <code>http://localhost:8000/web/preview.html</code>.<br>
     ECharts pinned at 5.6.0 via jsDelivr. Chart payloads are rendered verbatim --
@@ -163,29 +189,22 @@ async function getJSON(url) {
 // envelope's own ttl_hint_s (the MIN across published keys). Per-chart ttl is
 // still used for the accurate per-card badges below.
 async function loadIndex() {
-  var strip = document.getElementById("strip");
   try {
     var idx = await getJSON(DATA + "index.json");
-    var rows = (idx.payload && idx.payload.keys) || [];
-    var idxTtl = idx.ttl_hint_s;
-    rows.forEach(function (row) {
-      var el = document.createElement("span");
-      el.className = "chip";
-      var dot = document.createElement("span");
-      dot.className = "dot " + R.staleClass(row.generated_at, idxTtl);
-      el.appendChild(dot);
-      el.appendChild(document.createTextNode(row.key + "@" + R.hhmm(row.generated_at)));
-      strip.appendChild(el);
+    // shared with index.html via the renderer (unified view, owner
+    // ruling 2026-07-06): dot cluster, bubble wiring, pub/fresh slot
+    return R.liveHeader({
+      chipsEl: document.getElementById("chips"),
+      bubbleEl: document.getElementById("livebubble"),
+      pubEl: document.getElementById("pub"),
+      idx: idx
     });
-    return rows.filter(function (r) { return r.key.indexOf("chart:") === 0; })
-               .map(function (r) { return r.key; });
   } catch (e) {
-    var warn = document.createElement("span");
-    warn.className = "chip";
-    var wdot = document.createElement("span"); wdot.className = "dot red";
-    warn.appendChild(wdot);
-    warn.appendChild(document.createTextNode("index.json: " + e.message + " -- using fallback chart list"));
-    strip.appendChild(warn);
+    var b = document.getElementById("banner");
+    b.style.display = "block";
+    b.textContent = "index.json unreadable (" + e.message + ") -- run " +
+                    "PUBLISH_DRY_RUN=1 ruby publish/publish.rb, then reload. " +
+                    "Rendering the fallback chart list meanwhile.";
     return FALLBACK_CHARTS;
   }
 }
@@ -216,7 +235,7 @@ async function loadChart(key) {
     var b = document.getElementById("banner");
     b.style.display = "block";
     b.textContent = "ECharts CDN unreachable -- preview needs network for the one pinned script.";
-    // Still render the strip so index health is visible offline.
+    // Still build the header so index health is visible offline.
     await loadIndex();
     return;
   }

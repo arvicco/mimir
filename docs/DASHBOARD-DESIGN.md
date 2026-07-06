@@ -103,4 +103,7 @@ before the pub/fresh slot. Indicators are DOT-ONLY (green/amber/red);
 the `key@HH:MM` text lives in a shared hover/focus bubble anchored to
 the header's right edge (never clips; instant CSS-style bubble, not
 title=). Dots are real buttons: aria-label = the bubble text, amber
-focus-visible ring, focus opens the bubble (a11y floor).
+focus-visible ring, focus opens the bubble (a11y floor). Unified across BOTH pages
+(owner ruling, same day): the cluster/bubble/pub-slot builder lives in
+render.js (MimirRender.liveHeader) so index.html and preview.html
+cannot drift apart -- sign-off happens against one design.
