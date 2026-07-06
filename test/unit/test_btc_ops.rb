@@ -353,6 +353,146 @@ class TestBtcOps < Minitest::Test
     end
   end
 
+  # ---- tmux health line ----------------------------------------------
+
+  # Fake tmux server: answers the PATH check, the running probe, `show -gv`
+  # queries (status count / interval / each status-format[i]) and the
+  # publish_health.rb execution, and records every command -- including any
+  # `tmux set -g` (which must NOT appear when the prompt is declined).
+  class FakeTmux
+    attr_reader :calls
+
+    def initialize(running: true, on_path: true, status: '1', interval: '15',
+                   formats: {}, health: 'PUB 11/11 0:37')
+      @running = running
+      @on_path = on_path
+      @status = status
+      @interval = interval
+      @formats = formats
+      @health = health
+      @calls = []
+    end
+
+    def call(cmd, _overrides = {})
+      @calls << cmd
+      return [@on_path, @on_path ? '/usr/bin/tmux' : ''] if cmd == ['which', 'tmux']
+      return [true, @health] if cmd[0] == 'ruby'
+      return [true, ''] unless cmd[0] == 'tmux'
+
+      case cmd[1]
+      when 'display' then @running ? [true, 'ok'] : [false, 'no server running on /tmp/tmux-501/default']
+      when 'show'    then show(cmd[3])
+      when 'set'     then [true, '']
+      else [true, '']
+      end
+    end
+
+    private
+
+    def show(key)
+      case key
+      when 'status'          then [true, @status]
+      when 'status-interval' then [true, @interval]
+      when /\Astatus-format\[(\d+)\]\z/
+        i = Regexp.last_match(1).to_i
+        @formats.key?(i) ? [true, @formats[i]] : [true, '']
+      else [true, '']
+      end
+    end
+  end
+
+  def dedicated_value
+    "#[align=right]#(ruby #{@repo}/ops/publish_health.rb)"
+  end
+
+  def run_tmux(fake, input: "n\n", home: @home)
+    io = StringIO.new
+    code = BTC::Ops.tmux(home: home, repo: @repo, env: {}, runner: fake.method(:call),
+                         io: io, input: StringIO.new(input))
+    [code, io]
+  end
+
+  def set_calls(fake)
+    fake.calls.select { |c| c[0, 3] == %w[tmux set -g] }
+  end
+
+  def test_tmux_no_server_prints_static_snippet_with_real_repo_path
+    fake = FakeTmux.new(running: false)
+    code, io = run_tmux(fake)
+    assert_equal 0, code
+    assert_includes io.string, "#{@repo}/ops/publish_health.rb"
+    refute_includes io.string, '<you>'
+    assert_includes io.string, 'set -g status 2'
+    assert(set_calls(fake).empty?, 'a dead server must not receive set -g')
+  end
+
+  def test_tmux_missing_binary_returns_1
+    fake = FakeTmux.new(on_path: false)
+    code, io = run_tmux(fake)
+    assert_equal 1, code
+    assert_includes io.string, 'not found on PATH'
+  end
+
+  def test_tmux_token_already_present_is_idempotent
+    fake = FakeTmux.new(status: '2', formats: { 1 => dedicated_value })
+    code, io = run_tmux(fake)
+    assert_equal 0, code
+    assert_includes io.string, 'already present in status-format[1]'
+    assert_includes io.string, 'nothing to do'
+    assert(set_calls(fake).empty?, 'present token must trigger no set -g')
+    assert_includes io.string, 'set -g status-format[1]' # persistence reference still printed
+  end
+
+  def test_tmux_free_line_proposes_dedicated_form_at_index_1
+    fake = FakeTmux.new(status: '2', formats: { 0 => 'main line', 1 => '' })
+    code, io = run_tmux(fake) # decline the apply prompt
+    assert_equal 0, code
+    assert_includes io.string, "status-format[1] = '#{dedicated_value}'"
+    assert_includes io.string, 'dedicated line'
+  end
+
+  def test_tmux_no_free_line_merges_onto_last_occupied
+    user_fmt = '#[align=left]my status'
+    fake = FakeTmux.new(status: '2', formats: { 0 => 'main line', 1 => user_fmt })
+    code, io = run_tmux(fake)
+    assert_equal 0, code
+    assert_includes io.string, "status-format[1] = '#{user_fmt}#{dedicated_value}'"
+    assert_includes io.string, 'merge onto last line'
+  end
+
+  def test_tmux_declined_prompt_makes_no_set_but_prints_persistence
+    fake = FakeTmux.new(status: '2', formats: { 1 => '' })
+    code, io = run_tmux(fake, input: "n\n")
+    assert_equal 0, code
+    assert(set_calls(fake).empty?, 'declined apply must run no set -g')
+    assert_includes io.string, "set -g status-format[1] '#{dedicated_value}'"
+  end
+
+  def test_tmux_accepted_prompt_sets_format_then_offers_interval
+    fake = FakeTmux.new(status: '2', interval: '0', formats: { 1 => '' })
+    code, io = run_tmux(fake, input: "y\ny\n") # apply yes, interval-offer yes
+    assert_equal 0, code
+    sets = set_calls(fake)
+    fmt_i = sets.index { |c| c[3] == 'status-format[1]' && c[4] == dedicated_value }
+    int_i = sets.index { |c| c[3] == 'status-interval' && c[4] == '30' }
+    refute_nil fmt_i, 'expected a set -g status-format[1] on apply'
+    refute_nil int_i, 'expected the interval offer to set status-interval 30'
+    assert_operator fmt_i, :<, int_i, 'format must be set before the interval'
+    assert_includes io.string, 'EXPECT:'
+  end
+
+  def test_tmux_never_writes_any_file
+    empty = Dir.mktmpdir
+    before = Dir.glob(File.join(empty, '**', '*'), File::FNM_DOTMATCH).sort
+    fake = FakeTmux.new(status: '2', interval: '0', formats: { 1 => '' })
+    BTC::Ops.tmux(home: empty, repo: @repo, env: {}, runner: fake.method(:call),
+                  io: StringIO.new, input: StringIO.new("y\ny\n"))
+    after = Dir.glob(File.join(empty, '**', '*'), File::FNM_DOTMATCH).sort
+    assert_equal before, after, 'ops:tmux must never create a file under HOME'
+  ensure
+    FileUtils.remove_entry(empty)
+  end
+
   # ---- run(): refusals ----------------------------------------------
 
   def test_run_refuses_under_ci

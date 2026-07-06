@@ -138,45 +138,41 @@ any time with `rake ops:status` (section 8, step 1).
 ## 3. Add the tmux health line
 
 Puts a one-glance publisher-health indicator in the tmux status bar,
-driven by `ops/publish_health.rb` reading `/tmp/publish.status`.
+driven by `ops/publish_health.rb` reading `/tmp/publish.status`. One
+interactive command inspects the LIVE server, fits ONE change to it, and
+prints the exact line to persist -- it NEVER edits `~/.tmux.conf` for you,
+and the real repo path is always baked in (no `<you>` to leave behind,
+the #1 reason the token used to never appear).
 
-**3.1 Add the token to `~/.tmux.conf`** (adjust the path to your
-repo -- replace `<you>`; a literal `<you>` left in place is the #1
-reason the token never appears). Pick by whether your extra status
-lines are free:
-
-If `status-format[1]` is unused, give the token its own second line:
-
-```
-set -g status 2
-set -g status-format[1] '#[align=right]#(ruby /Users/<you>/Dev/mimir/ops/publish_health.rb)'
-set -g status-interval 30
-```
-
-If line 1 already carries your own format, add a THIRD line instead
-(`status-format[2]`, tmux >= 3.0 supports up to 5):
+**3.1 Run the installer from inside tmux and answer the prompt.**
 
 ```
-set -g status 3
-set -g status-format[2] '#[align=right]#(ruby /Users/<you>/Dev/mimir/ops/publish_health.rb)'
-set -g status-interval 30
+cd "$REPO"
+rake ops:tmux
 ```
 
-Or merge into an existing line: append `#[align=right]#(ruby ...)`
-at the end of your format (a second `#[align=right]` run is fine --
-it starts its own right-aligned section; verified live 2026-07-06).
-If the token lands glued to the LEFT segment instead, the align tag
-before it is missing. If it does not appear at all, check the path:
-an unreplaced `<you>` fails silently.
+EXPECT: it prints the health command + its current output, then a
+`proposed change (...)` line and `apply live now? [y/N]`. Answer `y` to
+install the token on the running server now (reversible -- a reload
+undoes it); `N` to skip straight to the persistence line. If it reports
+`token already present in status-format[N] -- nothing to do`, you are
+done. If it says `no server running`, start tmux and re-run.
 
-**3.2 Reload tmux config.**
+- On `y`, if `status-interval` is 0/unset it also offers to set it to
+  30s (say `y`, or the bar never refreshes the token). Then it prints an
+  `EXPECT:` line -- the `PUB ...` token appears at the bar's right edge
+  within that interval.
 
-```
-tmux source-file ~/.tmux.conf
-```
+**3.2 Persist it across restarts.** The command finishes by printing a
+`Persist across restarts -- paste into ~/.tmux.conf:` block. Copy those
+one or two `set -g ...` lines verbatim into `~/.tmux.conf` (the live
+`set -g` in 3.1 is not saved; this is what survives a restart).
 
-EXPECT: no error; a second status line appears with a `PUB ...` token
-at its right edge within 30 seconds.
+EXPECT: after pasting, `tmux source-file ~/.tmux.conf` runs with no error
+and the `PUB ...` token stays on the bar. (Manual variants -- dedicated
+second/third line vs merge onto an existing format, and the align-run
+semantics -- are in the Background "Manual fallback" section if you are
+debugging by hand.)
 
 **3.3 Read the flag.** The token is `PUB <n>/<m> H:MM` (age is
 hours:minutes since the last publish); no colours -- `!` after PUB is
@@ -568,6 +564,38 @@ marker then `publish LIVE: 11 written, 0 skipped -> KV`; a
 `=== run_gex_snapshot ...Z` marker then `written: .../<date>.json`.
 Uninstall by hand = the two `bootout` lines plus
 `rm -f ~/Library/LaunchAgents/com.mimir.*.plist`.
+
+**Manual fallback (tmux health line -- what `rake ops:tmux` does).** The
+task inspects the live server (`tmux show -gv status`, `status-interval`,
+each `status-format[i]`), fits ONE of the variants below, optionally
+applies it with `tmux set -g`, and prints the persistence line. Do it by
+hand only if the task is unavailable. Replace `<repo>` with your real
+`$REPO` path -- a literal placeholder left in is the #1 reason the token
+never appears.
+
+If `status-format[1]` is unused, give the token its own second line:
+
+```
+set -g status 2
+set -g status-format[1] '#[align=right]#(ruby <repo>/ops/publish_health.rb)'
+set -g status-interval 30
+```
+
+If line 1 already carries your own format, add a THIRD line instead
+(`status-format[2]`, tmux >= 3.0 supports up to 5):
+
+```
+set -g status 3
+set -g status-format[2] '#[align=right]#(ruby <repo>/ops/publish_health.rb)'
+set -g status-interval 30
+```
+
+Or merge into an existing line: append `#[align=right]#(ruby ...)` at the
+end of that format. A second `#[align=right]` run is fine -- it starts
+its own right-aligned section (verified live 2026-07-06). If the token
+lands glued to the LEFT segment instead, the align tag before it is
+missing; if it does not appear at all, check the path. Reload with
+`tmux source-file ~/.tmux.conf`.
 
 **No log rotation.** Neither wrapper rotates its log; both grow until you
 truncate them by hand (section 9.2). This is deliberate -- the volume is
