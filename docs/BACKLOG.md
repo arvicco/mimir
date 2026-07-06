@@ -700,7 +700,12 @@ docs/improvements.md + docs/scenario_upgrades.md.
 of ingest, owner ruling 2026-07-06 -- autonomous work first).
 Elaborated 2026-07-06 at Gate 5 close; packets below.
 
-## M6-1 · lppl `--as-of DATE` replay mode  [tier: opus vs fable spec] [status: todo]
+## M6-1 · lppl `--as-of DATE` replay mode  [tier: opus vs fable spec] [status: done 2026-07-06, 1d248ec]
+Review notes: opus added calendar-rollover hardening (Time.utc rolls
+2026-02-30 -> Mar-02; round-trip check aborts) -- approved; replay
+still computes would-be trend rows before discarding (harmless,
+2.9s/day total, minimal-diff accepted). Smoke: replayed 2026-07-05
+matches the recorded ledger entry on all six fields.
 Goal: additive replay flag on scripts/lppl/lppl.rb (and passed through
       to every module): compute the suite verdict exactly as it would
       have been computed on DATE, from the price cache alone.
@@ -757,7 +762,14 @@ Acceptance: driver tests with fake runner (sequential order, resume,
       tail (lppl:ledger, 365-line tail) verified against the staged
       ledger size in a dry-run; rake green.
 
-## M6-3 · gex:mstr producer + chart spec  [tier: opus] [status: todo]
+## M6-3 · gex:mstr producer + chart spec  [tier: opus] [status: done 2026-07-06, c8c117f]
+Review notes: two spec corrections by the implementer, both accepted:
+(1) the true key growth is 11 -> 13 (producer AND chart each count;
+the owner-approved "12" undercounted -- flagged in the gate summary);
+(2) key is gex:mstr / v1:gex:mstr, matching gex:combined's shape (the
+skeleton's "gex_mstr:latest" was loose wording). Sibling builder, not
+an adapter (gex_us payloads carry NET gamma per strike -- no call/put
+split to stack). KV budget moves to 156 writes/day when deployed.
 Goal: publish MSTR dealer-gamma alongside the BTC family. gex_us.rb
       already handles MSTR (CBOE single-name chain; the CBOE source is
       already in health SOURCES); NOT mergeable into gex_btc_combined
