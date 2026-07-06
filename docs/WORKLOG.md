@@ -2,6 +2,10 @@
 
 One line per completed packet: date · packet · commit · notes.
 
+2026-07-06 · M6-1 · 1d248ec · lppl --as-of replay (opus vs fable spec): in-memory strict-< price truncation, all four wall-clock anchors frozen (additive now: kwarg on BTC::Report.report), trend cache read-filter + append suppression (density-sensitive BF), fit stability window filtered, --tmux refused, additive as_of json field. Opus hardening accepted: calendar-rollover abort. Smoke: replayed 2026-07-05 == recorded ledger entry on all six fields, read-only md5-verified, 2.9s/day -> full backfill ~15 min.
+
+2026-07-06 · M6-3 · c8c117f · gex:mstr producer + sibling chart builder (opus): net-gamma-per-strike bars coloured by sign, spot/flip/CW/PW marklines, spot+-30% zoom, gex_profile framing for the future shared tab card. Implementer corrected the spec: 11 -> 13 keys (not 12; producer AND chart), key shape gex:mstr not gex_mstr:latest. All count literals repinned (tests, RUNBOOK, index.html banner); fixture + golden recorded; dry-run 13/13.
+
 2026-07-06 · gate-5 CLOSED · 1d065b9 · Owner merged PR #6 (phase-5 -> main) after the gold staging install proved the full ops chain live (scheduled bi-hourly publish fired unattended: 11 written 0 skipped -> KV; snapshot archived with date-guard; tmux token on the owner's bar; render.js m5-hd3 deployed). Owner ruled proceed to Phase 6 same day -- the 48h window was folded into the merge decision; the week-long soak continues in parallel (daily 1-min check) and is reviewed at the first gate after ~Jul 13. Branch phase-6 opened; packets M6-1.. elaborated.
 
 2026-07-06 · phase-swap · -- · Owner ruled phases 6 and 7 swapped: LPPL backfill + MSTR GEX panel first (autonomous), BTCo ingest pushed back (owner-interactive). v1 tag moves with the ingest to Gate 7 per the standing real-data ruling; soak review lands at whichever gate follows the week. Decision-item IDs (D6-a/D7-a/b/c) keep their historical labels.
