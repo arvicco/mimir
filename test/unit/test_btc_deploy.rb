@@ -17,7 +17,11 @@ class TestBtcDeploy < Minitest::Test
 
   ACCOUNT   = 'acct-SECRET-1234'
   NAMESPACE = 'ns-SECRET-5678'
-  ENV_OK = { 'CLOUDFLARE_ACCOUNT_ID' => ACCOUNT, 'CLOUDFLARE_KV_NAMESPACE_ID' => NAMESPACE }.freeze
+  TOKEN     = 'tok-SECRET-9012'
+  ENV_OK = { 'CLOUDFLARE_API_TOKEN' => TOKEN,
+             'CLOUDFLARE_ACCOUNT_ID' => ACCOUNT,
+             'CLOUDFLARE_KV_NAMESPACE_ID' => NAMESPACE,
+             'DEPLOY_NAME' => 'mimir-t3st' }.freeze
 
   def teardown
     BTC::Http.transport = nil
@@ -130,8 +134,39 @@ class TestBtcDeploy < Minitest::Test
     text = pf.rows.map { |r| r.join(' ') }.join("\n")
     refute_includes text, ACCOUNT
     refute_includes text, NAMESPACE
+    refute_includes text, TOKEN
     assert(pf.rows.select { |r| BTC::Deploy::CF_ENV.include?(r[0]) }.all? { |r| r[1] == 'set' })
     assert pf.ok
+  end
+
+  # ---- pre-flight: tightened rows (owner feedback at Gate 4) ----------
+
+  def test_preflight_requires_the_token
+    pf = BTC::Deploy.preflight(env: ENV_OK.reject { |k, _| k == 'CLOUDFLARE_API_TOKEN' },
+                               runner: ok_runner([]), skip_checks: true)
+    token = pf.rows.find { |r| r[0] == 'CLOUDFLARE_API_TOKEN' }
+    assert_equal 'MISSING', token[1]
+    refute pf.ok
+  end
+
+  def test_preflight_requires_an_explicit_deploy_name
+    # D4-c: the worker name IS the public hostname -- no silent default
+    pf = BTC::Deploy.preflight(env: ENV_OK.reject { |k, _| k == 'DEPLOY_NAME' },
+                               runner: ok_runner([]), skip_checks: true)
+    row = pf.rows.find { |r| r[0] == 'DEPLOY_NAME' }
+    assert_match(/MISSING/, row[1])
+    assert_match(/unguessable/, row[1]) # the row itself explains the fix
+    refute pf.ok
+  end
+
+  def test_preflight_shows_and_validates_the_deploy_name
+    ok = BTC::Deploy.preflight(env: ENV_OK, runner: ok_runner([]), skip_checks: true)
+    assert_equal 'mimir-t3st', ok.rows.find { |r| r[0] == 'DEPLOY_NAME' }[1]
+    bad = BTC::Deploy.preflight(env: ENV_OK.merge('DEPLOY_NAME' => 'Bad Name'),
+                                runner: ok_runner([]), skip_checks: true)
+    row = bad.rows.find { |r| r[0] == 'DEPLOY_NAME' }
+    assert_match(/invalid/, row[1])
+    refute bad.ok
   end
 
   def test_preflight_skip_checks_skips_tree_and_gate

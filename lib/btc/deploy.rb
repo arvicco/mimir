@@ -50,7 +50,9 @@ module BTC
     TEMPLATE_PATH  = 'wrangler.toml'
     GENERATED_PATH = 'data/wrangler.generated.toml'
     PLACEHOLDER    = 'FILLED_FROM_CLOUDFLARE_KV_NAMESPACE_ID_BY_RAKE_DEPLOY'
-    CF_ENV         = %w[CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_KV_NAMESPACE_ID].freeze
+    CF_ENV         = %w[CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID
+                        CLOUDFLARE_KV_NAMESPACE_ID].freeze
+    NAME_RE        = /\A[a-z0-9-]{1,54}\z/ # valid worker name = public hostname
     MAX_AGE_S      = 7 * 24 * 3600 # index envelope older than a week -> stale
     SKEW_S         = 300           # tolerate small clock skew on "future" ages
 
@@ -82,13 +84,26 @@ module BTC
 
     # ---- pre-flight ----------------------------------------------------
 
-    # Env rows for the pre-flight table: 'set' / 'MISSING' only, NEVER the
-    # value (values are secret-adjacent -- CLOUDFLARE_ACCOUNT_ID/CLOUDFLARE_KV_NAMESPACE_ID).
+    # Env rows for the pre-flight table. Credentials/ids print 'set' /
+    # 'MISSING' only, NEVER the value. DEPLOY_NAME is REQUIRED (owner
+    # ruling D4-c: the worker name IS the public hostname and must be
+    # chosen deliberately -- no silent 'mimir' default; a guessable name
+    # is picked by setting it explicitly). It is not a secret, so its
+    # value is shown for confirmation.
     def env_rows(env)
-      CF_ENV.map do |name|
+      rows = CF_ENV.map do |name|
         set = !env[name].to_s.empty?
         [name, set ? 'set' : 'MISSING', set]
       end
+      name = env['DEPLOY_NAME'].to_s
+      rows << if name.empty?
+                ['DEPLOY_NAME', 'MISSING -- set the public worker name (D4-c: unguessable, e.g. mimir-a7f3k9)', false]
+              elsif !name.match?(NAME_RE)
+                ['DEPLOY_NAME', "invalid #{name.inspect} (lowercase/digits/hyphens, max 54)", false]
+              else
+                ['DEPLOY_NAME', name, true]
+              end
+      rows
     end
 
     # Build the pre-flight table. `runner` is a lambda(cmd_array,
@@ -139,7 +154,7 @@ module BTC
     # `name = "..."` line; empty/absent name leaves the template's default.
     def substitute_name(content, name)
       return content if name.to_s.empty?
-      raise Error, "DEPLOY_NAME #{name.inspect} is not a valid worker name" unless name.match?(/\A[a-z0-9-]{1,54}\z/)
+      raise Error, "DEPLOY_NAME #{name.inspect} is not a valid worker name" unless name.match?(NAME_RE)
 
       content.sub(/^name = ".*"$/, "name = \"#{name}\"")
     end
