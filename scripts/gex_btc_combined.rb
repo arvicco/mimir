@@ -43,7 +43,9 @@ require_relative '../lib/btc/report'
 require_relative '../lib/btc/format'
 
 CBOE = 'https://cdn.cboe.com/api/global/delayed_quotes/options'
-ETFS    = %w[IBIT FBTC BITB ARKB GBTC HODL BTCO BRRR EZBC].freeze
+# BRRR dropped 2026-07-06 (owner ruling): the Valkyrie fund rebranded
+# under CoinShares and CBOE 403s the old ticker on every sweep.
+ETFS    = %w[IBIT FBTC BITB ARKB GBTC HODL BTCO EZBC].freeze
 MULT    = 100.0 # shares per US option contract
 
 def get_json(url)
