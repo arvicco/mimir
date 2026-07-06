@@ -162,10 +162,12 @@ set -g status-format[2] '#[align=right]#(ruby /Users/<you>/Dev/mimir/ops/publish
 set -g status-interval 30
 ```
 
-Or merge into an existing line: append the `#(ruby ...)` INSIDE your
-line's existing `#[align=right]` run (with a separator) -- opening a
-second `#[align=right]` block restarts right-alignment mid-line and
-garbles the layout.
+Or merge into an existing line: append `#[align=right]#(ruby ...)`
+at the end of your format (a second `#[align=right]` run is fine --
+it starts its own right-aligned section; verified live 2026-07-06).
+If the token lands glued to the LEFT segment instead, the align tag
+before it is missing. If it does not appear at all, check the path:
+an unreplaced `<you>` fails silently.
 
 **3.2 Reload tmux config.**
 
