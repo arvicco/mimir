@@ -231,7 +231,12 @@ def apply_proposal(universe, file)
   pr  = JSON.parse(File.read(file))
   cur = company(universe, pr['ticker']) or abort "unknown ticker #{pr['ticker']}"
 
-  bak = "#{UNIVERSE}.bak-#{Time.now.utc.strftime('%Y%m%d%H%M%S')}"
+  # uniquify on same-second collision: a multi-apply batch must keep
+  # EVERY backup, not just the last one written that second (M7-1 B)
+  stamp = Time.now.utc.strftime('%Y%m%d%H%M%S')
+  bak = "#{UNIVERSE}.bak-#{stamp}"
+  n = 1
+  bak = "#{UNIVERSE}.bak-#{stamp}-#{n += 1}" while File.exist?(bak)
   FileUtils.cp(UNIVERSE, bak)
 
   pr['diff'].each do |k, v|
@@ -292,7 +297,10 @@ if (path = arg('--file'))
   cur = company(universe, tk) or abort "unknown ticker #{tk}"
   raw = File.read(path)
   acc = "manual-#{Digest::SHA1.hexdigest(raw)[0, 12]}"
-  if ledger_accessions(tk).include?(acc) || pending_files.any? { |f| f.include?(acc) }
+  # pending filenames strip dashes (write_proposal), so match the
+  # stripped form -- the dashed accession never matched and re-ingesting
+  # a doc with a pending proposal silently re-wrote it (M7-1 finding A)
+  if ledger_accessions(tk).include?(acc) || pending_files.any? { |f| f.include?(acc.delete('-')) }
     abort "already ingested (#{acc}) -- see --status / --review"
   end
 
