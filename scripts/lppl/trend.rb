@@ -23,7 +23,8 @@
 #
 # Scores are cached in data/trend_scores.csv. First run bootstraps history
 # from 2017 with weekly stride (a minute or so); daily runs append only
-# newly matured evaluation dates.
+# newly matured evaluation dates. Under --as-of the cache is read-filtered to
+# dates before the replay day and never written (read-only replay).
 
 require_relative 'common'
 
@@ -59,11 +60,16 @@ def logscore(y, mu, var)
 end
 
 # ---- load score cache --------------------------------------------------------
-have = {}
+# In as-of mode the cache is read-filtered to eval dates strictly before AS_OF
+# (the whole-cache aggregation below is load-bearing, so later scores must not
+# leak in) and never written back -- replay is read-only on trend_scores.csv.
+have    = {}
+asof_key = Lppl.as_of&.strftime('%Y-%m-%d')
 if File.exist?(CACHE)
   File.foreach(CACHE) do |ln|
     d, h, m, s = ln.strip.split(',')
     next if d.nil? || d == 'date'
+    next if asof_key && d >= asof_key
 
     have["#{d}|#{h}|#{m}"] = s.to_f
   end
@@ -111,7 +117,11 @@ new_rows = []
   end
 end
 
-unless new_rows.empty?
+# Append suppressed entirely in as-of mode: replay neither writes the cache
+# nor folds fresh scores into the aggregation, keeping eval-point density
+# identical to what the live run on AS_OF actually saw (the trend-BF magnitude
+# depends on cache density -- see docs/METHODOLOGY.md caveat).
+if !Lppl.as_of && !new_rows.empty?
   File.open(CACHE, 'a') do |f|
     f.puts 'date,h,model,logscore' unless File.exist?(CACHE) && File.size(CACHE) > 0
     new_rows.each { |r| f.puts r.join(',') }
@@ -120,7 +130,7 @@ unless new_rows.empty?
 end
 
 # ---- aggregate ---------------------------------------------------------------
-cut = (Time.now.utc - 365 * 86_400).strftime('%Y-%m-%d')
+cut = (Lppl.now_utc - 365 * 86_400).strftime('%Y-%m-%d')
 sums  = Hash.new(0.0) # "window|h|model" => sum
 count = Hash.new(0)
 have.each do |k, s|
