@@ -525,7 +525,7 @@ Acceptance: `bash -n` + plist well-formedness/required-keys checks
       the wrapper with a fake HOME; no secrets in any ops file; rake
       green.
 
-## M5-2 · Publish health line for the tmux bar  [tier: sonnet -- small pure formatter over the existing frozen /tmp/publish.status contract with an exact-value test oracle; two failures bump to opus] [status: ready] [deps: --]
+## M5-2 · Publish health line for the tmux bar  [tier: sonnet -- small pure formatter over the existing frozen /tmp/publish.status contract with an exact-value test oracle; two failures bump to opus] [status: done -- sonnet first pass; fable review added ops/ to rake compat] [deps: --]
 Goal: `ops/publish_health.rb` -- stdlib one-shot for `status-right`:
       reads /tmp/publish.status (`PUB LIVE 11/11 keys 12:00 UTC`
       contract, untouched) plus the file's mtime and prints ONE short
