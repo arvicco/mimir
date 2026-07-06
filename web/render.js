@@ -289,7 +289,10 @@ function buildChartCard(env, key) {
 }
 
 // ONE global -- shared by preview.html and the future index.html.
+// rev: bump on EVERY render.js change; `MimirRender.rev` in the console
+// answers "which renderer is this tab actually running?" after deploys.
 window.MimirRender = {
+  rev: "m4-8b",
   staleClass: staleClass,
   hhmm: hhmm,
   buildBubble: buildBubble,
