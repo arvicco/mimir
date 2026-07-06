@@ -833,8 +833,9 @@ Goal: README updated for replay + MSTR capabilities (honest about the
 Acceptance: newcomer-readable README; gate checklist is runbook-style
       (numbered steps + EXPECT lines).
 
-## Gate 6 (human) -- checklist (M6-5; rewritten per owner feedback:
-## runbook style, promotion wrapped in an interactive task)
+## Gate 6 (human) -- checklist  [status: CLOSED 2026-07-06 -- PR #7 merged (5227c75); ledger promoted (275 entries); step 3's rake deploy still pending when convenient]
+(M6-5; rewritten per owner feedback: runbook style, promotion wrapped
+in an interactive task)
 All in ~/Dev/mimir on gold. ~5 min.
 
 1. Promote the backfilled LPPL history (interactive; shows the

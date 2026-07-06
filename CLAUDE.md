@@ -138,13 +138,15 @@ same commit (`rake health` fails on registry drift).
 
 ## Current phase
 
-Phase 6 (LPPL history backfill via --as-of replay + MSTR GEX panel,
-branch phase-6; Gate 5 closed 2026-07-06, PR #6, ops agents LIVE on
-gold-as-staging; week-long soak runs in parallel, reviewed at the
-next gate after ~Jul 13). Stage A tiering (DEV-LOOP.md section 2):
-Fable orchestrates/reviews, Opus/Sonnet write most code; packets
-M6-1.. in docs/BACKLOG.md. Visual work follows
-.claude/skills/mimir-design; deploys, launchd installs AND the
-one-shot historical ledger write are HUMAN-gated (Golden Rule 3).
-Consult ARCHITECTURE.md section 6 for Gate 6; update this line at
-each gate.
+Phase 7 (BTCo ingest to real data, branch phase-7; Gate 6 closed
+2026-07-06, PR #7, ledger promoted 275 entries, 13 keys live; Gate 7
+= v1 tag per the standing real-data ruling; week-long soak reviewed
+at the first gate after ~Jul 13). OWNER-INTERACTIVE phase: analysis/
+review/apply happen in owner sessions (D6-a); the loop builds tests,
+the discovery-alert job and the shakedown harness. Stage A tiering
+(DEV-LOOP.md section 2): Fable orchestrates/reviews, Opus/Sonnet
+write most code; packets M7-1.. in docs/BACKLOG.md. Visual work
+follows .claude/skills/mimir-design; deploys, launchd installs and
+ingest --apply are HUMAN actions (Golden Rule 3; universe.json only
+via reviewed proposals). Consult ARCHITECTURE.md section 6 for Gate
+7; update this line at each gate.
