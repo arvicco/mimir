@@ -2,6 +2,10 @@
 
 One line per completed packet: date · packet · commit · notes.
 
+2026-07-06 · M5-4 · -- · Gate 5 checklist made concrete in the backlog (day-0 install steps -> 48h-green condition -> parallel soak closing at Gate 6) and README refreshed to the Phase 5 capability set: new Ops-layer section (prepared agents, snapshot archive, tmux line, offline health audit), not-implemented list rewritten to the approved P6-P10 roadmap (placeholder-universe caveat stays). Phase 5 packets complete; Gate 5 is the owner's.
+
+2026-07-06 · M5-3 · 03ae48e · docs/RUNBOOK.md: nine numbered owner procedures with EXPECT lines (agent install/verify, tmux line, pause/uninstall, token rotation, namespace re-creation, key purge, stale-everything recovery in strict diagnose order, weekly soak checks) + quarantined Background; secret-safe (presence-only checks, editor-only edits). Opus draft; fable review corrected stdout literals (publish LIVE: 11 written vs the status-file LIVE 11/11), added --binding MIMIR to kv delete, realistic post-kickstart waits.
+
 2026-07-06 · M5-5 · 78f24d1 · ops/gex_snapshot.rb: daily dated archive of gex_btc_combined + gex_us IBIT MSTR --json (verbatim, local-only under data/gex_history) -- date-guard idempotency, per-capture redacted errors, atomic tmp+rename, exit 1 only on both-fail; wrapper + StartCalendarInterval 08:15 plist in the M5-1 shape. Sonnet vs spec, no deviations. U3 (Phase 9) consumes this archive.
 
 2026-07-06 · M5-2 · 732b2d1 · ops/publish_health.rb: tmux status-right one-liner over the frozen publish.status format + mtime -- green fresh / yellow amber-or-incomplete-or-DRY / red stale / PUB ? fail-soft (always exit 0). New frozen --tmux contract, 12 byte-exact pins (injected clock + utime, no sleeps). Sonnet vs spec, no deviations; review: ops/ joined rake compat RUBY_DIRS.
