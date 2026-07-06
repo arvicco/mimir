@@ -404,7 +404,7 @@ function buildChartCard(env, key) {
     var info = document.createElement("span");
     info.className = "info hover";
     info.textContent = "ⓘ"; // ⓘ
-    info.tabIndex = 0; // keyboard-reachable: focus opens the bubble (card-head :focus-within)
+    info.tabIndex = 0; // keyboard-reachable: focus opens the bubble (.hover:focus rule)
     head.appendChild(info);
   }
   var badge = document.createElement("span");

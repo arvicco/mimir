@@ -116,8 +116,12 @@
   /* flipped upward by render.js when the default position would clip at
      the viewport bottom (bottom-row cards) -- opens above the head */
   .bubble.up { top: auto; bottom: calc(100% - 26px); }
+  /* focus opens the bubble only from the elements that own it (.hover =
+     key/info) -- :focus-within on the whole head pinned the bubble open
+     over the chart whenever a GEX tab button was clicked (owner report,
+     Gate 6 preview) */
   .card-head:has(.hover:hover) ~ .bubble,
-  .card-head:focus-within ~ .bubble,
+  .card-head:has(.hover:focus) ~ .bubble,
   .bubble:hover { display: block; }
   .info:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
   .badge {

@@ -224,7 +224,10 @@ module Publish
         # replaces the drawn legend; the component stays so legend actions
         # keep driving series selection
         'legend' => { 'show' => false, 'data' => bars.map { |s| s['name'] } },
-        'grid' => { 'left' => 52, 'right' => 92, 'top' => 30, 'bottom' => 26 },
+        # top 56: a two-band label zone between the 13px title and the plot
+        # (flip/spot lower band, walls raised) -- markline labels used to
+        # collide with the title while panning (owner report, Gate 6)
+        'grid' => { 'left' => 52, 'right' => 92, 'top' => 56, 'bottom' => 26 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
         'yAxis' => { 'type' => 'value' },
         # all levels stay in the data; the default window shows the
@@ -294,7 +297,12 @@ module Publish
     end
 
     # Flip (solid amber) + call/put walls (dashed) snapped to the
-    # nearest bucketed level so they land on the category axis.
+    # nearest bucketed level so they land on the category axis. Wall
+    # labels are raised into the upper band of the grid-top label zone
+    # so an adjacent wall+flip pair can never garble ("PWlip") and no
+    # label reaches the title (owner report, Gate 6 preview).
+    WALL_RAISE = { 'offset' => [0, -14] }.freeze
+
     def mark_lines(gex, levels)
       c = gex['combined'] || {}
       lines = []
@@ -305,12 +313,12 @@ module Publish
       end
       if c['call_wall']
         lines << { 'xAxis' => nearest_label(levels, c['call_wall']['level']),
-                   'label' => { 'formatter' => 'CW' },
+                   'label' => { 'formatter' => 'CW' }.merge(WALL_RAISE),
                    'lineStyle' => { 'color' => '#0f7a5c', 'type' => 'dashed' } }
       end
       if c['put_wall']
         lines << { 'xAxis' => nearest_label(levels, c['put_wall']['level']),
-                   'label' => { 'formatter' => 'PW' },
+                   'label' => { 'formatter' => 'PW' }.merge(WALL_RAISE),
                    'lineStyle' => { 'color' => '#c63939', 'type' => 'dashed' } }
       end
       { 'symbol' => 'none', 'data' => lines }
@@ -352,7 +360,10 @@ module Publish
         'title' => { 'text' => format('MSTR GEX $M/1%% · spot %s', mstr_label(gex['spot'])),
                      'textStyle' => { 'fontSize' => 13 } },
         'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 }, 'axisPointer' => { 'type' => 'shadow' } },
-        'grid' => { 'left' => 52, 'right' => 92, 'top' => 30, 'bottom' => 26 },
+        # top 56: a two-band label zone between the 13px title and the plot
+        # (flip/spot lower band, walls raised) -- markline labels used to
+        # collide with the title while panning (owner report, Gate 6)
+        'grid' => { 'left' => 52, 'right' => 92, 'top' => 56, 'bottom' => 26 },
         'xAxis' => { 'type' => 'category', 'data' => levels.map { |l| mstr_label(l) } },
         'yAxis' => { 'type' => 'value' },
         # all strikes stay in the data; the default window shows the
@@ -398,12 +409,12 @@ module Publish
       end
       if gex['call_wall']
         lines << { 'xAxis' => nearest_mstr_label(levels, gex['call_wall']['strike']),
-                   'label' => { 'formatter' => 'CW' },
+                   'label' => { 'formatter' => 'CW' }.merge(WALL_RAISE),
                    'lineStyle' => { 'color' => GEX_TEAL, 'type' => 'dashed' } }
       end
       if gex['put_wall']
         lines << { 'xAxis' => nearest_mstr_label(levels, gex['put_wall']['strike']),
-                   'label' => { 'formatter' => 'PW' },
+                   'label' => { 'formatter' => 'PW' }.merge(WALL_RAISE),
                    'lineStyle' => { 'color' => GEX_RED, 'type' => 'dashed' } }
       end
       { 'symbol' => 'none', 'data' => lines }

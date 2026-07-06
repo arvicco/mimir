@@ -2,6 +2,8 @@
 
 One line per completed packet: date · packet · commit · notes.
 
+2026-07-06 · M6-6 · -- · Owner Gate-6 preview findings, both fixed (fable): (1) tab click pinned the info bubble over the chart -- the card-head :focus-within rule fired for the tab buttons; bubble focus-trigger scoped to .hover elements (key/ⓘ) in both pages, keyboard path intact (ⓘ keeps tabIndex). (2) markline labels collided with the chart title while panning + adjacent PW/flip garbled ("PWlip") -- both GEX charts get a two-band label zone (grid top 30->56; flip/spot lower band, CW/PW raised offset [0,-14]); banding pinned in exact-value tests; both goldens re-blessed after Playwright 7/7 + crops at default and zoomed-out geometry. Owner ran the promotion: live ledger 275 lines, fit_history 185, backups verified.
+
 2026-07-06 · M6-5b · -- · Owner rejected the Gate 6 checklist ("MIGHT be machine-readable but definitely NOT human-readable") -- rewritten runbook-style (3 steps, one command each, EXPECT lines, background quarantined) and the promotion paste-block replaced by interactive rake lppl:promote (diff -> y/N -> timestamped backups -> merge BOTH history files; refuses CI/non-TTY like ops:*). Lesson reinforced: EVERY owner-facing procedure gets the runbook treatment + a task wrapper when it involves pasting commands; gate checklists are owner docs, not loop specs.
 
 2026-07-06 · M6-5 · -- · README (replay/backfill/13-key/tabs capabilities, honest about promotion pending) + Gate 6 checklist in BACKLOG: ledger promotion (paste the two printed commands), MSTR/tabs visual sign-off, 13/13 + 156 writes/day expectation shift, soak review if >= Jul 13, merge. Phase 6 packets complete same day they were elaborated.

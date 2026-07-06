@@ -19,7 +19,7 @@
   "grid": {
     "left": 52,
     "right": 92,
-    "top": 30,
+    "top": 56,
     "bottom": 26
   },
   "xAxis": {
@@ -1807,7 +1807,11 @@
           {
             "xAxis": "107",
             "label": {
-              "formatter": "CW"
+              "formatter": "CW",
+              "offset": [
+                0,
+                -14
+              ]
             },
             "lineStyle": {
               "color": "#0f7a5c",
@@ -1817,7 +1821,11 @@
           {
             "xAxis": "80",
             "label": {
-              "formatter": "PW"
+              "formatter": "PW",
+              "offset": [
+                0,
+                -14
+              ]
             },
             "lineStyle": {
               "color": "#c63939",
