@@ -2,6 +2,12 @@
 
 One line per completed packet: date · packet · commit · notes.
 
+2026-07-06 · M6-5 · -- · README (replay/backfill/13-key/tabs capabilities, honest about promotion pending) + Gate 6 checklist in BACKLOG: ledger promotion (paste the two printed commands), MSTR/tabs visual sign-off, 13/13 + 156 writes/day expectation shift, soak review if >= Jul 13, merge. Phase 6 packets complete same day they were elaborated.
+
+2026-07-06 · M6-4 · 4c96867+e95989a · GEX card tabs = 4th renderer hook tab_group/tab_label/tab_pos (opus vs fable spec, D7-c Option A): shared card, tab_pos order (BTC leads over alphabetical), reveal+resize, title/bubble/badge swap compatible with both pages' tickers, append guards; goldens PROVEN unchanged (meta lives in envelope not option -- implementer corrected the spec premise). Fable review fix: roving tabindex without arrow handlers made the inactive tab keyboard-unreachable -> all tabs naturally focusable. Playwright 6/6 both pages; SKILL.md hooks 3->4. Fixup e95989a: M6-3 fixture+golden were untracked (commit -am lesson) -- 3 intermediate commits red in CI.
+
+2026-07-06 · M6-2 · cf494e2 · Staged backfill driver (fable): rake lppl:backfill / lppl:backfill_diff, BTC_DATA_DIR staging isolation, resumable, promotion commands printed never run. EXECUTED: 273 days 2025-10-06 (detect_peak == D7-a's Oct-2025 peak) -> 2026-07-05, ~14 min, stage-B overlap diff MATCH on every field both recorded days. Staged story: STRESSED throughout, bf -333 -> -426, ratio 1.11 -> 0.47, fit from ~day 90.
+
 2026-07-06 · M6-1 · 1d248ec · lppl --as-of replay (opus vs fable spec): in-memory strict-< price truncation, all four wall-clock anchors frozen (additive now: kwarg on BTC::Report.report), trend cache read-filter + append suppression (density-sensitive BF), fit stability window filtered, --tmux refused, additive as_of json field. Opus hardening accepted: calendar-rollover abort. Smoke: replayed 2026-07-05 == recorded ledger entry on all six fields, read-only md5-verified, 2.9s/day -> full backfill ~15 min.
 
 2026-07-06 · M6-3 · c8c117f · gex:mstr producer + sibling chart builder (opus): net-gamma-per-strike bars coloured by sign, spot/flip/CW/PW marklines, spot+-30% zoom, gex_profile framing for the future shared tab card. Implementer corrected the spec: 11 -> 13 keys (not 12; producer AND chart), key shape gex:mstr not gex_mstr:latest. All count literals repinned (tests, RUNBOOK, index.html banner); fixture + golden recorded; dry-run 13/13.

@@ -78,8 +78,11 @@ scrape (degrades gracefully on layout drift).
 ruby scripts/lppl/lppl.rb                  # update prices, run 5 tests, verdict
 ruby scripts/lppl/lppl.rb --skip-update    # offline, cached prices
 ruby scripts/lppl/lppl.rb --history        # also append ledger + fit history
+ruby scripts/lppl/lppl.rb --as-of 2026-05-01  # replay: verdict as of that day
 ruby scripts/lppl/trend.rb                 # any test standalone
 ruby scripts/lppl/logperiodic.rb --sims 500  # more bootstrap sims
+rake lppl:backfill                         # staged ledger rebuild from the cycle peak
+rake lppl:backfill_diff                    # staged-vs-live report + promotion commands
 ```
 
 Five tests (out-of-sample trend Bayes factor, damping envelope, LPPLS
@@ -87,6 +90,18 @@ anti-bubble fit, Lomb-Scargle oscillation significance, valuation
 percentile monitor) -> REGIME-INTACT ... FALSIFIED verdict. First run
 downloads full BTC price history and bootstraps a score cache (takes a
 minute or two); daily runs are incremental. Keyless.
+
+`--as-of YYYY-MM-DD` computes the verdict exactly as a live run on
+that day would have, from the price cache alone: prices truncated to
+the day before, wall clock frozen, score/fit caches read-filtered,
+nothing written unless `--history` is also given (and `--tmux` is
+refused so a replay can never clobber the live status token).
+`rake lppl:backfill` chains replays day-by-day from the Oct-2025
+cycle peak into `data/lppl_backfill_staging/` (resumable, ~3 s/day,
+never touches live data); `rake lppl:backfill_diff` verifies the
+staged history against the organically recorded days field-by-field
+and prints the promotion commands -- running those is a deliberate
+human step (Gate 6).
 
 ## BTCo treasury analyser
 
@@ -118,7 +133,8 @@ PUBLISH_DRY_RUN=1 ruby publish/publish.rb   # DEFAULT: artifact set -> data/publ
 PUBLISH_DRY_RUN=0 ruby publish/publish.rb   # KV PUTs; needs CLOUDFLARE_ACCOUNT_ID/CLOUDFLARE_KV_NAMESPACE_ID/CLOUDFLARE_API_TOKEN
 ```
 
-Runs the four suites, wraps every payload in the frozen envelope
+Runs the five producers (the four suites plus MSTR dealer gamma via
+`gex_us.rb`), wraps every payload in the frozen envelope
 (`v/key/generated_at/ttl_hint_s/source/payload`), adds trailing
 history windows (scenario 90d, lppl 365d) and a `v1:index`, and writes
 files (dry) or Cloudflare KV keys (real). A producer that crashes or
@@ -134,15 +150,16 @@ carry the token or payloads.
 
 ## Chart specs + offline preview
 
-The publish run also builds four pre-rendered chart specs
-(`v1:chart:gex_profile / scenario_strip / lppl_regime / btco_table`) --
+The publish run also builds five pre-rendered chart specs
+(`v1:chart:gex_profile / gex_mstr / scenario_strip / lppl_regime /
+btco_table`) --
 each payload is a complete ECharts option the dashboard renders with
 one `setOption` call. Review them offline:
 
 ```
 PUBLISH_DRY_RUN=1 ruby publish/publish.rb   # fresh artifact set
 rake preview                                # stdlib server, localhost:8000
-open http://localhost:8000/web/preview.html # the four chart specs, side by side
+open http://localhost:8000/web/preview.html # all chart specs, side by side
 open http://localhost:8000/web/index.html   # the production dashboard, same data
 ```
 
@@ -177,7 +194,8 @@ static dashboard renders the pre-built chart specs.
   loader over the Worker -- per-key chips, live age tickers (the badge
   ticks up second-by-second and recolours green/amber/red from each
   envelope's `generated_at`/`ttl_hint_s`), a healthz-aware failure banner,
-  the four charts, and the BTCo sortable table.
+  the chart cards in a 2x2 grid (the two GEX charts share one card as
+  [BTC][MSTR] tabs), and the BTCo sortable table.
 - **Deploy** (`rake deploy`, **owner-run**): pre-flight (wrangler + CF_*
   env + clean tree + green gate), generate the live `wrangler.toml` from
   the committed template with the namespace id from `CLOUDFLARE_KV_NAMESPACE_ID`,
@@ -216,13 +234,16 @@ Install/operate/recover procedures: `docs/RUNBOOK.md`.
 
 ## Not implemented yet (roadmap in ARCHITECTURE.md)
 
-- BTCo universe is still placeholder seed data; Phase 6 (ingest
+- BTCo universe is still placeholder seed data; Phase 7 (ingest
   shakedown + owner-applied proposals) replaces it with filing-derived
   values and adds a daily new-filing discovery alert. Until then the
   BTCo card's numbers carry `placeholder` flags and a ~year-old as-of.
-- LPPL/scenario tracking history starts 2026-07-04; the Phase 7
-  backfill replays the LPPL ledger from the Oct-2025 peak. MSTR GEX on
-  the dashboard is also Phase 7.
+- The LIVE LPPL ledger still starts 2026-07-04 until the owner runs
+  the Gate 6 promotion: the full Oct-2025-peak replay history is
+  already staged and verified (`rake lppl:backfill_diff` shows the
+  overlap match + the exact promotion commands). Scenario history
+  still starts 2026-07-04 (no replay mode; source-dependent seeding is
+  Phase 8).
 - Coinglass integration (docs/improvements.md), scenario v2 hypothesis
   modules (docs/scenario_upgrades.md), dashboard round 2 -- Phases 8-10.
 - Queue-tail hardening: Cloudflare Access (email OTP / service tokens)
