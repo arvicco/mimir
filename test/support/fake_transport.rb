@@ -46,6 +46,13 @@ module FakeTransport
   Res = Struct.new(:code, :body)
 
   def self.respond(url)
+    # FAKE_HTTP_LOG: append every requested URL, one per line, so a test can
+    # PROVE which endpoints a subprocess hit (M7-2: the alert must request
+    # ONLY the EDGAR submissions endpoint -- no document fetch, no AI).
+    if (log = ENV['FAKE_HTTP_LOG']) && !log.empty?
+      File.open(log, 'a') { |f| f.puts(url) }
+    end
+
     deny = ENV['FAKE_HTTP_DENY'].to_s.split(',').reject(&:empty?)
     return Res.new('500', 'denied by test') if deny.any? { |f| url.include?(f) }
 

@@ -45,6 +45,10 @@ module BTC
 
     REPO_PLACEHOLDER    = '__REPO__'
     DEFAULT_STATUS_PATH = '/tmp/publish.status'
+    # The BTCo discovery-alert token rides the same right-align run as the
+    # publish health token (D8-a: joins the mimir status cluster). Written
+    # by ops/btco_alert.rb -> /tmp/ingest.status, empty on quiet days.
+    INGEST_STATUS_CMD   = '#(cat /tmp/ingest.status 2>/dev/null)'
     # Mirror of Ops::PublishHealth's frozen status-line contract (kept local
     # so lib/ does not depend backwards on ops/): PUB LIVE|DRY n/m keys ...
     PUBLISH_STATUS_RE   = %r{\APUB (\w+) (\d+)/(\d+) keys}
@@ -66,7 +70,10 @@ module BTC
       ['com.mimir.gex-snapshot', 'run_gex_snapshot.sh',
        log: 'gex_snapshot.log', marker: '=== run_gex_snapshot',
        success_re: /\b(written|skipped \(today's file exists\)|partial)/,
-       timeout: 90, kind: :snapshot]
+       timeout: 90, kind: :snapshot],
+      ['com.mimir.btco-alert', 'run_btco_alert.sh',
+       log: 'btco_alert.log', marker: '=== run_btco_alert',
+       success_re: /alert: /, timeout: 60, kind: :alert]
     ].freeze
 
     module_function
@@ -417,9 +424,11 @@ module BTC
     # The command tmux runs to draw the token, and its dedicated-line form
     # (own right-aligned section). ALWAYS the REAL absolute repo path -- a
     # placeholder left in is the #1 silent failure, so there is no
-    # placeholder here to leave in.
+    # placeholder here to leave in. The BTCo discovery-alert token
+    # (ING n!, empty on quiet days) rides the SAME right-align run,
+    # immediately after the publish health token (D8-a).
     def tmux_health_cmd(repo)
-      "#(ruby #{File.join(repo, 'ops', 'publish_health.rb')})"
+      "#(ruby #{File.join(repo, 'ops', 'publish_health.rb')})#{INGEST_STATUS_CMD}"
     end
 
     def tmux_dedicated_value(repo)
@@ -503,13 +512,23 @@ module BTC
       io.puts format('status bar: status=%d, status-interval=%s', count,
                      interval.empty? ? '(unset)' : interval)
 
-      # 2b. already present? idempotent -- report where, offer nothing.
+      # 2b. already present? Fully idempotent only when BOTH tokens ride
+      # the line; a bar installed before M7-2 carries the health token
+      # without the ingest fragment -- offer the in-place upgrade (the
+      # fragment appended right after the health command) instead of
+      # "nothing to do" (review catch: the gold bar predates the alert).
       present = formats.keys.sort.find { |i| formats[i].include?('publish_health.rb') }
-      if present
-        io.puts format('token already present in status-format[%d] -- nothing to do.', present)
-        io.puts 'For reference, the line that carries it:'
+      if present && formats[present].include?('/tmp/ingest.status')
+        io.puts format('both tokens already present in status-format[%d] -- nothing to do.', present)
+        io.puts 'For reference, the line that carries them:'
         print_tmux_persist(io, ["set -g status-format[#{present}] '#{formats[present]}'"])
         return 0
+      end
+      if present
+        index   = present
+        value   = formats[present].sub(/(#\(ruby [^)]*publish_health\.rb\))/) { "#{Regexp.last_match(1)}#{INGEST_STATUS_CMD}" }
+        variant = 'append ingest token to the existing line'
+        return tmux_offer(io, input, runner, interval, index, value, variant)
       end
 
       # 3. propose ONE variant fitted to what we found. Prefer a dedicated
@@ -530,13 +549,18 @@ module BTC
         value   = formats[index] + tmux_dedicated_value(repo)
         variant = 'merge onto last line'
       end
+      tmux_offer(io, input, runner, interval, index, value, variant)
+    end
 
+    # The shared offer tail: print the ONE proposed variant, apply live on
+    # y (reversible set -g, nothing persisted), then ALWAYS print the
+    # paste-to-persist lines. Used by the fresh proposal AND the M7-2
+    # append-ingest-token upgrade path.
+    def tmux_offer(io, input, runner, interval, index, value, variant)
       io.puts ''
       io.puts format('proposed change (%s, index %d):', variant, index)
       io.puts "  status-format[#{index}] = '#{value}'"
 
-      # 4. apply live? reversible set -g on the running server (nothing
-      # persisted). Then make sure the bar actually refreshes.
       eff_interval = tmux_interval_active?(interval) ? interval : '30'
       if ask?(io, input, 'apply live now? [y/N]')
         runner.call(['tmux', 'set', '-g', "status-format[#{index}]", value])
@@ -546,10 +570,10 @@ module BTC
           end
         end
         io.puts ''
-        io.puts format("EXPECT: the PUB token appears at the bar's right edge within %ss.", eff_interval)
+        io.puts format("EXPECT: the mimir token(s) at the bar's right edge within %ss " \
+                       '(PUB always; ING only when new filings exist).', eff_interval)
       end
 
-      # 5. ALWAYS print the exact ~/.tmux.conf line(s) to persist.
       lines = ["set -g status-format[#{index}] '#{value}'"]
       lines << 'set -g status-interval 30' unless tmux_interval_active?(interval)
       print_tmux_persist(io, lines)
