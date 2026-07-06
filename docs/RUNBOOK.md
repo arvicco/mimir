@@ -141,11 +141,14 @@ an interval agent between runs; `running` if it happens to be mid-run)
 and a `path = .../run_*.sh` pointing at your repo.
 `Could not find service` means 2.2 did not take -- re-run it.
 
-**2.4 Force one publish now and verify the log marker.**
+**2.4 Force one publish now and verify the log marker.** (The sleep
+gives the live suite fetches ~2 minutes to finish; default zsh treats
+nothing after `#` as a comment, so the blocks here carry no inline
+comments -- keep it that way if you edit them.)
 
 ```
 launchctl kickstart -k gui/$(id -u)/com.mimir.publish
-sleep 120   # the suites fetch live data; give the run ~2 minutes
+sleep 120
 tail -n 25 ~/Library/Logs/mimir/publish.log
 ```
 
@@ -165,7 +168,7 @@ just ran 2.4. If the time is old, the publish did not reach KV -- section 8.
 
 ```
 launchctl kickstart -k gui/$(id -u)/com.mimir.gex-snapshot
-sleep 60    # two live options-chain fetches
+sleep 60
 ls -la "${BTC_DATA_DIR:-$REPO/data}/gex_history/"
 tail -n 5 ~/Library/Logs/mimir/gex_snapshot.log
 ```
@@ -173,8 +176,12 @@ tail -n 5 ~/Library/Logs/mimir/gex_snapshot.log
 EXPECT: a `$(date -u +%F).json` file (today's date) in the listing, and
 a log tail with a `=== run_gex_snapshot ...Z` marker followed by
 `written: .../<date>.json` (or `partial ...` if one venue failed -- still
-a valid file). `failed (both captures failed)` writes no file and is the
-only case that alarms launchd.
+a valid file). `skipped (today's file exists)` is ALSO a pass: the 1.4
+smoke test already captured today, and the date-guard is doing its job.
+`failed (both captures failed)` writes no file and is the only case
+that alarms launchd. If the `ls` says `/data/gex_history: No such file`,
+`$REPO` is not set in this shell -- set it (top of this runbook) and
+re-run the `ls`.
 
 Both agents are now live. They will run on their own schedule
 (publisher every 2h, snapshot daily 08:15 local) from here on.
