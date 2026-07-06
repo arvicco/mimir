@@ -868,13 +868,96 @@ Gate 5 soak-week review moves to Gate 7 if this merges before Jul 13;
 `rake lppl:backfill_diff` re-prints the verification diff read-only
 any time.
 
-**Phase 7 -- BTCo ingest to real data** (pushed back: owner-interactive;
-Gate 7 = v1 tag): ingest flow characterization tests; discovery-alert
-mode + status contract + daily launchd agent (D6-a: analysis stays
-interactive); XXI/NAKA CIKs added; interactive shakedown on latest
-filings with owner review/apply until no placeholder:true remains.
-Soak close + KV quota review land at whichever of Gate 6/7 follows the
-soak week; v1 tags at Gate 7 (real BTCo data, per the standing ruling).
+**Phase 7 -- BTCo ingest to real data** (owner-interactive; Gate 7 =
+v1 tag). Elaborated 2026-07-06 at Gate 6 close; packets below.
+Ground truth from the survey: ingest.rb is complete in design
+(discover -> extract [AI w/ heuristic fallback] -> propose ->
+review/dismiss -> apply w/ backup + per-ticker audit ledger) but the
+flow past the text helpers is UNTESTED and it has never been run
+(capstruct/pending/ empty, no state.json). universe.json: all 7
+companies placeholder:true; XXI + NAKA carry cik:null so EDGAR
+discovery skips them (their real CIKs -- XXI 2070457, NAKA 1946573 --
+were verified on EDGAR pre-swap but never written in). ingest.rb
+--dry is already exactly the D6-a alert primitive: discovery listing
+only, no fetch, no AI, and state.json is NOT persisted under --dry.
+
+## M7-1 · ingest flow characterization  [tier: opus vs fable spec] [status: todo]
+Goal: pin the untested 80% of ingest.rb behind tests BEFORE the
+      shakedown relies on it: proposal write -> --review -> --apply
+      round-trip (universe.json updated in place, placeholder flips
+      false, timestamped .bak created, TICKER.jsonl ledger line
+      appended, proposal file deleted); --dismiss; --apply-all-high
+      (incl. the reload-between-applies behavior); --status; state.json
+      round-trip + the seen-cap; dedupe tripod (state seen, ledger
+      accessions, --file content hash); --dry persists nothing.
+      All against tmpdir copies of universe.json + fake EDGAR transport
+      (BTC::Http seam) + a stubbed extraction seam -- if the Claude API
+      call is not already injectable, extract it behind a module
+      function in a behavior-preserving, characterize-first refactor
+      (flag the diff). NO network, NO ANTHROPIC_API_KEY in tests; the
+      prompt/schema contract pins (M1-11) stay untouched.
+Acceptance: every CLI mode covered by at least one test; real
+      capstruct/ and universe.json byte-untouched by the suite
+      (the /tmp-clobber lesson); rake green.
+
+## M7-2 · discovery-alert job + status contract  [tier: opus] [status: todo] [deps: M7-1]
+Goal: the D6-a scheduled piece. (a) additive `--dry --json` surface on
+      ingest.rb: one JSON line {new: n, filings: [{ticker, form, date,
+      accession}...]} -- contract test same commit; (b) ops/btco_alert.rb
+      reading that surface and writing the status token (form per D8-a
+      ruling; proposal: token only when n>0, empty file otherwise so a
+      packed bar stays quiet on quiet days); (c) daily launchd plist +
+      wrapper following the M5-1 conventions (bash -n / rexml scans
+      pick them up automatically -- verify), NO --apply anywhere near
+      it (repo-wide scan already bans it in ops/); (d) rake
+      ops:install/status/uninstall/tmux extended from two agents to
+      three; (e) RUNBOOK section, runbook-style.
+Acceptance: alert job provably does no fetch/AI/state-write (test:
+      fake transport counts requests -- submissions endpoint only;
+      state.json absent after run); ops tasks green on the fake fs
+      suite; rake green.
+
+## M7-3 · CIK enablement + owner shakedown  [tier: fable prep, OWNER sessions] [status: todo] [deps: M7-1]
+Goal: (a) write XXI cik 2070457 + NAKA cik 1946573 into universe.json
+      -- a deliberate human-approved edit (Golden Rule: universe.json
+      changes only via reviewed proposals or deliberate human edit;
+      this is plumbing, not fundamentals -- flagged for owner approval
+      in the phase plan); (b) owner-session runbook (numbered + EXPECT):
+      env presence checks (EDGAR_UA, ANTHROPIC_API_KEY -- names only),
+      then per US-listed company: discover latest 10-Q/8-K, review the
+      AI proposal, apply or dismiss; 3350 (Metaplanet) via --file with
+      an owner-supplied TDnet document; XXI/NAKA via EDGAR once (a)
+      lands, --file fallback if their filings predate coverage;
+      (c) shakedown continues until no placeholder:true remains
+      (extraction schema reports ABSOLUTE numbers -- latest filing per
+      company suffices, no backlog replay).
+Acceptance: universe.json fully real (7/7 placeholder:false), every
+      change carried by a ledger line + backup; next publish shows
+      real BTCo data on the dashboard; the session runbook survived
+      contact with the owner.
+
+## M7-4 · README + Gate 7 checklist + v1 prep  [tier: fable] [status: todo] [deps: M7-1..3]
+Goal: README's btco section drops the placeholder caveats (honestly:
+      as-of dates now filing-driven); Gate 7 checklist runbook-style
+      (interactive tasks over paste blocks); v1 tag is the owner's
+      gate action (tags are gate actions); soak-week review + KV quota
+      (156/day) + novo promotion land here if >= Jul 13.
+
+## Decision items -- Phase 7
+- D8-a Alert token form/placement: PROPOSED -- `BTCO n!` appended to
+  the second status line's right section, written only when n > 0
+  (quiet bar on quiet days; publish_health's always-on token covers
+  liveness, filings only matter when there are some). Owner rules.
+- D8-b EDGAR_UA: owner sets `EDGAR_UA='name email'` in
+  ~/.config/mimir/env before the shakedown (presence-checked, never
+  printed). SEC courtesy header -- their infra throttles anonymous
+  UAs.
+- D8-c Shakedown scheduling: owner picks the session window; API
+  spend is small (7 companies x 1-2 filings, sonnet-tier default
+  BTCO_MODEL).
+
+Soak close + KV quota review land at whichever gate follows the soak
+week; v1 tags at Gate 7 (real BTCo data, per the standing ruling).
 
 **Phase 8 -- Coinglass groundwork + module upgrades** (improvements.md
 steps 1-5): lib/btc/coinglass.rb + TTL cache + tier probe; A1 etf_flows
