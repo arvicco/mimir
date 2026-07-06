@@ -110,6 +110,25 @@ task :preview do
   BTC::PreviewServer.serve(Dir.pwd, (ENV['PORT'] || 8000).to_i)
 end
 
+namespace :lppl do
+  desc 'Staged LPPL ledger backfill via --as-of replay (writes ONLY to ' \
+       'data/lppl_backfill_staging/; resumable; ~3 s/day). M6-2 / D7-a.'
+  task :backfill do
+    require_relative 'scripts/lppl/backfill'
+    exit 1 unless Lppl::Backfill.run
+  end
+
+  desc 'Staged-vs-live ledger overlap diff + promotion commands (read-only; ' \
+       'promotion itself is an OWNER action at Gate 6)'
+  task :backfill_diff do
+    require_relative 'scripts/lppl/backfill'
+    staged = File.join(Lppl::Backfill::STAGE_ROOT, 'lppl', 'ledger.jsonl')
+    live   = File.join(Lppl::DATA, 'ledger.jsonl')
+    abort "no staged ledger at #{staged} -- run rake lppl:backfill first" unless File.exist?(staged)
+    Lppl::Backfill.diff(staged, live)
+  end
+end
+
 namespace :golden do
   desc 'Bless chart goldens after visual review in preview.html (deterministic: regenerates from test/fixtures/payloads/)'
   task :approve do
