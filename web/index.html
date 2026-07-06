@@ -468,6 +468,15 @@ async function loadBtco() {
     return;
   }
   var chartKeys = buildHeader(idx);
+  // An index without chart:* keys is a publish older than the chart
+  // pipeline -- render the reason, not a bare page (Gate 4 lesson).
+  if (!chartKeys.length) {
+    var eb = document.getElementById("banner");
+    eb.style.display = "block";
+    eb.textContent = "The published index lists no chart:* keys -- KV holds a publish " +
+                     "older than the chart pipeline. Run: PUBLISH_DRY_RUN=0 ruby publish/publish.rb " +
+                     "(expect PUB LIVE 11/11), then reload.";
+  }
   for (var i = 0; i < chartKeys.length; i += 1) {
     await loadChart(chartKeys[i]);
   }
