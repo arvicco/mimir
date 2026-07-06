@@ -22,6 +22,10 @@
 #   ruby lppl.rb --tmux        # one line -> /tmp/lppl.status
 #   ruby lppl.rb --history     # append data/ledger.jsonl (+ fit history)
 #   ruby lppl.rb --skip-update # use cached prices (offline/backtest)
+#   ruby lppl.rb --as-of DATE  # replay: verdict as of wall-clock day DATE
+#                              # (YYYY-MM-DD) from the cache alone; implies
+#                              # --skip-update, refuses --tmux, adds as_of
+#                              # to --json. Read-only on all cache files.
 #
 # Module stdout discipline: in --json mode a test must print exactly one
 # JSON line (this aggregator parses the LAST stdout line; anything else
@@ -31,9 +35,21 @@
 
 require 'json'
 require 'time'
+require_relative 'common' # Lppl.as_of / Lppl.now_utc (same regex + abort)
 require_relative '../../lib/btc/env'
 require_relative '../../lib/btc/suite'
 require_relative '../../lib/btc/report'
+
+# Replay clock: parse (and validate) --as-of once. AS_OF is the frozen wall
+# clock; ASOF_ARG is passed through to every module subprocess so they see the
+# same day. --as-of never coexists with --tmux (would clobber the live token).
+AS_OF    = Lppl.as_of
+ASOF_ARG = AS_OF ? ['--as-of', AS_OF.strftime('%Y-%m-%d')] : []
+if AS_OF && ARGV.include?('--tmux')
+  warn 'as-of: --tmux replay is refused (it would clobber the live ' \
+       '/tmp/lppl.status token). Use --json or the table.'
+  exit 2
+end
 
 DIR    = File.expand_path(__dir__)
 LEDGER = File.join(BTC::Env.data_dir('lppl', File.join(DIR, 'data')),
@@ -53,15 +69,19 @@ rescue StandardError => e
   { 'name' => name, 'score' => 0, 'headline' => "module failed (#{e.class})" }
 end
 
-unless ARGV.include?('--skip-update')
+# In as-of mode there is nothing to fetch -- replay works from the cache only,
+# so the update is skipped exactly as --skip-update does.
+unless ARGV.include?('--skip-update') || AS_OF
   up = run_module('prices', 120)
   warn "prices: #{up['headline']}" if up['headline'].to_s.include?('unavailable')
 end
 
 results = TESTS.map do |name, w, to|
   # fit.rb's stability tracker only appends on --history runs; pass the
-  # flag through so the daily cron run keeps feeding it.
+  # flag through so the daily cron run keeps feeding it. ASOF_ARG threads the
+  # replay day into every module.
   extra = name == 'fit' && ARGV.include?('--history') ? ['--history'] : []
+  extra += ASOF_ARG
   r = run_module(name, to, extra)
   { name: name, w: w, score: r['score'].to_i,
     headline: r['headline'].to_s, detail: r }
@@ -91,7 +111,7 @@ verdict = 'STRESSED' if verdict != 'FALSIFIED' &&
 
 d = {}
 results.each { |r| d[r[:name]] = r[:detail] }
-ts = Time.now.utc
+ts = Lppl.now_utc
 
 if ARGV.include?('--history')
   require 'fileutils'
@@ -129,9 +149,10 @@ if ARGV.include?('--tmux')
 end
 
 if ARGV.include?('--json')
-  puts JSON.pretty_generate(ts: ts.iso8601, composite: composite.round(3),
-                            verdict: verdict, status_line: line,
-                            tests: results)
+  out = { ts: ts.iso8601, composite: composite.round(3),
+          verdict: verdict, status_line: line, tests: results }
+  out[:as_of] = AS_OF.strftime('%Y-%m-%d') if AS_OF # additive; absent when live
+  puts JSON.pretty_generate(out)
   exit
 end
 

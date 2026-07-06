@@ -7,6 +7,7 @@
 
 require_relative '../test_helper'
 require_relative '../../scripts/lppl/common'
+require 'tmpdir'
 
 class TestRangeReg < Minitest::Test
   def test_recovers_exact_line
@@ -115,5 +116,94 @@ class TestReciprocalEnvelope < Minitest::Test
 
   def test_empty_input_returns_nil
     assert_nil Lppl.reciprocal_envelope([], [])
+  end
+end
+
+# M6-1: the --as-of replay seams in common.rb, exercised directly. as_of
+# memoizes off ARGV, so each case swaps ARGV and clears the memo; load_prices
+# is pointed at a throwaway cache (never the real data dir) via the PRICES
+# constant. Characterization first (unfiltered), then the truncation.
+class TestAsOfSeam < Minitest::Test
+  CACHE = <<~CSV
+    date,close
+    2020-01-01,7000.0
+    2020-01-02,0.01
+    2020-01-03,7200.5
+    2020-06-01,9000.0
+    2020-06-02,9100.0
+  CSV
+
+  def reset_memo
+    Lppl.remove_instance_variable(:@as_of) if Lppl.instance_variable_defined?(:@as_of)
+  end
+
+  def with_argv(argv)
+    old = ARGV.dup
+    ARGV.replace(argv)
+    reset_memo
+    yield
+  ensure
+    ARGV.replace(old)
+    reset_memo
+  end
+
+  def with_prices(csv)
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, 'prices.csv')
+      File.write(path, csv)
+      old = Lppl::PRICES
+      silence { Lppl.const_set(:PRICES, path) }
+      begin
+        yield
+      ensure
+        silence { Lppl.const_set(:PRICES, old) }
+      end
+    end
+  end
+
+  def silence
+    v = $VERBOSE
+    $VERBOSE = nil
+    yield
+  ensure
+    $VERBOSE = v
+  end
+
+  # ---- parse -----------------------------------------------------------------
+  def test_absent_flag_is_nil
+    with_argv(['--json']) do
+      assert_nil Lppl.as_of
+      assert_operator (Time.now.utc - Lppl.now_utc).abs, :<, 5 # now_utc falls back
+    end
+  end
+
+  def test_valid_date_parses_to_utc_midnight
+    with_argv(['--json', '--as-of', '2026-07-05']) do
+      assert_equal Time.utc(2026, 7, 5), Lppl.as_of
+      assert_equal Time.utc(2026, 7, 5), Lppl.now_utc # frozen clock
+    end
+  end
+
+  # ---- load_prices: characterization then truncation -------------------------
+  def test_load_prices_unfiltered_drops_dust_orders_ascending
+    with_argv([]) do
+      with_prices(CACHE) do
+        p = Lppl.load_prices
+        assert_equal %w[2020-01-01 2020-01-03 2020-06-01 2020-06-02],
+                     p[:dates].map { |t| t.strftime('%Y-%m-%d') }
+        assert_equal 4, p[:px].size # the 0.01 dust row is gone
+      end
+    end
+  end
+
+  def test_load_prices_truncates_strictly_before_as_of
+    with_argv(['--as-of', '2020-06-01']) do
+      with_prices(CACHE) do
+        p = Lppl.load_prices
+        # strict <: the row dated ON the as-of day and the one after it drop.
+        assert_equal %w[2020-01-01 2020-01-03],
+                     p[:dates].map { |t| t.strftime('%Y-%m-%d') }
+      end
+    end
   end
 end
