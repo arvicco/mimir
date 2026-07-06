@@ -474,7 +474,7 @@ Acceptance: Playwright pins top-row bubble opens down, edge-of-viewport
       bubble flips and stays fully visible, table lives in-quadrant with
       no .wide strip; screenshots reviewed; rake green.
 
-## Gate 4 (human)
+## Gate 4 (human)  [status: CLOSED 2026-07-06 -- PR #5 merged; owner ran rake deploy, site LIVE, smoke 4/4, noindex verified live]
 Owner does first-time CF setup (Pages project + Worker route), runs
 `rake deploy` (M4-5), walks the smoke checklist against the live
 host, merges PR phase-4 -> main.
@@ -493,6 +493,104 @@ host, merges PR phase-4 -> main.
   the END of the queue (below). The worker keeps the dormant
   AUTH_TOKEN branch from the committed M4-1 spec so flipping it on
   never needs a code change.
+
+---
+
+## Phase 5 -- ops integration (branch: phase-5)
+
+Elaborated at Gate 4 close (2026-07-06) per ARCHITECTURE.md section 6
+Phase 5. Everything here PREPARES ops artifacts; installing launchd
+agents on novo and running the soak are HUMAN actions (Golden Rule 3,
+DEV-LOOP section 7). Note: publish.rb already runs the four suites as
+subprocesses and publishes in one pass, so ARCHITECTURE's "publisher
+after each suite run" collapses to ONE scheduled publisher job -- its
+cadence is decision item D5-a.
+
+## M5-1 · ops/ wrappers + prepared launchd agents (publisher, ingest discovery)  [tier: opus -- prepared-not-installed cron/launchd entries vs a written spec (named at this tier in DEV-LOOP section "Opus"); fable reviews (secret-adjacent: env-file sourcing)] [status: ready] [deps: --]
+Goal: new top-level `ops/` dir: (a) `ops/run_publish.sh` -- sh wrapper
+      that sources `~/.config/mimir/env` (MIMIR_ENV_FILE overridable;
+      refuses with a clear, secret-free message if absent), cds to the
+      repo, execs `PUBLISH_DRY_RUN=0 ruby publish/publish.rb`, appends
+      stdout+stderr to `~/Library/Logs/mimir/publish.log` (publish
+      already redacts; wrapper never echoes env). Exit code passes
+      through (publish is nonzero on real-publish failure -- that is
+      the cron alarm). (b) `ops/run_ingest.sh` -- same shape, runs
+      `ruby scripts/btco/ingest.rb --limit 5` (default mode IS
+      discovery -> capstruct/pending/ proposals; `--apply` is NEVER
+      scheduled -- universe.json rule). (c) launchd plists
+      `ops/com.mimir.publish.plist` (StartInterval per D5-a) and
+      `ops/com.mimir.ingest.plist` (daily), absolute paths via an
+      install-time sed step documented in RUNBOOK; RunAtLoad false;
+      launchd's no-overlap semantics noted in the plist comments.
+Acceptance: `bash -n` + `plutil -lint` wired into `rake health` as
+      offline scans (registered, so drift fails the gate); env-missing
+      refusal pinned by a unit test shelling the wrapper with a fake
+      HOME; no secrets in any ops file; rake green.
+
+## M5-2 · Publish health line for the tmux bar  [tier: sonnet -- small pure formatter over the existing frozen /tmp/publish.status contract with an exact-value test oracle; two failures bump to opus] [status: ready] [deps: --]
+Goal: `ops/publish_health.rb` -- stdlib one-shot for `status-right`:
+      reads /tmp/publish.status (`PUB LIVE 11/11 keys 12:00 UTC`
+      contract, untouched) plus the file's mtime and prints ONE short
+      line, e.g. `PUB 11/11 0:37` with tmux colour codes: green when
+      age < 2x the publish interval, amber < 6x, red beyond or when
+      the file is missing/unparseable (prints `PUB ?` -- fail-soft,
+      exit 0, never breaks the bar). Interval from MIMIR_PUBLISH_
+      INTERVAL_MIN env (default matching D5-a). This output is a NEW
+      frozen --tmux contract: exact-value contract tests in the same
+      commit; RUNBOOK documents the status-right snippet.
+Acceptance: contract tests pin fresh/amber/red/missing/garbled cases
+      byte-exactly (injected clock + path); exit 0 in all cases; rake
+      green.
+
+## M5-3 · docs/RUNBOOK.md  [tier: opus -- runbook drafting is named at this tier in DEV-LOOP; fable reviews against the runbook-style ruling (numbered do-this steps + EXPECT lines, background quarantined at the end)] [status: ready] [deps: M5-1, M5-2]
+Goal: the owner's operations runbook, one numbered procedure per
+      section, exact commands + EXPECT lines: install the launchd
+      agents on novo (sed paths, cp to ~/Library/LaunchAgents,
+      launchctl bootstrap/print, verify first scheduled run in the
+      log + on the live dashboard), uninstall/pause, add the tmux
+      health line, rotate CLOUDFLARE_API_TOKEN (create new -> swap in
+      ~/.config/mimir/env -> verify publish + deploy -> revoke old),
+      re-create the KV namespace (new id -> env -> `rake deploy`),
+      purge a single key, recover from stale-everything (diagnose
+      order: launchd job state -> publish.log -> upstream sources via
+      `rake health:sources` -> manual `PUBLISH_DRY_RUN=0` run), code-
+      only redeploy (`DEPLOY_SKIP_PUBLISH=1 rake deploy`), and the
+      KV free-tier quota math at the D5-a cadence. Background section
+      (what runs when, file map) quarantined at the end.
+Acceptance: every command copy-pasteable with an EXPECT line; a
+      newcomer could operate novo from this doc alone; README gains a
+      one-line pointer; no secrets anywhere.
+
+## M5-4 · Gate 5 soak checklist + README refresh  [tier: fable -- gate-defining document, cross-cutting review of the whole phase] [status: ready] [deps: M5-1..3]
+Goal: BACKLOG Gate 5 entry expanded into the concrete one-week soak
+      protocol: owner installs agents (RUNBOOK), then daily 1-minute
+      check (dashboard n/11 fresh, tmux line green); log every
+      staleness incident as date · key · cause · minutes-stale; end
+      of week review KV writes/day vs free tier (expected: 11 keys x
+      24 runs = 264/day vs 1000 limit at hourly D5-a) and upstream
+      API quota behavior; then owner tags v1 (tags are gate actions).
+      README updated to the Phase 5 capability set before the gate
+      (Workflow rule 5).
+Acceptance: checklist is executable as written; README honest about
+      what does not work yet (universe.json placeholder caveat
+      stays); rake green; phase ends with the Gate 5 handoff summary,
+      not an action.
+
+## Gate 5 (human)
+Owner installs the launchd agents on novo per RUNBOOK, runs the
+one-week soak per M5-4's checklist, reviews KV quota + staleness
+incidents, merges PR phase-5 -> main, tags v1.
+
+## Decision items -- Phase 5 planning (owner ruling requested, 2026-07-06)
+- D5-a Publish cadence: RECOMMEND hourly (StartInterval 3600).
+  Driver: ARCHITECTURE names btco hourly, and publish runs all four
+  suites in one pass, so hourly-everything is the simplest schedule
+  that satisfies it. Cost: 264 KV writes/day (26% of free tier);
+  upstream APIs hit hourly (all sources are quota-safe at 24/day per
+  rake health:sources registry -- FRED/Coin Metrics community limits
+  are per-minute, not per-day). Alternative: 3-hourly publish accepts
+  a staler btco card for 1/3 the API traffic. Chart TTLs already
+  derive from source ttl_hints, so no spec change either way.
 
 ## Queue tail (post-Gate 5 / v1.1 candidates, owner-ruled order)
 - AUTH: Cloudflare Access in front of Pages+Worker (email OTP; free
