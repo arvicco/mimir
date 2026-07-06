@@ -627,6 +627,35 @@ Acceptance: BTC::Ops fully injectable (runner/io/clock/home/repo,
       refusal pinned; no secret ever read or printed (env checks are
       presence-only); rake green; RUNBOOK updated in the same packet.
 
+## M5-7 · rake ops:tmux -- interactive tmux health-line installer  [tier: opus -- extends BTC::Ops in the M5-6 pattern (injectable runner, TTY-gated); fable spec + review] [status: ready] [deps: M5-6]
+Goal: owner ruling 2026-07-06 (after the manual tmux merge fumble on
+      gold: placeholder path left in, free-line guessing, align
+      semantics): a script for everything scripts are good at, and it
+      NEVER edits ~/.tmux.conf. `rake ops:tmux` (owner-run, CI+TTY
+      refusal via the existing Ops.run): 1) pre-checks -- tmux on
+      PATH, server running (if not: print the static snippet with the
+      REAL repo path and exit), ops/publish_health.rb executes and its
+      token is shown; 2) inspect the live server -- `status` count,
+      `status-interval`, each status-format[i], and whether our token
+      is already present (idempotent: report where, offer nothing);
+      3) propose ONE variant fitted to what it found -- dedicated line
+      on the first free index (only if one is free at the CURRENT
+      status count; never suggest growing the bar unprompted) else
+      append `#[align=right]#(ruby <real path>)` to the last occupied
+      format (a second align run starts its own right section --
+      verified live); 4) prompt "apply live now? [y/N]" -> tmux set -g
+      on the running server (reversible, nothing persisted), confirm
+      status-interval is set (offer 30 if 0/unset), then EXPECT line;
+      5) always finish by printing the exact ~/.tmux.conf line(s) to
+      paste for persistence. RUNBOOK section 3 collapses to the task;
+      manual variants move to the Background fallback.
+Acceptance: BTC::Ops.tmux fully injectable (runner/io/input); tests
+      cover no-server, token-already-present idempotence, free-line vs
+      merge proposal paths, declined vs applied prompts, interval
+      offer; never writes any file (pinned: fake fs untouched); real
+      repo path substituted everywhere (no placeholders in output);
+      rake green; RUNBOOK updated in the same packet.
+
 ## Gate 5 (human) -- concrete checklist (M5-4)
 Staged rollout (owner ruling 2026-07-06): the first install happens on
 GOLD as staging, novo gets it only after the 48h-green proof. The KV
