@@ -506,7 +506,7 @@ the four suites as subprocesses and publishes in one pass, so there is
 ONE scheduled publisher job, bi-hourly (D5-a). Ingest is NOT scheduled
 in this phase (D6-a: interactive; Phase 6 adds a discovery-alert job).
 
-## M5-1 · ops/ wrapper + prepared launchd agent (publisher)  [tier: opus -- prepared-not-installed cron/launchd entries vs a written spec (named at this tier in DEV-LOOP section "Opus"); fable reviews (secret-adjacent: env-file sourcing)] [status: ready] [deps: --]
+## M5-1 · ops/ wrapper + prepared launchd agent (publisher)  [tier: opus -- prepared-not-installed cron/launchd entries vs a written spec (named at this tier in DEV-LOOP section "Opus"); fable reviews (secret-adjacent: env-file sourcing)] [status: done -- opus, fable review extended the --apply ban to plists] [deps: --]
 Goal: new top-level `ops/` dir: (a) `ops/run_publish.sh` -- sh wrapper
       that sources `~/.config/mimir/env` (MIMIR_ENV_FILE overridable;
       refuses with a clear, secret-free message if absent), cds to the
