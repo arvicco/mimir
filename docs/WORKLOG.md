@@ -2,6 +2,8 @@
 
 One line per completed packet: date · packet · commit · notes.
 
+2026-07-06 · M5-2 · 732b2d1 · ops/publish_health.rb: tmux status-right one-liner over the frozen publish.status format + mtime -- green fresh / yellow amber-or-incomplete-or-DRY / red stale / PUB ? fail-soft (always exit 0). New frozen --tmux contract, 12 byte-exact pins (injected clock + utime, no sleeps). Sonnet vs spec, no deviations; review: ops/ joined rake compat RUBY_DIRS.
+
 2026-07-06 · M5-1 · 63c6157 · ops/run_publish.sh (env-file sourcing w/ secret-free exit-78 refusal, ~/Library/Logs/mimir logging, PUBLISH_DRY_RUN=0, exec passthrough so launchd alarms on publish failure) + com.mimir.publish.plist template (__REPO__ placeholder, StartInterval 7200 per D5-a, RunAtLoad false). rake health gains the offline ops scan: bash -n, dry-run guarantee, repo-wide --apply ban (shells AND plists -- review addition), rexml plist checks (plutil absent on ubuntu CI). Opus implementation vs spec; wrapper behavior pinned by shelling tests under a fake HOME.
 
 2026-07-06 · plan-v1.x · -- · Multi-phase plan approved (owner): P5 ops+preservation (M5-5 gex snapshots added; ingest agent REMOVED from P5), P6 ingest-to-real-data (Gate 6 = soak close + v1 tag), P7 LPPL backfill + MSTR GEX panel, P8 Coinglass groundwork/upgrades (improvements.md), P9 scenario v2 U-modules (scenario_upgrades.md), P10 dashboard round 2 (+D4-a). Rulings: D5-a bi-hourly (132 KV writes/day); D6-a ingestion interactive, scheduled part = discovery ALERT only; D7-a backfill from Oct-2025 peak; D7-c tab widget needs design context before ruling; v1 at Gate 6. ARCHITECTURE section 6 rewritten (tunnel now Phase 11); backlog skeletons P6-10.
