@@ -154,4 +154,39 @@ task :deploy do
   exit code
 end
 
+# Shared runner for the ops:* tasks: dispatch through BTC::Ops.run (which
+# REFUSES under CI and without a TTY -- Golden Rule 3), redact + abort on
+# Error, exit with the task's own code.
+def ops_run(cmd)
+  require_relative 'lib/btc/ops'
+  begin
+    code = BTC::Ops.run([cmd])
+  rescue BTC::Ops::Error => e
+    abort BTC::Env.redact(e.message)
+  end
+  exit code
+end
+
+namespace :ops do
+  desc 'Install + verify the launchd agents (OWNER-RUN, interactive; refuses ' \
+       'under CI and without a TTY -- Golden Rule 3). Pre-flight, render ' \
+       'plists into ~/Library/LaunchAgents, (re)bootstrap, optional kickstart ' \
+       'with a polled PASS/FAIL verification table. Not in the default gate.'
+  task :install do
+    ops_run('install')
+  end
+
+  desc 'Report the launchd agents: state / last exit, last log marker + ' \
+       'summary, status-file age, newest gex snapshot. Read-only, exit 0.'
+  task :status do
+    ops_run('status')
+  end
+
+  desc 'Uninstall the launchd agents (OWNER-RUN, interactive): confirm, ' \
+       'bootout both, remove the installed plists. Not in the default gate.'
+  task :uninstall do
+    ops_run('uninstall')
+  end
+end
+
 task default: %i[compat health fixtures:verify test web:test]

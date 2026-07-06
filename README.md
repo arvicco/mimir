@@ -206,7 +206,12 @@ by tooling (Golden Rule 3): `run_publish.sh` + `com.mimir.publish.plist`
 `data/gex_history/` -- options data cannot be backfilled), and
 `publish_health.rb` (tmux status-right one-liner: green fresh / yellow
 amber-or-partial / red stale / `PUB ?` fail-soft). `rake health` audits
-all of it offline (shell syntax, plist keys, the --apply ban).
+all of it offline (shell syntax, plist keys, the --apply ban). The owner
+drives it with three interactive tasks (owner-run only -- they refuse
+under CI and without a TTY, Golden Rule 3): `rake ops:install` (pre-flight,
+render + bootstrap both agents, optional kickstart with a polled PASS/FAIL
+table), `rake ops:status` (agent state, log markers, status-file age,
+newest snapshot), `rake ops:uninstall` (confirm, bootout, remove plists).
 Install/operate/recover procedures: `docs/RUNBOOK.md`.
 
 ## Not implemented yet (roadmap in ARCHITECTURE.md)

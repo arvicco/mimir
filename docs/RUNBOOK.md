@@ -66,125 +66,72 @@ is not first on launchd's PATH), `DEPLOY_NAME` (public hostname). To
 create the Cloudflare token itself, follow **docs/DEPLOY.md section 1**
 -- do not duplicate it here.
 
-**1.3 Confirm the required keys are present (names only, no values).**
-
-```
-for k in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_KV_NAMESPACE_ID FRED_API_KEY; do
-  printf '%-28s ' "$k"
-  grep -Eq "^(export +)?$k=." ~/.config/mimir/env && echo present || echo MISSING
-done
-```
-
-EXPECT: four `present` lines. (`grep -Eq` reports only presence -- it
-never prints the line, so no value leaks. Both `KEY=value` and
-`export KEY=value` lines count; the wrappers source either form.)
-Any `MISSING` -> back to 1.2. NOTE: `echo $KEY` printing a value in
-your shell does NOT make this check redundant -- launchd never sees
-your shell; the wrappers read ONLY this file.
-
-**1.4 Confirm the wrappers run and can read the env file.**
-
-```
-"$REPO/ops/run_gex_snapshot.sh"; echo "exit $?"
-```
-
-EXPECT: `exit 0` (or `exit 1` only if both GEX captures failed upstream
--- a network issue, not a setup issue). A `exit 78` with a
-`run_gex_snapshot: env file not readable: ...` line means 1.2 is not
-done. Setup complete.
+**1.3 That is all the manual setup.** The old by-hand checks (env-file
+mode, required-keys grep, wrapper smoke test, wrappers/plists present,
+`launchctl` on PATH) are now the pre-flight table `rake ops:install`
+prints and gates on in section 2 -- run it and read the rows instead of
+grepping here. The pre-flight reports each key `present`/`MISSING` by
+name only (line-anchored `^(export +)?KEY=.`, both `KEY=value` and
+`export KEY=value` forms) and never prints a value. NOTE: `echo $KEY`
+in your shell does NOT prove the env file is right -- launchd never sees
+your shell; the wrappers read ONLY this file, which is exactly what the
+pre-flight inspects.
 
 ---
 
 ## 2. Install the launchd agents
 
-Installs both agents: `com.mimir.publish` (bi-hourly publisher) and
-`com.mimir.gex-snapshot` (daily 08:15 snapshot). Requires section 1 done.
+Installs both agents -- `com.mimir.publish` (bi-hourly publisher) and
+`com.mimir.gex-snapshot` (daily 08:15 snapshot) -- with one interactive
+command. Requires section 1 done. `rake ops:install` does the pre-flight,
+renders each plist's `__REPO__` into `~/Library/LaunchAgents`, boots each
+agent (bootout-then-bootstrap if already loaded), verifies the program
+line, and -- per agent -- offers to kickstart the first run and POLLS its
+log for the completion marker + summary (no `sleep`, no eyeballing). The
+manual `sed`/`launchctl`/`sleep` sequence it replaces is kept in the
+Background section ("Manual fallback") for reference only.
 
-**2.1 Substitute the repo path into both plists and copy them in.** The
-plists ship with a `__REPO__` placeholder; `sed` fills it with your
-absolute repo path (the exact command is also in each plist's XML
-comment):
-
-```
-mkdir -p ~/Library/LaunchAgents
-sed "s#__REPO__#$REPO#g" "$REPO/ops/com.mimir.publish.plist" \
-  > ~/Library/LaunchAgents/com.mimir.publish.plist
-sed "s#__REPO__#$REPO#g" "$REPO/ops/com.mimir.gex-snapshot.plist" \
-  > ~/Library/LaunchAgents/com.mimir.gex-snapshot.plist
-grep ProgramArguments -A2 ~/Library/LaunchAgents/com.mimir.publish.plist
-```
-
-EXPECT: the `<string>` line shows your real path, e.g.
-`<string>/Users/<you>/Dev/mimir/ops/run_publish.sh</string>` -- no
-literal `__REPO__` remaining.
-
-**2.2 Bootstrap both agents into your GUI session.**
+**2.1 Run the installer and answer the prompts.**
 
 ```
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mimir.publish.plist
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mimir.gex-snapshot.plist
+cd "$REPO"
+rake ops:install
 ```
 
-EXPECT: no output, exit 0. `Bootstrap failed: 5: Input/output error`
-usually means it is already loaded -- run the bootout in section 4.3
-first, then retry.
+Answer `y` to both `kickstart <label> now? [y/N]` prompts on a fresh
+install (say `y` to force the first publish and the first snapshot now;
+`N` if you would rather wait for the scheduled run).
 
-**2.3 Verify both are registered.**
+EXPECT: a `pre-flight:` table of `[ok ]` rows (env file mode 0600, four
+keys `present`, ruby, both wrappers + plists, `ops/ audit` clean,
+`launchctl`), then a `verification:` table where every row is `[PASS]`:
 
-```
-launchctl print gui/$(id -u)/com.mimir.publish | grep -E 'state|path'
-launchctl print gui/$(id -u)/com.mimir.gex-snapshot | grep -E 'state|path'
-```
+- `com.mimir.publish: plist` / `bootstrap` -> installed + `program = .../run_publish.sh`
+- `com.mimir.publish: run` -> `publish LIVE: 11 written, 0 skipped -> KV`
+- `com.mimir.publish: status file` -> `PUB LIVE 11/11 keys HH:MM UTC (age 0m)`
+- `com.mimir.gex-snapshot: run` -> `written: .../<today>.json` (or `skipped
+  (today's file exists)` / `partial` -- both PASS)
+- `com.mimir.gex-snapshot: snapshot file` -> `present .../<today>.json`
 
-EXPECT: each prints `state = not running` (the normal idle state for
-an interval agent between runs; `running` if it happens to be mid-run)
-and a `path = .../run_*.sh` pointing at your repo.
-`Could not find service` means 2.2 did not take -- re-run it.
+Any `[FAIL]` row: fix it and re-run (`rake ops:install` is idempotent --
+it bootouts and reinstalls a loaded agent). A pre-flight `[FAIL]` aborts
+before any install; the row names the fix (missing key, wrong env-file
+mode, `launchctl` not on PATH). A `run` row `TIMEOUT` means the run did
+not complete within the poll window (publish 240s / snapshot 90s) --
+read `~/Library/Logs/mimir/publish.log` and see section 8. A run row
+carrying `ABORT`/`exit 78` means the wrapper could not read the env file
+(re-check section 1.2) or a producer bailed.
 
-**2.4 Force one publish now and verify the log marker.** (The sleep
-gives the live suite fetches ~2 minutes to finish; default zsh treats
-nothing after `#` as a comment, so the blocks here carry no inline
-comments -- keep it that way if you edit them.)
-
-```
-launchctl kickstart -k gui/$(id -u)/com.mimir.publish
-sleep 120
-tail -n 25 ~/Library/Logs/mimir/publish.log
-```
-
-EXPECT: the tail opens with a `=== run_publish 2026-...Z` UTC marker and
-ends with the summary `publish LIVE: 11 written, 0 skipped -> KV`
-(all eleven keys). A `10 written, 1 skipped` or a producer error means a
-suite failed -- see section 8. `exit 78` in the log means the env file
-was unreadable to launchd -- re-check 1.2.
-
-**2.5 Verify the dashboard header advanced.** Open your dashboard URL in
+**2.2 Verify the dashboard header advanced.** Open your dashboard URL in
 a browser and look at the header.
 
-EXPECT: `pub HH:MMZ · 11/11 fresh`, where `HH:MMZ` is the UTC minute you
-just ran 2.4. If the time is old, the publish did not reach KV -- section 8.
-
-**2.6 Force one snapshot now and verify the file landed.**
-
-```
-launchctl kickstart -k gui/$(id -u)/com.mimir.gex-snapshot
-sleep 60
-ls -la "${BTC_DATA_DIR:-$REPO/data}/gex_history/"
-tail -n 5 ~/Library/Logs/mimir/gex_snapshot.log
-```
-
-EXPECT: a `$(date -u +%F).json` file (today's date) in the listing, and
-a log tail with a `=== run_gex_snapshot ...Z` marker followed by
-`written: .../<date>.json` (or `partial ...` if one venue failed -- still
-a valid file). `skipped (today's file exists)` is ALSO a pass: the 1.4
-smoke test already captured today, and the date-guard is doing its job.
-`failed (both captures failed)` writes no file and is the only case
-that alarms launchd. If the `ls` says `/data/gex_history: No such file`,
-`$REPO` is not set in this shell -- set it (top of this runbook) and
-re-run the `ls`.
+EXPECT: `pub HH:MMZ · 11/11 fresh`, where `HH:MMZ` is the UTC minute the
+publish `run` row reported. If the time is old, the publish did not reach
+KV -- section 8.
 
 Both agents are now live. They will run on their own schedule
-(publisher every 2h, snapshot daily 08:15 local) from here on.
+(publisher every 2h, snapshot daily 08:15 local) from here on. Re-check
+any time with `rake ops:status` (section 8, step 1).
 
 ---
 
@@ -224,45 +171,46 @@ hours:minutes since the last publish). Meaning:
   means someone ran `PUBLISH_DRY_RUN=1` by hand. The dashboard is not
   being refreshed -> run a real publish (section 8, step 5).
 - **red** `PUB ?` -- no status file, or it is unreadable/garbled. The
-  publisher has never run on this box, or `/tmp` was cleared -> kickstart
-  it (section 2.4) and recheck.
+  publisher has never run on this box, or `/tmp` was cleared -> re-run
+  `rake ops:install` (section 2) and answer `y` to the publish kickstart,
+  then recheck.
 
 ---
 
 ## 4. Pause / resume / uninstall the agents
 
-**4.1 Pause one agent** (survives until you resume; does NOT survive a
-reboot -- a bootout-ed agent reloads on login, so use uninstall for
-permanent):
+**4.1 Uninstall permanently** (bootout both agents, delete the
+LaunchAgents copies so nothing reloads on next login):
+
+```
+cd "$REPO"
+rake ops:uninstall
+```
+
+Answer `y` to the `bootout + remove installed plists? [y/N]` prompt.
+
+EXPECT: an `uninstall:` table with a `booted out; installed plist removed`
+row per label. A not-loaded agent shows `was not loaded` and is not an
+error. Confirm: `ls ~/Library/LaunchAgents/com.mimir.*.plist` prints
+`No such file or directory`. The repo's `ops/*.plist` templates are
+untouched -- reinstall any time via section 2.
+
+**4.2 Pause / resume one agent by hand** (temporary; a bootout-ed agent
+reloads on next login, so this is not a permanent stop -- use 4.1 for
+that). Pause:
 
 ```
 launchctl bootout gui/$(id -u)/com.mimir.publish
 ```
 
-EXPECT: no output, exit 0. `launchctl print gui/$(id -u)/com.mimir.publish`
-now prints `Could not find service`.
-
-**4.2 Resume it** (re-bootstrap the installed plist):
+Resume (re-bootstrap the installed plist):
 
 ```
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mimir.publish.plist
 ```
 
-EXPECT: no output; `launchctl print` shows `state = not running` again.
-
-**4.3 Uninstall permanently** (bootout, then delete the LaunchAgents
-copy so it does not reload on next login). Repeat per label:
-
-```
-launchctl bootout gui/$(id -u)/com.mimir.publish 2>/dev/null
-launchctl bootout gui/$(id -u)/com.mimir.gex-snapshot 2>/dev/null
-rm -f ~/Library/LaunchAgents/com.mimir.publish.plist
-rm -f ~/Library/LaunchAgents/com.mimir.gex-snapshot.plist
-```
-
-EXPECT: `ls ~/Library/LaunchAgents/com.mimir.*.plist` prints
-`No such file or directory`. The repo's `ops/*.plist` templates are
-untouched -- reinstall any time via section 2.
+EXPECT: pause prints nothing and `launchctl print gui/$(id -u)/com.mimir.publish`
+then reports `Could not find service`; resume restores `state = not running`.
 
 ---
 
@@ -404,7 +352,25 @@ Dashboard is old / a card is red / the tmux line is red. Diagnose IN
 THIS ORDER -- stop at the first step that fails and follow where it
 sends you. Do not skip ahead.
 
-**Step 1 -- tmux line and dashboard age.**
+**Step 1 -- the one-command overview.**
+
+```
+cd "$REPO"
+rake ops:status
+```
+
+EXPECT: an `ops status:` table. Per agent a `loaded; state=not running;
+last exit=0` row (`not loaded` is a row, not a crash) plus a `... log`
+row with the last `=== run_*` marker and summary; then a `status file`
+row `PUB LIVE 11/11 keys HH:MM UTC (age Nm)` and a `newest gex snapshot`
+row naming today's `<date>.json`.
+FAILURE: `not loaded` -> the agent was never installed / got booted out,
+re-run section 2 (`rake ops:install`). A nonzero `last exit` or a large
+`status file` age -> a run failed; continue to Step 3 to see why. `status
+file` `missing` or a `PUB ?`-worthy line -> the publisher never completed
+on this box -> Step 3.
+
+**Step 2 -- tmux line and dashboard age.**
 
 ```
 ruby "$REPO/ops/publish_health.rb"
@@ -412,22 +378,10 @@ ruby "$REPO/ops/publish_health.rb"
 
 EXPECT: a `#[fg=green]PUB 11/11 H:MM#[default]` string with a small H:MM.
 Cross-check the dashboard header `pub HH:MMZ · n/11 fresh`.
-FAILURE: `PUB ?` (no status file -> the agent never ran, go to Step 2),
-yellow/red (stale or partial -> Step 2), or dashboard reads a many-hours
+FAILURE: `PUB ?` (no status file -> the agent never ran, go to Step 3),
+yellow/red (stale or partial -> Step 3), or dashboard reads a many-hours
 age. If green and fresh, the pipeline is healthy -- your problem is
 elsewhere (browser cache? refresh hard).
-
-**Step 2 -- agent state.**
-
-```
-launchctl print gui/$(id -u)/com.mimir.publish | grep -E 'state|last exit code'
-```
-
-EXPECT: `state = not running` and `last exit code = 0` (or
-`(never exited)` if the agent has not fired since install).
-FAILURE: `Could not find service` -> the agent is not loaded, re-run
-section 2.2. A nonzero `last exit code` -> a run failed; continue to
-Step 3 to see why.
 
 **Step 3 -- read the publish log.**
 
@@ -556,6 +510,42 @@ moving parts are.*
   in-tree `data/gex_history/` when `BTC_DATA_DIR` is unset). Gitignored;
   never published to KV, never committed. Phase 9 (`expiry_low`) will
   consume it.
+
+**Manual fallback (what `rake ops:install` does).** The installer wraps
+the sequence below; run these by hand only if the task is unavailable or
+you are debugging it. Per agent it renders the plist, (re)bootstraps, and
+verifies -- the same steps, minus the polled PASS/FAIL table.
+
+```
+mkdir -p ~/Library/LaunchAgents
+sed "s#__REPO__#$REPO#g" "$REPO/ops/com.mimir.publish.plist" \
+  > ~/Library/LaunchAgents/com.mimir.publish.plist
+sed "s#__REPO__#$REPO#g" "$REPO/ops/com.mimir.gex-snapshot.plist" \
+  > ~/Library/LaunchAgents/com.mimir.gex-snapshot.plist
+launchctl bootout gui/$(id -u)/com.mimir.publish 2>/dev/null
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mimir.publish.plist
+launchctl bootout gui/$(id -u)/com.mimir.gex-snapshot 2>/dev/null
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mimir.gex-snapshot.plist
+launchctl print gui/$(id -u)/com.mimir.publish | grep -E 'state|program'
+```
+
+The two `bootout ... 2>/dev/null` lines make a reinstall idempotent (they
+no-op when nothing is loaded). Kickstart a first run + eyeball it with:
+
+```
+launchctl kickstart -k gui/$(id -u)/com.mimir.publish
+sleep 120
+tail -n 25 ~/Library/Logs/mimir/publish.log
+launchctl kickstart -k gui/$(id -u)/com.mimir.gex-snapshot
+sleep 60
+tail -n 5 ~/Library/Logs/mimir/gex_snapshot.log
+```
+
+EXPECT (what the installer verifies for you): a `=== run_publish ...Z`
+marker then `publish LIVE: 11 written, 0 skipped -> KV`; a
+`=== run_gex_snapshot ...Z` marker then `written: .../<date>.json`.
+Uninstall by hand = the two `bootout` lines plus
+`rm -f ~/Library/LaunchAgents/com.mimir.*.plist`.
 
 **No log rotation.** Neither wrapper rotates its log; both grow until you
 truncate them by hand (section 9.2). This is deliberate -- the volume is
