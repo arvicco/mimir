@@ -2,6 +2,8 @@
 
 One line per completed packet: date · packet · commit · notes.
 
+2026-07-06 · phase-swap · -- · Owner ruled phases 6 and 7 swapped: LPPL backfill + MSTR GEX panel first (autonomous), BTCo ingest pushed back (owner-interactive). v1 tag moves with the ingest to Gate 7 per the standing real-data ruling; soak review lands at whichever gate follows the week. Decision-item IDs (D6-a/D7-a/b/c) keep their historical labels.
+
 2026-07-06 · M5-7 · 2f9149c · rake ops:tmux (owner ruling after the manual merge fumble): inspects the live server, idempotent when the token exists, proposes ONE fitted variant (free line vs own-align-run merge -- the live-verified form), reversible apply via tmux set -g + interval offer, ALWAYS prints the paste-to-persist lines, never edits ~/.tmux.conf; real path baked in everywhere. RUNBOOK section 3 = one command. Novo tmux step is now: rake ops:tmux, y, paste one line.
 
 2026-07-06 · goldens-blessed · -- · Owner eyeballed preview.html and signed off ("preview looks fine now"): the 2026-07-06 payload-refresh goldens, the two-round gauge fix, the unified dot-only header, and the shared in-quadrant BTCo table are all owner-blessed. First fully-scheduled publish tick fired 15:29:22Z (StartInterval honoured, no kickstart).

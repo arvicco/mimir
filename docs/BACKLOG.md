@@ -691,18 +691,21 @@ Full Goal/Acceptance elaboration happens at the preceding gate (loop
 rule). Details in ARCHITECTURE.md section 6; concepts in
 docs/improvements.md + docs/scenario_upgrades.md.
 
-**Phase 6 -- BTCo ingest to real data** (Gate 6 = soak closed + v1 tag):
-ingest flow characterization tests; ingest discovery-alert mode +
-status contract + daily launchd agent (D6-a: analysis stays
+**Phase 6 -- LPPL history backfill + MSTR GEX panel** (swapped ahead
+of ingest, owner ruling 2026-07-06 -- autonomous work first): additive
+--as-of replay mode; sequential ledger+fit-history rebuild from the
+Oct-2025 peak (D7-a), verified byte-identical on already-recorded days
+first, owner-blessed one-shot write; import of pre-handoff files if
+found (D7-b). MSTR GEX: v1:gex_mstr:latest + chart key + quadrant
+presentation per D7-c ruling (design options presented first).
+
+**Phase 7 -- BTCo ingest to real data** (pushed back: owner-interactive;
+Gate 7 = v1 tag): ingest flow characterization tests; discovery-alert
+mode + status contract + daily launchd agent (D6-a: analysis stays
 interactive); XXI/NAKA CIKs added; interactive shakedown on latest
 filings with owner review/apply until no placeholder:true remains.
-
-**Phase 7 -- LPPL history backfill + MSTR GEX panel**: additive --as-of
-replay mode; sequential ledger+fit-history rebuild from the Oct-2025
-peak (D7-a), verified byte-identical on already-recorded days first,
-owner-blessed one-shot write; import of pre-handoff files if found
-(D7-b). MSTR GEX: v1:gex_mstr:latest + chart key + quadrant
-presentation per D7-c ruling (design options presented first).
+Soak close + KV quota review land at whichever of Gate 6/7 follows the
+soak week; v1 tags at Gate 7 (real BTCo data, per the standing ruling).
 
 **Phase 8 -- Coinglass groundwork + module upgrades** (improvements.md
 steps 1-5): lib/btc/coinglass.rb + TTL cache + tier probe; A1 etf_flows
