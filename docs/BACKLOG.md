@@ -596,6 +596,8 @@ Goal: `ops/gex_snapshot.rb` -- stdlib one-shot with an injectable
 Acceptance: unit tests with a fake runner pin file shape, date-guard,
       partial-failure and both-fail paths; wrapper/plist pass the M5-1
       health scans; no network in tests; rake green.
+Status note: done (sonnet first pass, no deviations; fable review
+      clean) -- 78f24d1.
 
 ## Gate 5 (human)
 Owner installs the launchd agents (publish + gex snapshot) on novo per
