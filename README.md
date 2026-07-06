@@ -82,7 +82,8 @@ ruby scripts/lppl/lppl.rb --as-of 2026-05-01  # replay: verdict as of that day
 ruby scripts/lppl/trend.rb                 # any test standalone
 ruby scripts/lppl/logperiodic.rb --sims 500  # more bootstrap sims
 rake lppl:backfill                         # staged ledger rebuild from the cycle peak
-rake lppl:backfill_diff                    # staged-vs-live report + promotion commands
+rake lppl:backfill_diff                    # staged-vs-live verification report
+rake lppl:promote                          # OWNER, interactive: promote staged history
 ```
 
 Five tests (out-of-sample trend Bayes factor, damping envelope, LPPLS
@@ -99,9 +100,10 @@ refused so a replay can never clobber the live status token).
 `rake lppl:backfill` chains replays day-by-day from the Oct-2025
 cycle peak into `data/lppl_backfill_staging/` (resumable, ~3 s/day,
 never touches live data); `rake lppl:backfill_diff` verifies the
-staged history against the organically recorded days field-by-field
-and prints the promotion commands -- running those is a deliberate
-human step (Gate 6).
+staged history against the organically recorded days field-by-field.
+`rake lppl:promote` performs the one-shot write into the live ledger
+and fit history (diff, one prompt, timestamped backups) -- it is
+interactive-only (refuses CI and non-TTY), a deliberate human step.
 
 ## BTCo treasury analyser
 
@@ -239,9 +241,8 @@ Install/operate/recover procedures: `docs/RUNBOOK.md`.
   values and adds a daily new-filing discovery alert. Until then the
   BTCo card's numbers carry `placeholder` flags and a ~year-old as-of.
 - The LIVE LPPL ledger still starts 2026-07-04 until the owner runs
-  the Gate 6 promotion: the full Oct-2025-peak replay history is
-  already staged and verified (`rake lppl:backfill_diff` shows the
-  overlap match + the exact promotion commands). Scenario history
+  the Gate 6 promotion (`rake lppl:promote`): the full Oct-2025-peak
+  replay history is already staged and verified. Scenario history
   still starts 2026-07-04 (no replay mode; source-dependent seeding is
   Phase 8).
 - Coinglass integration (docs/improvements.md), scenario v2 hypothesis

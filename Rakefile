@@ -118,14 +118,21 @@ namespace :lppl do
     exit 1 unless Lppl::Backfill.run
   end
 
-  desc 'Staged-vs-live ledger overlap diff + promotion commands (read-only; ' \
-       'promotion itself is an OWNER action at Gate 6)'
+  desc 'Staged-vs-live ledger overlap diff (read-only)'
   task :backfill_diff do
     require_relative 'scripts/lppl/backfill'
     staged = File.join(Lppl::Backfill::STAGE_ROOT, 'lppl', 'ledger.jsonl')
     live   = File.join(Lppl::DATA, 'ledger.jsonl')
     abort "no staged ledger at #{staged} -- run rake lppl:backfill first" unless File.exist?(staged)
     Lppl::Backfill.diff(staged, live)
+  end
+
+  desc 'OWNER, interactive: promote the staged history into the live ' \
+       'ledger + fit_history (diff -> y/N -> backup + merge). Refuses ' \
+       'CI and non-TTY.'
+  task :promote do
+    require_relative 'scripts/lppl/backfill'
+    exit 1 unless Lppl::Backfill.promote
   end
 end
 

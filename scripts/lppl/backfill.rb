@@ -6,8 +6,9 @@
 # blessed path).
 #
 #   rake lppl:backfill            # peak -> yesterday into the staging dir
-#   rake lppl:backfill_diff       # staged-vs-live overlap report +
-#                                 # promotion commands (owner runs those)
+#   rake lppl:backfill_diff       # staged-vs-live overlap report (read-only)
+#   rake lppl:promote             # OWNER, interactive: diff -> y/N ->
+#                                 # backup + merge ledger AND fit_history
 #
 # Every write lands under STAGE_ROOT (data/lppl_backfill_staging/, via
 # the BTC_DATA_DIR seam) -- the live suite data dir is read-only input:
@@ -17,9 +18,11 @@
 # the staged ledger are skipped, so an interrupted run continues where
 # it stopped. One replay day is ~3 s; the full window is ~15 min.
 #
-# Promotion to the live ledger is a HUMAN action at Gate 6: diff prints
-# the exact backup + merge commands (staged entries strictly before the
-# first live day, then the organic live entries) and never runs them.
+# Promotion to the live files is a HUMAN action at Gate 6: rake
+# lppl:promote is interactive (shows the overlap diff, prompts, backs
+# up, merges staged-before-first-live-day ahead of the organic lines
+# for ledger AND fit_history) and refuses CI / non-TTY, so the loop
+# structurally cannot run it. backfill_diff stays read-only.
 #
 # Ruby >= 3.3, stdlib only.
 
@@ -174,6 +177,73 @@ module Lppl
         out[day] ||= e # first entry wins on duplicate days
       end
       out
+    end
+
+    # Interactive one-shot promotion (Gate 6): show the overlap diff,
+    # prompt once, then for BOTH history files back up the live copy and
+    # write staged-entries-strictly-before-the-first-live-day ahead of
+    # the organic lines. Owner-run only: refuses under CI and without a
+    # TTY (the BTC::Ops rule -- the one-shot historical write is a HUMAN
+    # action, never the loop's). Everything injectable for tests.
+    FILES = %w[ledger.jsonl fit_history.jsonl].freeze
+
+    def promote(stage_root: STAGE_ROOT, data_dir: Lppl::DATA, io: $stdout,
+                input: $stdin, env: ENV, clock: Time)
+      if env['CI']
+        io.puts 'rake lppl:promote REFUSES to run under CI -- the one-shot ' \
+                'historical write is an owner action.'
+        return false
+      end
+      unless input.respond_to?(:tty?) && input.tty?
+        io.puts 'rake lppl:promote needs an interactive terminal (owner ' \
+                'action; the loop cannot run it). Run it by hand on the box.'
+        return false
+      end
+
+      staged_ledger = File.join(stage_root, 'lppl', 'ledger.jsonl')
+      unless File.exist?(staged_ledger)
+        io.puts "no staged ledger at #{staged_ledger} -- run rake lppl:backfill first"
+        return false
+      end
+
+      mism = diff(staged_ledger, File.join(data_dir, 'ledger.jsonl'), io: io)
+      unless mism.empty?
+        io.puts format('%d field mismatch(es) above -- review before promoting.', mism.size)
+      end
+
+      io.print 'promote (backup + merge ledger.jsonl AND fit_history.jsonl)? [y/N] '
+      io.flush if io.respond_to?(:flush)
+      unless input.gets.to_s.strip.casecmp('y').zero?
+        io.puts 'nothing written.'
+        return false
+      end
+
+      stamp = clock.now.utc.strftime('%Y%m%d-%H%M%S')
+      FILES.each do |f|
+        staged = File.join(stage_root, 'lppl', f)
+        live   = File.join(data_dir, f)
+        unless File.exist?(staged) && File.exist?(live)
+          io.puts "#{f}: skipped (missing #{File.exist?(staged) ? live : staged})"
+          next
+        end
+        live_lines = File.readlines(live)
+        first_day  = live_lines.map { |l| (JSON.parse(l)['ts'] rescue '')[0, 10] }.reject(&:empty?).min
+        keep = File.readlines(staged).select do |l|
+          d = (JSON.parse(l)['ts'] rescue '')[0, 10]
+          !d.empty? && d < first_day
+        end
+        bak = "#{live}.bak-#{stamp}"
+        FileUtils.cp(live, bak)
+        tmp = "#{live}.tmp-#{stamp}"
+        File.write(tmp, (keep + live_lines).join)
+        File.rename(tmp, live)
+        io.puts format('%-18s %d staged (< %s) + %d organic = %d lines (backup %s)',
+                       f, keep.size, first_day, live_lines.size,
+                       keep.size + live_lines.size, File.basename(bak))
+      end
+      io.puts 'promoted. The next publish carries the full history; the ' \
+              'dashboard lppl_regime curve fills in after it.'
+      true
     end
   end
 end

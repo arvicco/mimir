@@ -2,6 +2,8 @@
 
 One line per completed packet: date · packet · commit · notes.
 
+2026-07-06 · M6-5b · -- · Owner rejected the Gate 6 checklist ("MIGHT be machine-readable but definitely NOT human-readable") -- rewritten runbook-style (3 steps, one command each, EXPECT lines, background quarantined) and the promotion paste-block replaced by interactive rake lppl:promote (diff -> y/N -> timestamped backups -> merge BOTH history files; refuses CI/non-TTY like ops:*). Lesson reinforced: EVERY owner-facing procedure gets the runbook treatment + a task wrapper when it involves pasting commands; gate checklists are owner docs, not loop specs.
+
 2026-07-06 · M6-5 · -- · README (replay/backfill/13-key/tabs capabilities, honest about promotion pending) + Gate 6 checklist in BACKLOG: ledger promotion (paste the two printed commands), MSTR/tabs visual sign-off, 13/13 + 156 writes/day expectation shift, soak review if >= Jul 13, merge. Phase 6 packets complete same day they were elaborated.
 
 2026-07-06 · M6-4 · 4c96867+e95989a · GEX card tabs = 4th renderer hook tab_group/tab_label/tab_pos (opus vs fable spec, D7-c Option A): shared card, tab_pos order (BTC leads over alphabetical), reveal+resize, title/bubble/badge swap compatible with both pages' tickers, append guards; goldens PROVEN unchanged (meta lives in envelope not option -- implementer corrected the spec premise). Fable review fix: roving tabindex without arrow handlers made the inactive tab keyboard-unreachable -> all tabs naturally focusable. Playwright 6/6 both pages; SKILL.md hooks 3->4. Fixup e95989a: M6-3 fixture+golden were untracked (commit -am lesson) -- 3 intermediate commits red in CI.
