@@ -34,8 +34,8 @@
 #   is attempted. Error text stays redacted (kv_client's pattern).
 # - STATUS (frozen --tmux contract): /tmp/publish.status carries
 #   `PUB DRY|LIVE <published>/<expected> keys HH:MM UTC` where
-#   expected = producers + tails + charts + 1 (the index) = n/11. Pinned
-#   in the tests.
+#   expected = producers + tails + charts + 1 (the index) = n/13
+#   (5 producers + 2 tails + 5 charts + index). Pinned in the tests.
 #
 # DATA SOURCES: the four scripts/ suites (subprocess), plus the scenario
 # history + lppl ledger jsonl under BTC::Env.data_dir(<suite>). No direct
@@ -60,6 +60,7 @@ module Publish
     # key, argv (relative to repo root), timeout_s, ttl_hint_s
     PRODUCERS = [
       ['gex:combined',    ['ruby', 'scripts/gex_btc_combined.rb', '--json'],           60,  1_800],
+      ['gex:mstr',        ['ruby', 'scripts/gex_us.rb', 'MSTR', '--json'],             60,  1_800],
       ['scenario:latest', ['ruby', 'scripts/scenario/scenario.rb', '--json'],          120, 1_800],
       ['lppl:latest',     ['ruby', 'scripts/lppl/lppl.rb', '--json', '--skip-update'], 300, 86_400],
       ['btco:latest',     ['ruby', 'scripts/btco/btco.rb', '--json'],                  60,  3_600]

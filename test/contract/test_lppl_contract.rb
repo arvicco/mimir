@@ -136,6 +136,28 @@ class TestLpplContract < Minitest::Test
     end
   end
 
+  # M6-1: --as-of is an additive replay field -- present (only) with the flag,
+  # and it freezes the aggregator's ts to the replay midnight.
+  def test_aggregator_as_of_json_additive
+    live = run_json('scripts/lppl/lppl.rb', '--json', '--skip-update', env: lppl_env)
+    refute live.key?('as_of'), 'as_of must be absent without the flag'
+
+    j = run_json('scripts/lppl/lppl.rb', '--json', '--skip-update',
+                 '--as-of', '2026-07-03', env: lppl_env)
+    assert_contract_keys %w[as_of composite status_line tests ts verdict], j,
+                         'lppl.rb --as-of'
+    assert_equal '2026-07-03', j['as_of']
+    assert_equal '2026-07-03T00:00:00Z', Time.iso8601(j['ts']).iso8601
+  end
+
+  def test_aggregator_as_of_refuses_tmux
+    _, err, st = run_script('scripts/lppl/lppl.rb', '--tmux', '--as-of',
+                            '2026-07-03', env: lppl_env)
+    refute st.success?, 'as-of + --tmux must abort (would clobber the live token)'
+    assert_equal 2, st.exitstatus
+    assert_match(/tmux/, err)
+  end
+
   def test_aggregator_tmux_contract
     _, err, st = run_script('scripts/lppl/lppl.rb', '--tmux', '--skip-update',
                             env: lppl_env)

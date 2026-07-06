@@ -107,8 +107,8 @@ keys `present`, ruby, both wrappers + plists, `ops/ audit` clean,
 `launchctl`), then a `verification:` table where every row is `[PASS]`:
 
 - `com.mimir.publish: plist` / `bootstrap` -> installed + `program = .../run_publish.sh`
-- `com.mimir.publish: run` -> `publish LIVE: 11 written, 0 skipped -> KV`
-- `com.mimir.publish: status file` -> `PUB LIVE 11/11 keys HH:MM UTC (age 0m)`
+- `com.mimir.publish: run` -> `publish LIVE: 13 written, 0 skipped -> KV`
+- `com.mimir.publish: status file` -> `PUB LIVE 13/13 keys HH:MM UTC (age 0m)`
 - `com.mimir.gex-snapshot: run` -> `written: .../<today>.json` (or `skipped
   (today's file exists)` / `partial` -- both PASS)
 - `com.mimir.gex-snapshot: snapshot file` -> `present .../<today>.json`
@@ -125,7 +125,7 @@ carrying `ABORT`/`exit 78` means the wrapper could not read the env file
 **2.2 Verify the dashboard header advanced.** Open your dashboard URL in
 a browser and look at the header.
 
-EXPECT: `pub HH:MMZ · 11/11 fresh`, where `HH:MMZ` is the UTC minute the
+EXPECT: `pub HH:MMZ · 13/13 fresh`, where `HH:MMZ` is the UTC minute the
 publish `run` row reported. If the time is old, the publish did not reach
 KV -- section 8.
 
@@ -178,13 +178,13 @@ debugging by hand.)
 hours:minutes since the last publish); no colours -- `!` after PUB is
 the one attention flag, and the payload says why:
 
-- `PUB 11/11 0:37` -- working: last publish LIVE, all 11 keys, age
+- `PUB 13/13 0:37` -- working: last publish LIVE, all 13 keys, age
   under 4h (2x the 2h cadence). Nothing to do.
-- `PUB! 11/11 5:12` -- stale: age past 4h. The bigger the age, the
+- `PUB! 13/13 5:12` -- stale: age past 4h. The bigger the age, the
   worse -- if it keeps growing, section 8.
-- `PUB! 10/11 0:20` -- a key is missing (`n < 11`). Glance at the
+- `PUB! 12/13 0:20` -- a key is missing (`n < 13`). Glance at the
   dashboard for the red card; if it persists, section 8.
-- `PUB! DRY 11/11 ...` -- the last run was a DRY-RUN publish, not
+- `PUB! DRY 13/13 ...` -- the last run was a DRY-RUN publish, not
   LIVE. From the agent that should never happen; someone ran
   `PUBLISH_DRY_RUN=1` by hand. The dashboard is not being refreshed ->
   run a real publish (section 8, step 5).
@@ -271,7 +271,7 @@ PUBLISH_DRY_RUN=0 ruby publish/publish.rb
 DEPLOY_SKIP_PUBLISH=1 rake deploy
 ```
 
-EXPECT: the publish ends with `publish LIVE: 11 written, 0 skipped -> KV`;
+EXPECT: the publish ends with `publish LIVE: 13 written, 0 skipped -> KV`;
 `rake deploy` ends
 with `deployed host: https://...` and four `[PASS]` smoke rows. An
 `authorization`/`403` error means the new token is missing a scope ->
@@ -309,13 +309,13 @@ rake deploy
 ```
 
 EXPECT: pre-flight all `[ok]`, `deployed host: https://...`, a
-`publish LIVE: 11 written ...` line, and four `[PASS]` smoke rows
-including `GET /api/v1/index ... 11 keys incl. charts`.
+`publish LIVE: 13 written ...` line, and four `[PASS]` smoke rows
+including `GET /api/v1/index ... 13 keys incl. charts`.
 
 **6.4 Verify the dashboard.** Open your dashboard URL.
 
 EXPECT: all four charts render and the header reads
-`pub HH:MMZ · 11/11 fresh` with the current minute. Namespace migration
+`pub HH:MMZ · 13/13 fresh` with the current minute. Namespace migration
 complete.
 
 ---
@@ -358,7 +358,7 @@ tick:
 PUBLISH_DRY_RUN=0 ruby publish/publish.rb
 ```
 
-EXPECT: `publish LIVE: 11 written, 0 skipped -> KV` -- the deleted key
+EXPECT: `publish LIVE: 13 written, 0 skipped -> KV` -- the deleted key
 is rewritten. Reload the
 dashboard to confirm the affected card is fresh.
 
@@ -380,7 +380,7 @@ rake ops:status
 EXPECT: an `ops status:` table. Per agent a `loaded; state=not running;
 last exit=0` row (`not loaded` is a row, not a crash) plus a `... log`
 row with the last `=== run_*` marker and summary; then a `status file`
-row `PUB LIVE 11/11 keys HH:MM UTC (age Nm)` and a `newest gex snapshot`
+row `PUB LIVE 13/13 keys HH:MM UTC (age Nm)` and a `newest gex snapshot`
 row naming today's `<date>.json`.
 FAILURE: `not loaded` -> the agent was never installed / got booted out,
 re-run section 2 (`rake ops:install`). A nonzero `last exit` or a large
@@ -394,8 +394,8 @@ on this box -> Step 3.
 ruby "$REPO/ops/publish_health.rb"
 ```
 
-EXPECT: an unflagged `PUB 11/11 H:MM` with a small H:MM.
-Cross-check the dashboard header `pub HH:MMZ · n/11 fresh`.
+EXPECT: an unflagged `PUB 13/13 H:MM` with a small H:MM.
+Cross-check the dashboard header `pub HH:MMZ · n/13 fresh`.
 FAILURE: any `PUB! ...` (stale, partial, DRY, or `?` -- go to Step 3),
 or the dashboard reads a many-hours age. If unflagged and fresh, the
 pipeline is healthy -- your problem is elsewhere (browser cache?
@@ -408,7 +408,7 @@ tail -n 40 ~/Library/Logs/mimir/publish.log
 ```
 
 EXPECT: a recent `=== run_publish ...Z` marker followed by
-`publish LIVE: 11 written, 0 skipped -> KV`.
+`publish LIVE: 13 written, 0 skipped -> KV`.
 FAILURE: `exit 78` / `env file not readable` -> the env file moved or
 lost its `600`/ownership, re-check section 1.2. A producer traceback or
 `... written, ... skipped` with skips -> one suite is failing; note which and continue to Step 4.
@@ -435,7 +435,7 @@ PUBLISH_DRY_RUN=0 ruby publish/publish.rb
 ```
 
 EXPECT: each key prints `written`, then
-`publish LIVE: 11 written, 0 skipped -> KV`; reload the dashboard -> header advances to the current minute.
+`publish LIVE: 13 written, 0 skipped -> KV`; reload the dashboard -> header advances to the current minute.
 FAILURE: the exact error prints here (a crashing producer, a KV auth
 error). A KV `403`/authorization error -> the token is bad or lost a
 scope, rotate it (section 5). A single crashing producer -> its output is
@@ -451,7 +451,7 @@ Run these once a week while the ops layer is on probation.
 **9.1 KV writes vs the budget.** In the Cloudflare console: Workers &
 Pages -> KV -> your namespace -> Metrics, read the last 24h write count.
 
-EXPECT: roughly **132 writes/day** (11 keys x 12 runs/day). Comfortably
+EXPECT: roughly **156 writes/day** (13 keys x 12 runs/day). Comfortably
 under the 1,000/day free-tier write limit. Much higher -> something is
 publishing more often than bi-hourly (a stray manual loop? a second
 agent?); much lower -> the publisher is skipping runs, see section 8.
@@ -490,7 +490,7 @@ moving parts are.*
 **What runs when.**
 - `com.mimir.publish` -> `ops/run_publish.sh` -> `publish/publish.rb`
   LIVE, every **7200s (2h)**, decision D5-a. Runs the four analytics
-  suites as subprocesses and writes all 11 KV keys in one pass. launchd
+  suites as subprocesses and writes all 13 KV keys in one pass. launchd
   starts no second instance while one is in flight (no `KeepAlive`), so a
   long publish just defers the next tick.
 - `com.mimir.gex-snapshot` -> `ops/run_gex_snapshot.sh` ->
@@ -560,7 +560,7 @@ tail -n 5 ~/Library/Logs/mimir/gex_snapshot.log
 ```
 
 EXPECT (what the installer verifies for you): a `=== run_publish ...Z`
-marker then `publish LIVE: 11 written, 0 skipped -> KV`; a
+marker then `publish LIVE: 13 written, 0 skipped -> KV`; a
 `=== run_gex_snapshot ...Z` marker then `written: .../<date>.json`.
 Uninstall by hand = the two `bootout` lines plus
 `rm -f ~/Library/LaunchAgents/com.mimir.*.plist`.
@@ -601,7 +601,7 @@ missing; if it does not appear at all, check the path. Reload with
 truncate them by hand (section 9.2). This is deliberate -- the volume is
 tiny and rotation is one more thing to break.
 
-**KV budget.** 11 keys x 12 runs/day = 132 writes/day against the
+**KV budget.** 13 keys x 12 runs/day = 156 writes/day against the
 1,000/day free-tier write limit -- ~13% utilisation, ample headroom.
 
 **Why installs are HUMAN actions.** Installing/bootstrapping agents,

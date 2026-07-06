@@ -15,17 +15,20 @@ module BTC
   module Report
     module_function
 
-    # score is -1/0/+1. detail keys are consumed by the aggregators.
+    # score is -1/0/+1. detail keys are consumed by the aggregators. +now+
+    # is the wall clock stamped into the --json `ts` field; it defaults to
+    # the real now (unchanged behavior) and is overridden only by replay
+    # callers that freeze time to a past as-of day.
     # All string output passes through BTC::Env.redact, so a secret in an
     # exception message or URL can never reach stdout (F-6).
     def report(name, score, headline, detail = {}, name_w: 14, key_w: 18,
-               json: ARGV.include?('--json'))
+               json: ARGV.include?('--json'), now: Time.now.utc)
       headline = BTC::Env.redact(headline)
       detail = detail.reject { |_, v| v.nil? }
       detail = Hash[detail.map { |k, v| [k, v.is_a?(String) ? BTC::Env.redact(v) : v] }]
       if json
         puts JSON.generate({ name: name, score: score, headline: headline,
-                             ts: Time.now.utc.iso8601 }.merge(detail))
+                             ts: now.iso8601 }.merge(detail))
       else
         puts format("%-#{name_w}s [%+d]  %s", name, score, headline)
         detail.each { |k, v| puts format("  %-#{key_w}s %s", k, v) }

@@ -19,13 +19,15 @@ another. When a new ruling lands, add it here in the same commit.
   text/axis/legend colors the theme already tunes — the light-theme
   defaults (near-black titles, inactive-brighter-than-active legends)
   are exactly what the owner rejected.
-- Exactly three renderer hooks exist, declared in envelope meta:
+- Exactly four renderer hooks exist, declared in envelope meta:
   `tooltip_formatter` (a NAME in the renderer's formatter registry),
-  `height` (card pixels), and `legend_widget` (a NAME in the renderer's
+  `height` (card pixels), `legend_widget` (a NAME in the renderer's
   HTML widget registry; the spec ships `legend.show=false` but keeps
   `legend.data` so ECharts still owns selection state and the widget
-  drives it via legend actions). Add a new hook only with an owner
-  ruling.
+  drives it via legend actions), and `tab_group` (+ `tab_label` /
+  `tab_pos`; charts sharing a group render into ONE card as tabs --
+  owner ruling D7-c 2026-07-06, currently the two GEX charts). Add a
+  new hook only with an owner ruling.
 - Every chart registers `meta` (desc / axes / help) — 2-4 sentences
   compressed from docs/METHODOLOGY.md, rendered as hover bubbles.
 - Goldens regenerate deterministically from test/fixtures/payloads/. A
