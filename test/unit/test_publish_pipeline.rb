@@ -69,6 +69,7 @@ class TestPublishPipeline < Minitest::Test
     lambda do |argv, _timeout|
       case argv.find { |a| a.end_with?('.rb') }
       when 'scripts/gex_btc_combined.rb' then JSON.pretty_generate(GEX)
+      when 'scripts/gex_us.rb' then fixture('payload_gex_mstr.json') # healthy MSTR
       when 'scripts/scenario/scenario.rb' then JSON.pretty_generate(SCN)
       when 'scripts/lppl/lppl.rb' then raise 'boom (nonzero exit)'
       when 'scripts/btco/btco.rb' then "this is not json {{{"
@@ -89,6 +90,7 @@ class TestPublishPipeline < Minitest::Test
   def fixture_runner
     map = {
       'scripts/gex_btc_combined.rb'  => 'payload_gex_combined.json',
+      'scripts/gex_us.rb'            => 'payload_gex_mstr.json',
       'scripts/scenario/scenario.rb' => 'payload_scenario_latest.json',
       'scripts/lppl/lppl.rb'         => 'payload_lppl_latest.json',
       'scripts/btco/btco.rb'         => 'payload_btco_latest.json'
@@ -125,21 +127,23 @@ class TestPublishPipeline < Minitest::Test
   def test_preview_file_set_and_names
     dry_run
     got = Dir.children(out_dir).sort
-    # scenario_strip still builds from the fail-soft scenario + history;
+    # scenario_strip and gex_mstr (healthy MSTR fixture) both build;
     # gex_profile (minimal GEX, no 'profiles'), lppl_regime + btco_table
     # (missing sources) all SKIP.
-    assert_equal %w[chart_scenario_strip.json gex_combined.json index.json
-                    lppl_ledger.json scenario_history.json scenario_latest.json], got
+    assert_equal %w[chart_gex_mstr.json chart_scenario_strip.json gex_combined.json
+                    gex_mstr.json index.json lppl_ledger.json
+                    scenario_history.json scenario_latest.json], got
   end
 
   def test_summary_keys_and_skips
     s = dry_run
-    # gex published, scenario fail-soft published, both tails published,
-    # scenario_strip chart built, plus the index. lppl (raise) + btco
-    # (garbage) producers skipped; gex_profile (no 'profiles'), lppl_regime
-    # + btco_table (absent sources) charts skipped.
-    assert_equal %w[gex:combined scenario:latest scenario:history lppl:ledger
-                    chart:scenario_strip index], s[:keys]
+    # gex:combined + gex:mstr published, scenario fail-soft published, both
+    # tails published, gex_mstr + scenario_strip charts built, plus the
+    # index. lppl (raise) + btco (garbage) producers skipped; gex_profile
+    # (no 'profiles'), lppl_regime + btco_table (absent sources) charts
+    # skipped.
+    assert_equal %w[gex:combined gex:mstr scenario:latest scenario:history
+                    lppl:ledger chart:gex_mstr chart:scenario_strip index], s[:keys]
     assert_equal %w[lppl:latest btco:latest chart:gex_profile
                     chart:lppl_regime chart:btco_table], s[:skipped]
     assert_equal 'DRY', s[:mode]
@@ -175,9 +179,9 @@ class TestPublishPipeline < Minitest::Test
     # MIN ttl across published members: scenario/gex 1800 beat lppl 86400.
     assert_equal 1_800, idx['ttl_hint_s']
     keys = idx['payload']['keys'].map { |r| r['key'] }
-    # the built chart:scenario_strip is listed too (sorted in).
-    assert_equal %w[chart:scenario_strip gex:combined lppl:ledger
-                    scenario:history scenario:latest], keys
+    # the built chart:gex_mstr + chart:scenario_strip are listed too (sorted in).
+    assert_equal %w[chart:gex_mstr chart:scenario_strip gex:combined gex:mstr
+                    lppl:ledger scenario:history scenario:latest], keys
     # lppl:latest + btco:latest never made it into the index.
     refute_includes keys, 'lppl:latest'
     refute_includes keys, 'btco:latest'
@@ -213,17 +217,18 @@ class TestPublishPipeline < Minitest::Test
   def test_status_line_format
     dry_run
     line = File.read(File.join(@dir, 'publish.status'))
-    # 6 written (gex, scenario:latest, 2 tails, chart:scenario_strip,
-    # index) of 11 expected (4 producers + 2 tails + 4 charts + 1 index).
-    assert_equal "PUB DRY 6/11 keys 12:00 UTC\n", line
+    # 8 written (gex:combined, gex:mstr, scenario:latest, 2 tails,
+    # chart:gex_mstr, chart:scenario_strip, index) of 13 expected
+    # (5 producers + 2 tails + 5 charts + 1 index).
+    assert_equal "PUB DRY 8/13 keys 12:00 UTC\n", line
   end
 
   def test_status_line_live_label
     inject_kv { FakeRes.new('200', 'ok') }
     Publish::Pipeline.run(now: NOW, source: 'testhost', dry_run: false,
                           runner: fixture_runner, env: ENV_OK, status_dir: @dir)
-    # all four sources + two tails + four charts + index publish cleanly.
-    assert_equal "PUB LIVE 11/11 keys 12:00 UTC\n", File.read(File.join(@dir, 'publish.status'))
+    # all five sources + two tails + five charts + index publish cleanly.
+    assert_equal "PUB LIVE 13/13 keys 12:00 UTC\n", File.read(File.join(@dir, 'publish.status'))
   end
 
   # -- real mode: v1:-prefixed PUTs + 403 abort ----------------------------
@@ -246,7 +251,7 @@ class TestPublishPipeline < Minitest::Test
     s = Publish::Pipeline.run(now: NOW, source: 'testhost', dry_run: false,
                               runner: fixture_runner, env: ENV_OK, status_dir: @dir)
     # every producer + tail + chart + index put exactly once, v1:-prefixed.
-    assert_equal 11, calls.size
+    assert_equal 13, calls.size
     assert(calls.all? { |c| c[:uri].include?('/values/v1%3A') })
     # the chart keys are PUT as 'v1:chart:<name>' (colons url-encoded).
     assert(calls.any? { |c| c[:uri].include?('/values/v1%3Achart%3A') })
@@ -270,8 +275,12 @@ class TestPublishPipeline < Minitest::Test
   # preview files, keys, and ttl INHERITANCE (min of the input ttls).
   def test_chart_envelopes_written_with_inherited_ttls
     s = fixture_dry_run
-    %w[chart:gex_profile chart:scenario_strip
+    %w[chart:gex_profile chart:gex_mstr chart:scenario_strip
        chart:lppl_regime chart:btco_table].each { |k| assert_includes s[:keys], k }
+
+    mstr = JSON.parse(File.read(File.join(out_dir, 'chart_gex_mstr.json')))
+    assert_equal 'chart:gex_mstr', mstr['key']
+    assert_equal 1_800, mstr['ttl_hint_s'] # inherits gex:mstr (1800)
 
     gex = JSON.parse(File.read(File.join(out_dir, 'chart_gex_profile.json')))
     assert_equal 'chart:gex_profile', gex['key']
@@ -291,11 +300,11 @@ class TestPublishPipeline < Minitest::Test
     fixture_dry_run
     idx = JSON.parse(File.read(File.join(out_dir, 'index.json')))
     keys = idx['payload']['keys'].map { |r| r['key'] }
-    %w[chart:gex_profile chart:scenario_strip
+    %w[chart:gex_profile chart:gex_mstr chart:scenario_strip
        chart:lppl_regime chart:btco_table].each { |k| assert_includes keys, k }
-    # index lists every published member but not itself: 4 sources + 2
-    # tails + 4 charts.
-    assert_equal 10, keys.size
+    # index lists every published member but not itself: 5 sources + 2
+    # tails + 5 charts.
+    assert_equal 12, keys.size
   end
 
   # A builder crash SKIPs only that chart; the source key survives and the

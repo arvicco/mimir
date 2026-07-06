@@ -2,6 +2,13 @@
 #
 # common.rb -- shared machinery for the LPPL evidence suite.
 # Ruby >= 2.5, stdlib only.
+#
+# Replay: an optional `--as-of YYYY-MM-DD` flag (parsed once via Lppl.as_of)
+# makes the suite compute exactly as a live run on wall-clock day DATE would
+# have, from the price cache alone. load_prices then truncates the series in
+# memory to rows strictly before AS_OF (a live run on D excludes the
+# incomplete current day, so it sees prices through D-1); Lppl.now_utc freezes
+# every wall-clock anchor to AS_OF. Absent the flag, behavior is unchanged.
 
 require 'json'
 require 'time'
@@ -15,7 +22,45 @@ module Lppl
   DATA    = BTC::Env.data_dir('lppl', File.join(File.expand_path(__dir__), 'data'))
   PRICES  = File.join(DATA, 'prices.csv')
 
+  AS_OF_RE = /\A\d{4}-\d{2}-\d{2}\z/
+
   module_function
+
+  # ---- replay clock ----------------------------------------------------------
+
+  # Parse --as-of from ARGV once. Returns the Time.utc midnight it names, or
+  # nil when the flag is absent. A malformed value aborts (exit 2) with usage
+  # -- replay must never silently run against the wrong day.
+  def as_of
+    return @as_of if defined?(@as_of)
+
+    i = ARGV.index('--as-of')
+    return @as_of = nil if i.nil?
+
+    v = ARGV[i + 1]
+    abort_as_of(v) unless v && v =~ AS_OF_RE
+    y, m, d = v.split('-').map(&:to_i)
+    t = begin
+      Time.utc(y, m, d)
+    rescue ArgumentError
+      abort_as_of(v)
+    end
+    # Time.utc silently rolls impossible days over (2026-02-30 -> 2026-03-02);
+    # a replay must never run against a day the caller did not name.
+    abort_as_of(v) unless t.strftime('%Y-%m-%d') == v
+    @as_of = t
+  end
+
+  def abort_as_of(v)
+    warn "as-of: invalid date #{v.inspect} -- expected YYYY-MM-DD"
+    warn 'usage: --as-of YYYY-MM-DD'
+    exit 2
+  end
+
+  # Wall clock for the run: AS_OF when replaying, else the real now.
+  def now_utc
+    as_of || Time.now.utc
+  end
 
   # ---- IO / reporting --------------------------------------------------------
 
@@ -28,7 +73,8 @@ module Lppl
   # -1 is evidence against, 0 neutral/insufficient. detail keys are consumed
   # by the aggregator (lppl.rb).
   def report(name, score, headline, detail = {})
-    BTC::Report.report(name, score, headline, detail, name_w: 12, key_w: 16)
+    BTC::Report.report(name, score, headline, detail, name_w: 12, key_w: 16,
+                       now: now_utc)
   end
 
   def fail_soft(name, err)
@@ -39,19 +85,25 @@ module Lppl
 
   # Returns { dates: [Time], days: [Float, days since genesis],
   #           lnp: [Float], px: [Float] }, ascending, zero/dust rows dropped.
+  # In as-of mode the series is truncated in memory to rows strictly before
+  # AS_OF (the cache file is never rewritten).
   def load_prices
     raise 'price cache missing -- run prices.rb first' unless File.exist?(PRICES)
 
+    cutoff = as_of
     dates = []
     px    = []
     File.foreach(PRICES) do |ln|
       d, c = ln.strip.split(',')
       next if d.nil? || d == 'date'
 
+      t = Time.utc(*d.split('-').map { |s| s.to_i })
+      next if cutoff && t >= cutoff
+
       v = c.to_f
       next if v < 0.05
 
-      dates << Time.utc(*d.split('-').map { |s| s.to_i })
+      dates << t
       px << v
     end
     raise 'price cache empty' if px.empty?

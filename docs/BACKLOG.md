@@ -656,7 +656,12 @@ Acceptance: BTC::Ops.tmux fully injectable (runner/io/input); tests
       repo path substituted everywhere (no placeholders in output);
       rake green; RUNBOOK updated in the same packet.
 
-## Gate 5 (human) -- concrete checklist (M5-4)
+## Gate 5 (human) -- concrete checklist (M5-4)  [status: CLOSED 2026-07-06 -- PR #6 merged (1d065b9)]
+Owner merged same-day after the gold install proved the chain live
+(unattended scheduled publish, snapshot with date-guard, tmux token).
+Still open and carried forward: the week-long soak (daily 1-min check),
+the KV-quota review, and the novo promotion steps -- reviewed at the
+first gate after ~Jul 13.
 Staged rollout (owner ruling 2026-07-06): the first install happens on
 GOLD as staging, novo gets it only after the 48h-green proof. The KV
 namespace is shared -- staging publishes are real publishes (that is
@@ -692,12 +697,175 @@ rule). Details in ARCHITECTURE.md section 6; concepts in
 docs/improvements.md + docs/scenario_upgrades.md.
 
 **Phase 6 -- LPPL history backfill + MSTR GEX panel** (swapped ahead
-of ingest, owner ruling 2026-07-06 -- autonomous work first): additive
---as-of replay mode; sequential ledger+fit-history rebuild from the
-Oct-2025 peak (D7-a), verified byte-identical on already-recorded days
-first, owner-blessed one-shot write; import of pre-handoff files if
-found (D7-b). MSTR GEX: v1:gex_mstr:latest + chart key + quadrant
-presentation per D7-c ruling (design options presented first).
+of ingest, owner ruling 2026-07-06 -- autonomous work first).
+Elaborated 2026-07-06 at Gate 5 close; packets below.
+
+## M6-1 · lppl `--as-of DATE` replay mode  [tier: opus vs fable spec] [status: done 2026-07-06, 1d248ec]
+Review notes: opus added calendar-rollover hardening (Time.utc rolls
+2026-02-30 -> Mar-02; round-trip check aborts) -- approved; replay
+still computes would-be trend rows before discarding (harmless,
+2.9s/day total, minimal-diff accepted). Smoke: replayed 2026-07-05
+matches the recorded ledger entry on all six fields.
+Goal: additive replay flag on scripts/lppl/lppl.rb (and passed through
+      to every module): compute the suite verdict exactly as it would
+      have been computed on DATE, from the price cache alone.
+      Current-day semantics byte-identical when the flag is absent
+      (characterization first). Mechanics per the survey:
+      1) price series truncated IN MEMORY to rows <= DATE (prices.csv
+         never rewritten; --skip-update implied by --as-of);
+      2) every `Time.now.utc` anchor frozen to DATE midnight UTC --
+         lppl.rb ts, report.rb module ts, fit.rb history ts,
+         trend.rb 1y-lookback cutoff;
+      3) date-evolving state read-filtered, never truncated on disk:
+         trend_scores.csv rows with date <= DATE (appends naturally
+         bounded by the truncated series), fit_history.jsonl entries
+         with ts <= DATE (the stability window sees only what a run
+         on DATE could have seen);
+      4) `--history` still explicit: replay without it writes nothing.
+      NO math/threshold change anywhere -- same estimators, same
+      Random.new(42) bootstrap, same sims count (pin it in replay).
+Acceptance: characterization pins current no-flag behavior BEFORE the
+      change; `--as-of <each of the recorded ledger days> --history`
+      into a scratch BTC_DATA_DIR reproduces the recorded entries
+      byte-identically modulo ts (ts frozen to DATE-midnight is the
+      documented, tested difference); --json/--tmux contracts
+      unchanged (additive only: replay mode may add an `as_of` field
+      -- contract test in the same commit); rake green.
+
+## M6-2 · staged backfill driver + verification protocol  [tier: fable (wrote driver too -- held all replay semantics)] [status: done 2026-07-06, cf494e2] [deps: M6-1]
+Review notes: executed same day -- 273 days (2025-10-06 peak, matching
+D7-a exactly -> 2026-07-05) staged clean in ~14 min; stage-B overlap
+diff = MATCH on every field for both recorded days (ts excluded as
+documented; the 07-05 live duplicate collapses to first entry).
+Promotion commands printed by rake lppl:backfill_diff, owner runs them
+at Gate 6. Staged history: STRESSED all 273 days, bf -333 -> -426,
+ratio 1.11 -> 0.47, fit appears ~day 90 (183 fit-history entries).
+Goal: rake `lppl:backfill` -- sequential day-by-day replay from the
+      Oct-2025 cycle peak (D7-a) to the day before the live ledger
+      starts, writing ledger + fit_history into a STAGING dir via the
+      existing BTC_DATA_DIR seam (real files untouched by construction).
+      Resumable (skips dates already in the staging ledger), progress
+      line per day, runtime estimated up front (~270 days x one offline
+      suite run). Verification is two-stage because the fit-history
+      stability window evolves with the ledger:
+      stage A (exactness): replay each already-recorded day under the
+        recorded starting state -> byte-identical (M6-1 acceptance);
+      stage B (consistency): full sequential rebuild including the
+        recorded days -> field-level diff vs the live ledger on the
+        overlap presented to the owner (stability-derived fields MAY
+        legitimately differ -- the rebuilt run sees 9 months of fit
+        history where the live run saw 0-2 entries; the diff report
+        says exactly which fields and why).
+      The one-shot promotion of staging -> live ledger/fit_history is
+      an OWNER action at Gate 6: task prints the exact copy commands
+      incl. timestamped backup of the current files; the loop never
+      runs them (Golden Rule 3 discipline applied to data).
+      D7-b gate: before the rebuild is blessed, owner confirms whether
+      any pre-handoff ledger files exist anywhere -- import beats
+      recompute for covered dates.
+Acceptance: driver tests with fake runner (sequential order, resume,
+      staging isolation pinned -- real data/ paths never opened for
+      write); stage-A green; stage-B diff report produced; publish
+      tail (lppl:ledger, 365-line tail) verified against the staged
+      ledger size in a dry-run; rake green.
+
+## M6-3 · gex:mstr producer + chart spec  [tier: opus] [status: done 2026-07-06, c8c117f]
+Review notes: two spec corrections by the implementer, both accepted:
+(1) the true key growth is 11 -> 13 (producer AND chart each count;
+the owner-approved "12" undercounted -- flagged in the gate summary);
+(2) key is gex:mstr / v1:gex:mstr, matching gex:combined's shape (the
+skeleton's "gex_mstr:latest" was loose wording). Sibling builder, not
+an adapter (gex_us payloads carry NET gamma per strike -- no call/put
+split to stack). KV budget moves to 156 writes/day when deployed.
+Goal: publish MSTR dealer-gamma alongside the BTC family. gex_us.rb
+      already handles MSTR (CBOE single-name chain; the CBOE source is
+      already in health SOURCES); NOT mergeable into gex_btc_combined
+      -- MSTR gamma lives on MSTR's own price axis (pinned in that
+      script's header). Work: PRODUCERS entry
+      ['gex:mstr', gex_us.rb MSTR --json, 60, 1_800] (11 -> 12 keys);
+      `gex_mstr` chart spec -- single-venue profile on the MSTR price
+      axis reusing the gex_profile visual grammar (call/put bars,
+      flip/call-wall/put-wall marklines, gex_levels tooltip formatter;
+      whether to reuse :gex_profile via payload adapter or a sibling
+      builder decided in the spec); payload fixture recorded per the
+      documented dry-run procedure + golden; contract updates in the
+      same commit: pipeline key-list/count tests 11 -> 12, publish
+      health test strings, index growth is additive by construction.
+      PUB token expectation moves to 12/12 -- RUNBOOK/soak-note
+      mention in the same packet (publish_health derives n/m at run
+      time; only test strings pin it).
+Acceptance: dry-run publish shows 12/12 with v1:gex_mstr:latest +
+      v1:chart:gex_mstr in the index; golden reviewed at real
+      geometry; contract tests updated additively; rake green.
+
+## M6-4 · MSTR quadrant presentation  [tier: opus impl, fable design review] [status: done 2026-07-06, 4c96867] [deps: M6-3]
+Review notes: fable review fix -- delegated roving tabindex had no
+arrow-key handlers (inactive tab keyboard-unreachable); all tab
+buttons stay naturally focusable (.sortbtn convention). Implementer
+corrected the packet premise: goldens carry the OPTION only (meta
+lives in the envelope), so tab meta changes NO golden. Playwright 6/6
+at real geometry on both pages; badge ticker compatible with both
+badge shapes; SKILL.md hook count 3 -> 4 updated by fable (agent
+correctly blocked from the out-of-scope file). Follow-up commit
+e95989a: M6-3's fixture+golden were untracked (commit -am stages only
+tracked files) -- CI red on the three intermediate commits.
+Goal: render chart:gex_mstr per D7-c ruling (Option A): card TABS in
+      the GEX quadrant -- new `tab_group` meta hook + tab widget in
+      render.js (registry pattern like legend_widget); grouped chart
+      keys collapse into one card, [BTC][MSTR] buttons swap the chart;
+      2x2 grid preserved; separate liveness dots stay in the header.
+      render.js rev bump, unified across index.html +
+      preview.html (one design, owner ruling 2026-07-06), mimir-design
+      skill governs, DEV-LOOP 6b self-screenshots at REAL card
+      geometry + Playwright interaction check (tab switching or card
+      presence) before owner handoff.
+Acceptance: per ruling; liveHeader dot appears for the new chart key;
+      goldens/screenshots reviewed; rake + web:test green.
+
+## M6-5 · README + Gate 6 prep  [tier: fable] [status: todo] [deps: M6-1..4]
+Goal: README updated for replay + MSTR capabilities (honest about the
+      ledger being backfilled-then-blessed, not organically grown);
+      Gate 6 checklist written concretely: stage-B diff review +
+      ledger blessing + one-shot promotion commands, MSTR visual
+      sign-off, soak-week review (window ends ~Jul 13; if Gate 6 lands
+      after, the KV-quota review from the Gate 5 carry-over closes
+      here), D7-b answer recorded.
+Acceptance: newcomer-readable README; gate checklist is runbook-style
+      (numbered steps + EXPECT lines).
+
+## Gate 6 (human) -- checklist (M6-5; rewritten per owner feedback:
+## runbook style, promotion wrapped in an interactive task)
+All in ~/Dev/mimir on gold. ~5 min.
+
+1. Promote the backfilled LPPL history (interactive; shows the
+   verification diff, asks once, backs up and merges BOTH history
+   files):
+
+       rake lppl:promote
+
+   EXPECT: `2026-07-04: match` and `2026-07-05: match` in the diff,
+   then the `[y/N]` prompt; after `y`, one line per file ending
+   `= N lines (backup ...)` and `promoted.`
+
+2. Look at the tabs:
+
+       rake preview
+
+   Open http://localhost:8000/web/preview.html
+   EXPECT: the GEX card shows [BTC] [MSTR] buttons, BTC selected;
+   clicking MSTR swaps the chart, the title and the hover help; the
+   grid stays 2x2.
+
+3. Merge PR #7 (https://github.com/arvicco/mimir/pull/7), then
+   `rake deploy` when convenient.
+   EXPECT after deploy: live dashboard shows the tabs and the full
+   LPPL history curve.
+
+Background (no action needed): the tmux token reads `PUB 13/13` from
+the next scheduled publish (156 KV writes/day, supersedes 132); the
+Gate 5 soak-week review moves to Gate 7 if this merges before Jul 13;
+`rake lppl:backfill_diff` re-prints the verification diff read-only
+any time.
 
 **Phase 7 -- BTCo ingest to real data** (pushed back: owner-interactive;
 Gate 7 = v1 tag): ingest flow characterization tests; discovery-alert
@@ -734,12 +902,17 @@ multi-phase plan approval)
   sessions. The alert job is Phase 6 work (built with its status
   contract), NOT an M5-1 deliverable.
 - D7-a Backfill window: **RESOLVED -- from the Oct-2025 peak.**
-- D7-b Import of pre-handoff ledger files (if any exist): still open,
-  owner checks by Gate 6; import beats recompute for covered dates.
-- D7-c 4th renderer hook (card tabs) for the MSTR GEX quadrant: owner
-  needs more context before ruling -- Phase 7 elaboration must open
-  with the design options (tab widget vs second card vs merged series)
-  incl. mockups, BEFORE any renderer work.
+- D7-b Import of pre-handoff ledger files: **RESOLVED 2026-07-06 --
+  none usable ("handoff was garbled"); full recompute from the
+  Oct-2025 peak is the blessed path.**
+- D7-c MSTR GEX quadrant presentation: **RESOLVED 2026-07-06 --
+  Option A, card TABS in the GEX quadrant** (new `tab_group` renderer
+  hook in render.js, same registry pattern as legend_widget; keeps the
+  2x2 grid; both charts stay separate KV keys with separate liveness
+  dots; machinery reused when Phase 10 outgrows four quadrants).
+  Merged series had been ruled out on axes (MSTR gamma lives on MSTR's
+  own price axis). Contract changes for the phase (additive lppl
+  `as_of` field, publish key count 11 -> 12) approved same day.
 - v1 tag scope: **RESOLVED -- as proposed** (v1 tags at Gate 6: real
   BTCo data live + soak week complete; later phases are v1.x).
 

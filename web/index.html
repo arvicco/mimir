@@ -116,8 +116,12 @@
   /* flipped upward by render.js when the default position would clip at
      the viewport bottom (bottom-row cards) -- opens above the head */
   .bubble.up { top: auto; bottom: calc(100% - 26px); }
+  /* focus opens the bubble only from the elements that own it (.hover =
+     key/info) -- :focus-within on the whole head pinned the bubble open
+     over the chart whenever a GEX tab button was clicked (owner report,
+     Gate 6 preview) */
   .card-head:has(.hover:hover) ~ .bubble,
-  .card-head:focus-within ~ .bubble,
+  .card-head:has(.hover:focus) ~ .bubble,
   .bubble:hover { display: block; }
   .info:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
   .badge {
@@ -126,6 +130,17 @@
     border: 1px solid #2a2f38; color: #b9c0ca;
   }
   .chart { width: 100%; height: 500px; }
+  /* GEX tab bar (M6-4, owner ruling D7-c): the two GEX charts share one
+     card as [BTC][MSTR] tabs. Real <button>s in the card-head, dim until
+     active / bright when owning (the .sortbtn pattern), amber focus ring. */
+  .tabbar { display: inline-flex; gap: 4px; }
+  .tabbtn {
+    cursor: pointer; padding: 1px 8px; border-radius: 5px;
+    background: none; border: 1px solid #2a2f38;
+    font: inherit; font-size: 11px; color: #7f8896;
+  }
+  .tabbtn.active { color: #d7dce3; border-color: #3a424e; background: #20252d; }
+  .tabbtn:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
   /* Grouped (p) VENUE (c) legend widget (meta.legend_widget hook) --
      one line per venue over the chart's right margin. Bright = shown,
      dim = hidden; sides keep their series colors. */
@@ -200,6 +215,7 @@ function apiUrl(key) { return API + key; }  // key may contain ':' (valid path c
 // Which producer publishes each chart key -- for the 404 failure copy.
 var PRODUCERS = {
   gex_profile:    "gex_btc_combined.rb",
+  gex_mstr:       "gex_us.rb",
   scenario_strip: "scenario.rb",
   lppl_regime:    "lppl.rb",
   btco_table:     "btco.rb"
@@ -307,8 +323,14 @@ async function loadChart(key) {
   }
   try {
     var card = R.buildChartCard(env, key);
-    grid.appendChild(card);
-    initBadge(card, env);
+    // A tab-group's 2nd+ member (M6-4) returns the SAME, already-connected
+    // card: re-appending would MOVE it and break the 2x2 grid order, and
+    // re-initBadge would point the shared badge at the wrong tab's env
+    // (the renderer's tab machinery owns the badge swap). Guard both.
+    if (!card.isConnected) {
+      grid.appendChild(card);
+      initBadge(card, env);
+    }
   } catch (e) {
     grid.appendChild(R.errCard(key, "render failed: " + apiUrl(key) + "\n" + e.message));
   }
@@ -393,7 +415,7 @@ async function loadBtco() {
     eb.style.display = "block";
     eb.textContent = "The published index lists no chart:* keys -- KV holds a publish " +
                      "older than the chart pipeline. Run: PUBLISH_DRY_RUN=0 ruby publish/publish.rb " +
-                     "(expect PUB LIVE 11/11), then reload.";
+                     "(expect PUB LIVE 13/13), then reload.";
   }
   for (var i = 0; i < chartKeys.length; i += 1) {
     await loadChart(chartKeys[i]);

@@ -150,8 +150,15 @@ trough_date = trough_day && (Lppl::GENESIS + trough_day * 86_400).strftime('%d%b
 trough_px   = trough_ln && Math.exp(trough_ln).round(-2)
 
 # ---- stability ---------------------------------------------------------------
+# In as-of mode only history entries stamped before AS_OF count (a live run on
+# that day had not yet written the later ones); the ledger is never truncated.
 entries = []
-entries = File.readlines(HIST).map { |l| JSON.parse(l) rescue nil }.compact if File.exist?(HIST)
+if File.exist?(HIST)
+  entries = File.readlines(HIST).map { |l| JSON.parse(l) rescue nil }.compact
+  if (cutts = Lppl.as_of&.iso8601)
+    entries = entries.select { |e| e['ts'].to_s < cutts }
+  end
+end
 tstd = nil
 if entries.size >= 4 && trough_day
   recent = (entries.last(9).map { |e| e['trough_day'].to_f } + [trough_day]).reject(&:zero?)
@@ -173,7 +180,7 @@ score = [score - 1, -1].max unless interior
 
 if ARGV.include?('--history')
   File.open(HIST, 'a') do |f|
-    f.puts JSON.generate(ts: Time.now.utc.iso8601, tc: best[:tc].round(1),
+    f.puts JSON.generate(ts: Lppl.now_utc.iso8601, tc: best[:tc].round(1),
                          m: best[:m].round(3), w: best[:w].round(2),
                          rmse: rmse.round(4), trough_day: trough_day,
                          trough_px: trough_px, filters_passed: passed)

@@ -29,8 +29,8 @@ class TestPublishHealth < Minitest::Test
 
   def test_fresh_complete_is_unflagged
     Dir.mktmpdir do |dir|
-      path = write_status(dir, "PUB LIVE 11/11 keys 12:00 UTC\n", 37 * 60)
-      assert_equal 'PUB 11/11 0:37',
+      path = write_status(dir, "PUB LIVE 13/13 keys 12:00 UTC\n", 37 * 60)
+      assert_equal 'PUB 13/13 0:37',
                    Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
     end
   end
@@ -38,8 +38,8 @@ class TestPublishHealth < Minitest::Test
   def test_stale_age_5h_is_flagged
     # 5*60 = 300 min >= 2*120=240 -> !
     Dir.mktmpdir do |dir|
-      path = write_status(dir, "PUB LIVE 11/11 keys 07:00 UTC\n", 5 * 3600)
-      assert_equal 'PUB! 11/11 5:00',
+      path = write_status(dir, "PUB LIVE 13/13 keys 07:00 UTC\n", 5 * 3600)
+      assert_equal 'PUB! 13/13 5:00',
                    Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
     end
   end
@@ -47,8 +47,8 @@ class TestPublishHealth < Minitest::Test
   def test_very_stale_age_13h_same_flag
     # No amber/red tiers any more: severity reads from the age itself
     Dir.mktmpdir do |dir|
-      path = write_status(dir, "PUB LIVE 11/11 keys 23:00 UTC\n", 13 * 3600)
-      assert_equal 'PUB! 11/11 13:00',
+      path = write_status(dir, "PUB LIVE 13/13 keys 23:00 UTC\n", 13 * 3600)
+      assert_equal 'PUB! 13/13 13:00',
                    Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
     end
   end
@@ -58,16 +58,16 @@ class TestPublishHealth < Minitest::Test
   def test_dry_is_always_flagged
     # A DRY run on the prod box is a misconfiguration whatever its age
     Dir.mktmpdir do |dir|
-      path = write_status(dir, "PUB DRY 11/11 keys 12:00 UTC\n", 37 * 60)
-      assert_equal 'PUB! DRY 11/11 0:37',
+      path = write_status(dir, "PUB DRY 13/13 keys 12:00 UTC\n", 37 * 60)
+      assert_equal 'PUB! DRY 13/13 0:37',
                    Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
     end
   end
 
   def test_dry_stale_same_flag
     Dir.mktmpdir do |dir|
-      path = write_status(dir, "PUB DRY 11/11 keys 23:00 UTC\n", 13 * 3600)
-      assert_equal 'PUB! DRY 11/11 13:00',
+      path = write_status(dir, "PUB DRY 13/13 keys 23:00 UTC\n", 13 * 3600)
+      assert_equal 'PUB! DRY 13/13 13:00',
                    Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
     end
   end
@@ -75,10 +75,10 @@ class TestPublishHealth < Minitest::Test
   # ---- Incomplete publish (n < m) ----------------------------------------
 
   def test_incomplete_fresh_publish_is_flagged
-    # Fresh LIVE but 10/11 keys -> a key is missing, flag it
+    # Fresh LIVE but 12/13 keys -> a key is missing, flag it
     Dir.mktmpdir do |dir|
-      path = write_status(dir, "PUB LIVE 10/11 keys 12:00 UTC\n", 37 * 60)
-      assert_equal 'PUB! 10/11 0:37',
+      path = write_status(dir, "PUB LIVE 12/13 keys 12:00 UTC\n", 37 * 60)
+      assert_equal 'PUB! 12/13 0:37',
                    Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
     end
   end

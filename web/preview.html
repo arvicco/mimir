@@ -130,8 +130,12 @@
   /* flipped upward by render.js when the default position would clip at
      the viewport bottom (bottom-row cards) -- opens above the head */
   .bubble.up { top: auto; bottom: calc(100% - 26px); }
+  /* focus opens the bubble only from the elements that own it (.hover =
+     key/info) -- :focus-within on the whole head pinned the bubble open
+     over the chart whenever a GEX tab button was clicked (owner report,
+     Gate 6 preview) */
   .card-head:has(.hover:hover) ~ .bubble,
-  .card-head:focus-within ~ .bubble,
+  .card-head:has(.hover:focus) ~ .bubble,
   .bubble:hover { display: block; }
   .info:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
   .badge {
@@ -140,6 +144,17 @@
     border: 1px solid #2a2f38; color: #b9c0ca;
   }
   .chart { width: 100%; height: 500px; }
+  /* GEX tab bar (M6-4, owner ruling D7-c): the two GEX charts share one
+     card as [BTC][MSTR] tabs. Real <button>s in the card-head, dim until
+     active / bright when owning (the .sortbtn pattern), amber focus ring. */
+  .tabbar { display: inline-flex; gap: 4px; }
+  .tabbtn {
+    cursor: pointer; padding: 1px 8px; border-radius: 5px;
+    background: none; border: 1px solid #2a2f38;
+    font: inherit; font-size: 11px; color: #7f8896;
+  }
+  .tabbtn.active { color: #d7dce3; border-color: #3a424e; background: #20252d; }
+  .tabbtn:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
   /* Grouped (p) VENUE (c) legend widget (meta.legend_widget hook) --
      one line per venue over the chart's right margin. Bright = shown,
      dim = hidden; sides keep their series colors. */
@@ -251,7 +266,10 @@ async function loadChart(key) {
     return;
   }
   try {
-    grid.appendChild(R.buildChartCard(env, key));
+    var card = R.buildChartCard(env, key);
+    // A tab-group's 2nd+ member (M6-4) returns the SAME, already-connected
+    // card; re-appending would MOVE it and break the 2x2 grid order.
+    if (!card.isConnected) grid.appendChild(card);
   } catch (e) {
     grid.appendChild(R.errCard(key, "render failed: " + url + "\n" + e.message));
   }

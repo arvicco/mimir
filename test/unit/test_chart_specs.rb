@@ -61,6 +61,24 @@ class TestChartSpecs < Minitest::Test
     assert_nil metas['lppl_regime']['tooltip_formatter']
     assert_nil metas['btco_table']['height']
     assert_nil metas['scenario_strip']['legend_widget']
+    # gex_mstr carries no drawn-legend/tooltip hooks: its single net-GEX
+    # series does not match gex_levels' per-venue C/P input
+    assert_nil metas['gex_mstr']['tooltip_formatter']
+    assert_nil metas['gex_mstr']['legend_widget']
+    # M6-4 (owner ruling D7-c, 2026-07-06): the two GEX charts share ONE
+    # dashboard card as [BTC][MSTR] tabs. tab_group pairs them; tab_pos
+    # fixes BTC first (the index sorts keys alphabetically, so gex_mstr
+    # would otherwise lead). tab_label is the button text.
+    assert_equal 'gex', metas['gex_profile']['tab_group']
+    assert_equal 'BTC', metas['gex_profile']['tab_label']
+    assert_equal 1, metas['gex_profile']['tab_pos']
+    assert_equal 'gex', metas['gex_mstr']['tab_group']
+    assert_equal 'MSTR', metas['gex_mstr']['tab_label']
+    assert_equal 2, metas['gex_mstr']['tab_pos']
+    # the other three charts are not part of any tab group
+    assert_nil metas['scenario_strip']['tab_group']
+    assert_nil metas['lppl_regime']['tab_group']
+    assert_nil metas['btco_table']['tab_group']
   end
 
   # ---- gex_profile structure -------------------------------------------
@@ -158,6 +176,72 @@ class TestChartSpecs < Minitest::Test
 
       assert_equal labels.size, s['data'].size, "#{s['name']} misaligned with axis"
     end
+  end
+
+  # ---- gex_mstr structure (M6-3) ---------------------------------------
+
+  def mstr_payload
+    @mstr_payload ||= JSON.parse(File.read(File.join(PAYLOADS, 'payload_gex_mstr.json')))
+  end
+
+  def test_gex_mstr_title_carries_spot_from_fixture
+    # spot 102.22 rendered raw-dollar (below 1k), one-line 13px title
+    opt = build('gex_mstr')
+    assert_equal 'MSTR GEX $M/1% · spot 102.22', opt['title']['text']
+    assert_equal 13, opt['title']['textStyle']['fontSize']
+  end
+
+  def test_gex_mstr_one_net_bar_per_strike_coloured_by_sign
+    opt = build('gex_mstr')
+    bar = opt['series'].find { |s| s['type'] == 'bar' }
+    assert_equal 'net GEX', bar['name']
+    assert_equal 1, opt['series'].size # single-venue: one series, no C/P split
+    strikes = mstr_payload['profile'].keys.sort_by(&:to_f)
+    assert_equal strikes.size, bar['data'].size
+    assert_equal opt['xAxis']['data'].size, bar['data'].size
+    # each bar's colour tracks the sign of its net gamma (teal long / red short)
+    bar['data'].each_with_index do |d, i|
+      want = d['value'].negative? ? '#c63939' : '#0f7a5c'
+      assert_equal want, d['itemStyle']['color'], "strike #{strikes[i]}"
+    end
+  end
+
+  def test_gex_mstr_marklines_spot_flip_and_walls_snapped
+    marks = build('gex_mstr')['series'].first['markLine']['data']
+    assert_equal %w[spot flip CW PW], marks.map { |m| m['label']['formatter'] }
+    # walls snap to the exact fixture strikes (107 CW, 80 PW)
+    cw = marks.find { |m| m['label']['formatter'] == 'CW' }
+    pw = marks.find { |m| m['label']['formatter'] == 'PW' }
+    assert_equal '107', cw['xAxis']
+    assert_equal '80', pw['xAxis']
+    # spot snaps to the nearest strike (102 for spot 102.22)
+    assert_equal '102', marks.first['xAxis']
+    # label banding (Gate 6 owner report): walls raised into the upper
+    # band, spot/flip in the lower (no offset); grid top makes the zone
+    [cw, pw].each { |m| assert_equal [0, -14], m['label']['offset'] }
+    marks.first(2).each { |m| refute m['label'].key?('offset') }
+    assert_equal 56, build('gex_mstr')['grid']['top']
+  end
+
+  def test_gex_profile_wall_labels_raised_and_label_zone
+    opt = build('gex_profile')
+    marks = opt['series'].map { |s| s['markLine'] }.compact.first['data']
+    %w[CW PW].each do |w|
+      m = marks.find { |x| x['label']['formatter'] == w }
+      assert_equal [0, -14], m['label']['offset'], "#{w} not raised"
+    end
+    flip = marks.find { |x| x['label']['formatter'] == 'flip' }
+    refute flip['label'].key?('offset')
+    assert_equal 56, opt['grid']['top']
+  end
+
+  def test_gex_mstr_default_zoom_is_spot_plus_minus_30pct
+    zoom = build('gex_mstr')['dataZoom'].first
+    assert_equal 'inside', zoom['type']
+    # startValue/endValue are real category labels drawn from the strikes
+    labels = build('gex_mstr')['xAxis']['data']
+    assert_includes labels, zoom['startValue']
+    assert_includes labels, zoom['endValue']
   end
 
   # ---- scenario_strip structure ----------------------------------------
