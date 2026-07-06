@@ -599,7 +599,7 @@ Acceptance: unit tests with a fake runner pin file shape, date-guard,
 Status note: done (sonnet first pass, no deviations; fable review
       clean) -- 78f24d1.
 
-## M5-6 · rake ops:install|status|uninstall -- interactive ops installer  [tier: opus -- owner-run automation wrapping launchctl with programmatic verification, the rake deploy pattern; fable spec + review (secret-adjacent, system-state mutating)] [status: ready] [deps: M5-1, M5-2, M5-5]
+## M5-6 · rake ops:install|status|uninstall -- interactive ops installer  [tier: opus -- owner-run automation wrapping launchctl with programmatic verification, the rake deploy pattern; fable spec + review (secret-adjacent, system-state mutating)] [status: done -- opus vs spec, deviations reviewed; TTY refusal verified live against the loop's own shell -- 95a48a8] [deps: M5-1, M5-2, M5-5]
 Goal: owner ruling 2026-07-06 (live from the gold staging install):
       "wrapped in the interactive script instead of loading human with
       tasks humans bad at" -- the RUNBOOK 1-2/4 copy-paste blocks
