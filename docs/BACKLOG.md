@@ -498,15 +498,15 @@ host, merges PR phase-4 -> main.
 
 ## Phase 5 -- ops integration (branch: phase-5)
 
-Elaborated at Gate 4 close (2026-07-06) per ARCHITECTURE.md section 6
-Phase 5. Everything here PREPARES ops artifacts; installing launchd
-agents on novo and running the soak are HUMAN actions (Golden Rule 3,
-DEV-LOOP section 7). Note: publish.rb already runs the four suites as
-subprocesses and publishes in one pass, so ARCHITECTURE's "publisher
-after each suite run" collapses to ONE scheduled publisher job -- its
-cadence is decision item D5-a.
+Elaborated at Gate 4 close, amended at the 2026-07-06 multi-phase plan
+approval (ARCHITECTURE.md section 6 Phase 5). Everything here PREPARES
+ops artifacts; installing launchd agents on novo and running the soak
+are HUMAN actions (Golden Rule 3, DEV-LOOP section 7). publish.rb runs
+the four suites as subprocesses and publishes in one pass, so there is
+ONE scheduled publisher job, bi-hourly (D5-a). Ingest is NOT scheduled
+in this phase (D6-a: interactive; Phase 6 adds a discovery-alert job).
 
-## M5-1 · ops/ wrappers + prepared launchd agents (publisher, ingest discovery)  [tier: opus -- prepared-not-installed cron/launchd entries vs a written spec (named at this tier in DEV-LOOP section "Opus"); fable reviews (secret-adjacent: env-file sourcing)] [status: ready] [deps: --]
+## M5-1 · ops/ wrapper + prepared launchd agent (publisher)  [tier: opus -- prepared-not-installed cron/launchd entries vs a written spec (named at this tier in DEV-LOOP section "Opus"); fable reviews (secret-adjacent: env-file sourcing)] [status: ready] [deps: --]
 Goal: new top-level `ops/` dir: (a) `ops/run_publish.sh` -- sh wrapper
       that sources `~/.config/mimir/env` (MIMIR_ENV_FILE overridable;
       refuses with a clear, secret-free message if absent), cds to the
@@ -514,18 +514,16 @@ Goal: new top-level `ops/` dir: (a) `ops/run_publish.sh` -- sh wrapper
       stdout+stderr to `~/Library/Logs/mimir/publish.log` (publish
       already redacts; wrapper never echoes env). Exit code passes
       through (publish is nonzero on real-publish failure -- that is
-      the cron alarm). (b) `ops/run_ingest.sh` -- same shape, runs
-      `ruby scripts/btco/ingest.rb --limit 5` (default mode IS
-      discovery -> capstruct/pending/ proposals; `--apply` is NEVER
-      scheduled -- universe.json rule). (c) launchd plists
-      `ops/com.mimir.publish.plist` (StartInterval per D5-a) and
-      `ops/com.mimir.ingest.plist` (daily), absolute paths via an
-      install-time sed step documented in RUNBOOK; RunAtLoad false;
-      launchd's no-overlap semantics noted in the plist comments.
-Acceptance: `bash -n` + `plutil -lint` wired into `rake health` as
-      offline scans (registered, so drift fails the gate); env-missing
-      refusal pinned by a unit test shelling the wrapper with a fake
-      HOME; no secrets in any ops file; rake green.
+      the cron alarm). (b) launchd plist `ops/com.mimir.publish.plist`
+      (StartInterval 7200 per D5-a), absolute paths via an install-time
+      sed step documented in RUNBOOK; RunAtLoad false; launchd's
+      no-overlap semantics noted in the plist comments.
+Acceptance: `bash -n` + plist well-formedness/required-keys checks
+      wired into `rake health` as offline scans (registered, so drift
+      fails the gate; pure-Ruby XML check, portable to CI -- plutil is
+      macOS-only); env-missing refusal pinned by a unit test shelling
+      the wrapper with a fake HOME; no secrets in any ops file; rake
+      green.
 
 ## M5-2 · Publish health line for the tmux bar  [tier: sonnet -- small pure formatter over the existing frozen /tmp/publish.status contract with an exact-value test oracle; two failures bump to opus] [status: ready] [deps: --]
 Goal: `ops/publish_health.rb` -- stdlib one-shot for `status-right`:
@@ -535,7 +533,7 @@ Goal: `ops/publish_health.rb` -- stdlib one-shot for `status-right`:
       age < 2x the publish interval, amber < 6x, red beyond or when
       the file is missing/unparseable (prints `PUB ?` -- fail-soft,
       exit 0, never breaks the bar). Interval from MIMIR_PUBLISH_
-      INTERVAL_MIN env (default matching D5-a). This output is a NEW
+      INTERVAL_MIN env (default 120, matching D5-a). This output is a NEW
       frozen --tmux contract: exact-value contract tests in the same
       commit; RUNBOOK documents the status-right snippet.
 Acceptance: contract tests pin fresh/amber/red/missing/garbled cases
@@ -561,40 +559,112 @@ Acceptance: every command copy-pasteable with an EXPECT line; a
       newcomer could operate novo from this doc alone; README gains a
       one-line pointer; no secrets anywhere.
 
-## M5-4 · Gate 5 soak checklist + README refresh  [tier: fable -- gate-defining document, cross-cutting review of the whole phase] [status: ready] [deps: M5-1..3]
-Goal: BACKLOG Gate 5 entry expanded into the concrete one-week soak
-      protocol: owner installs agents (RUNBOOK), then daily 1-minute
-      check (dashboard n/11 fresh, tmux line green); log every
-      staleness incident as date · key · cause · minutes-stale; end
-      of week review KV writes/day vs free tier (expected: 11 keys x
-      24 runs = 264/day vs 1000 limit at hourly D5-a) and upstream
-      API quota behavior; then owner tags v1 (tags are gate actions).
-      README updated to the Phase 5 capability set before the gate
-      (Workflow rule 5).
+## M5-4 · Gate 5 soak checklist + README refresh  [tier: fable -- gate-defining document, cross-cutting review of the whole phase] [status: ready] [deps: M5-1..3, M5-5]
+Goal: BACKLOG Gate 5 entry expanded into the concrete soak protocol:
+      owner installs agents (RUNBOOK), verifies green for ~48h, then
+      the week-long soak continues in parallel with Phase 6 and closes
+      at Gate 6 (v1 tag). Daily 1-minute check (dashboard n/11 fresh,
+      tmux line green, gex snapshot file present); log every staleness
+      incident as date · key · cause · minutes-stale; at Gate 6 review
+      KV writes/day vs free tier (expected: 11 keys x 12 runs =
+      132/day vs 1000 limit at bi-hourly D5-a) and upstream API quota
+      behavior. README updated to the Phase 5 capability set before
+      the gate (Workflow rule 5).
 Acceptance: checklist is executable as written; README honest about
       what does not work yet (universe.json placeholder caveat
       stays); rake green; phase ends with the Gate 5 handoff summary,
       not an action.
 
+## M5-5 · Daily GEX snapshot writer  [tier: sonnet -- small injectable-runner script following the established BTC::Deploy pattern, deterministic test oracle; two failures bump to opus] [status: ready] [deps: --]
+Goal: `ops/gex_snapshot.rb` -- stdlib one-shot with an injectable
+      runner (pattern: lib/btc/deploy.rb): runs
+      `ruby scripts/gex_btc_combined.rb --json` and
+      `ruby scripts/gex_us.rb IBIT MSTR --json` as subprocesses and
+      writes ONE dated file
+      `BTC::Env.data_dir('gex_history','data/gex_history')/YYYY-MM-DD.json`
+      containing `{date, captured_at, btc_combined: <verbatim parsed
+      --json>, us: <verbatim>, errors: {...}}`. Date-guard: if today's
+      file exists, exit 0 without touching it (idempotent under
+      re-runs). Tool failures are recorded per-tool in `errors` and
+      never abort the other capture; exit nonzero only if BOTH fail.
+      Local-only (data/ is gitignored, never KV, never git). Plus
+      `ops/run_gex_snapshot.sh` (same env-wrapper shape as M5-1) and
+      `ops/com.mimir.gex-snapshot.plist` (daily StartCalendarInterval).
+      Rationale: Deribit/CBOE are now-data -- unbackfillable; U3
+      (expiry_low, Phase 9) consumes this archive for its max-put
+      strike track.
+Acceptance: unit tests with a fake runner pin file shape, date-guard,
+      partial-failure and both-fail paths; wrapper/plist pass the M5-1
+      health scans; no network in tests; rake green.
+
 ## Gate 5 (human)
-Owner installs the launchd agents on novo per RUNBOOK, runs the
-one-week soak per M5-4's checklist, reviews KV quota + staleness
-incidents, merges PR phase-5 -> main, tags v1.
+Owner installs the launchd agents (publish + gex snapshot) on novo per
+RUNBOOK and verifies them green for ~48h (first scheduled publish on
+the dashboard, first snapshot file on disk, tmux line green). The
+week-long soak continues in parallel; PR phase-5 -> main merges here;
+the v1 tag waits for Gate 6.
 
-## Decision items -- Phase 5 planning (owner ruling requested, 2026-07-06)
-- D5-a Publish cadence: RECOMMEND hourly (StartInterval 3600).
-  Driver: ARCHITECTURE names btco hourly, and publish runs all four
-  suites in one pass, so hourly-everything is the simplest schedule
-  that satisfies it. Cost: 264 KV writes/day (26% of free tier);
-  upstream APIs hit hourly (all sources are quota-safe at 24/day per
-  rake health:sources registry -- FRED/Coin Metrics community limits
-  are per-minute, not per-day). Alternative: 3-hourly publish accepts
-  a staler btco card for 1/3 the API traffic. Chart TTLs already
-  derive from source ttl_hints, so no spec change either way.
+---
 
-## Queue tail (post-Gate 5 / v1.1 candidates, owner-ruled order)
-- AUTH: Cloudflare Access in front of Pages+Worker (email OTP; free
+## Phases 6-10 -- skeletons (owner-approved sequence, 2026-07-06)
+
+Full Goal/Acceptance elaboration happens at the preceding gate (loop
+rule). Details in ARCHITECTURE.md section 6; concepts in
+docs/improvements.md + docs/scenario_upgrades.md.
+
+**Phase 6 -- BTCo ingest to real data** (Gate 6 = soak closed + v1 tag):
+ingest flow characterization tests; ingest discovery-alert mode +
+status contract + daily launchd agent (D6-a: analysis stays
+interactive); XXI/NAKA CIKs added; interactive shakedown on latest
+filings with owner review/apply until no placeholder:true remains.
+
+**Phase 7 -- LPPL history backfill + MSTR GEX panel**: additive --as-of
+replay mode; sequential ledger+fit-history rebuild from the Oct-2025
+peak (D7-a), verified byte-identical on already-recorded days first,
+owner-blessed one-shot write; import of pre-handoff files if found
+(D7-b). MSTR GEX: v1:gex_mstr:latest + chart key + quadrant
+presentation per D7-c ruling (design options presented first).
+
+**Phase 8 -- Coinglass groundwork + module upgrades** (improvements.md
+steps 1-5): lib/btc/coinglass.rb + TTL cache + tier probe; A1 etf_flows
+swap; B1 liqmap.rb; A2 cohort; A3/A4 -- all detail-only/parallel-run
+behind the research gate; scenario history seeded where sources permit.
+
+**Phase 9 -- scenario v2 hypothesis modules** (scenario_upgrades.md):
+U1/U2 first, U4 early, U3/U5/U6 monitors, U7 housekeeping; weight-0
+entries with pre-registered kill criteria; weight/threshold changes
+batched as research decisions on ledger evidence.
+
+**Phase 10 -- dashboard round 2**: flow_decay_curve, cohort_panel,
+expiry_timeline, macro_clock, liq_topology specs + D4-a LPPL price
+panel; layout outgrows four quadrants -- full mimir-design pass.
+
+## Decision items -- Phase 5+ planning (owner-ruled 2026-07-06 with the
+multi-phase plan approval)
+- D5-a Publish cadence: **RESOLVED -- bi-hourly (StartInterval 7200)**.
+  Cost basis: 12 runs/day x 11 keys = 132 KV writes/day (13% of free
+  tier); upstream APIs hit 12x/day, all sources quota-safe. Chart TTLs
+  derive from source ttl_hints -- no spec change.
+- D6-a Ingest scheduling: **RESOLVED -- ingestion stays INTERACTIVE**.
+  The only scheduled piece is a daily new-filing DISCOVERY ALERT (list
+  + count surfaced to the status layer; no fetch, no AI, no state
+  mutation, no API spend). Analysis/review/apply happen in owner
+  sessions. The alert job is Phase 6 work (built with its status
+  contract), NOT an M5-1 deliverable.
+- D7-a Backfill window: **RESOLVED -- from the Oct-2025 peak.**
+- D7-b Import of pre-handoff ledger files (if any exist): still open,
+  owner checks by Gate 6; import beats recompute for covered dates.
+- D7-c 4th renderer hook (card tabs) for the MSTR GEX quadrant: owner
+  needs more context before ruling -- Phase 7 elaboration must open
+  with the design options (tab widget vs second card vs merged series)
+  incl. mockups, BEFORE any renderer work.
+- v1 tag scope: **RESOLVED -- as proposed** (v1 tags at Gate 6: real
+  BTCo data live + soak week complete; later phases are v1.x).
+
+## Queue tail (post-v1, owner-ruled order)
+- AUTH: Cloudflare Access in front of the Worker host (email OTP; free
   tier; service-token headers for curl/tmux consumers) -- or simply
   set the AUTH_TOKEN secret for API-only consumers. Console/ops work;
   no code change required.
-- D4-a LPPL price-vs-trend panel (new v1:lppl:price key + chart).
+- (D4-a LPPL price-vs-trend panel: no longer queue tail -- scheduled
+  into Phase 10 at the 2026-07-06 plan approval.)

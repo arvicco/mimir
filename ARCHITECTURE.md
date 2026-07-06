@@ -265,19 +265,75 @@ BEFORE any new feature work. Stage 0 runs interactively with the owner.
   refused); smoke checklist (all keys 200, ages sane, 404/401 paths,
   badge behavior with a stale key) -- docs/DEPLOY.md.
 
-### Phase 5 -- ops integration
-- launchd/cron entries on novo (publisher after each suite run, btco.rb
-  hourly; ingest.rb runs daily in discovery mode with proposals reviewed
-  manually -- applying is never scheduled), publish health line in tmux
-  bar, runbook in `docs/RUNBOOK.md` (rotate token, re-create namespace,
-  purge key, recover from stale-everything).
-- **Gate 5:** one-week soak; review KV free-tier usage (writes/day well
-  under limits at stated cadences), staleness incidents, then tag v1.
+### Phase 5 -- ops integration + data preservation
+- launchd entries on novo, prepared in-repo and installed by the owner:
+  ONE publisher job bi-hourly (publish.rb runs all four suites in one
+  pass, so "publisher after each suite run" collapsed to a single
+  schedule -- cadence owner-ruled 2026-07-06) and a daily GEX snapshot
+  writer (dated `--json` dumps of gex_btc_combined + gex_us IBIT MSTR
+  to the data dir, local-only -- Deribit/CBOE are now-data,
+  unbackfillable). Publish health line in tmux bar; runbook in
+  `docs/RUNBOOK.md` (rotate token, re-create namespace, purge key,
+  recover from stale-everything). The ingest agent is NOT part of this
+  phase: owner ruled ingestion stays interactive -- Phase 6 adds a
+  discovery-ALERT job only (no scheduled analysis, no API spend).
+- **Gate 5:** owner installs the agents per RUNBOOK; green for ~48h.
+  The one-week soak continues in parallel and closes at Gate 6.
 
-### Phase 6 (optional, deferred decision)
+### Phase 6 -- BTCo ingest to real data
+- ingest flow characterization (fixture tests for discovery / extraction
+  / apply), live shakedown on latest filings per company (the extraction
+  schema reports absolute numbers, so no backlog replay is needed; add
+  the missing XXI/NAKA CIKs), owner reviews and applies proposals until
+  no `placeholder:true` remains. Ingestion stays INTERACTIVE (owner
+  ruling 2026-07-06): the only scheduled piece is a daily discovery
+  alert (list new filings, surface a count in the tmux/status layer --
+  no fetch, no AI analysis, no state mutation); analysis and apply
+  happen in owner sessions.
+- **Gate 6:** real universe data live on the dashboard; soak week
+  complete; KV free-tier usage reviewed (writes/day well under limits);
+  **tag v1**. Everything after is v1.x.
+
+### Phase 7 -- LPPL history backfill + MSTR GEX panel
+- additive `--as-of` replay mode for the lppl suite (current-day
+  semantics untouched); sequential ledger + fit-history rebuild over the
+  owner-ruled window, verified by reproducing the already-recorded days
+  byte-identically before any historical write (owner-blessed one-shot,
+  backup first). Import beats recompute wherever pre-handoff ledger
+  files exist.
+- `v1:gex_mstr:latest` + `v1:chart:gex_mstr` published (additive index
+  growth); card tab widget in the gex_profile quadrant (4th renderer
+  hook -- owner ruling required per the design skill).
+- **Gate 7:** replay verification reviewed; backfilled ledger blessed;
+  MSTR tab visual review.
+
+### Phase 8 -- Coinglass groundwork + module upgrades (docs/improvements.md)
+- `lib/btc/coinglass.rb` + per-endpoint TTL file cache + tier probe
+  (fail-soft "requires higher tier"), then A1 etf_flows source swap,
+  B1 liqmap.rb, A2 cohort upgrade, A3/A4 premium/funding upgrades --
+  detail-only / parallel-run behind the research gate; scenario history
+  seeded from history endpoints where sources permit. New ENV
+  `COINGLASS_API_KEY`; every endpoint registered in health SOURCES.
+- **Gate 8:** parallel-run evidence reviewed; source registry green.
+
+### Phase 9 -- scenario v2 hypothesis modules (docs/scenario_upgrades.md)
+- U1/U2 first, U4 early (longest parallel run), U3/U5/U6 monitors, U7
+  housekeeping; all enter scenario.rb at weight 0 with pre-registered
+  kill criteria; every weight/threshold change is a batched research
+  decision adjudicated against ledger evidence.
+- **Gate 9:** research-decision review of the proposal table.
+
+### Phase 10 -- dashboard round 2
+- new chart specs (flow_decay_curve, cohort_panel, expiry_timeline,
+  macro_clock, liq_topology) + the parked D4-a LPPL price panel; the
+  dashboard outgrows four quadrants -- full layout pass under the
+  mimir-design skill.
+- **Gate 10:** visual review; goldens blessed.
+
+### Phase 11 (optional, deferred decision)
 - `cloudflared` Tunnel + Sinatra on nero for interactive drill-downs
   (ledger explorer, per-venue GEX slices). Separate design note when/if
-  wanted; nothing in Phases 0-5 depends on it.
+  wanted; nothing in Phases 0-10 depends on it.
 
 ## 7. Testing strategy summary
 
