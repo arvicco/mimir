@@ -2,6 +2,8 @@
 
 One line per completed packet: date · packet · commit · notes.
 
+2026-07-06 · goldens-blessed · -- · Owner eyeballed preview.html and signed off ("preview looks fine now"): the 2026-07-06 payload-refresh goldens, the two-round gauge fix, the unified dot-only header, and the shared in-quadrant BTCo table are all owner-blessed. First fully-scheduled publish tick fired 15:29:22Z (StartInterval honoured, no kickstart).
+
 2026-07-06 · unified-table · 65a6423 · Second unified-view gap (owner): the BTCo sortable table was index.html-only. buildBtcoTable + in-quadrant attach moved to render.js (rev m5-hd3); preview renders the identical card from btco_latest.json. Playwright pins table+290px shrink+3 sort states on both pages.
 
 2026-07-06 · unified-header · d414fd1 · Owner ruled unified view ("everything on the same page design-wise as we sign off"): the dot-cluster/bubble/pub-slot builder moved into render.js (MimirRender.liveHeader, rev m5-hd2); preview.html dropped its two-row strip and delegates to the same builder as index.html (failure path -> directive banner). Playwright dot suite green on BOTH pages. Divergence now structurally impossible.
