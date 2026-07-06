@@ -881,7 +881,16 @@ were verified on EDGAR pre-swap but never written in). ingest.rb
 --dry is already exactly the D6-a alert primitive: discovery listing
 only, no fetch, no AI, and state.json is NOT persisted under --dry.
 
-## M7-1 · ingest flow characterization  [tier: opus vs fable spec] [status: todo]
+## M7-1 · ingest flow characterization  [tier: opus vs fable spec] [status: done 2026-07-06, 8285592+f2b6514+fd6e325]
+Review notes: 12 tests, zero production diff from the agent; three
+findings, all resolved same phase by fable: A --file pending-dedup
+never matched (dash mismatch) -- fixed, pins flipped; B backup-stamp
+same-second collision -- fixed with -N uniquify; C the M1-11 contract
+sandbox COPIED lib/, silently defeating the fake transport and
+hitting the real SEC (Golden Rule 6) -- symlink fix, verified offline
+under a broken proxy. Lesson for every future sandbox harness:
+symlink lib/, never copy (reopening BTC::Http resets the injected
+transport).
 Goal: pin the untested 80% of ingest.rb behind tests BEFORE the
       shakedown relies on it: proposal write -> --review -> --apply
       round-trip (universe.json updated in place, placeholder flips
@@ -944,17 +953,15 @@ Goal: README's btco section drops the placeholder caveats (honestly:
       (156/day) + novo promotion land here if >= Jul 13.
 
 ## Decision items -- Phase 7
-- D8-a Alert token form/placement: PROPOSED -- `BTCO n!` appended to
-  the second status line's right section, written only when n > 0
-  (quiet bar on quiet days; publish_health's always-on token covers
-  liveness, filings only matter when there are some). Owner rules.
-- D8-b EDGAR_UA: owner sets `EDGAR_UA='name email'` in
-  ~/.config/mimir/env before the shakedown (presence-checked, never
-  printed). SEC courtesy header -- their infra throttles anonymous
-  UAs.
-- D8-c Shakedown scheduling: owner picks the session window; API
-  spend is small (7 companies x 1-2 filings, sonnet-tier default
-  BTCO_MODEL).
+- D8-a Alert token: **RESOLVED 2026-07-06 -- owner: "fine to place
+  near general mimir status info"** -- token joins the mimir status
+  cluster (second line right section), written only when n > 0
+  (quiet bar on quiet days).
+- D8-b EDGAR_UA: **RESOLVED 2026-07-06 -- owner set it** (presence
+  verified at session start, never printed).
+- D8-c Shakedown scheduling: **RESOLVED 2026-07-06 -- ~8 h out**
+  (owner, evening ruling -> session ~2026-07-07 morning). Session
+  runbook + the XXI/NAKA CIK edit approval open the session.
 
 Soak close + KV quota review land at whichever gate follows the soak
 week; v1 tags at Gate 7 (real BTCo data, per the standing ruling).
