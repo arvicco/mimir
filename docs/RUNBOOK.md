@@ -71,12 +71,16 @@ create the Cloudflare token itself, follow **docs/DEPLOY.md section 1**
 ```
 for k in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_KV_NAMESPACE_ID FRED_API_KEY; do
   printf '%-28s ' "$k"
-  grep -qc "^$k=." ~/.config/mimir/env && echo present || echo MISSING
+  grep -Eq "^(export +)?$k=." ~/.config/mimir/env && echo present || echo MISSING
 done
 ```
 
-EXPECT: four `present` lines. (`grep -qc` reports only presence -- it
-never prints the line, so no value leaks.) Any `MISSING` -> back to 1.2.
+EXPECT: four `present` lines. (`grep -Eq` reports only presence -- it
+never prints the line, so no value leaks. Both `KEY=value` and
+`export KEY=value` lines count; the wrappers source either form.)
+Any `MISSING` -> back to 1.2. NOTE: `echo $KEY` printing a value in
+your shell does NOT make this check redundant -- launchd never sees
+your shell; the wrappers read ONLY this file.
 
 **1.4 Confirm the wrappers run and can read the env file.**
 
@@ -278,7 +282,7 @@ Replace the `CLOUDFLARE_API_TOKEN=` value with the new one, save, close.
 EXPECT (presence check, no value printed):
 
 ```
-grep -qc '^CLOUDFLARE_API_TOKEN=.' ~/.config/mimir/env && echo present
+grep -Eq '^(export +)?CLOUDFLARE_API_TOKEN=.' ~/.config/mimir/env && echo present
 ```
 
 prints `present`.
