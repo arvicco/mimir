@@ -54,16 +54,35 @@
      then the pub/fresh slot pushed right. Chips clip rather than wrap. */
   #head {
     display: flex; align-items: baseline; gap: 0 14px;
-    flex-wrap: nowrap; white-space: nowrap; overflow: hidden;
+    flex-wrap: nowrap; white-space: nowrap;
+    position: relative; /* anchors #livebubble */
     margin-bottom: 12px;
   }
   h1 { font-size: 15px; font-weight: 600; margin: 0; flex: 0 0 auto; }
+  /* liveness cluster: dot-only (owner ruling 2026-07-06 -- the key@time
+     text lives in a hover/focus bubble per dot), right-aligned before
+     the pub slot */
   #chips {
-    display: flex; align-items: baseline; gap: 0 12px;
-    flex: 1 1 auto; min-width: 0; overflow: hidden;
+    display: flex; align-items: center; gap: 0 7px;
+    flex: 0 0 auto; margin-left: auto;
   }
-  #pub { flex: 0 0 auto; margin-left: auto; color: #c3cad4; white-space: nowrap; }
-  .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #c3cad4; white-space: nowrap; }
+  #pub { flex: 0 0 auto; color: #c3cad4; white-space: nowrap; }
+  .ldot {
+    width: 10px; height: 10px; border-radius: 50%;
+    border: 0; padding: 0; cursor: help; display: inline-block;
+  }
+  .ldot:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
+  /* one shared bubble under the cluster, right-anchored to the header so
+     it can never clip at the viewport edge (mimir-design: overlays never
+     clip); content = the hovered dot's key@time */
+  #livebubble {
+    display: none; position: absolute; right: 0; top: calc(100% + 4px);
+    z-index: 40; background: #232933; border: 1px solid #3a424e;
+    border-radius: 6px; padding: 5px 10px; font-size: 11px;
+    color: #ccd3dc; box-shadow: 0 6px 24px rgba(0,0,0,.45);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
   .dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
   .green { background: #35c46a; } .amber { background: #e2a52b; } .red { background: #e04b4b; }
   #banner {
@@ -162,6 +181,7 @@
     <h1>mimir</h1>
     <span id="chips"></span>
     <span id="pub"></span>
+    <div id="livebubble" role="status"></div>
   </div>
   <div id="banner"></div>
   <div id="grid" class="grid"></div>
@@ -224,15 +244,23 @@ function buildHeader(idx) {
     var t = new Date(generatedAt).getTime();
     if (t > newestMs) newestMs = t;
   }
+  var bubble = document.getElementById("livebubble");
+  function showLabel(text) { bubble.textContent = text; bubble.style.display = "block"; }
+  function hideLabel() { bubble.style.display = "none"; }
   rows.forEach(function (row) {
     tally(row.generated_at);
-    var chip = document.createElement("span");
-    chip.className = "chip";
-    var dot = document.createElement("span");
-    dot.className = "dot " + R.staleClass(row.generated_at, idxTtl);
-    chip.appendChild(dot);
-    chip.appendChild(document.createTextNode(row.key + "@" + R.hhmm(row.generated_at)));
-    chips.appendChild(chip);
+    var label = row.key + "@" + R.hhmm(row.generated_at);
+    // dot-only indicator (owner ruling 2026-07-06): the text lives in the
+    // shared bubble, shown on hover OR keyboard focus (a11y floor)
+    var dot = document.createElement("button");
+    dot.type = "button";
+    dot.className = "ldot " + R.staleClass(row.generated_at, idxTtl);
+    dot.setAttribute("aria-label", label);
+    dot.addEventListener("mouseenter", function () { showLabel(label); });
+    dot.addEventListener("mouseleave", hideLabel);
+    dot.addEventListener("focus", function () { showLabel(label); });
+    dot.addEventListener("blur", hideLabel);
+    chips.appendChild(dot);
   });
   tally(idx.generated_at); // the index envelope itself is the 11th key
   var total = rows.length + 1;
