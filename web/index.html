@@ -235,42 +235,14 @@ async function probeHealthz() {
 // (the MIN across published keys); per-CARD badges below use each chart's
 // own ttl. Chips are drawn for the rows only (index has no card).
 function buildHeader(idx) {
-  var rows = (idx.payload && idx.payload.keys) || [];
-  var idxTtl = idx.ttl_hint_s;
-  var chips = document.getElementById("chips");
-  var green = 0, newestMs = 0;
-  function tally(generatedAt) {
-    if (R.staleClass(generatedAt, idxTtl) === "green") green += 1;
-    var t = new Date(generatedAt).getTime();
-    if (t > newestMs) newestMs = t;
-  }
-  var bubble = document.getElementById("livebubble");
-  function showLabel(text) { bubble.textContent = text; bubble.style.display = "block"; }
-  function hideLabel() { bubble.style.display = "none"; }
-  rows.forEach(function (row) {
-    tally(row.generated_at);
-    var label = row.key + "@" + R.hhmm(row.generated_at);
-    // dot-only indicator (owner ruling 2026-07-06): the text lives in the
-    // shared bubble, shown on hover OR keyboard focus (a11y floor)
-    var dot = document.createElement("button");
-    dot.type = "button";
-    dot.className = "ldot " + R.staleClass(row.generated_at, idxTtl);
-    dot.setAttribute("aria-label", label);
-    dot.addEventListener("mouseenter", function () { showLabel(label); });
-    dot.addEventListener("mouseleave", hideLabel);
-    dot.addEventListener("focus", function () { showLabel(label); });
-    dot.addEventListener("blur", hideLabel);
-    chips.appendChild(dot);
+  // shared with preview.html via the renderer (unified view, owner ruling
+  // 2026-07-06) -- dot cluster, bubble wiring, pub/fresh slot, chart keys
+  return R.liveHeader({
+    chipsEl: document.getElementById("chips"),
+    bubbleEl: document.getElementById("livebubble"),
+    pubEl: document.getElementById("pub"),
+    idx: idx
   });
-  tally(idx.generated_at); // the index envelope itself is the 11th key
-  var total = rows.length + 1;
-  var pub = document.getElementById("pub");
-  var when = newestMs ? R.hhmm(new Date(newestMs).toISOString()) : "--:--";
-  pub.textContent = "pub " + when + "Z · " + green + "/" + total + " fresh";
-  // Charts, in index order, filtered to the "chart:" namespace -- the exact
-  // 2x2 sequence preview.html uses (btco, gex, lppl, scenario).
-  return rows.filter(function (r) { return r.key.indexOf("chart:") === 0; })
-             .map(function (r) { return r.key; });
 }
 
 // ---- THE SIGNATURE: live age ticker -----------------------------------

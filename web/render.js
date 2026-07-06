@@ -288,13 +288,53 @@ function buildChartCard(env, key) {
   return card;
 }
 
-// ONE global -- shared by preview.html and the future index.html.
+// ---- shared one-line header (owner ruling 2026-07-06: unified view) ----
+// Title left, dot-only liveness cluster right-aligned, pub/fresh slot.
+// Dots are real buttons; the key@HH:MM text lives in the shared bubble
+// element (hover OR keyboard focus -- a11y floor), which the page anchors
+// to the header's right edge so it can never clip at the viewport.
+// Lives HERE so index.html and preview.html cannot drift apart.
+// o = { chipsEl, bubbleEl, pubEl, idx (index envelope) }.
+// Returns the chart keys in index order.
+function liveHeader(o) {
+  var rows = (o.idx.payload && o.idx.payload.keys) || [];
+  var idxTtl = o.idx.ttl_hint_s;
+  var green = 0, newestMs = 0;
+  function tally(gen) {
+    if (staleClass(gen, idxTtl) === "green") green += 1;
+    var t = new Date(gen).getTime();
+    if (t > newestMs) newestMs = t;
+  }
+  function show(text) { o.bubbleEl.textContent = text; o.bubbleEl.style.display = "block"; }
+  function hide() { o.bubbleEl.style.display = "none"; }
+  rows.forEach(function (row) {
+    tally(row.generated_at);
+    var label = row.key + "@" + hhmm(row.generated_at);
+    var dot = document.createElement("button");
+    dot.type = "button";
+    dot.className = "ldot " + staleClass(row.generated_at, idxTtl);
+    dot.setAttribute("aria-label", label);
+    dot.addEventListener("mouseenter", function () { show(label); });
+    dot.addEventListener("mouseleave", hide);
+    dot.addEventListener("focus", function () { show(label); });
+    dot.addEventListener("blur", hide);
+    o.chipsEl.appendChild(dot);
+  });
+  tally(o.idx.generated_at); // the index envelope itself is the last key
+  var when = newestMs ? hhmm(new Date(newestMs).toISOString()) : "--:--";
+  o.pubEl.textContent = "pub " + when + "Z · " + green + "/" + (rows.length + 1) + " fresh";
+  return rows.filter(function (r) { return r.key.indexOf("chart:") === 0; })
+             .map(function (r) { return r.key; });
+}
+
+// ONE global -- shared by preview.html and index.html.
 // rev: bump on EVERY render.js change; `MimirRender.rev` in the console
 // answers "which renderer is this tab actually running?" after deploys.
 window.MimirRender = {
-  rev: "m4-8b",
+  rev: "m5-hd2",
   staleClass: staleClass,
   hhmm: hhmm,
+  liveHeader: liveHeader,
   buildBubble: buildBubble,
   errCard: errCard,
   buildChartCard: buildChartCard,
