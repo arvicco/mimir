@@ -779,11 +779,13 @@ Acceptance: dry-run publish shows 12/12 with v1:gex_mstr:latest +
       v1:chart:gex_mstr in the index; golden reviewed at real
       geometry; contract tests updated additively; rake green.
 
-## M6-4 · MSTR quadrant presentation  [tier: opus impl, fable design review] [status: BLOCKED on D7-c ruling]
-Goal: render chart:gex_mstr per the owner's D7-c choice (options with
-      mockups presented at phase open -- tab widget in the GEX
-      quadrant vs fifth card; merged axes is off the table, see M6-3).
-      Whichever form: render.js rev bump, unified across index.html +
+## M6-4 · MSTR quadrant presentation  [tier: opus impl, fable design review] [status: todo] [deps: M6-3]
+Goal: render chart:gex_mstr per D7-c ruling (Option A): card TABS in
+      the GEX quadrant -- new `tab_group` meta hook + tab widget in
+      render.js (registry pattern like legend_widget); grouped chart
+      keys collapse into one card, [BTC][MSTR] buttons swap the chart;
+      2x2 grid preserved; separate liveness dots stay in the header.
+      render.js rev bump, unified across index.html +
       preview.html (one design, owner ruling 2026-07-06), mimir-design
       skill governs, DEV-LOOP 6b self-screenshots at REAL card
       geometry + Playwright interaction check (tab switching or card
@@ -837,13 +839,17 @@ multi-phase plan approval)
   sessions. The alert job is Phase 6 work (built with its status
   contract), NOT an M5-1 deliverable.
 - D7-a Backfill window: **RESOLVED -- from the Oct-2025 peak.**
-- D7-b Import of pre-handoff ledger files (if any exist): still open,
-  owner checks by Gate 6; import beats recompute for covered dates.
-- D7-c 4th renderer hook (card tabs) for the MSTR GEX quadrant: owner
-  needs more context before ruling -- Phase 6 elaboration opens with
-  the design options (tab widget vs fifth card; merged series ruled
-  out on axes -- MSTR gamma lives on MSTR's own price axis) incl.
-  mockups, BEFORE any renderer work (M6-4 blocked on this ruling).
+- D7-b Import of pre-handoff ledger files: **RESOLVED 2026-07-06 --
+  none usable ("handoff was garbled"); full recompute from the
+  Oct-2025 peak is the blessed path.**
+- D7-c MSTR GEX quadrant presentation: **RESOLVED 2026-07-06 --
+  Option A, card TABS in the GEX quadrant** (new `tab_group` renderer
+  hook in render.js, same registry pattern as legend_widget; keeps the
+  2x2 grid; both charts stay separate KV keys with separate liveness
+  dots; machinery reused when Phase 10 outgrows four quadrants).
+  Merged series had been ruled out on axes (MSTR gamma lives on MSTR's
+  own price axis). Contract changes for the phase (additive lppl
+  `as_of` field, publish key count 11 -> 12) approved same day.
 - v1 tag scope: **RESOLVED -- as proposed** (v1 tags at Gate 6: real
   BTCo data live + soak week complete; later phases are v1.x).
 
