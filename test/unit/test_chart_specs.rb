@@ -216,6 +216,23 @@ class TestChartSpecs < Minitest::Test
     assert_equal '80', pw['xAxis']
     # spot snaps to the nearest strike (102 for spot 102.22)
     assert_equal '102', marks.first['xAxis']
+    # label banding (Gate 6 owner report): walls raised into the upper
+    # band, spot/flip in the lower (no offset); grid top makes the zone
+    [cw, pw].each { |m| assert_equal [0, -14], m['label']['offset'] }
+    marks.first(2).each { |m| refute m['label'].key?('offset') }
+    assert_equal 56, build('gex_mstr')['grid']['top']
+  end
+
+  def test_gex_profile_wall_labels_raised_and_label_zone
+    opt = build('gex_profile')
+    marks = opt['series'].map { |s| s['markLine'] }.compact.first['data']
+    %w[CW PW].each do |w|
+      m = marks.find { |x| x['label']['formatter'] == w }
+      assert_equal [0, -14], m['label']['offset'], "#{w} not raised"
+    end
+    flip = marks.find { |x| x['label']['formatter'] == 'flip' }
+    refute flip['label'].key?('offset')
+    assert_equal 56, opt['grid']['top']
   end
 
   def test_gex_mstr_default_zoom_is_spot_plus_minus_30pct
