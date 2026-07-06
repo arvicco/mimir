@@ -138,10 +138,11 @@ same commit (`rake health` fails on registry drift).
 
 ## Current phase
 
-Phase 4 (Cloudflare layer: Worker API + dashboard, branch phase-4;
-Gate 3 closed 2026-07-05, PR #4, four chart goldens owner-blessed).
-Stage A tiering (DEV-LOOP.md section 2): Fable orchestrates/reviews,
-Opus/Sonnet write most code; packets M4-1.. in docs/BACKLOG.md. Visual
-work follows .claude/skills/mimir-design; deploys are HUMAN actions
-(Golden Rule 3). Consult ARCHITECTURE.md section 6 for Gate 4; update
-this line at each gate.
+Phase 5 (ops integration: launchd agents for novo + tmux health line +
+RUNBOOK, branch phase-5; Gate 4 closed 2026-07-06, PR #5, site LIVE on
+workers.dev). Stage A tiering (DEV-LOOP.md section 2): Fable
+orchestrates/reviews, Opus/Sonnet write most code; packets M5-1.. in
+docs/BACKLOG.md. Visual work follows .claude/skills/mimir-design;
+deploys AND launchd installs are HUMAN actions (Golden Rule 3).
+Consult ARCHITECTURE.md section 6 for Gate 5; update this line at
+each gate.

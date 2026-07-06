@@ -15,6 +15,7 @@
 # `rake health` fails if the registry drifts from the code.
 
 require 'json'
+require 'rexml/document'
 require_relative 'http'
 require_relative 'flows'
 
@@ -204,6 +205,110 @@ module BTC
       end
 
       bad
+    end
+
+    # ---- offline: ops/ launchd wrappers scan (M5-1) --------------------
+
+    # Offline audit of the prepared launchd artifacts under `ops_dir`
+    # (default 'ops'). Every check is local -- `bash -n` for shell syntax
+    # and rexml for the plists (plutil is macOS-only, absent on the ubuntu
+    # CI). A missing or empty ops/ is a FAIL: the M5-1 wrapper + plist must
+    # exist. Returns an array of problem strings (empty = all clear).
+    def scan_ops(ops_dir = 'ops')
+      unless File.directory?(ops_dir)
+        return ["ops: directory #{ops_dir}/ is missing (M5-1: run_publish.sh + com.mimir.publish.plist must exist)"]
+      end
+
+      shells = Dir.glob(File.join(ops_dir, '*.sh')).sort
+      plists = Dir.glob(File.join(ops_dir, '*.plist')).sort
+      if shells.empty? && plists.empty?
+        return ["ops: #{ops_dir}/ is empty (expected run_publish.sh + com.mimir.publish.plist)"]
+      end
+
+      bad = []
+      shells.each { |f| bad.concat(scan_ops_shell(f)) }
+      plists.each { |f| bad.concat(scan_ops_plist(f)) }
+      bad
+    end
+
+    # One shell wrapper: `bash -n` syntax, the PUBLISH_DRY_RUN=0 guarantee
+    # for the publish wrapper, and the repo-wide --apply ban (universe.json
+    # protection -- no ops job may mutate the universe).
+    def scan_ops_shell(path)
+      bad = []
+      unless system('bash', '-n', path, out: File::NULL, err: File::NULL)
+        bad << "#{path}: bash -n syntax error"
+      end
+      content = File.read(path)
+      if File.basename(path) == 'run_publish.sh' && !content.include?('PUBLISH_DRY_RUN=0')
+        bad << "#{path}: missing PUBLISH_DRY_RUN=0 (the publish wrapper must force a LIVE run)"
+      end
+      if content.include?('--apply')
+        bad << "#{path}: contains --apply (universe.json protection: ops jobs never apply)"
+      end
+      bad
+    end
+
+    # One launchd plist: well-formed XML (rexml) with a non-empty Label and
+    # ProgramArguments, RunAtLoad present and false, no `KeepAlive true`
+    # (no-overlap: launchd must not respawn the publisher), and the same
+    # --apply ban as the wrappers (a plist could schedule it directly).
+    def scan_ops_plist(path)
+      content = File.read(path)
+      bad = []
+      if content.include?('--apply')
+        bad << "#{path}: contains --apply (universe.json protection: ops jobs never apply)"
+      end
+      doc = begin
+        REXML::Document.new(content)
+      rescue REXML::ParseException => e
+        return bad + ["#{path}: not well-formed XML (#{e.message.to_s.lines.first.to_s.strip})"]
+      end
+
+      root = doc.root
+      return bad + ["#{path}: missing <plist> root element"] unless root && root.name == 'plist'
+
+      dict = root.elements['dict']
+      return bad + ["#{path}: missing top-level <dict>"] unless dict
+
+      pairs = plist_pairs(dict)
+
+      label = pairs['Label']
+      unless label && label.name == 'string' && !label.text.to_s.strip.empty?
+        bad << "#{path}: Label missing or empty"
+      end
+
+      args = pairs['ProgramArguments']
+      ok_args = args && args.name == 'array' &&
+                args.elements.to_a.any? { |c| c.name == 'string' && !c.text.to_s.strip.empty? }
+      bad << "#{path}: ProgramArguments missing or empty" unless ok_args
+
+      ral = pairs['RunAtLoad']
+      if ral.nil?
+        bad << "#{path}: RunAtLoad key missing (must be present and false)"
+      elsif ral.name != 'false'
+        bad << "#{path}: RunAtLoad must be <false/> (got <#{ral.name}/>)"
+      end
+
+      ka = pairs['KeepAlive']
+      bad << "#{path}: KeepAlive true is forbidden (no-overlap: launchd must not respawn)" if ka && ka.name == 'true'
+
+      bad
+    end
+
+    # Map a plist <dict>'s <key> nodes to their following value elements.
+    def plist_pairs(dict)
+      pairs = {}
+      key = nil
+      dict.elements.each do |el|
+        if el.name == 'key'
+          key = el.text
+        elsif key
+          pairs[key] = el
+          key = nil
+        end
+      end
+      pairs
     end
 
     # Every registry entry's marker must appear in its src file.

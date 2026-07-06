@@ -91,7 +91,7 @@ module Publish
     # Collect -> wrap -> write. Returns a summary hash for the caller to
     # print: { keys:, skipped:, mode:, out_dir: }.
     def run(now:, source:, dry_run:, runner: DEFAULT_RUNNER, env: ENV,
-            out_dir: 'data/publish_preview')
+            out_dir: 'data/publish_preview', status_dir: '/tmp')
       envelopes = {} # artifact key => wrapped envelope (insertion order)
       skipped   = []
 
@@ -118,7 +118,8 @@ module Publish
       expected = PRODUCERS.size + TAILS.size + Publish::Charts::CHARTS.size + 1
       BTC::Report.status('publish',
                          format('PUB %s %d/%d keys %s', dry_run ? 'DRY' : 'LIVE',
-                                published, expected, now.utc.strftime('%H:%M UTC')))
+                                published, expected, now.utc.strftime('%H:%M UTC')),
+                         dir: status_dir)
 
       { keys: records.map(&:first), skipped: skipped,
         mode: dry_run ? 'DRY' : 'LIVE', out_dir: dry_run ? out_dir : nil }

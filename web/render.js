@@ -288,13 +288,162 @@ function buildChartCard(env, key) {
   return card;
 }
 
-// ONE global -- shared by preview.html and the future index.html.
+// ---- shared one-line header (owner ruling 2026-07-06: unified view) ----
+// Title left, dot-only liveness cluster right-aligned, pub/fresh slot.
+// Dots are real buttons; the key@HH:MM text lives in the shared bubble
+// element (hover OR keyboard focus -- a11y floor), which the page anchors
+// to the header's right edge so it can never clip at the viewport.
+// Lives HERE so index.html and preview.html cannot drift apart.
+// o = { chipsEl, bubbleEl, pubEl, idx (index envelope) }.
+// Returns the chart keys in index order.
+function liveHeader(o) {
+  var rows = (o.idx.payload && o.idx.payload.keys) || [];
+  var idxTtl = o.idx.ttl_hint_s;
+  var green = 0, newestMs = 0;
+  function tally(gen) {
+    if (staleClass(gen, idxTtl) === "green") green += 1;
+    var t = new Date(gen).getTime();
+    if (t > newestMs) newestMs = t;
+  }
+  function show(text) { o.bubbleEl.textContent = text; o.bubbleEl.style.display = "block"; }
+  function hide() { o.bubbleEl.style.display = "none"; }
+  rows.forEach(function (row) {
+    tally(row.generated_at);
+    var label = row.key + "@" + hhmm(row.generated_at);
+    var dot = document.createElement("button");
+    dot.type = "button";
+    dot.className = "ldot " + staleClass(row.generated_at, idxTtl);
+    dot.setAttribute("aria-label", label);
+    dot.addEventListener("mouseenter", function () { show(label); });
+    dot.addEventListener("mouseleave", hide);
+    dot.addEventListener("focus", function () { show(label); });
+    dot.addEventListener("blur", hide);
+    o.chipsEl.appendChild(dot);
+  });
+  tally(o.idx.generated_at); // the index envelope itself is the last key
+  var when = newestMs ? hhmm(new Date(newestMs).toISOString()) : "--:--";
+  o.pubEl.textContent = "pub " + when + "Z · " + green + "/" + (rows.length + 1) + " fresh";
+  return rows.filter(function (r) { return r.key.indexOf("chart:") === 0; })
+             .map(function (r) { return r.key; });
+}
+
+// ---- BTCo universe table (M4-7; shared 2026-07-06, unified view) ------
+// The literal sortable table, rendered from the v1:btco:latest suite
+// envelope (raw payload, not a chart spec). Vanilla column sort; numbers
+// stay in the payload's own units. Lives HERE so index.html and
+// preview.html render the identical table.
+function fmtInt(v) { return v == null ? null : Number(v).toLocaleString("en-US"); }
+function fmt2(v)   { return v == null ? null : Number(v).toFixed(2); }
+function fmtStr(v) { return (v == null || v === "") ? null : String(v); }
+
+// key: payload field; type: sort/align kind; fmt: cell text (null -> dim --).
+var BTCO_COLS = [
+  { key: "ticker",    label: "ticker",   type: "str", fmt: fmtStr },
+  { key: "btc",       label: "BTC held", type: "num", fmt: fmtInt },
+  { key: "mnav",      label: "mNAV",     type: "num", fmt: fmt2 },
+  { key: "net_mnav",  label: "netNAV",   type: "num", fmt: fmt2 },
+  { key: "leverage",  label: "leverage", type: "num", fmt: fmt2 },
+  { key: "btc_as_of", label: "as of",    type: "str", fmt: fmtStr }
+];
+
+// Ticker cell: symbol + carried flags (STALE red, placeholder * amber),
+// in btco.rb's order (STALE then *); flag glyphs are their own spans so
+// only the flag text takes the colour, the symbol stays normal.
+function fillTicker(td, r) {
+  td.appendChild(document.createTextNode(r.ticker || "--"));
+  if (r.stale)       { var s = document.createElement("span"); s.className = "fl-st"; s.textContent = " STALE"; td.appendChild(s); }
+  if (r.placeholder) { var p = document.createElement("span"); p.className = "fl-ph"; p.textContent = " *";    td.appendChild(p); }
+}
+
+// The whole table: header buttons flip/choose the sort, render() rebuilds
+// tbody from the kept `data` array. Nulls always sort last (both dirs);
+// default is BTC held descending, matching the chart.
+function buildBtcoTable(companies) {
+  var data = companies.slice();
+  var sortKey = "btc", sortDir = -1;             // default: BTC held desc
+  var table = document.createElement("table");
+  table.className = "btco";
+  var htr = document.createElement("tr");
+  BTCO_COLS.forEach(function (col) {
+    var th = document.createElement("th");
+    th.className = col.key === "ticker" ? "tick" : "num";
+    var btn = document.createElement("button");
+    btn.type = "button"; btn.className = "sortbtn"; btn.textContent = col.label;
+    btn.onclick = function () {
+      if (sortKey === col.key) sortDir = -sortDir;
+      else { sortKey = col.key; sortDir = col.type === "num" ? -1 : 1; }
+      render();
+    };
+    col._th = th; col._btn = btn;
+    th.appendChild(btn); htr.appendChild(th);
+  });
+  var thead = document.createElement("thead"); thead.appendChild(htr);
+  var tbody = document.createElement("tbody");
+  table.appendChild(thead); table.appendChild(tbody);
+
+  function render() {
+    var col = BTCO_COLS.filter(function (c) { return c.key === sortKey; })[0];
+    var sorted = data.slice().sort(function (a, b) {
+      var av = a[sortKey], bv = b[sortKey];
+      var an = (av == null || av === ""), bn = (bv == null || bv === "");
+      if (an && bn) return 0;
+      if (an) return 1;                          // nulls last, either dir
+      if (bn) return -1;
+      var c = col.type === "num" ? (av - bv)
+            : (String(av) < String(bv) ? -1 : String(av) > String(bv) ? 1 : 0);
+      return c * sortDir;
+    });
+    BTCO_COLS.forEach(function (c) {
+      var active = c.key === sortKey;
+      c._btn.className = "sortbtn" + (active ? " active" : "");
+      c._th.setAttribute("aria-sort", active ? (sortDir < 0 ? "descending" : "ascending") : "none");
+    });
+    tbody.innerHTML = "";
+    sorted.forEach(function (r) {
+      var tr = document.createElement("tr");
+      BTCO_COLS.forEach(function (c) {
+        var td = document.createElement("td");
+        td.className = c.key === "ticker" ? "tick" : "num";
+        if (c.key === "ticker") { fillTicker(td, r); }
+        else {
+          var f = c.fmt(r[c.key]);
+          if (f == null) td.innerHTML = '<span class="dim">--</span>';
+          else td.textContent = f;
+        }
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+  }
+  render();
+  return table;
+}
+
+// In-quadrant attach (owner ruling, round 5): the table lives INSIDE the
+// chart:btco_table card -- shrink that card's chart to 290px and append
+// the table below it. Returns true if the card was found (else the
+// caller renders its own fallback).
+function attachBtcoTable(gridEl, env) {
+  var host = gridEl.querySelector('[data-key="chart:btco_table"]');
+  if (!host) return false;
+  var div = host.querySelector(".chart");
+  div.style.height = "290px";
+  var inst = echarts.getInstanceByDom(div);
+  if (inst) inst.resize();
+  host.appendChild(buildBtcoTable((env.payload && env.payload.companies) || []));
+  return true;
+}
+
+// ONE global -- shared by preview.html and index.html.
 // rev: bump on EVERY render.js change; `MimirRender.rev` in the console
 // answers "which renderer is this tab actually running?" after deploys.
 window.MimirRender = {
-  rev: "m4-8b",
+  rev: "m5-hd3",
   staleClass: staleClass,
   hhmm: hhmm,
+  liveHeader: liveHeader,
+  buildBtcoTable: buildBtcoTable,
+  attachBtcoTable: attachBtcoTable,
   buildBubble: buildBubble,
   errCard: errCard,
   buildChartCard: buildChartCard,

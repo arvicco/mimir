@@ -128,7 +128,11 @@ You design blind unless you look. After any visual change:
 
 1. Rebuild artifacts (offline from committed payloads, or
    `PUBLISH_DRY_RUN=1 ruby publish/publish.rb`), `rake preview`.
-2. Screenshot headlessly and READ the image; crop-zoom suspect cards:
+2. Screenshot headlessly and READ the image; crop-zoom suspect cards.
+   Reproduce at the element's REAL rendered geometry: renderer hooks
+   (meta.height) shrink cards, and a repro page at a comfortable size
+   can hide crowding that only appears at the true 290px (the btco
+   gauge tick collision survived one "fix" exactly this way):
    `'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
    --headless --disable-gpu --screenshot=<png> --window-size=2000,1400
    --hide-scrollbars http://localhost:8000/web/preview.html`

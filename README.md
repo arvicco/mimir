@@ -126,9 +126,11 @@ prints garbage is skipped -- keep-last-good, never publish junk; a
 fail-soft suite publishes its honest `unavailable` state. Status line:
 `/tmp/publish.status`. Real mode is live (first publish at Gate 2,
 2026-07-04; `rake deploy` also runs one so a deploy never leaves stale
-data); until Phase 5 puts it on cron, between-deploy freshness is a
-manual `PUBLISH_DRY_RUN=0` run. Retries are bounded and error paths
-never carry the token or payloads.
+data). Scheduled freshness is the Phase 5 ops layer: a prepared launchd
+agent runs the publisher bi-hourly once the owner installs it per
+`docs/RUNBOOK.md`; until then, between-deploy freshness is a manual
+`PUBLISH_DRY_RUN=0` run. Retries are bounded and error paths never
+carry the token or payloads.
 
 ## Chart specs + offline preview
 
@@ -195,15 +197,36 @@ checklist, rollback, and AUTH_TOKEN activation -- are in
 host, so there is no separate Pages step and the API is same-origin by
 construction.
 
+## Ops layer (Phase 5 -- prepared, installation is an owner action)
+
+Everything under `ops/` is ready to run but deliberately NOT installed
+by tooling (Golden Rule 3): `run_publish.sh` + `com.mimir.publish.plist`
+(bi-hourly live publisher), `gex_snapshot.rb` + wrapper + daily plist
+(dated local archive of both GEX `--json` outputs under
+`data/gex_history/` -- options data cannot be backfilled), and
+`publish_health.rb` (tmux status-right one-liner: green fresh / yellow
+amber-or-partial / red stale / `PUB ?` fail-soft). `rake health` audits
+all of it offline (shell syntax, plist keys, the --apply ban). The owner
+drives it with three interactive tasks (owner-run only -- they refuse
+under CI and without a TTY, Golden Rule 3): `rake ops:install` (pre-flight,
+render + bootstrap both agents, optional kickstart with a polled PASS/FAIL
+table), `rake ops:status` (agent state, log markers, status-file age,
+newest snapshot), `rake ops:uninstall` (confirm, bootout, remove plists).
+Install/operate/recover procedures: `docs/RUNBOOK.md`.
+
 ## Not implemented yet (roadmap in ARCHITECTURE.md)
 
-- Ops/cron integration: launchd/cron entries on the compute box
-  (publisher after each suite run, btco hourly), a publish health line in
-  the tmux bar, and the operational runbook (rotate token, re-create
-  namespace, purge a key, recover from stale-everything) -- Phase 5.
-- Queue-tail hardening: Cloudflare Access (email OTP / service tokens) in
-  front of the Worker host, and the LPPL price-vs-trend panel (needs a
-  new published `v1:lppl:price` key + chart).
+- BTCo universe is still placeholder seed data; Phase 6 (ingest
+  shakedown + owner-applied proposals) replaces it with filing-derived
+  values and adds a daily new-filing discovery alert. Until then the
+  BTCo card's numbers carry `placeholder` flags and a ~year-old as-of.
+- LPPL/scenario tracking history starts 2026-07-04; the Phase 7
+  backfill replays the LPPL ledger from the Oct-2025 peak. MSTR GEX on
+  the dashboard is also Phase 7.
+- Coinglass integration (docs/improvements.md), scenario v2 hypothesis
+  modules (docs/scenario_upgrades.md), dashboard round 2 -- Phases 8-10.
+- Queue-tail hardening: Cloudflare Access (email OTP / service tokens)
+  in front of the Worker host -- console work, post-v1.
 
 ## Development
 
@@ -229,4 +252,6 @@ network, owner-run); the skip messages say exactly which.
 Read `docs/METHODOLOGY.md` (how to interpret the outputs), `CLAUDE.md`
 (ground rules), `ARCHITECTURE.md` (design + phases), `docs/DEV-LOOP.md`
 (how this gets built), `docs/TOOL-REVIEW.md` (per-tool audit),
-`docs/BACKLOG.md` (work state). ENV reference: `.env.example`.
+`docs/BACKLOG.md` (work state), `docs/RUNBOOK.md` (operate the box:
+launchd agents, tmux health line, rotate token / recover from stale).
+ENV reference: `.env.example`.

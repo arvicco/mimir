@@ -34,21 +34,73 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-size: 13px;
   }
-  #head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 10px; }
-  h1 { font-size: 15px; font-weight: 600; margin: 0; }
-  .sub { color: #a9b3bf; font-size: 11px; }
+  /* unified one-line header (owner ruling 2026-07-06): title left,
+     dot-only liveness cluster right-aligned, pub/fresh slot -- built by
+     the SHARED renderer (MimirRender.liveHeader), same as index.html */
+  #head {
+    display: flex; align-items: baseline; gap: 0 14px;
+    flex-wrap: nowrap; white-space: nowrap;
+    position: relative; /* anchors #livebubble */
+    margin-bottom: 12px;
+  }
+  h1 { font-size: 15px; font-weight: 600; margin: 0; flex: 0 0 auto; }
+  #chips {
+    display: flex; align-items: center; gap: 0 7px;
+    flex: 0 0 auto; margin-left: auto;
+  }
+  #pub {
+    flex: 0 0 auto; color: #c3cad4; white-space: nowrap;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums; font-size: 11px;
+  }
+  .ldot {
+    width: 10px; height: 10px; border-radius: 50%;
+    border: 0; padding: 0; cursor: help; display: inline-block;
+  }
+  .ldot:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
+  #livebubble {
+    display: none; position: absolute; right: 0; top: calc(100% + 4px);
+    z-index: 40; background: #232933; border: 1px solid #3a424e;
+    border-radius: 6px; padding: 5px 10px; font-size: 11px;
+    color: #ccd3dc; box-shadow: 0 6px 24px rgba(0,0,0,.45);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
   #banner {
     display: none; background: #4a1414; border: 1px solid #a33;
     color: #ffd7d7; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px;
+    font-size: 12px; line-height: 1.5;
   }
-  #strip {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 3px 12px;
-    background: #1b1f26; border: 1px solid #2a2f38; border-radius: 6px;
-    padding: 6px 10px; margin-bottom: 14px;
-  }
-  .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #c3cad4; }
   .dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
   .green { background: #35c46a; } .amber { background: #e2a52b; } .red { background: #e04b4b; }
+  /* BTCo universe table (shared table builder in render.js; CSS is
+     per-page by convention -- copied verbatim from index.html) */
+  /* BTCo universe table (M4-7): a compact full-width strip appended below
+     the four charts (grid-column 1 / -1). Borderless except a 1px row
+     separator; mono tabular numerals at 11px; click-to-sort headers are
+     real <button>s (bright = the sorted column, dim = the rest). Density
+     is the point -- all rows, no pagination, no scroll region. */
+  .card.wide { grid-column: 1 / -1; }
+  table.btco { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  table.btco th, table.btco td { padding: 4px 10px; text-align: right; white-space: nowrap; }
+  table.btco th.tick, table.btco td.tick { text-align: left; }
+  table.btco td, table.btco th.num {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums; font-size: 11px;
+  }
+  table.btco thead th { font-size: 11px; font-weight: 600; vertical-align: bottom; }
+  table.btco tbody tr { border-top: 1px solid #2a2f38; }
+  table.btco tbody tr:hover { background: #20252d; }
+  table.btco .dim { color: #5b636e; }           /* null cells render a dim -- */
+  table.btco .fl-st { color: #e04b4b; }          /* STALE flag */
+  table.btco .fl-ph { color: #e2a52b; }          /* placeholder * flag */
+  /* Header sort control: dim until it owns the sort, then it brightens. */
+  .sortbtn {
+    cursor: pointer; padding: 0; background: none; border: 0;
+    font: inherit; color: #7f8896; white-space: nowrap;
+  }
+  .sortbtn.active { color: #d7dce3; }
+  .sortbtn:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
   .grid {
     display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
   }
@@ -117,13 +169,15 @@
 <body>
   <div id="head">
     <h1>mimir -- publish preview</h1>
-    <span class="sub">Gate 3 visual review of <code>data/publish_preview/</code> (last dry-run)</span>
+    <span id="chips"></span>
+    <span id="pub"></span>
+    <div id="livebubble" role="status"></div>
   </div>
   <div id="banner"></div>
-  <div id="strip"></div>
   <div id="grid" class="grid"></div>
   <footer>
-    Served statically. From the repo root run
+    Offline visual review of <code>data/publish_preview/</code> (last
+    dry-run). Served statically. From the repo root run
     <code>rake preview</code>, then open
     <code>http://localhost:8000/web/preview.html</code>.<br>
     ECharts pinned at 5.6.0 via jsDelivr. Chart payloads are rendered verbatim --
@@ -163,29 +217,22 @@ async function getJSON(url) {
 // envelope's own ttl_hint_s (the MIN across published keys). Per-chart ttl is
 // still used for the accurate per-card badges below.
 async function loadIndex() {
-  var strip = document.getElementById("strip");
   try {
     var idx = await getJSON(DATA + "index.json");
-    var rows = (idx.payload && idx.payload.keys) || [];
-    var idxTtl = idx.ttl_hint_s;
-    rows.forEach(function (row) {
-      var el = document.createElement("span");
-      el.className = "chip";
-      var dot = document.createElement("span");
-      dot.className = "dot " + R.staleClass(row.generated_at, idxTtl);
-      el.appendChild(dot);
-      el.appendChild(document.createTextNode(row.key + "@" + R.hhmm(row.generated_at)));
-      strip.appendChild(el);
+    // shared with index.html via the renderer (unified view, owner
+    // ruling 2026-07-06): dot cluster, bubble wiring, pub/fresh slot
+    return R.liveHeader({
+      chipsEl: document.getElementById("chips"),
+      bubbleEl: document.getElementById("livebubble"),
+      pubEl: document.getElementById("pub"),
+      idx: idx
     });
-    return rows.filter(function (r) { return r.key.indexOf("chart:") === 0; })
-               .map(function (r) { return r.key; });
   } catch (e) {
-    var warn = document.createElement("span");
-    warn.className = "chip";
-    var wdot = document.createElement("span"); wdot.className = "dot red";
-    warn.appendChild(wdot);
-    warn.appendChild(document.createTextNode("index.json: " + e.message + " -- using fallback chart list"));
-    strip.appendChild(warn);
+    var b = document.getElementById("banner");
+    b.style.display = "block";
+    b.textContent = "index.json unreadable (" + e.message + ") -- run " +
+                    "PUBLISH_DRY_RUN=1 ruby publish/publish.rb, then reload. " +
+                    "Rendering the fallback chart list meanwhile.";
     return FALLBACK_CHARTS;
   }
 }
@@ -216,13 +263,23 @@ async function loadChart(key) {
     var b = document.getElementById("banner");
     b.style.display = "block";
     b.textContent = "ECharts CDN unreachable -- preview needs network for the one pinned script.";
-    // Still render the strip so index health is visible offline.
+    // Still build the header so index health is visible offline.
     await loadIndex();
     return;
   }
   var chartKeys = await loadIndex();
   for (var i = 0; i < chartKeys.length; i++) {
     await loadChart(chartKeys[i]);
+  }
+  // BTCo universe table, in-quadrant (shared renderer; unified view --
+  // same card anatomy as the dashboard). Artifact missing -> err card.
+  try {
+    var benv = await getJSON(DATA + "btco_latest.json");
+    R.attachBtcoTable(document.getElementById("grid"), benv);
+  } catch (e) {
+    document.getElementById("grid").appendChild(
+      R.errCard("btco:latest", "btco_latest.json unreadable (" + e.message +
+                ") -- re-run PUBLISH_DRY_RUN=1 ruby publish/publish.rb."));
   }
   window.addEventListener("resize", function () {
     R.charts.forEach(function (c) { c.resize(); });

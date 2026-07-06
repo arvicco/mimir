@@ -199,7 +199,7 @@ class TestChartSpecs < Minitest::Test
     opt = build('scenario_strip')
     refute opt['title'].key?('subtext')
     assert_equal 13, opt['title']['textStyle']['fontSize']
-    assert_equal 'Scenario LEAN-FLUSH -0.17', opt['title']['text']
+    assert_equal 'Scenario NEUTRAL +0.08', opt['title']['text']
   end
 
   def test_scenario_visual_map_hidden_and_scoped_to_heatmap
@@ -262,11 +262,17 @@ class TestChartSpecs < Minitest::Test
 
   def test_lppl_skips_null_ledger_fields_without_crashing
     led = JSON.parse(JSON.generate(lppl_ledger))
+    n       = led['entries'].size
+    dead_ts = led['entries'].first['ts']
     led['entries'].first['bf'] = nil # a dead point
     opt = Publish::Charts.lppl_regime(lppl_latest, led)
     bf = opt['series'].find { |s| s['name'] == 'log10 BF' }
-    assert_empty bf['data'] # the null point is dropped, ratio/z survive
-    assert_equal 1, opt['series'].first['data'].size
+    # the null point is dropped (fixture-size-independent: pinning
+    # counts, not emptiness -- a payload refresh must not break this),
+    # ratio/z survive with every entry
+    assert_equal n - 1, bf['data'].size
+    refute(bf['data'].any? { |ts, _| ts == dead_ts })
+    assert_equal n, opt['series'].first['data'].size
   end
 
   def test_lppl_trough_note_added_only_when_present
@@ -333,7 +339,7 @@ class TestChartSpecs < Minitest::Test
     title = build('btco_table')['title']
     refute title.key?('subtext')
     assert_equal 13, title['textStyle']['fontSize']
-    assert_equal 'BTCo stress 70 STRESSED', title['text']
+    assert_equal 'BTCo stress 69 STRESSED', title['text']
   end
 
   # ---- meta registry (hover help) --------------------------------------

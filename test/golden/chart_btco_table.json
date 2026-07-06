@@ -1,7 +1,7 @@
 {
   "backgroundColor": "transparent",
   "title": {
-    "text": "BTCo stress 70 STRESSED",
+    "text": "BTCo stress 69 STRESSED",
     "textStyle": {
       "fontSize": 13
     }
@@ -53,12 +53,12 @@
         "color": "#0f7a5c"
       },
       "data": [
-        0.743,
-        0.69,
-        2.522,
-        1.09,
-        34.573,
-        0.707
+        0.735,
+        0.707,
+        2.526,
+        1.103,
+        34.405,
+        0.715
       ],
       "markLine": {
         "symbol": "none",
@@ -84,12 +84,12 @@
         "color": "#6aa9ff"
       },
       "data": [
-        1.077,
-        0.839,
-        2.522,
-        1.09,
+        1.072,
+        0.862,
+        2.526,
+        1.103,
         null,
-        1.102
+        1.122
       ]
     },
     {
@@ -102,6 +102,11 @@
         "56%"
       ],
       "radius": "48%",
+      "splitNumber": 5,
+      "axisLabel": {
+        "fontSize": 9,
+        "distance": 12
+      },
       "axisLine": {
         "lineStyle": {
           "width": 14,
@@ -129,10 +134,7 @@
         "width": 4
       },
       "title": {
-        "offsetCenter": [
-          0,
-          "-40%"
-        ]
+        "show": false
       },
       "detail": {
         "formatter": "STRESSED",
@@ -144,7 +146,7 @@
       },
       "data": [
         {
-          "value": 70,
+          "value": 69,
           "name": "stress"
         }
       ]
