@@ -2,6 +2,8 @@
 
 One line per completed packet: date · packet · commit · notes.
 
+2026-07-06 · unified-table · 65a6423 · Second unified-view gap (owner): the BTCo sortable table was index.html-only. buildBtcoTable + in-quadrant attach moved to render.js (rev m5-hd3); preview renders the identical card from btco_latest.json. Playwright pins table+290px shrink+3 sort states on both pages.
+
 2026-07-06 · unified-header · d414fd1 · Owner ruled unified view ("everything on the same page design-wise as we sign off"): the dot-cluster/bubble/pub-slot builder moved into render.js (MimirRender.liveHeader, rev m5-hd2); preview.html dropped its two-row strip and delegates to the same builder as index.html (failure path -> directive banner). Playwright dot suite green on BOTH pages. Divergence now structurally impossible.
 
 2026-07-06 · header-dots+gauge-2 · cf8cee8/fe2034d · Owner ruled the header: liveness collapses to a right-aligned dot-only cluster (key@HH:MM text in a shared hover/focus bubble anchored to the header's right edge -- never clips; dots are real buttons, aria-label = bubble text; Playwright pins rightmost/leftmost hover + keyboard). Gauge garble round 2: the REAL remaining collision was tick labels crowding each other at the 290px card height (the height hook) -- my 420px repro had lied; splitNumber 5 + 9px labels, verified at true geometry, golden re-blessed. Skill gains the test-at-real-geometry recipe; ruling in DASHBOARD-DESIGN.md.
