@@ -627,7 +627,7 @@ Acceptance: BTC::Ops fully injectable (runner/io/clock/home/repo,
       refusal pinned; no secret ever read or printed (env checks are
       presence-only); rake green; RUNBOOK updated in the same packet.
 
-## M5-7 · rake ops:tmux -- interactive tmux health-line installer  [tier: opus -- extends BTC::Ops in the M5-6 pattern (injectable runner, TTY-gated); fable spec + review] [status: ready] [deps: M5-6]
+## M5-7 · rake ops:tmux -- interactive tmux health-line installer  [tier: opus -- extends BTC::Ops in the M5-6 pattern (injectable runner, TTY-gated); fable spec + review] [status: done -- opus vs spec, 8 new tests incl. never-writes-a-file pin -- 2f9149c] [deps: M5-6]
 Goal: owner ruling 2026-07-06 (after the manual tmux merge fumble on
       gold: placeholder path left in, free-line guessing, align
       semantics): a script for everything scripts are good at, and it
