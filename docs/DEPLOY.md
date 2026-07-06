@@ -74,11 +74,16 @@ gate), then
 `would run: ... wrangler deploy -c wrangler.generated.toml`.
 Nothing has been deployed. If a row says `MISSING`, see section 4.
 
-**2.2 Make sure KV has data** (first deploy, or after long sleep):
+**2.2 Make sure KV has data** (first deploy, or after long sleep --
+an old publish means red badges and, if it predates the chart keys,
+NO chart cards at all):
 
 ```
-ruby publish/publish.rb        # real publish -- expects PUB LIVE 11/11
+PUBLISH_DRY_RUN=0 ruby publish/publish.rb   # real publish -- EXPECT: PUB LIVE 11/11
 ```
+
+(`PUBLISH_DRY_RUN=0` is required -- unset means DRY-RUN by design;
+a dry run writes local files and touches nothing in KV.)
 
 **2.3 Deploy for real:**
 
@@ -157,7 +162,8 @@ All boxes checked -> Gate 4 accepted.
 | pre-flight `rake gate FAILED` | tests/health red | fix first -- do not deploy over a red gate |
 | `wrangler deploy failed` with an authorization/permission error | the token lacks Workers Scripts Edit | edit the token's permissions in the console (section 1.1 step 2), re-run |
 | wrangler warns `Using "CF_API_TOKEN" ... deprecated` on manual commands | a stale `CF_API_TOKEN` line is still exported somewhere | delete/rename it (section 1.1 step 2); `rake deploy` shields itself by unsetting the legacy name |
-| smoke `index` FAIL (404 or stale) | KV empty or old | `ruby publish/publish.rb`, then `DEPLOY_SKIP_CHECKS=1 rake deploy` |
+| smoke `index` FAIL (404 or stale) | KV empty or old | `PUBLISH_DRY_RUN=0 ruby publish/publish.rb`, then `DEPLOY_SKIP_CHECKS=1 rake deploy` |
+| dashboard loads but shows NO charts, banner about missing chart keys | KV holds a publish older than the chart pipeline (pre-Phase-3 7-key set) | `PUBLISH_DRY_RUN=0 ruby publish/publish.rb`, reload |
 | smoke `dashboard` FAIL | assets missing from the deploy | check `wrangler.toml` has the `[assets]` block; re-run |
 | deployed the wrong thing | -- | `wrangler deployments list`, then `wrangler rollback --version-id <last-good>` (assets roll back with the worker -- one rollback reverts everything) |
 
