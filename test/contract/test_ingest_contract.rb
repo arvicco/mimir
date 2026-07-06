@@ -42,7 +42,11 @@ class TestIngestContract < Minitest::Test
     unless Dir.exist?(SANDBOX)
       FileUtils.mkdir_p(File.join(SANDBOX, 'scripts'))
       FileUtils.cp_r(File.join(ROOT, 'scripts/btco'), File.join(SANDBOX, 'scripts/btco'))
-      FileUtils.cp_r(File.join(ROOT, 'lib'), File.join(SANDBOX, 'lib'))
+      # SYMLINK lib/, never copy it: ingest.rb's require_relative must
+      # resolve to the SAME realpath the fake-transport preload loaded.
+      # A copy re-executes BTC::Http and resets the injected transport,
+      # silently letting discovery reach the real SEC (M7-1 finding C).
+      File.symlink(File.join(ROOT, 'lib'), File.join(SANDBOX, 'lib'))
       FileUtils.rm_rf(File.join(SANDBOX, 'scripts/btco/capstruct'))
       File.write(File.join(SANDBOX, 'scripts/btco/universe.json'),
                  JSON.generate(UNIVERSE))
