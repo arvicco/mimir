@@ -2,6 +2,8 @@
 
 One line per completed packet: date · packet · commit · notes.
 
+2026-07-06 · gate-5 CLOSED · 1d065b9 · Owner merged PR #6 (phase-5 -> main) after the gold staging install proved the full ops chain live (scheduled bi-hourly publish fired unattended: 11 written 0 skipped -> KV; snapshot archived with date-guard; tmux token on the owner's bar; render.js m5-hd3 deployed). Owner ruled proceed to Phase 6 same day -- the 48h window was folded into the merge decision; the week-long soak continues in parallel (daily 1-min check) and is reviewed at the first gate after ~Jul 13. Branch phase-6 opened; packets M6-1.. elaborated.
+
 2026-07-06 · phase-swap · -- · Owner ruled phases 6 and 7 swapped: LPPL backfill + MSTR GEX panel first (autonomous), BTCo ingest pushed back (owner-interactive). v1 tag moves with the ingest to Gate 7 per the standing real-data ruling; soak review lands at whichever gate follows the week. Decision-item IDs (D6-a/D7-a/b/c) keep their historical labels.
 
 2026-07-06 · M5-7 · 2f9149c · rake ops:tmux (owner ruling after the manual merge fumble): inspects the live server, idempotent when the token exists, proposes ONE fitted variant (free line vs own-align-run merge -- the live-verified form), reversible apply via tmux set -g + interval offer, ALWAYS prints the paste-to-persist lines, never edits ~/.tmux.conf; real path baked in everywhere. RUNBOOK section 3 = one command. Novo tmux step is now: rake ops:tmux, y, paste one line.

@@ -656,7 +656,12 @@ Acceptance: BTC::Ops.tmux fully injectable (runner/io/input); tests
       repo path substituted everywhere (no placeholders in output);
       rake green; RUNBOOK updated in the same packet.
 
-## Gate 5 (human) -- concrete checklist (M5-4)
+## Gate 5 (human) -- concrete checklist (M5-4)  [status: CLOSED 2026-07-06 -- PR #6 merged (1d065b9)]
+Owner merged same-day after the gold install proved the chain live
+(unattended scheduled publish, snapshot with date-guard, tmux token).
+Still open and carried forward: the week-long soak (daily 1-min check),
+the KV-quota review, and the novo promotion steps -- reviewed at the
+first gate after ~Jul 13.
 Staged rollout (owner ruling 2026-07-06): the first install happens on
 GOLD as staging, novo gets it only after the 48h-green proof. The KV
 namespace is shared -- staging publishes are real publishes (that is

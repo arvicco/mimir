@@ -138,11 +138,13 @@ same commit (`rake health` fails on registry drift).
 
 ## Current phase
 
-Phase 5 (ops integration: launchd agents for novo + tmux health line +
-RUNBOOK, branch phase-5; Gate 4 closed 2026-07-06, PR #5, site LIVE on
-workers.dev). Stage A tiering (DEV-LOOP.md section 2): Fable
-orchestrates/reviews, Opus/Sonnet write most code; packets M5-1.. in
-docs/BACKLOG.md. Visual work follows .claude/skills/mimir-design;
-deploys AND launchd installs are HUMAN actions (Golden Rule 3).
-Consult ARCHITECTURE.md section 6 for Gate 5; update this line at
+Phase 6 (LPPL history backfill via --as-of replay + MSTR GEX panel,
+branch phase-6; Gate 5 closed 2026-07-06, PR #6, ops agents LIVE on
+gold-as-staging; week-long soak runs in parallel, reviewed at the
+next gate after ~Jul 13). Stage A tiering (DEV-LOOP.md section 2):
+Fable orchestrates/reviews, Opus/Sonnet write most code; packets
+M6-1.. in docs/BACKLOG.md. Visual work follows
+.claude/skills/mimir-design; deploys, launchd installs AND the
+one-shot historical ledger write are HUMAN-gated (Golden Rule 3).
+Consult ARCHITECTURE.md section 6 for Gate 6; update this line at
 each gate.
