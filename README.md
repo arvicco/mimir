@@ -6,10 +6,11 @@ treasury-company analyser. Everything runs from cron/tmux on a Mac and
 prints to the terminal. On top of that sits a **Cloudflare presentation
 layer** (Worker API + KV + a static dashboard, see
 [ARCHITECTURE.md](ARCHITECTURE.md)): Ruby computes and publishes
-pre-built chart specs, the browser just renders them. The publish
-pipeline, chart specs, Worker, and dashboard are all built; **the first
-production deploy is a human step** (`rake deploy`, owner-run -- deploys
-are never automated).
+pre-built chart specs, the browser just renders them. The whole layer
+is **live in production** (Gate 4, 2026-07-06): the Worker serves the
+API and the dashboard from one workers.dev host. Deploys stay human
+(`rake deploy`, owner-run -- it ships code AND a fresh data publish;
+the loop and CI are locked out).
 
 Requirements: **Ruby 3.3+ (Apple Silicon), zero gems** -- stdlib only,
 no bundle install. Run everything from the repo root.
@@ -123,9 +124,11 @@ history windows (scenario 90d, lppl 365d) and a `v1:index`, and writes
 files (dry) or Cloudflare KV keys (real). A producer that crashes or
 prints garbage is skipped -- keep-last-good, never publish junk; a
 fail-soft suite publishes its honest `unavailable` state. Status line:
-`/tmp/publish.status`. Real mode has never been run yet (Gate 2 is the
-first human-run publish); retries are bounded and error paths never
-carry the token or payloads.
+`/tmp/publish.status`. Real mode is live (first publish at Gate 2,
+2026-07-04; `rake deploy` also runs one so a deploy never leaves stale
+data); until Phase 5 puts it on cron, between-deploy freshness is a
+manual `PUBLISH_DRY_RUN=0` run. Retries are bounded and error paths
+never carry the token or payloads.
 
 ## Chart specs + offline preview
 
