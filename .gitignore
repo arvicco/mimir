@@ -24,3 +24,4 @@ scripts/btco/universe.json.bak-*
 
 # claude code -- machine-local settings (a shared settings.json IS committed)
 .claude/settings.local.json
+wrangler.generated.toml

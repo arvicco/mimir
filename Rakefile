@@ -42,9 +42,11 @@ task :health do
   require_relative 'lib/btc/health'
   scripts = Hash[Dir.glob('{scripts,publish}/**/*.rb').map { |f| [f, File.read(f)] }]
   libs    = Hash[Dir.glob('lib/**/*.rb').map { |f| [f, File.read(f)] }]
+  pages   = Hash[%w[web/preview.html web/index.html].map { |f| [f, File.read(f)] }]
   bad = BTC::Health.scan_conventions(scripts) +
         BTC::Health.scan_frozen(libs) +
-        BTC::Health.registry_integrity(Dir.pwd)
+        BTC::Health.registry_integrity(Dir.pwd) +
+        BTC::Health.scan_sri(pages)
 
   if bad.empty?
     puts "health: OK (#{scripts.size + libs.size} files, " \
@@ -124,4 +126,31 @@ namespace :golden do
   end
 end
 
-task default: %i[compat health fixtures:verify test]
+namespace :web do
+  desc 'Worker API tests (node built-in runner, zero npm); WARN-skips without node'
+  task :test do
+    if system('node --version', out: File::NULL, err: File::NULL)
+      files = Dir.glob('test/web/*.test.mjs')
+      sh "node --test #{files.join(' ')}" unless files.empty?
+    else
+      warn 'web:test SKIP: node not found (Worker API tests not run)'
+    end
+  end
+end
+
+desc 'Deploy the Worker to Cloudflare (OWNER-RUN; never in CI -- Golden ' \
+     'Rule 3). Pre-flight, generate wrangler.generated.toml (gitignored, ' \
+     'never committed), wrangler deploy, post-deploy smoke. ' \
+     'DEPLOY_DRY_RUN=1 assembles without deploying; DEPLOY_SKIP_CHECKS=1 ' \
+     'skips tree/gate on re-runs. Not in the default gate.'
+task :deploy do
+  require_relative 'lib/btc/deploy'
+  begin
+    code = BTC::Deploy.run
+  rescue BTC::Deploy::Error => e
+    abort BTC::Env.redact(e.message)
+  end
+  exit code
+end
+
+task default: %i[compat health fixtures:verify test web:test]

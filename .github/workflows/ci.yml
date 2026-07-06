@@ -24,3 +24,6 @@ jobs:
           ruby-version: '3.3'
       - run: rake compat
       - run: rake test
+      # Worker API tests (M4-1): node's built-in runner, zero npm --
+      # runners ship node preinstalled; the task WARN-skips without it
+      - run: rake web:test

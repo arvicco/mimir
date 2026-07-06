@@ -1,0 +1,5 @@
+# Served by Workers static assets (wrangler.toml [assets]) -- part of
+# the D4-c public-read mitigations: the dashboard host must never land
+# in a search index.
+/*
+  X-Robots-Tag: noindex

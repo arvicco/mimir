@@ -7,6 +7,15 @@
 # never exposed), path-contained to the served root (traversal
 # attempts get 404). Not part of the analytics runtime.
 #
+# It ALSO shims the Worker API (web/worker.mjs) so `rake preview` serves
+# the production dashboard (web/index.html) for offline review:
+#   GET /api/v1/<key> -> data/publish_preview/<key with ':' -> '_'>.json
+#   GET /healthz      -> {"ok":true,"worker_ts":"<now iso>"}
+# Only keys matching the Worker's allowlist (/^[a-z0-9_]+(?::[a-z0-9_]+)*$/,
+# length <= 64) map; anything else falls through to normal static handling
+# (which 404s), mirroring the Worker. The allowlist alone forbids traversal
+# (no '/', '.', or '%' can appear in a key).
+#
 #   rake preview   # serves the repo root, prints the preview URL
 
 require 'socket'
@@ -22,7 +31,33 @@ module BTC
       '.png'  => 'image/png'
     }.freeze
 
+    # Mirror web/worker.mjs's key allowlist exactly.
+    API_RE = %r{\A/api/v1/(.+)\z}
+    KEY_RE = /\A[a-z0-9_]+(?::[a-z0-9_]+)*\z/
+    KEY_MAX = 64
+    PREVIEW_DIR = 'data/publish_preview'
+
     module_function
+
+    # Filesystem path for GET /api/v1/<key>, or nil when the request is not
+    # an api request or the key fails the Worker allowlist -- nil means "fall
+    # through to normal static handling". The key regex forbids '/', '.' and
+    # '%', so no traversal reaches the filesystem here.
+    def api_path(root, req_path)
+      clean = req_path.split('?', 2).first.to_s
+      m = API_RE.match(clean)
+      return nil unless m
+
+      key = m[1]
+      return nil if key.length > KEY_MAX || !KEY_RE.match?(key)
+
+      File.join(root, PREVIEW_DIR, "#{key.gsub(':', '_')}.json")
+    end
+
+    # Stub of the Worker's /healthz body (no auth, no-store semantics).
+    def healthz_body
+      %({"ok":true,"worker_ts":"#{Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')}"})
+    end
 
     # Percent-decoded request path resolved under root, or nil if it
     # escapes root (traversal) -- the security property pinned in tests.
@@ -37,6 +72,12 @@ module BTC
       MIME.fetch(File.extname(path).downcase, 'application/octet-stream')
     end
 
+    def write_ok(client, body, content_type)
+      client.write "HTTP/1.1 200 OK\r\nContent-Type: #{content_type}\r\n" \
+                   "Content-Length: #{body.bytesize}\r\nConnection: close\r\n\r\n"
+      client.write body
+    end
+
     def serve(root, port)
       server = TCPServer.new('127.0.0.1', port)
       puts "serving #{root} on http://localhost:#{port}"
@@ -49,12 +90,16 @@ module BTC
             line = client.gets
             break if line.nil? || line.strip.empty?
           end
-          path = safe_path(root, req.split(' ')[1].to_s)
-          if req.start_with?('GET ') && path && File.file?(path)
-            body = File.binread(path)
-            client.write "HTTP/1.1 200 OK\r\nContent-Type: #{mime(path)}\r\n" \
-                         "Content-Length: #{body.bytesize}\r\nConnection: close\r\n\r\n"
-            client.write body
+          req_path = req.split(' ')[1].to_s
+          is_get = req.start_with?('GET ')
+          api = is_get ? api_path(root, req_path) : nil
+          path = safe_path(root, req_path)
+          if is_get && req_path.split('?', 2).first == '/healthz'
+            write_ok(client, healthz_body, 'application/json')
+          elsif api && File.file?(api)
+            write_ok(client, File.binread(api), 'application/json')
+          elsif is_get && path && File.file?(path)
+            write_ok(client, File.binread(path), mime(path))
           else
             client.write "HTTP/1.1 404 Not Found\r\nContent-Length: 9\r\n" \
                          "Connection: close\r\n\r\nnot found"

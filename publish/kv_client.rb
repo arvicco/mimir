@@ -7,7 +7,7 @@
 #   Publish::KV.get('v1:index')                # -> raw stored value
 #
 # Config from ENV (names in .env.example; values live outside the
-# repo): CF_ACCOUNT_ID, CF_KV_NAMESPACE_ID, CF_API_TOKEN (bearer,
+# repo): CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_KV_NAMESPACE_ID, CLOUDFLARE_API_TOKEN (bearer,
 # scoped to the one namespace). All HTTP goes through BTC::Http, so
 # tests inject a fake transport.
 #
@@ -49,8 +49,8 @@ module Publish
     # -> { account:, namespace:, token: }; Error naming (only) the
     # missing variable.
     def config(env)
-      vars = { account: 'CF_ACCOUNT_ID', namespace: 'CF_KV_NAMESPACE_ID',
-               token: 'CF_API_TOKEN' }
+      vars = { account: 'CLOUDFLARE_ACCOUNT_ID', namespace: 'CLOUDFLARE_KV_NAMESPACE_ID',
+               token: 'CLOUDFLARE_API_TOKEN' }
       vars.transform_values do |name|
         v = env[name].to_s
         raise Error, "#{name} not set" if v.empty?
