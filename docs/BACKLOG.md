@@ -833,38 +833,39 @@ Goal: README updated for replay + MSTR capabilities (honest about the
 Acceptance: newcomer-readable README; gate checklist is runbook-style
       (numbered steps + EXPECT lines).
 
-## Gate 6 (human) -- concrete checklist (M6-5)
-All commands run in ~/Dev/mimir on gold. ~10 min + your judgement.
-1. Ledger promotion (D7-a/b: the one-shot historical write).
-   Run: `rake lppl:backfill_diff`
-   EXPECT: `2026-07-04: match`, `2026-07-05: match`, a `live only`
-   line for each day after the staging run, and a two-command
-   promotion block (cp backup + sed/cat merge).
-   Eyeball the staged history first if you like:
-   `ruby -rjson -e 'File.foreach("data/lppl_backfill_staging/lppl/ledger.jsonl"){|l|e=JSON.parse(l);puts "#{e["ts"][0,10]} #{e["verdict"]} #{e["composite"]}"}' | less`
-   Then paste the two printed promotion commands. Do the same-shaped
-   backup+merge for fit_history.jsonl if you want fit stability to see
-   the backfilled past (recommended; commands parallel the ledger's --
-   or ask the loop to print them).
-   EXPECT after: `wc -l scripts/lppl/data/ledger.jsonl` = 273 + the
-   organic count; next live publish's lppl:ledger tail carries the
-   history; the dashboard lppl_regime chart shows the full curve.
-2. MSTR + tabs visual sign-off.
-   Run: `PUBLISH_DRY_RUN=1 ruby publish/publish.rb && rake preview`
-   EXPECT: `publish DRY: 13 written, 0 skipped`; on the preview page
-   the GEX quadrant shows [BTC][MSTR] tabs, BTC default, MSTR tab
-   swaps chart + title + hover help; 2x2 grid intact.
-   If it looks right, no golden action needed (goldens already pinned).
-3. Publish-count expectation moves 11 -> 13 everywhere ops-visible.
-   After the next LIVE publish on gold (bi-hourly agent), EXPECT the
-   tmux token `PUB 13/13 H:MM` and the dashboard header n/13. KV
-   budget becomes 156 writes/day (15.6% of free tier) -- the soak
-   note's 132/day expectation is superseded from this merge on.
-4. Soak week review (Gate 5 carry-over; window ends ~Jul 13).
-   If reviewing at/after Jul 13: RUNBOOK section 9 weekly checks +
-   the KV write count vs 156/day; log any incident lines in the soak
-   note. If Gate 6 lands earlier, this item moves to Gate 7.
-5. Merge PR phase-6 -> main.
+## Gate 6 (human) -- checklist (M6-5; rewritten per owner feedback:
+## runbook style, promotion wrapped in an interactive task)
+All in ~/Dev/mimir on gold. ~5 min.
+
+1. Promote the backfilled LPPL history (interactive; shows the
+   verification diff, asks once, backs up and merges BOTH history
+   files):
+
+       rake lppl:promote
+
+   EXPECT: `2026-07-04: match` and `2026-07-05: match` in the diff,
+   then the `[y/N]` prompt; after `y`, one line per file ending
+   `= N lines (backup ...)` and `promoted.`
+
+2. Look at the tabs:
+
+       rake preview
+
+   Open http://localhost:8000/web/preview.html
+   EXPECT: the GEX card shows [BTC] [MSTR] buttons, BTC selected;
+   clicking MSTR swaps the chart, the title and the hover help; the
+   grid stays 2x2.
+
+3. Merge PR #7 (https://github.com/arvicco/mimir/pull/7), then
+   `rake deploy` when convenient.
+   EXPECT after deploy: live dashboard shows the tabs and the full
+   LPPL history curve.
+
+Background (no action needed): the tmux token reads `PUB 13/13` from
+the next scheduled publish (156 KV writes/day, supersedes 132); the
+Gate 5 soak-week review moves to Gate 7 if this merges before Jul 13;
+`rake lppl:backfill_diff` re-prints the verification diff read-only
+any time.
 
 **Phase 7 -- BTCo ingest to real data** (pushed back: owner-interactive;
 Gate 7 = v1 tag): ingest flow characterization tests; discovery-alert

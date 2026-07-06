@@ -178,4 +178,72 @@ class TestLpplBackfill < Minitest::Test
       assert_match(/2026-07-04/, out[/first live day.*/])
     end
   end
+
+  # ---- interactive promotion (rake lppl:promote) -----------------------------
+
+  class TtyIn < StringIO
+    def tty? = true
+  end
+
+  FROZEN = Struct.new(:t) { def now = t }
+
+  def promote_env(answer)
+    Dir.mktmpdir do |dir|
+      stage = File.join(dir, 'stage', 'lppl')
+      live  = File.join(dir, 'live')
+      FileUtils.mkdir_p(stage)
+      FileUtils.mkdir_p(live)
+      write_ledger(File.join(stage, 'ledger.jsonl'),
+                   [entry('2026-07-02'), entry('2026-07-03'), entry('2026-07-04')])
+      write_ledger(File.join(stage, 'fit_history.jsonl'),
+                   [entry('2026-07-03'), entry('2026-07-04')])
+      write_ledger(File.join(live, 'ledger.jsonl'),
+                   [entry('2026-07-04', 'ts' => '2026-07-04T19:48:34Z')])
+      write_ledger(File.join(live, 'fit_history.jsonl'),
+                   [entry('2026-07-04', 'ts' => '2026-07-04T19:48:33Z')])
+      io = StringIO.new
+      ok = Lppl::Backfill.promote(stage_root: File.join(dir, 'stage'),
+                                  data_dir: live, io: io, input: TtyIn.new(answer),
+                                  env: {}, clock: FROZEN.new(Time.utc(2026, 7, 6, 12, 0, 0)))
+      yield ok, io.string, live
+    end
+  end
+
+  def test_promote_refuses_without_tty_and_under_ci
+    io = StringIO.new
+    refute Lppl::Backfill.promote(io: io, input: StringIO.new("y\n"), env: {})
+    assert_match(/interactive terminal/, io.string)
+    io = StringIO.new
+    refute Lppl::Backfill.promote(io: io, input: TtyIn.new("y\n"), env: { 'CI' => '1' })
+    assert_match(/REFUSES.*CI/, io.string)
+  end
+
+  def test_promote_declined_writes_nothing
+    promote_env("n\n") do |ok, out, live|
+      refute ok
+      assert_match(/nothing written/, out)
+      assert_equal 1, File.readlines(File.join(live, 'ledger.jsonl')).size
+      assert_empty Dir[File.join(live, '*.bak-*')]
+    end
+  end
+
+  def test_promote_backs_up_and_merges_both_files
+    promote_env("y\n") do |ok, out, live|
+      assert ok
+      # ledger: 2 staged days strictly before 2026-07-04 + 1 organic
+      led = File.readlines(File.join(live, 'ledger.jsonl')).map { |l| JSON.parse(l)['ts'] }
+      assert_equal %w[2026-07-02T00:00:00Z 2026-07-03T00:00:00Z 2026-07-04T19:48:34Z], led
+      # fit_history: 1 staged before + 1 organic; the staged 07-04 dropped
+      fh = File.readlines(File.join(live, 'fit_history.jsonl')).map { |l| JSON.parse(l)['ts'] }
+      assert_equal %w[2026-07-03T00:00:00Z 2026-07-04T19:48:33Z], fh
+      # both backups carry the frozen stamp and the original content
+      %w[ledger.jsonl fit_history.jsonl].each do |f|
+        bak = File.join(live, "#{f}.bak-20260706-120000")
+        assert File.exist?(bak), "missing #{bak}"
+        assert_equal 1, File.readlines(bak).size
+      end
+      assert_match(/ledger\.jsonl +2 staged/, out)
+      assert_match(/promoted\./, out)
+    end
+  end
 end
