@@ -2,7 +2,7 @@
 
 require 'rake/testtask'
 
-RUBY_DIRS = %w[scripts lib publish test].freeze
+RUBY_DIRS = %w[scripts lib publish test ops].freeze
 
 Rake::TestTask.new(:test) do |t|
   t.libs << 'test'
