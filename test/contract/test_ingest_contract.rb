@@ -96,6 +96,37 @@ class TestIngestContract < Minitest::Test
     refute File.exist?(File.join(SANDBOX, 'scripts/btco/capstruct/state.json'))
   end
 
+  # ---- --dry --json alert surface (M7-2, additive contract) ------------
+
+  DRY_JSON_KEYS = %w[filings new].freeze
+  FILING_KEYS   = %w[accession date form ticker].freeze
+
+  def test_dry_json_surface_one_line_field_sets_and_no_state
+    out, err, st = run_script(sandbox_ingest, '--dry', '--json', env: NO_AI)
+    assert st.success?, "ingest --dry --json exit #{st.exitstatus}: #{err}"
+
+    # exactly ONE line of stdout, and it is the JSON document (no human lines).
+    lines = out.strip.lines
+    assert_equal 1, lines.size, "expected one JSON line, got:\n#{out}"
+    doc = JSON.parse(lines.first)
+
+    assert_contract_keys DRY_JSON_KEYS, doc, 'dry-json'
+    assert_kind_of Integer, doc['new']
+    assert_kind_of Array, doc['filings']
+    assert_equal doc['new'], doc['filings'].size
+    assert_operator doc['new'], :>, 0, 'the recorded submissions carry new filings'
+
+    doc['filings'].each do |f|
+      assert_contract_keys FILING_KEYS, f, 'filing'
+      assert_match(/\A\d{10}-\d{2}-\d{6}\z/, f['accession']) # dashed EDGAR accession
+    end
+    # stable sort: ticker then date.
+    assert_equal doc['filings'].sort_by { |f| [f['ticker'], f['date']] }, doc['filings']
+
+    # --dry --json must persist NO state (load-bearing for the alert job).
+    refute File.exist?(File.join(SANDBOX, 'scripts/btco/capstruct/state.json'))
+  end
+
   # ---- excerpt pipeline on the recorded 8-K -----------------------------
 
   def test_excerpt_pipeline_on_fixture_filing

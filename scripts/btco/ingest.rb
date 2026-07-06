@@ -13,6 +13,10 @@
 #   ruby ingest.rb --ticker MSTR       # limit discovery to one company
 #   ruby ingest.rb --limit 3           # max filings analysed per run (def 5)
 #   ruby ingest.rb --dry               # discovery only: list, no fetch/AI
+#   ruby ingest.rb --dry --json        # discovery only, ONE JSON line:
+#                                      #   {"new":n,"filings":[{ticker,form,date,
+#                                      #   accession}...]} sorted (ticker,date) --
+#                                      #   the daily discovery-alert feed (M7-2)
 #   ruby ingest.rb --file f.txt --ticker 3350   # ingest a local document
 #                                      #   (e.g. Metaplanet TDnet text/HTML)
 #   ruby ingest.rb --review            # show pending proposals with diffs
@@ -42,6 +46,12 @@
 #   pending/*.json       proposals awaiting review
 #   <TICKER>.jsonl       audit ledger of APPLIED changes
 #   universe.json.bak-*  automatic backups on apply
+#
+# The --dry --json line is a FROZEN --json contract (Golden Rule 5):
+# additive fields only, with a test/contract/test_ingest_contract.rb
+# update in the same commit. Human --dry output is unchanged when --json
+# is absent, and --dry never writes state.json (the alert job depends on
+# that: no state mutation, no API spend).
 #
 # Env: EDGAR_UA='name email' (SEC courtesy), ANTHROPIC_API_KEY, BTCO_MODEL.
 # Ruby >= 2.5, stdlib only.
@@ -315,6 +325,11 @@ end
 limit  = (arg('--limit') || 5).to_i
 only   = arg('--ticker')
 budget = limit
+dry    = ARGV.include?('--dry')
+# --dry --json: emit ONE machine-readable discovery line (the M7-2 alert
+# feed) and suppress every human line. State is never written under --dry.
+dry_json = dry && ARGV.include?('--json')
+found    = [] # {ticker, form, date, accession} rows for the --dry --json line
 
 universe['companies'].each do |c|
   next if only && c['ticker'] != only
@@ -342,7 +357,7 @@ universe['companies'].each do |c|
   end
   next if idx.empty?
 
-  puts format('%-6s %d new filing(s)', c['ticker'], idx.size)
+  puts format('%-6s %d new filing(s)', c['ticker'], idx.size) unless dry_json
   idx.reverse.each do |i| # oldest first
     break if budget <= 0
 
@@ -350,8 +365,10 @@ universe['companies'].each do |c|
     meta = { acc: acc, form: r['form'][i], date: r['filingDate'][i],
              url: format('https://www.sec.gov/Archives/edgar/data/%d/%s/%s',
                          c['cik'].to_i, acc.delete('-'), r['primaryDocument'][i]) }
-    if ARGV.include?('--dry')
-      puts format('  %-6s %s %s %s', c['ticker'], meta[:form], meta[:date], meta[:url])
+    if dry
+      found << { 'ticker' => c['ticker'], 'form' => meta[:form],
+                 'date' => meta[:date], 'accession' => acc }
+      puts format('  %-6s %s %s %s', c['ticker'], meta[:form], meta[:date], meta[:url]) unless dry_json
       next
     end
     begin
@@ -367,5 +384,10 @@ universe['companies'].each do |c|
   end
 end
 
-File.write(STATE, JSON.pretty_generate(state)) unless ARGV.include?('--dry')
-puts "\n#{pending_files.size} proposal(s) pending -- review with: ruby ingest.rb --review"
+File.write(STATE, JSON.pretty_generate(state)) unless dry
+if dry_json
+  found.sort_by! { |f| [f['ticker'], f['date']] }
+  puts JSON.generate('new' => found.size, 'filings' => found)
+else
+  puts "\n#{pending_files.size} proposal(s) pending -- review with: ruby ingest.rb --review"
+end

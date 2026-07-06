@@ -1,8 +1,9 @@
 # Operating mimir on novo
 
-Owner-facing operations runbook for the compute box (novo): the two
-launchd agents that keep the dashboard fresh, the tmux health line, and
-the fix-it procedures for a 3am stale-everything call.
+Owner-facing operations runbook for the compute box (novo): the three
+launchd agents that keep the dashboard fresh and flag new BTCo filings,
+the tmux health line, and the fix-it procedures for a 3am stale-everything
+call.
 
 Every procedure below is self-contained: pick the numbered section for
 your task, run the steps top to bottom, check each `EXPECT:` before
@@ -81,9 +82,10 @@ pre-flight inspects.
 
 ## 2. Install the launchd agents
 
-Installs both agents -- `com.mimir.publish` (bi-hourly publisher) and
-`com.mimir.gex-snapshot` (daily 08:15 snapshot) -- with one interactive
-command. Requires section 1 done. `rake ops:install` does the pre-flight,
+Installs all three agents -- `com.mimir.publish` (bi-hourly publisher),
+`com.mimir.gex-snapshot` (daily 08:15 snapshot), and `com.mimir.btco-alert`
+(daily 07:45 new-filing discovery alert, section 10) -- with one
+interactive command. Requires section 1 done. `rake ops:install` does the pre-flight,
 renders each plist's `__REPO__` into `~/Library/LaunchAgents`, boots each
 agent (bootout-then-bootstrap if already loaded), verifies the program
 line, and -- per agent -- offers to kickstart the first run and POLLS its
@@ -98,12 +100,12 @@ cd "$REPO"
 rake ops:install
 ```
 
-Answer `y` to both `kickstart <label> now? [y/N]` prompts on a fresh
-install (say `y` to force the first publish and the first snapshot now;
-`N` if you would rather wait for the scheduled run).
+Answer `y` to each `kickstart <label> now? [y/N]` prompt on a fresh
+install (say `y` to force the first publish, snapshot, and filing-alert
+now; `N` if you would rather wait for the scheduled run).
 
 EXPECT: a `pre-flight:` table of `[ok ]` rows (env file mode 0600, four
-keys `present`, ruby, both wrappers + plists, `ops/ audit` clean,
+keys `present`, ruby, all three wrappers + plists, `ops/ audit` clean,
 `launchctl`), then a `verification:` table where every row is `[PASS]`:
 
 - `com.mimir.publish: plist` / `bootstrap` -> installed + `program = .../run_publish.sh`
@@ -112,6 +114,9 @@ keys `present`, ruby, both wrappers + plists, `ops/ audit` clean,
 - `com.mimir.gex-snapshot: run` -> `written: .../<today>.json` (or `skipped
   (today's file exists)` / `partial` -- both PASS)
 - `com.mimir.gex-snapshot: snapshot file` -> `present .../<today>.json`
+- `com.mimir.btco-alert: run` -> `alert: N new filing(s) -> ING N!` or
+  `alert: no new filings -> quiet` (both PASS; the token meanings are in
+  section 10)
 
 Any `[FAIL]` row: fix it and re-run (`rake ops:install` is idempotent --
 it bootouts and reinstalls a loaded agent). A pre-flight `[FAIL]` aborts
@@ -197,7 +202,7 @@ the one attention flag, and the payload says why:
 
 ## 4. Pause / resume / uninstall the agents
 
-**4.1 Uninstall permanently** (bootout both agents, delete the
+**4.1 Uninstall permanently** (bootout all three agents, delete the
 LaunchAgents copies so nothing reloads on next login):
 
 ```
@@ -482,6 +487,54 @@ catch up, or both captures failed that day (check gex_snapshot.log for a
 
 ---
 
+## 10. The BTCo discovery-alert token
+
+`com.mimir.btco-alert` runs once a day at 07:45 local (installed by
+`rake ops:install`, section 2 -- nothing extra to set up). It runs the
+discovery primitive `ruby scripts/btco/ingest.rb --dry --json`: a
+list-and-count of NEW EDGAR filings for the tracked companies. It does
+NOT fetch any filing document, call the AI, mutate `capstruct/state.json`,
+or spend any API budget. It writes a one-glance token to
+`/tmp/ingest.status`, which the tmux bar reads next to the `PUB` token
+(`rake ops:tmux` wires both into the same right-aligned run).
+
+**10.1 Read the token.** On the tmux bar, immediately after `PUB ...`:
+
+- `ING 3!` -- **3 new filings** were discovered and are waiting for an
+  owner review session. Run the ingest flow (`ruby scripts/btco/ingest.rb`
+  to analyse, `--review`, then `--apply`/`--dismiss`) when convenient.
+  The count is filings-not-yet-seen; it does not shrink until you ingest
+  them.
+- *(nothing)* -- no new filings. The status file is empty on quiet days
+  by design (D8-a), so the bar stays clean; there is nothing to do.
+- `ING ?` -- **discovery is broken.** A broken alert is shown, never
+  hidden. Diagnose with the one command below.
+
+**10.2 Diagnose `ING ?`.** Run the discovery by hand and read its output:
+
+```
+cd "$REPO"
+ruby scripts/btco/ingest.rb --dry --json
+```
+
+EXPECT (healthy): exactly one JSON line, `{"new":<n>,"filings":[...]}`.
+
+If instead you see a Ruby traceback or an EDGAR error on stderr, that is
+the break -- usually `EDGAR_UA` missing from the env file (SEC then
+rate-limits the anonymous UA), or no network. Fix the cause, then re-run
+the agent to clear the token:
+
+```
+launchctl kickstart -k gui/$(id -u)/com.mimir.btco-alert
+cat /tmp/ingest.status        # empty (quiet) or `ING n!` -- no longer `?`
+```
+
+The alert always exits 0 (the token, not the exit code, is the signal),
+so it never appears in a `last exit` alarm; `rake ops:status` shows its
+last log marker + `alert: ...` summary line.
+
+---
+
 ## Background
 
 *You never need this section to run a procedure. It explains what the
@@ -501,6 +554,12 @@ moving parts are.*
   idempotent (today's file already there -> exit 0, untouched). It exits
   1 (alarms launchd) ONLY when BOTH captures fail, in which case no file
   is written; a partial (one venue) still writes and exits 0.
+- `com.mimir.btco-alert` -> `ops/run_btco_alert.sh` -> `ops/btco_alert.rb`,
+  once daily at **07:45 local** (`StartCalendarInterval`). Runs
+  `ingest.rb --dry --json` (list + count of new EDGAR filings -- no
+  document fetch, no AI, no state write, no API spend) and writes the
+  `ING n!` / empty / `ING ?` token to `/tmp/ingest.status` (section 10).
+  ALWAYS exits 0 -- the token is the signal, not the exit code.
 
 **File map.**
 - Env file: `~/.config/mimir/env` (override `MIMIR_ENV_FILE`), mode
@@ -511,19 +570,24 @@ moving parts are.*
   emits one path-naming line and exits **78** (`EX_CONFIG`) before
   sourcing anything -- nothing sensitive.
 - Plists (templates): `ops/com.mimir.publish.plist`,
-  `ops/com.mimir.gex-snapshot.plist`, each with a `__REPO__` placeholder
-  substituted at install via `sed` (command in each plist's XML comment).
-  Installed copies live in `~/Library/LaunchAgents/`.
-- Wrappers: `ops/run_publish.sh`, `ops/run_gex_snapshot.sh` -- source the
-  env file, prepend Homebrew to launchd's minimal PATH, `cd` to the repo,
-  `exec` the ruby job so its exit code becomes the wrapper's (launchd
-  alarms on real failure). Each run appends a `=== run_<name> <UTC>`
-  marker to its log.
-- Logs: `~/Library/Logs/mimir/publish.log` and `gex_snapshot.log`.
-- Status file: `/tmp/publish.status`, frozen line
-  `PUB LIVE|DRY <n>/<m> keys HH:MM UTC`, written by the pipeline and read
-  by `ops/publish_health.rb` for the tmux bar (a parse failure collapses
-  to the safe `PUB ?`, never crashes the bar).
+  `ops/com.mimir.gex-snapshot.plist`, `ops/com.mimir.btco-alert.plist`,
+  each with a `__REPO__` placeholder substituted at install via `sed`
+  (command in each plist's XML comment). Installed copies live in
+  `~/Library/LaunchAgents/`.
+- Wrappers: `ops/run_publish.sh`, `ops/run_gex_snapshot.sh`,
+  `ops/run_btco_alert.sh` -- source the env file, prepend Homebrew to
+  launchd's minimal PATH, `cd` to the repo, `exec` the ruby job so its
+  exit code becomes the wrapper's (launchd alarms on real failure). Each
+  run appends a `=== run_<name> <UTC>` marker to its log.
+- Logs: `~/Library/Logs/mimir/publish.log`, `gex_snapshot.log`, and
+  `btco_alert.log`.
+- Status files (both in `/tmp`, tmux-facing, read by `#()` on the bar):
+  `/tmp/publish.status`, frozen line `PUB LIVE|DRY <n>/<m> keys HH:MM UTC`,
+  written by the pipeline and read by `ops/publish_health.rb` (a parse
+  failure collapses to the safe `PUB ?`, never crashes the bar);
+  `/tmp/ingest.status`, the `ING n!` filing-alert token written by
+  `ops/btco_alert.rb` (empty on quiet days, `ING ?` when discovery breaks
+  -- section 10).
 - Snapshot archive: `$BTC_DATA_DIR/gex_history/YYYY-MM-DD.json` (or
   in-tree `data/gex_history/` when `BTC_DATA_DIR` is unset). Gitignored;
   never published to KV, never committed. Phase 9 (`expiry_low`) will
@@ -540,10 +604,14 @@ sed "s#__REPO__#$REPO#g" "$REPO/ops/com.mimir.publish.plist" \
   > ~/Library/LaunchAgents/com.mimir.publish.plist
 sed "s#__REPO__#$REPO#g" "$REPO/ops/com.mimir.gex-snapshot.plist" \
   > ~/Library/LaunchAgents/com.mimir.gex-snapshot.plist
+sed "s#__REPO__#$REPO#g" "$REPO/ops/com.mimir.btco-alert.plist" \
+  > ~/Library/LaunchAgents/com.mimir.btco-alert.plist
 launchctl bootout gui/$(id -u)/com.mimir.publish 2>/dev/null
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mimir.publish.plist
 launchctl bootout gui/$(id -u)/com.mimir.gex-snapshot 2>/dev/null
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mimir.gex-snapshot.plist
+launchctl bootout gui/$(id -u)/com.mimir.btco-alert 2>/dev/null
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mimir.btco-alert.plist
 launchctl print gui/$(id -u)/com.mimir.publish | grep -E 'state|program'
 ```
 
