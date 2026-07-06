@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<!--
+  index.html -- mimir production dashboard (work packet M4-3).
+  One screen, no navigation: what is the tape saying now, and how fresh is
+  the data behind it? Consumes the Worker API SAME-ORIGIN --
+    GET /api/v1/index      -> the key list (per-key generated_at)
+    GET /api/v1/<key>      -> one chart envelope, VERBATIM
+    GET /healthz           -> worker liveness (drives the failure banner)
+  Rendering (staleness math, hover bubbles, hook registries, card DOM) is
+  the shared renderer render.js -- IDENTICAL to preview.html. This page owns
+  only its transport (same-origin fetch), the one-line header (name + per-key
+  chips + pub/fresh slot), the failure banner, and THE SIGNATURE: a single
+  1 s age ticker driving every card badge (data-generated-at / data-ttl).
+
+  SERVE for offline review (rake preview shims /api/v1 + /healthz over
+  data/publish_preview/): from the repo root run `rake preview`, then open
+  http://localhost:8000/web/index.html . In production the Worker route
+  answers /api/v1 and this file is served same-origin.
+
+  ECharts is pinned to ONE exact CDN version (SAME as preview.html). The pin
+  is deliberate; bump it only intentionally, on both pages together.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mimir</title>
+<!-- Pinned ECharts. Do not float this version; update only on purpose.
+     SRI pin: integrity= + crossorigin= below lock the exact artifact.
+     Recompute with: curl -sL <url> | openssl dgst -sha384 -binary | base64 -->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js"
+        integrity="sha384-pPi0zxBAoDu6+JXW/C68UZLvBUUtU+7zonhif43rqj7pxsGyqyqzcian2Rj37Rss"
+        crossorigin="anonymous"></script>
+<!-- Shared renderer (staleness math, hover bubbles, hook registries, card
+     builder). ONE source for preview.html and this production dashboard. -->
+<script src="render.js"></script>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px;
+    background: #14171c; color: #d7dce3;
+    /* prose face -- titles, bubbles, copy */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 13px;
+  }
+  /* data face -- EVERY number / status token (chips, badges, ages, pub slot),
+     tabular so ticking values never jitter. */
+  .chip, .badge, .age, #pub {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  /* Header tightens preview's two rows into ONE line: name, per-key chips,
+     then the pub/fresh slot pushed right. Chips clip rather than wrap. */
+  #head {
+    display: flex; align-items: baseline; gap: 0 14px;
+    flex-wrap: nowrap; white-space: nowrap; overflow: hidden;
+    margin-bottom: 12px;
+  }
+  h1 { font-size: 15px; font-weight: 600; margin: 0; flex: 0 0 auto; }
+  #chips {
+    display: flex; align-items: baseline; gap: 0 12px;
+    flex: 1 1 auto; min-width: 0; overflow: hidden;
+  }
+  #pub { flex: 0 0 auto; margin-left: auto; color: #c3cad4; white-space: nowrap; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #c3cad4; white-space: nowrap; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+  .green { background: #35c46a; } .amber { background: #e2a52b; } .red { background: #e04b4b; }
+  #banner {
+    display: none; background: #4a1414; border: 1px solid #a33;
+    color: #ffd7d7; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px;
+    font-size: 12px; line-height: 1.5;
+  }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } }
+  .card {
+    background: #1b1f26; border: 1px solid #2a2f38; border-radius: 8px;
+    padding: 10px 12px; min-width: 0; position: relative;
+  }
+  .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .card-head .key { font-weight: 600; font-size: 13px; }
+  /* Instant structured hover bubble (native title= tooltips are slow and
+     unformattable). Anchored inside the card; opens on hover OR keyboard
+     focus of the title/info affordance. */
+  .hover { cursor: help; }
+  .key.hover { text-decoration: underline dotted #4a515c; text-underline-offset: 3px; }
+  .info { font-size: 12px; color: #7f8896; cursor: help; }
+  .bubble {
+    display: none; position: absolute; left: 10px; right: 10px; top: 34px;
+    z-index: 40; background: #232933; border: 1px solid #3a424e;
+    border-radius: 8px; padding: 10px 14px; font-size: 12px; line-height: 1.55;
+    color: #ccd3dc; box-shadow: 0 6px 24px rgba(0,0,0,.45);
+  }
+  .bubble p { margin: 0 0 8px; }
+  .bubble p:last-child { margin-bottom: 0; }
+  .bubble .lbl { color: #8fa3bd; font-weight: 600; }
+  /* flipped upward by render.js when the default position would clip at
+     the viewport bottom (bottom-row cards) -- opens above the head */
+  .bubble.up { top: auto; bottom: calc(100% - 26px); }
+  .card-head:has(.hover:hover) ~ .bubble,
+  .card-head:focus-within ~ .bubble,
+  .bubble:hover { display: block; }
+  .info:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px; margin-left: auto;
+    font-size: 11px; padding: 2px 8px; border-radius: 20px;
+    border: 1px solid #2a2f38; color: #b9c0ca;
+  }
+  .chart { width: 100%; height: 500px; }
+  /* Grouped (p) VENUE (c) legend widget (meta.legend_widget hook) --
+     one line per venue over the chart's right margin. Bright = shown,
+     dim = hidden; sides keep their series colors. */
+  .cp-legend {
+    position: absolute; right: 16px; top: 68px; z-index: 30;
+    display: flex; flex-direction: column; gap: 4px;
+    font-size: 11px; line-height: 1.3; user-select: none; text-align: center;
+  }
+  .cp-row { white-space: nowrap; }
+  /* Reset the real <button> (render.js) back to inline text -- keyboard
+     operable but identical to the old <span>. */
+  .cp {
+    cursor: pointer; padding: 0 1px; background: none; border: 0;
+    font: inherit; color: inherit; vertical-align: baseline; line-height: inherit;
+  }
+  .cp:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
+  .cp-p { color: #ef6b6b; }
+  .cp-c { color: #2fbf8f; }
+  .cp-v { color: #d7dce3; font-weight: 600; }
+  .cp.off { color: #4a515c; }
+  /* BTCo universe table (M4-7): a compact full-width strip appended below
+     the four charts (grid-column 1 / -1). Borderless except a 1px row
+     separator; mono tabular numerals at 11px; click-to-sort headers are
+     real <button>s (bright = the sorted column, dim = the rest). Density
+     is the point -- all rows, no pagination, no scroll region. */
+  .card.wide { grid-column: 1 / -1; }
+  table.btco { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  table.btco th, table.btco td { padding: 4px 10px; text-align: right; white-space: nowrap; }
+  table.btco th.tick, table.btco td.tick { text-align: left; }
+  table.btco td, table.btco th.num {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums; font-size: 11px;
+  }
+  table.btco thead th { font-size: 11px; font-weight: 600; vertical-align: bottom; }
+  table.btco tbody tr { border-top: 1px solid #2a2f38; }
+  table.btco tbody tr:hover { background: #20252d; }
+  table.btco .dim { color: #5b636e; }           /* null cells render a dim -- */
+  table.btco .fl-st { color: #e04b4b; }          /* STALE flag */
+  table.btco .fl-ph { color: #e2a52b; }          /* placeholder * flag */
+  /* Header sort control: dim until it owns the sort, then it brightens. */
+  .sortbtn {
+    cursor: pointer; padding: 0; background: none; border: 0;
+    font: inherit; color: #7f8896; white-space: nowrap;
+  }
+  .sortbtn.active { color: #d7dce3; }
+  .sortbtn:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
+  .card.err { border-color: #a33; background: #2a1616; }
+  .card.err .msg { color: #ffb3b3; font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+</style>
+</head>
+<body>
+  <div id="head">
+    <h1>mimir</h1>
+    <span id="chips"></span>
+    <span id="pub"></span>
+  </div>
+  <div id="banner"></div>
+  <div id="grid" class="grid"></div>
+
+<script>
+"use strict";
+// The dashboard is a dumb loader over the shared renderer (render.js): it
+// owns same-origin transport, the one-line header, the failure banner, and
+// the page-wide age ticker. All chart rendering lives in window.MimirRender.
+var R = window.MimirRender;
+
+// ---- config -----------------------------------------------------------
+var API = "/api/v1/";                 // Worker route (same-origin)
+function apiUrl(key) { return API + key; }  // key may contain ':' (valid path char)
+
+// Which producer publishes each chart key -- for the 404 failure copy.
+var PRODUCERS = {
+  gex_profile:    "gex_btc_combined.rb",
+  scenario_strip: "scenario.rb",
+  lppl_regime:    "lppl.rb",
+  btco_table:     "btco.rb"
+};
+
+async function getJSON(url) {
+  var r = await fetch(url);
+  if (!r.ok) throw new Error("HTTP " + r.status + " " + r.statusText);
+  return r.json();
+}
+
+// ---- failure banner ---------------------------------------------------
+// Directive, not mood: names the missing endpoint and the exact curl.
+function showBanner() {
+  var b = document.getElementById("banner");
+  b.style.display = "block";
+  b.textContent = "API unreachable -- charts show nothing until /api/v1/index answers. " +
+                  "Check the Worker: curl https://" + location.host + "/healthz.";
+}
+
+async function probeHealthz() {
+  try { var h = await getJSON("/healthz"); return !!(h && h.ok); }
+  catch (e) { return false; }
+}
+
+// ---- one-line header --------------------------------------------------
+// Per-key chips (dot + key@HH:MM), then the right slot: pub = newest
+// generated_at over all published keys (HH:MMZ), and n/N fresh where n
+// counts keys whose staleness class is green. The universe of keys is every
+// published envelope -- the index rows PLUS the index envelope itself (the
+// 11th key: 10 rows are "everything except index"). The index rows carry
+// only key + generated_at, so each chip/count uses the INDEX envelope's ttl
+// (the MIN across published keys); per-CARD badges below use each chart's
+// own ttl. Chips are drawn for the rows only (index has no card).
+function buildHeader(idx) {
+  var rows = (idx.payload && idx.payload.keys) || [];
+  var idxTtl = idx.ttl_hint_s;
+  var chips = document.getElementById("chips");
+  var green = 0, newestMs = 0;
+  function tally(generatedAt) {
+    if (R.staleClass(generatedAt, idxTtl) === "green") green += 1;
+    var t = new Date(generatedAt).getTime();
+    if (t > newestMs) newestMs = t;
+  }
+  rows.forEach(function (row) {
+    tally(row.generated_at);
+    var chip = document.createElement("span");
+    chip.className = "chip";
+    var dot = document.createElement("span");
+    dot.className = "dot " + R.staleClass(row.generated_at, idxTtl);
+    chip.appendChild(dot);
+    chip.appendChild(document.createTextNode(row.key + "@" + R.hhmm(row.generated_at)));
+    chips.appendChild(chip);
+  });
+  tally(idx.generated_at); // the index envelope itself is the 11th key
+  var total = rows.length + 1;
+  var pub = document.getElementById("pub");
+  var when = newestMs ? R.hhmm(new Date(newestMs).toISOString()) : "--:--";
+  pub.textContent = "pub " + when + "Z · " + green + "/" + total + " fresh";
+  // Charts, in index order, filtered to the "chart:" namespace -- the exact
+  // 2x2 sequence preview.html uses (btco, gex, lppl, scenario).
+  return rows.filter(function (r) { return r.key.indexOf("chart:") === 0; })
+             .map(function (r) { return r.key; });
+}
+
+// ---- THE SIGNATURE: live age ticker -----------------------------------
+// One shared 1 s interval (cheap, whole-page) rewrites every card badge's
+// age and re-evaluates its staleness dot from data-generated-at/data-ttl.
+// prefers-reduced-motion: this is a text update only -- no other animation
+// exists on the page, so nothing to disable.
+function fmtAge(sec) {
+  var s = Math.floor(sec < 0 ? 0 : sec);
+  function p2(n) { return (n < 10 ? "0" : "") + n; }
+  if (s < 3600)  return Math.floor(s / 60) + "m" + p2(s % 60) + "s";
+  if (s < 86400) return Math.floor(s / 3600) + "h " + p2(Math.floor((s % 3600) / 60)) + "m";
+  return Math.floor(s / 86400) + "d " + p2(Math.floor((s % 86400) / 3600)) + "h";
+}
+
+function paintBadge(badge) {
+  var gen = badge.getAttribute("data-generated-at");
+  var ttl = Number(badge.getAttribute("data-ttl"));
+  badge.querySelector(".dot").className = "dot " + R.staleClass(gen, ttl);
+  badge.querySelector(".age").textContent = fmtAge((Date.now() - new Date(gen).getTime()) / 1000);
+}
+
+function tickAll() {
+  var badges = document.querySelectorAll("#grid .badge[data-generated-at]");
+  for (var i = 0; i < badges.length; i += 1) paintBadge(badges[i]);
+}
+
+// Replace render.js's static badge text with the ticking dot + age, keyed
+// off data attributes the shared ticker scans.
+function initBadge(card, env) {
+  var badge = card.querySelector(".badge");
+  if (!badge) return;
+  badge.setAttribute("data-generated-at", env.generated_at);
+  badge.setAttribute("data-ttl", env.ttl_hint_s);
+  badge.innerHTML = '<span class="dot"></span><span class="age"></span>';
+  paintBadge(badge);
+}
+
+// ---- one chart card ---------------------------------------------------
+function chartErr(key, e) {
+  var short = key.replace(/^chart:/, "");
+  var producer = PRODUCERS[short];
+  var msg;
+  if (/HTTP 404/.test(e.message) && producer) {
+    msg = key + " -- 404 not found. Published by " + producer + "; run it, then publish.";
+  } else if (producer) {
+    msg = "fetch/parse failed (" + e.message + "). " + key + " is published by " + producer + ".";
+  } else {
+    msg = "fetch/parse failed: " + e.message;
+  }
+  return R.errCard(key, msg);
+}
+
+async function loadChart(key) {
+  var grid = document.getElementById("grid");
+  var env;
+  try {
+    env = await getJSON(apiUrl(key));
+  } catch (e) {
+    grid.appendChild(chartErr(key, e));
+    return;
+  }
+  try {
+    var card = R.buildChartCard(env, key);
+    grid.appendChild(card);
+    initBadge(card, env);
+  } catch (e) {
+    grid.appendChild(R.errCard(key, "render failed: " + apiUrl(key) + "\n" + e.message));
+  }
+}
+
+// ---- BTCo universe table (M4-7) ---------------------------------------
+// The literal sortable table, rendered from the SAME v1:btco:latest suite
+// envelope the bars chart consumes (raw payload, not a chart spec). One row
+// per company; a pure vanilla-JS column sort re-renders tbody from the kept
+// array. Columns mirror btco.rb's --tmux line (tick/BTC/mNAV/netNAV/lev/
+// as-of); numbers stay in the payload's own units (no client-side scaling,
+// no invented values). Failure follows the producer-naming errCard pattern.
+function fmtInt(v) { return v == null ? null : Number(v).toLocaleString("en-US"); }
+function fmt2(v)   { return v == null ? null : Number(v).toFixed(2); }
+function fmtStr(v) { return (v == null || v === "") ? null : String(v); }
+
+// key: payload field; type: sort/align kind; fmt: cell text (null -> dim --).
+var BTCO_COLS = [
+  { key: "ticker",    label: "ticker",   type: "str", fmt: fmtStr },
+  { key: "btc",       label: "BTC held", type: "num", fmt: fmtInt },
+  { key: "mnav",      label: "mNAV",     type: "num", fmt: fmt2 },
+  { key: "net_mnav",  label: "netNAV",   type: "num", fmt: fmt2 },
+  { key: "leverage",  label: "leverage", type: "num", fmt: fmt2 },
+  { key: "btc_as_of", label: "as of",    type: "str", fmt: fmtStr }
+];
+
+// Ticker cell: symbol + carried flags (STALE red, placeholder * amber),
+// in btco.rb's order (STALE then *); flag glyphs are their own spans so
+// only the flag text takes the colour, the symbol stays normal.
+function fillTicker(td, r) {
+  td.appendChild(document.createTextNode(r.ticker || "--"));
+  if (r.stale)       { var s = document.createElement("span"); s.className = "fl-st"; s.textContent = " STALE"; td.appendChild(s); }
+  if (r.placeholder) { var p = document.createElement("span"); p.className = "fl-ph"; p.textContent = " *";    td.appendChild(p); }
+}
+
+// The whole table: header buttons flip/choose the sort, render() rebuilds
+// tbody from the kept `data` array. Nulls always sort last (both dirs);
+// default is BTC held descending, matching the chart.
+function buildBtcoTable(companies) {
+  var data = companies.slice();
+  var sortKey = "btc", sortDir = -1;             // default: BTC held desc
+  var table = document.createElement("table");
+  table.className = "btco";
+  var htr = document.createElement("tr");
+  BTCO_COLS.forEach(function (col) {
+    var th = document.createElement("th");
+    th.className = col.key === "ticker" ? "tick" : "num";
+    var btn = document.createElement("button");
+    btn.type = "button"; btn.className = "sortbtn"; btn.textContent = col.label;
+    btn.onclick = function () {
+      if (sortKey === col.key) sortDir = -sortDir;
+      else { sortKey = col.key; sortDir = col.type === "num" ? -1 : 1; }
+      render();
+    };
+    col._th = th; col._btn = btn;
+    th.appendChild(btn); htr.appendChild(th);
+  });
+  var thead = document.createElement("thead"); thead.appendChild(htr);
+  var tbody = document.createElement("tbody");
+  table.appendChild(thead); table.appendChild(tbody);
+
+  function render() {
+    var col = BTCO_COLS.filter(function (c) { return c.key === sortKey; })[0];
+    var sorted = data.slice().sort(function (a, b) {
+      var av = a[sortKey], bv = b[sortKey];
+      var an = (av == null || av === ""), bn = (bv == null || bv === "");
+      if (an && bn) return 0;
+      if (an) return 1;                          // nulls last, either dir
+      if (bn) return -1;
+      var c = col.type === "num" ? (av - bv)
+            : (String(av) < String(bv) ? -1 : String(av) > String(bv) ? 1 : 0);
+      return c * sortDir;
+    });
+    BTCO_COLS.forEach(function (c) {
+      var active = c.key === sortKey;
+      c._btn.className = "sortbtn" + (active ? " active" : "");
+      c._th.setAttribute("aria-sort", active ? (sortDir < 0 ? "descending" : "ascending") : "none");
+    });
+    tbody.innerHTML = "";
+    sorted.forEach(function (r) {
+      var tr = document.createElement("tr");
+      BTCO_COLS.forEach(function (c) {
+        var td = document.createElement("td");
+        td.className = c.key === "ticker" ? "tick" : "num";
+        if (c.key === "ticker") { fillTicker(td, r); }
+        else {
+          var f = c.fmt(r[c.key]);
+          if (f == null) td.innerHTML = '<span class="dim">--</span>';
+          else td.textContent = f;
+        }
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+  }
+  render();
+  return table;
+}
+
+function btcoErr(key, e) {
+  var producer = "btco.rb";
+  var msg = /HTTP 404/.test(e.message)
+    ? key + " -- 404 not found. Published by " + producer + "; run it, then publish."
+    : "fetch/parse failed (" + e.message + "). " + key + " is published by " + producer + ".";
+  return R.errCard(key, msg);
+}
+
+// Fallback-only full-width card, used when the chart:btco_table card is
+// absent (e.g. a pre-chart publish): key-style title (no bubble -- the
+// suite envelope carries no meta) + the ticking age badge (initBadge).
+function buildBtcoCard(env) {
+  var card = document.createElement("div");
+  card.className = "card wide";
+  var head = document.createElement("div");
+  head.className = "card-head";
+  var keySpan = document.createElement("span");
+  keySpan.className = "key";
+  keySpan.textContent = "btco:latest · universe";
+  head.appendChild(keySpan);
+  var badge = document.createElement("span");
+  badge.className = "badge";
+  head.appendChild(badge);
+  card.appendChild(head);
+  var companies = (env.payload && env.payload.companies) || [];
+  card.appendChild(buildBtcoTable(companies));
+  return card;
+}
+
+async function loadBtco() {
+  var grid = document.getElementById("grid");
+  var env;
+  try {
+    env = await getJSON(apiUrl("btco:latest"));
+  } catch (e) {
+    grid.appendChild(btcoErr("btco:latest", e));
+    return;
+  }
+  try {
+    // The table lives INSIDE the btco_table quadrant (owner ruling,
+    // round 5): shrink that card's chart to make room and append the
+    // table below it -- one card, chart + literal table together.
+    var host = grid.querySelector('[data-key="chart:btco_table"]');
+    var companies = (env.payload && env.payload.companies) || [];
+    if (host) {
+      var div = host.querySelector(".chart");
+      div.style.height = "290px";
+      var inst = echarts.getInstanceByDom(div);
+      if (inst) inst.resize();
+      host.appendChild(buildBtcoTable(companies));
+    } else {
+      // no chart card (pre-chart publish) -- fall back to its own strip
+      var card = buildBtcoCard(env);
+      grid.appendChild(card);
+      initBadge(card, env);
+    }
+  } catch (e) {
+    grid.appendChild(R.errCard("btco:latest", "render failed: " + apiUrl("btco:latest") + "\n" + e.message));
+  }
+}
+
+// ---- boot -------------------------------------------------------------
+(async function () {
+  if (typeof echarts === "undefined") {
+    var b = document.getElementById("banner");
+    b.style.display = "block";
+    b.textContent = "ECharts CDN unreachable -- the dashboard needs network for the one pinned script.";
+    return;
+  }
+  var healthzOk = await probeHealthz();
+  var idx;
+  try {
+    idx = await getJSON(apiUrl("index"));
+  } catch (e) {
+    showBanner();
+    return;
+  }
+  var chartKeys = buildHeader(idx);
+  // An index without chart:* keys is a publish older than the chart
+  // pipeline -- render the reason, not a bare page (Gate 4 lesson).
+  if (!chartKeys.length) {
+    var eb = document.getElementById("banner");
+    eb.style.display = "block";
+    eb.textContent = "The published index lists no chart:* keys -- KV holds a publish " +
+                     "older than the chart pipeline. Run: PUBLISH_DRY_RUN=0 ruby publish/publish.rb " +
+                     "(expect PUB LIVE 11/11), then reload.";
+  }
+  for (var i = 0; i < chartKeys.length; i += 1) {
+    await loadChart(chartKeys[i]);
+  }
+  await loadBtco(); // the literal universe table, INSIDE the btco quadrant
+  if (!healthzOk) showBanner(); // index served (maybe cached) but worker probe failed
+  setInterval(tickAll, 1000);   // the signature -- ONE interval for the page
+  window.addEventListener("resize", function () {
+    R.charts.forEach(function (c) { c.resize(); });
+  });
+})();
+</script>
+</body>
+</html>

@@ -382,7 +382,121 @@ Acceptance: goldens re-blessed after self-screenshot review; hook
       pinned in tests + chart_specs header + mimir-design skill; rake
       green; owner re-review.
 
-## Gate 3 (human)
+## Gate 3 (human)  [status: CLOSED 2026-07-05 -- PR #4 merged after four review rounds; goldens owner-blessed]
 Owner opens web/preview.html against a fresh dry-run, eyeballs all
 four charts (the loop provides exact commands + what sane looks
 like), runs `rake golden:approve`, merges PR phase-3 -> main.
+
+# Phase 4 -- Cloudflare layer (branch phase-4, ARCHITECTURE section 6)
+
+Design spec: docs/DASHBOARD-DESIGN.md (frontend-design pass on top of
+.claude/skills/mimir-design). Deploys stay HUMAN actions (Golden Rule
+3): the loop prepares wrangler.toml and prints exact commands only.
+
+## M4-1 · Worker API: web/worker.mjs + wrangler.toml + node test harness  [tier: fable -- secret-adjacent (optional AUTH_TOKEN bearer) + first-of-kind runtime/test contract for JS in this repo] [status: done -- .mjs not .js (node ESM without a package.json); 12 node tests incl. URL-normalization pin] [deps: --]
+Goal: GET /api/v1/:key -> KV envelope verbatim (Cache-Control
+      public/max-age=60, X-Generated-At, X-Data-Age-Seconds), 404
+      unknown key (strict key allowlist regex), 401 when AUTH_TOKEN is
+      set and bearer mismatches (constant-time compare; never echo the
+      token), GET /healthz -> {ok:true,worker_ts}. Pure exported
+      handler(request, env) so tests inject a fake KV; wrangler.toml
+      with MIMIR binding prepared, NOT deployed. Test harness:
+      `node --test test/web/` (node built-in runner, zero npm),
+      wired as rake web:test -- joins the default gate when node is
+      present, WARNs otherwise; CI has node on both OSes.
+Acceptance: routing/auth/header matrix pinned incl. 404/401 paths and
+      redaction; rake green; no deploy performed.
+
+## M4-2 · shared renderer web/render.js extracted from preview.html  [tier: opus -- refactor of four-round-reviewed code against a written spec; oracle = pixel-identical preview screenshots + node --check] [status: done] [deps: --]
+Goal: card builder, staleness math, bubble builder, FORMATTERS +
+      WIDGETS registries, age-ticker util move to web/render.js
+      (plain script, no modules/build); preview.html slims to a
+      loader using it. Hooks then live in ONE place for both surfaces.
+Acceptance: before/after headless screenshots of preview.html match
+      (chart pixels identical; header/badge changes only if M4-3
+      pulls them in later); node --check both files; rake green.
+
+## M4-3 · production dashboard web/index.html  [tier: opus -- implements docs/DASHBOARD-DESIGN.md against the M4-2 renderer; fable reviews with screenshots per DEV-LOOP 6b] [status: done] [deps: M4-1, M4-2]
+Goal: same-origin /api/v1/ loader with the design doc's header (one
+      line: name, per-key chips, pub HH:MMZ n/11 fresh), live age
+      tickers (the signature), healthz-aware failure banner with
+      directive copy, mono-numeral type system, focus-visible ring,
+      one-column collapse <1100px. Local review path: rake preview
+      serves it against data/publish_preview with a stub /api shim
+      (test-only, in the preview server).
+Acceptance: self-screenshot review (static + Playwright interaction
+      states) BEFORE owner handoff; mimir-design skill checklist
+      passes; rake green.
+
+## M4-4 · ECharts SRI pin on both pages  [tier: sonnet -- mechanical with a deterministic oracle (hash recomputed from the pinned CDN artifact by a checked-in script)] [status: done -- integrity= + crossorigin= added to both pages; drift check lives in BTC::Health.scan_sri (lib/btc/health.rb), wired into rake health; 7 unit tests in test/unit/test_btc_health.rb] [deps: M4-2, M4-3]
+Goal: integrity= + crossorigin on the ONE pinned CDN tag in
+      preview.html and index.html; tools/sri_check.rb (stdlib)
+      recomputes and compares -- registered so rake health catches
+      drift offline against a committed hash file.
+Acceptance: both pages carry the same pinned version + hash; tamper
+      test red-checked; rake green.
+
+## M4-5 · rake deploy task + docs/DEPLOY.md + README  [tier: opus -- owner-run automation wrapping wrangler with pre-flight checks; fable reviews (deploy adjacency)] [status: done -- lib/btc/deploy.rb (pure preflight/substitute/smoke + injectable runner/http orchestrator), rake deploy (refuses under CI, not in default gate, deny-list target), 21 unit tests, docs/DEPLOY.md, README->Phase 4] [deps: M4-1, M4-3, M4-4]
+Goal: owner ruling 2026-07-05 -- automation over a command list: a
+      `rake deploy` task the OWNER runs (never the loop / never CI --
+      Golden Rule 3 stands; the task refuses under CI env). Pre-flight:
+      rake green, wrangler + CF_* env present, config generated from
+      the committed wrangler.toml template with the namespace id from
+      ENV; then wrangler deploy + Pages publish, post-deploy smoke
+      probes (healthz 200, index key 200 + sane age, one 404 path).
+      docs/DEPLOY.md documents the task, first-time setup (Pages
+      project, route), rollback; README updated to the Phase 4
+      capability set (honest about what does not work yet).
+Acceptance: dry-run mode proves the pipeline without network; the
+      task is deny-listed for the loop like fixtures:record; a
+      newcomer could deploy from the doc alone; rake green.
+
+## M4-7 · BTCo literal sortable table on the dashboard  [tier: opus -- renderer-side HTML from the published btco:latest payload against the design doc addendum; no new keys, no analytics] [status: done -- ruled in by owner (D4-b) 2026-07-05] [deps: M4-2, M4-3]
+Goal: plain <table> next to the bars chart: ticker, BTC held, mNAV,
+      netNAV, leverage, as_of; STALE/placeholder flags carried over;
+      tiny vanilla column sort (click header, mono numerals, no
+      libraries). Renders from the same v1:btco:latest envelope the
+      chart uses.
+Acceptance: self-screenshot + Playwright sort-interaction review
+      before owner handoff; mimir-design checklist passes; rake green.
+
+## M4-8 · Live review round 5: in-quadrant BTCo table + viewport-aware bubbles  [tier: fable -- shared-renderer behavior change + coupled visual iteration] [status: done] [deps: M4-7]
+Goal: owner review of the LIVE site: (a) the BTCo universe table moves
+      INSIDE the btco_table quadrant (chart shrinks to 290px, table
+      below it in the same card; the full-width bottom strip is gone --
+      kept only as the fallback when the chart card is absent);
+      (b) hover bubbles flip UPWARD when the default position would
+      clip at the viewport bottom (render.js measures on open, both
+      pages carry .bubble.up). Both recorded as general rulings in the
+      mimir-design skill (owner: "make bubble requirement part of
+      general design guideline").
+Acceptance: Playwright pins top-row bubble opens down, edge-of-viewport
+      bubble flips and stays fully visible, table lives in-quadrant with
+      no .wide strip; screenshots reviewed; rake green.
+
+## Gate 4 (human)
+Owner does first-time CF setup (Pages project + Worker route), runs
+`rake deploy` (M4-5), walks the smoke checklist against the live
+host, merges PR phase-4 -> main.
+
+## Decision items -- RESOLVED at Phase 4 planning (owner, 2026-07-05)
+- D4-a LPPL price-vs-trend panel: PARKED for v1.1 (needs a new
+  published price-series key; analytics-adjacent).
+- D4-b BTCo literal sortable table: RULED IN -> M4-7.
+- D4-c Worker auth: PUBLIC-READ at Gate 4. Trade-off recorded: a
+  bearer token in a browser dashboard is the weakest option (token
+  must live client-side; caching goes private); Cloudflare Access is
+  the real lock but is console-config, addable later with NO code
+  change. Payloads are derived market analytics (no secrets);
+  exposure = hostname discovery + KV read quota, mitigated by
+  max-age=60, unguessable project name, noindex. AUTH work pushed to
+  the END of the queue (below). The worker keeps the dormant
+  AUTH_TOKEN branch from the committed M4-1 spec so flipping it on
+  never needs a code change.
+
+## Queue tail (post-Gate 5 / v1.1 candidates, owner-ruled order)
+- AUTH: Cloudflare Access in front of Pages+Worker (email OTP; free
+  tier; service-token headers for curl/tmux consumers) -- or simply
+  set the AUTH_TOKEN secret for API-only consumers. Console/ops work;
+  no code change required.
+- D4-a LPPL price-vs-trend panel (new v1:lppl:price key + chart).

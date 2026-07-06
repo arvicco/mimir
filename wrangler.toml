@@ -1,0 +1,33 @@
+# wrangler.toml -- mimir Worker API deploy TEMPLATE (M4-1).
+#
+# This file is a template, not a live config: the KV namespace id is
+# filled from CLOUDFLARE_KV_NAMESPACE_ID by the owner-run `rake deploy` task
+# (M4-5) into a generated config passed via `wrangler -c`. Never put a
+# real account/namespace id or any token here (env-only policy).
+#
+# Deploying is a HUMAN action (CLAUDE.md Golden Rule 3): the loop
+# prepares this template and the rake task, the owner executes.
+
+# name: overridable at deploy time via DEPLOY_NAME (rake deploy) -- the
+# worker name IS the public hostname (<name>.<subdomain>.workers.dev),
+# and owner ruling D4-c wants it unguessable for the public-read Gate 4.
+name = "mimir"
+main = "web/worker.mjs"
+compatibility_date = "2026-07-01"
+
+# Static assets: the SAME deploy ships the dashboard (everything under
+# web/) on the same host as the API -- same-origin by construction, no
+# Pages project needed (owner feedback at Gate 4, 2026-07-05; replaces
+# the ARCHITECTURE Pages step). Requests matching a file are answered
+# from assets first; /api/v1/* and /healthz match no file, so they
+# always reach worker.mjs. web/_headers adds X-Robots-Tag: noindex.
+[assets]
+directory = "web"
+
+[[kv_namespaces]]
+binding = "MIMIR"
+id = "FILLED_FROM_CLOUDFLARE_KV_NAMESPACE_ID_BY_RAKE_DEPLOY"
+
+# AUTH_TOKEN is an optional Worker secret (wrangler secret put
+# AUTH_TOKEN), NOT a var. Owner ruling D4-c: Gate 4 ships public-read;
+# the worker's bearer branch stays dormant until the secret exists.

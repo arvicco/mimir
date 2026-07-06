@@ -3,9 +3,14 @@
 Local Ruby analytics for Bitcoin: options positioning (GEX), a
 multi-signal regime composite, an LPPL falsification suite, and a
 treasury-company analyser. Everything runs from cron/tmux on a Mac and
-prints to the terminal; the planned Cloudflare dashboard (see
-[ARCHITECTURE.md](ARCHITECTURE.md)) is **not built yet** -- today these
-are command-line tools, nothing more.
+prints to the terminal. On top of that sits a **Cloudflare presentation
+layer** (Worker API + KV + a static dashboard, see
+[ARCHITECTURE.md](ARCHITECTURE.md)): Ruby computes and publishes
+pre-built chart specs, the browser just renders them. The whole layer
+is **live in production** (Gate 4, 2026-07-06): the Worker serves the
+API and the dashboard from one workers.dev host. Deploys stay human
+(`rake deploy`, owner-run -- it ships code AND a fresh data publish;
+the loop and CI are locked out).
 
 Requirements: **Ruby 3.3+ (Apple Silicon), zero gems** -- stdlib only,
 no bundle install. Run everything from the repo root.
@@ -110,7 +115,7 @@ are ledgered in `capstruct/<TICKER>.jsonl`.
 
 ```
 PUBLISH_DRY_RUN=1 ruby publish/publish.rb   # DEFAULT: artifact set -> data/publish_preview/
-PUBLISH_DRY_RUN=0 ruby publish/publish.rb   # KV PUTs; needs CF_ACCOUNT_ID/CF_KV_NAMESPACE_ID/CF_API_TOKEN
+PUBLISH_DRY_RUN=0 ruby publish/publish.rb   # KV PUTs; needs CLOUDFLARE_ACCOUNT_ID/CLOUDFLARE_KV_NAMESPACE_ID/CLOUDFLARE_API_TOKEN
 ```
 
 Runs the four suites, wraps every payload in the frozen envelope
@@ -119,9 +124,11 @@ history windows (scenario 90d, lppl 365d) and a `v1:index`, and writes
 files (dry) or Cloudflare KV keys (real). A producer that crashes or
 prints garbage is skipped -- keep-last-good, never publish junk; a
 fail-soft suite publishes its honest `unavailable` state. Status line:
-`/tmp/publish.status`. Real mode has never been run yet (Gate 2 is the
-first human-run publish); retries are bounded and error paths never
-carry the token or payloads.
+`/tmp/publish.status`. Real mode is live (first publish at Gate 2,
+2026-07-04; `rake deploy` also runs one so a deploy never leaves stale
+data); until Phase 5 puts it on cron, between-deploy freshness is a
+manual `PUBLISH_DRY_RUN=0` run. Retries are bounded and error paths
+never carry the token or payloads.
 
 ## Chart specs + offline preview
 
@@ -133,22 +140,70 @@ one `setOption` call. Review them offline:
 ```
 PUBLISH_DRY_RUN=1 ruby publish/publish.rb   # fresh artifact set
 rake preview                                # stdlib server, localhost:8000
-open http://localhost:8000/web/preview.html
+open http://localhost:8000/web/preview.html # the four chart specs, side by side
+open http://localhost:8000/web/index.html   # the production dashboard, same data
 ```
 
-Chart output is pinned by golden files (`test/golden/`) regenerated
-deterministically from committed payload fixtures; a red golden diff
-is presented for review and re-blessed only via `rake golden:approve`
-after looking at the rendered result. Known v1 presentation choices:
-the LPPL chart plots the evidence ledger (a published price-vs-trend
-panel would need a new data key -- deferred), and the BTCo view is
-labeled bars + stress gauge rather than a literal table (pure-JSON
-ECharts has no table type).
+`rake preview` (localhost-only stdlib server) reviews **both** pages
+offline against `data/publish_preview/`: `preview.html` (the raw chart
+specs) and `index.html` (the production dashboard -- the server shims
+`/api/v1/:key` and `/healthz` so the same-origin loader works with no
+Worker). Chart output is pinned by golden files (`test/golden/`)
+regenerated deterministically from committed payload fixtures; a red
+golden diff is presented for review and re-blessed only via `rake
+golden:approve` after looking at the rendered result. ECharts loads from
+one pinned CDN tag with an SRI integrity hash (drift caught offline by
+`rake health`). Known v1 presentation choices: the LPPL chart plots the
+evidence ledger (a published price-vs-trend panel would need a new data
+key -- deferred), and the dashboard shows the BTCo view as labeled bars +
+stress gauge plus a literal sortable table beneath.
+
+## Cloudflare layer (Worker API + dashboard)
+
+The presentation layer is a dumb, always-up Cloudflare front end: Ruby
+publishes JSON envelopes to a KV namespace, a Worker serves them, and a
+static dashboard renders the pre-built chart specs.
+
+- **Worker API** (`web/worker.mjs`): `GET /api/v1/:key` returns the KV
+  envelope verbatim (`Cache-Control: public, max-age=60`,
+  `X-Generated-At`, `X-Data-Age-Seconds`); `404` on an unknown/malformed
+  key; `GET /healthz` -> `{ok:true,...}`. Public-read at v1 (owner ruling
+  D4-c); a dormant `AUTH_TOKEN` bearer branch activates with one
+  `wrangler secret put` and no code change. Tested with the node built-in
+  runner (`rake web:test`, zero npm).
+- **Dashboard** (`web/index.html` + shared `web/render.js`): a same-origin
+  loader over the Worker -- per-key chips, live age tickers (the badge
+  ticks up second-by-second and recolours green/amber/red from each
+  envelope's `generated_at`/`ttl_hint_s`), a healthz-aware failure banner,
+  the four charts, and the BTCo sortable table.
+- **Deploy** (`rake deploy`, **owner-run**): pre-flight (wrangler + CF_*
+  env + clean tree + green gate), generate the live `wrangler.toml` from
+  the committed template with the namespace id from `CLOUDFLARE_KV_NAMESPACE_ID`,
+  `wrangler deploy`, then smoke-probe the live host (healthz, index, a 404
+  path). Deploys are **human actions** (Golden Rule 3): the task refuses
+  under CI and is deny-listed for the automation loop.
+
+```
+DEPLOY_DRY_RUN=1 rake deploy   # assemble + print the would-run command, deploy nothing
+rake deploy                    # OWNER-RUN: pre-flight -> deploy -> smoke
+```
+
+Full instructions -- first-time Cloudflare setup, the Gate 4 smoke
+checklist, rollback, and AUTH_TOKEN activation -- are in
+[docs/DEPLOY.md](docs/DEPLOY.md). The same deploy ships the dashboard:
+`wrangler.toml`'s `[assets]` block serves `web/` on the Worker's own
+host, so there is no separate Pages step and the API is same-origin by
+construction.
 
 ## Not implemented yet (roadmap in ARCHITECTURE.md)
 
-- The Worker API and the public dashboard (Phase 4).
-- Cron/launchd install, runbook (Phase 5).
+- Ops/cron integration: launchd/cron entries on the compute box
+  (publisher after each suite run, btco hourly), a publish health line in
+  the tmux bar, and the operational runbook (rotate token, re-create
+  namespace, purge a key, recover from stale-everything) -- Phase 5.
+- Queue-tail hardening: Cloudflare Access (email OTP / service tokens) in
+  front of the Worker host, and the LPPL price-vs-trend panel (needs a
+  new published `v1:lppl:price` key + chart).
 
 ## Development
 

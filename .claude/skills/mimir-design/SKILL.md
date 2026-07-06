@@ -46,11 +46,33 @@ scrolling legends. Whitespace is not a feature here — density is.
 strips: vertical columns to the right of the plot, so rows stack
 line-by-line and the plot keeps its height.
 
+**An entity's views share its quadrant.** A chart's companion views
+(the BTCo literal table) live INSIDE that chart's card -- shrink the
+chart to make room -- never as a separate strip elsewhere on the page
+(round 5: the full-width bottom table was rejected). One subject, one
+card.
+
 **Hover help everywhere, instantly.** Never native `title=` attributes
 (fixed browser delay, unstyled blob). Card-level CSS bubbles open on
 hover with structured paragraphs: description, `x —` / `y —` axis
 meanings, `how —` usage. Canvas internals can't carry HTML bubbles, so
 axis/UX explanations ride the card title + ⓘ affordance.
+
+**Overlays never clip at the viewport.** ANYTHING that floats --
+meta bubbles, ECharts data tooltips, future popovers -- must be fully
+visible or change sides (rounds 5/5b: bottom-row bubbles AND canvas
+tooltips were cut). Bubbles: measure-on-open flips `.bubble.up`
+(orient() in render.js). Chart tooltips: `confine: true` is NOT
+enough -- it confines to the chart CONTAINER, which itself can extend
+below the fold, and ECharts applies confine AFTER any position
+callback, clamping a flipped tooltip right back. The renderer
+therefore applies a universal viewport-aware `tooltip.position`
+callback WITH `confine: false` to every chart (tooltipPosition() in
+render.js; payloads stay JSON -- functions are render-layer only).
+Verify any floating element with a short-viewport Playwright run that
+measures the REAL DOM (the ECharts tooltip is the `z-index: 9999999`
+div), hovering via raw mouse.move -- locator.hover() auto-scrolls and
+silently defeats edge-of-viewport scenarios.
 
 **Hover data reads as one line per entity.** Aggregate — never one row
 per series. Pattern: header `54k: +20.5M −15.33M` (level + totals),

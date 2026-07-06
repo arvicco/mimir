@@ -10,8 +10,11 @@
 module BTC
   module Env
     # ENV names whose values must never appear in output or error text.
-    SECRET_ENV = %w[FRED_API_KEY CF_API_TOKEN ANTHROPIC_API_KEY
-                    COINGLASS_API_KEY].freeze
+    # CLOUDFLARE_API_TOKEN is the canonical name (one-token ruling, Gate
+    # 4); the legacy CF_API_TOKEN stays listed purely so a stale env
+    # file's value is still redacted.
+    SECRET_ENV = %w[FRED_API_KEY CLOUDFLARE_API_TOKEN CF_API_TOKEN
+                    ANTHROPIC_API_KEY COINGLASS_API_KEY].freeze
 
     module_function
 

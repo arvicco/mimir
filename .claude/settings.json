@@ -34,6 +34,8 @@
     "deny": [
       "Bash(rake fixtures:record)",
       "Bash(rake fixtures:record:*)",
+      "Bash(rake deploy)",
+      "Bash(rake deploy:*)",
       "Bash(wrangler:*)",
       "Bash(npx wrangler:*)",
       "Bash(git push origin main)",
