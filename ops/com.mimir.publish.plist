@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  com.mimir.publish : launchd user agent for the bi-hourly mimir publisher.
+  (XML comments forbid a double hyphen, so this block uses colons/parens.)
+
+  INSTALL (HUMAN action, Golden Rule 3; full steps in docs/RUNBOOK.md):
+    Substitute the __REPO__ placeholder with the absolute repo path, e.g.
+      sed "s#__REPO__#$HOME/Dev/mimir#g" ops/com.mimir.publish.plist \
+        > ~/Library/LaunchAgents/com.mimir.publish.plist
+    then:
+      launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mimir.publish.plist
+
+  StartInterval 7200 = bi-hourly (decision D5-a). launchd does NOT start a
+  second instance while a previous run is still in flight (no overlap): a
+  long publish simply defers the next tick. That is why there is no
+  KeepAlive (we want at-most-one publisher, not a respawn loop).
+-->
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.mimir.publish</string>
+    <key>ProgramArguments</key>
+    <array>
+      <string>__REPO__/ops/run_publish.sh</string>
+    </array>
+    <key>StartInterval</key>
+    <integer>7200</integer>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>ProcessType</key>
+    <string>Background</string>
+  </dict>
+</plist>
