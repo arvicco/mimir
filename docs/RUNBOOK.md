@@ -140,10 +140,13 @@ any time with `rake ops:status` (section 8, step 1).
 Puts a one-glance publisher-health indicator in the tmux status bar,
 driven by `ops/publish_health.rb` reading `/tmp/publish.status`.
 
-**3.1 Add two lines to `~/.tmux.conf`** (adjust the path to your repo):
+**3.1 Add three lines to `~/.tmux.conf`** (adjust the path to your
+repo). The token goes on a SECOND status line -- the first one is
+yours; this does not touch it:
 
 ```
-set -g status-right '#(ruby /Users/<you>/Dev/mimir/ops/publish_health.rb)'
+set -g status 2
+set -g status-format[1] '#[align=right]#(ruby /Users/<you>/Dev/mimir/ops/publish_health.rb)'
 set -g status-interval 30
 ```
 
@@ -153,27 +156,27 @@ set -g status-interval 30
 tmux source-file ~/.tmux.conf
 ```
 
-EXPECT: no error; a `PUB ...` token appears at the right of the status
-bar within 30 seconds.
+EXPECT: no error; a second status line appears with a `PUB ...` token
+at its right edge within 30 seconds.
 
-**3.3 Read the colour.** The token is `PUB <n>/<m> H:MM` (age is
-hours:minutes since the last publish). Meaning:
+**3.3 Read the flag.** The token is `PUB <n>/<m> H:MM` (age is
+hours:minutes since the last publish); no colours -- `!` after PUB is
+the one attention flag, and the payload says why:
 
-- **green** `PUB 11/11 0:37` -- healthy: last publish LIVE, all 11 keys,
-  age under 4h (2x the 2h cadence). Nothing to do.
-- **yellow** `PUB 11/11 5:12` or `PUB 10/11 0:20` -- attention: either the
-  publish is stale (age 4h-12h) OR a key is missing (`n < 11`). Glance at
-  the dashboard; if it persists, section 8.
-- **red** `PUB 11/11 13:40` -- stale: age >= 12h (6x cadence). The
-  publisher has not completed a full run in a long time -> section 8.
-- **yellow/red** `PUB DRY 11/11 ...` -- the last run was a DRY-RUN
-  publish, not LIVE. On novo that should not happen from the agent; it
-  means someone ran `PUBLISH_DRY_RUN=1` by hand. The dashboard is not
-  being refreshed -> run a real publish (section 8, step 5).
-- **red** `PUB ?` -- no status file, or it is unreadable/garbled. The
-  publisher has never run on this box, or `/tmp` was cleared -> re-run
-  `rake ops:install` (section 2) and answer `y` to the publish kickstart,
-  then recheck.
+- `PUB 11/11 0:37` -- working: last publish LIVE, all 11 keys, age
+  under 4h (2x the 2h cadence). Nothing to do.
+- `PUB! 11/11 5:12` -- stale: age past 4h. The bigger the age, the
+  worse -- if it keeps growing, section 8.
+- `PUB! 10/11 0:20` -- a key is missing (`n < 11`). Glance at the
+  dashboard for the red card; if it persists, section 8.
+- `PUB! DRY 11/11 ...` -- the last run was a DRY-RUN publish, not
+  LIVE. From the agent that should never happen; someone ran
+  `PUBLISH_DRY_RUN=1` by hand. The dashboard is not being refreshed ->
+  run a real publish (section 8, step 5).
+- `PUB! ?` -- no status file, or unreadable/garbled. The publisher has
+  never run on this box, or `/tmp` was cleared -> re-run
+  `rake ops:install` (section 2) and answer `y` to the publish
+  kickstart, then recheck.
 
 ---
 
@@ -376,12 +379,12 @@ on this box -> Step 3.
 ruby "$REPO/ops/publish_health.rb"
 ```
 
-EXPECT: a `#[fg=green]PUB 11/11 H:MM#[default]` string with a small H:MM.
+EXPECT: an unflagged `PUB 11/11 H:MM` with a small H:MM.
 Cross-check the dashboard header `pub HH:MMZ · n/11 fresh`.
-FAILURE: `PUB ?` (no status file -> the agent never ran, go to Step 3),
-yellow/red (stale or partial -> Step 3), or dashboard reads a many-hours
-age. If green and fresh, the pipeline is healthy -- your problem is
-elsewhere (browser cache? refresh hard).
+FAILURE: any `PUB! ...` (stale, partial, DRY, or `?` -- go to Step 3),
+or the dashboard reads a many-hours age. If unflagged and fresh, the
+pipeline is healthy -- your problem is elsewhere (browser cache?
+refresh hard).
 
 **Step 3 -- read the publish log.**
 

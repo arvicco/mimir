@@ -24,61 +24,61 @@ class TestPublishHealth < Minitest::Test
     path
   end
 
-  # ---- LIVE mode: colour bands -------------------------------------------
+  # ---- LIVE mode: attention flag (colour codes retired, owner ruling
+  # ---- 2026-07-06: plain token, `!` = attention) ---------------------------
 
-  def test_fresh_green_11_of_11
+  def test_fresh_complete_is_unflagged
     Dir.mktmpdir do |dir|
       path = write_status(dir, "PUB LIVE 11/11 keys 12:00 UTC\n", 37 * 60)
-      assert_equal '#[fg=green]PUB 11/11 0:37#[default]',
+      assert_equal 'PUB 11/11 0:37',
                    Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
     end
   end
 
-  def test_amber_band_age_5h
-    # 5*60 = 300 min; 2*120=240 <= 300 < 6*120=720 -> yellow
+  def test_stale_age_5h_is_flagged
+    # 5*60 = 300 min >= 2*120=240 -> !
     Dir.mktmpdir do |dir|
       path = write_status(dir, "PUB LIVE 11/11 keys 07:00 UTC\n", 5 * 3600)
-      assert_equal '#[fg=yellow]PUB 11/11 5:00#[default]',
+      assert_equal 'PUB! 11/11 5:00',
                    Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
     end
   end
 
-  def test_red_band_age_13h
-    # 13*60 = 780 min >= 6*120=720 -> red
+  def test_very_stale_age_13h_same_flag
+    # No amber/red tiers any more: severity reads from the age itself
     Dir.mktmpdir do |dir|
       path = write_status(dir, "PUB LIVE 11/11 keys 23:00 UTC\n", 13 * 3600)
-      assert_equal '#[fg=red]PUB 11/11 13:00#[default]',
+      assert_equal 'PUB! 11/11 13:00',
                    Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
     end
   end
 
   # ---- DRY mode -----------------------------------------------------------
 
-  def test_dry_yellow_when_fresh
-    # DRY + age < 6*interval -> yellow regardless of age band
+  def test_dry_is_always_flagged
+    # A DRY run on the prod box is a misconfiguration whatever its age
     Dir.mktmpdir do |dir|
       path = write_status(dir, "PUB DRY 11/11 keys 12:00 UTC\n", 37 * 60)
-      assert_equal '#[fg=yellow]PUB DRY 11/11 0:37#[default]',
+      assert_equal 'PUB! DRY 11/11 0:37',
                    Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
     end
   end
 
-  def test_dry_red_when_stale
-    # DRY + age >= 6*interval -> red
+  def test_dry_stale_same_flag
     Dir.mktmpdir do |dir|
       path = write_status(dir, "PUB DRY 11/11 keys 23:00 UTC\n", 13 * 3600)
-      assert_equal '#[fg=red]PUB DRY 11/11 13:00#[default]',
+      assert_equal 'PUB! DRY 11/11 13:00',
                    Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
     end
   end
 
   # ---- Incomplete publish (n < m) ----------------------------------------
 
-  def test_incomplete_fresh_publish_yields_yellow_not_green
-    # Fresh LIVE but 10/11 keys -> colour capped at yellow
+  def test_incomplete_fresh_publish_is_flagged
+    # Fresh LIVE but 10/11 keys -> a key is missing, flag it
     Dir.mktmpdir do |dir|
       path = write_status(dir, "PUB LIVE 10/11 keys 12:00 UTC\n", 37 * 60)
-      assert_equal '#[fg=yellow]PUB 10/11 0:37#[default]',
+      assert_equal 'PUB! 10/11 0:37',
                    Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
     end
   end
@@ -86,7 +86,7 @@ class TestPublishHealth < Minitest::Test
   # ---- Error paths --------------------------------------------------------
 
   def test_missing_file_returns_error_line
-    assert_equal '#[fg=red]PUB ?#[default]',
+    assert_equal 'PUB! ?',
                  Ops::PublishHealth.line(
                    path: '/tmp/mimir_test_nonexistent_xyzzy_publish.status',
                    now: NOW, interval_min: INTERVAL
@@ -96,7 +96,7 @@ class TestPublishHealth < Minitest::Test
   def test_garbled_first_line_returns_error_line
     Dir.mktmpdir do |dir|
       path = write_status(dir, "SOMETHING COMPLETELY WRONG\n", 37 * 60)
-      assert_equal '#[fg=red]PUB ?#[default]',
+      assert_equal 'PUB! ?',
                    Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
     end
   end
