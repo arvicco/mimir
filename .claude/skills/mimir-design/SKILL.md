@@ -46,11 +46,24 @@ scrolling legends. Whitespace is not a feature here — density is.
 strips: vertical columns to the right of the plot, so rows stack
 line-by-line and the plot keeps its height.
 
+**An entity's views share its quadrant.** A chart's companion views
+(the BTCo literal table) live INSIDE that chart's card -- shrink the
+chart to make room -- never as a separate strip elsewhere on the page
+(round 5: the full-width bottom table was rejected). One subject, one
+card.
+
 **Hover help everywhere, instantly.** Never native `title=` attributes
 (fixed browser delay, unstyled blob). Card-level CSS bubbles open on
 hover with structured paragraphs: description, `x —` / `y —` axis
 meanings, `how —` usage. Canvas internals can't carry HTML bubbles, so
 axis/UX explanations ride the card title + ⓘ affordance.
+
+**Overlays never clip at the viewport.** A bubble/popover that would
+extend past the viewport bottom flips to open UPWARD from its anchor
+(round 5: bottom-row bubbles were cut). CSS owns show/hide; a tiny
+measure-on-open picks the side (`.bubble.up` in both pages,
+`orient()` in render.js). This generalizes `confine: true` on
+tooltips: anything that floats must be fully visible or change sides.
 
 **Hover data reads as one line per entity.** Aggregate — never one row
 per series. Pattern: header `54k: +20.5M −15.33M` (level + totals),

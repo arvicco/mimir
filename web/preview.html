@@ -75,6 +75,9 @@
   .bubble p { margin: 0 0 8px; }
   .bubble p:last-child { margin-bottom: 0; }
   .bubble .lbl { color: #8fa3bd; font-weight: 600; }
+  /* flipped upward by render.js when the default position would clip at
+     the viewport bottom (bottom-row cards) -- opens above the head */
+  .bubble.up { top: auto; bottom: calc(100% - 26px); }
   .card-head:has(.hover:hover) ~ .bubble,
   .card-head:focus-within ~ .bubble,
   .bubble:hover { display: block; }

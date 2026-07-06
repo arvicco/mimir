@@ -94,6 +94,9 @@
   .bubble p { margin: 0 0 8px; }
   .bubble p:last-child { margin-bottom: 0; }
   .bubble .lbl { color: #8fa3bd; font-weight: 600; }
+  /* flipped upward by render.js when the default position would clip at
+     the viewport bottom (bottom-row cards) -- opens above the head */
+  .bubble.up { top: auto; bottom: calc(100% - 26px); }
   .card-head:has(.hover:hover) ~ .bubble,
   .card-head:focus-within ~ .bubble,
   .bubble:hover { display: block; }
@@ -130,7 +133,7 @@
      real <button>s (bright = the sorted column, dim = the rest). Density
      is the point -- all rows, no pagination, no scroll region. */
   .card.wide { grid-column: 1 / -1; }
-  table.btco { width: 100%; border-collapse: collapse; margin-top: 2px; }
+  table.btco { width: 100%; border-collapse: collapse; margin-top: 8px; }
   table.btco th, table.btco td { padding: 4px 10px; text-align: right; white-space: nowrap; }
   table.btco th.tick, table.btco td.tick { text-align: left; }
   table.btco td, table.btco th.num {
@@ -413,8 +416,9 @@ function btcoErr(key, e) {
   return R.errCard(key, msg);
 }
 
-// Full-width card: key-style title (no bubble -- the suite envelope carries
-// no meta) + the same ticking age badge the chart cards use (initBadge).
+// Fallback-only full-width card, used when the chart:btco_table card is
+// absent (e.g. a pre-chart publish): key-style title (no bubble -- the
+// suite envelope carries no meta) + the ticking age badge (initBadge).
 function buildBtcoCard(env) {
   var card = document.createElement("div");
   card.className = "card wide";
@@ -443,9 +447,23 @@ async function loadBtco() {
     return;
   }
   try {
-    var card = buildBtcoCard(env);
-    grid.appendChild(card);
-    initBadge(card, env);
+    // The table lives INSIDE the btco_table quadrant (owner ruling,
+    // round 5): shrink that card's chart to make room and append the
+    // table below it -- one card, chart + literal table together.
+    var host = grid.querySelector('[data-key="chart:btco_table"]');
+    var companies = (env.payload && env.payload.companies) || [];
+    if (host) {
+      var div = host.querySelector(".chart");
+      div.style.height = "290px";
+      var inst = echarts.getInstanceByDom(div);
+      if (inst) inst.resize();
+      host.appendChild(buildBtcoTable(companies));
+    } else {
+      // no chart card (pre-chart publish) -- fall back to its own strip
+      var card = buildBtcoCard(env);
+      grid.appendChild(card);
+      initBadge(card, env);
+    }
   } catch (e) {
     grid.appendChild(R.errCard("btco:latest", "render failed: " + apiUrl("btco:latest") + "\n" + e.message));
   }
@@ -480,7 +498,7 @@ async function loadBtco() {
   for (var i = 0; i < chartKeys.length; i += 1) {
     await loadChart(chartKeys[i]);
   }
-  await loadBtco(); // the full-width BTCo universe strip, below the 2x2 charts
+  await loadBtco(); // the literal universe table, INSIDE the btco quadrant
   if (!healthzOk) showBanner(); // index served (maybe cached) but worker probe failed
   setInterval(tickAll, 1000);   // the signature -- ONE interval for the page
   window.addEventListener("resize", function () {

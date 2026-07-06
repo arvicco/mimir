@@ -460,6 +460,20 @@ Goal: plain <table> next to the bars chart: ticker, BTC held, mNAV,
 Acceptance: self-screenshot + Playwright sort-interaction review
       before owner handoff; mimir-design checklist passes; rake green.
 
+## M4-8 · Live review round 5: in-quadrant BTCo table + viewport-aware bubbles  [tier: fable -- shared-renderer behavior change + coupled visual iteration] [status: done] [deps: M4-7]
+Goal: owner review of the LIVE site: (a) the BTCo universe table moves
+      INSIDE the btco_table quadrant (chart shrinks to 290px, table
+      below it in the same card; the full-width bottom strip is gone --
+      kept only as the fallback when the chart card is absent);
+      (b) hover bubbles flip UPWARD when the default position would
+      clip at the viewport bottom (render.js measures on open, both
+      pages carry .bubble.up). Both recorded as general rulings in the
+      mimir-design skill (owner: "make bubble requirement part of
+      general design guideline").
+Acceptance: Playwright pins top-row bubble opens down, edge-of-viewport
+      bubble flips and stays fully visible, table lives in-quadrant with
+      no .wide strip; screenshots reviewed; rake green.
+
 ## Gate 4 (human)
 Owner does first-time CF setup (Pages project + Worker route), runs
 `rake deploy` (M4-5), walks the smoke checklist against the live
