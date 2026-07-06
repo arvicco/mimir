@@ -188,6 +188,7 @@ function errCard(key, msg) {
 function buildChartCard(env, key) {
   var card = document.createElement("div");
   card.className = "card";
+  card.dataset.key = env.key || key; // pages locate specific cards by key
   var badgeCls = staleClass(env.generated_at, env.ttl_hint_s);
   var meta = env.meta || null;
   var head = document.createElement("div");
@@ -216,7 +217,27 @@ function buildChartCard(env, key) {
   div.className = "chart";
   if (meta && meta.height) div.style.height = meta.height + "px";
   card.appendChild(head);
-  if (meta) card.appendChild(buildBubble(meta));
+  if (meta) {
+    var bubble = buildBubble(meta);
+    card.appendChild(bubble);
+    // Flip the bubble upward when its default below-the-head position
+    // would clip at the viewport bottom (owner review round 5: bottom-
+    // row bubbles were cut). CSS owns show/hide; this only picks the
+    // side once the bubble is measurable.
+    function orient() {
+      requestAnimationFrame(function () {
+        if (!bubble.getBoundingClientRect().height) return; // not shown
+        bubble.classList.remove("up");
+        if (bubble.getBoundingClientRect().bottom > window.innerHeight) {
+          bubble.classList.add("up");
+        }
+      });
+    }
+    // mouseover (not mouseenter): the CSS trigger is hover on the .hover
+    // CHILDREN, and mouseover re-fires when the pointer moves onto them
+    head.addEventListener("mouseover", orient);
+    head.addEventListener("focusin", orient);
+  }
   card.appendChild(div);
 
   // Built-in DARK THEME: professionally tuned text/legend/axis colors
