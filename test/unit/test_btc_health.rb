@@ -6,6 +6,8 @@
 
 require_relative '../test_helper'
 require_relative '../../lib/btc/health'
+require 'tmpdir'
+require 'fileutils'
 
 class TestHealthConventions < Minitest::Test
   CLEAN = <<~RB
@@ -163,6 +165,107 @@ class TestHealthRegistry < Minitest::Test
       %i[name src marker url check].each do |k|
         assert s[k], "#{s[:name] || s.inspect} missing #{k}"
       end
+    end
+  end
+end
+
+# Offline scan of ops/ (M5-1): bash -n syntax, PUBLISH_DRY_RUN=0 in the
+# publish wrapper, the --apply ban, and plist well-formedness/required
+# keys via rexml (no plutil -- not on the ubuntu CI). Green on the real
+# repo; red on a synthetic dir with a bad plist and an --apply shell.
+class TestHealthOps < Minitest::Test
+  ROOT = File.expand_path('../..', __dir__)
+
+  GOOD_PLIST = <<~XML
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+      <dict>
+        <key>Label</key>
+        <string>com.mimir.test</string>
+        <key>ProgramArguments</key>
+        <array>
+          <string>/tmp/x/ops/run_publish.sh</string>
+        </array>
+        <key>RunAtLoad</key>
+        <false/>
+      </dict>
+    </plist>
+  XML
+
+  def test_real_ops_dir_passes
+    assert_empty BTC::Health.scan_ops(File.join(ROOT, 'ops'))
+  end
+
+  def test_missing_ops_dir_fails
+    Dir.mktmpdir do |dir|
+      bad = BTC::Health.scan_ops(File.join(dir, 'nope'))
+      refute_empty bad
+      assert bad.any? { |m| m.include?('missing') }
+    end
+  end
+
+  def test_empty_ops_dir_fails
+    Dir.mktmpdir do |dir|
+      ops = File.join(dir, 'ops')
+      FileUtils.mkdir_p(ops)
+      refute_empty BTC::Health.scan_ops(ops)
+    end
+  end
+
+  def test_flags_bad_plist_and_apply_shell
+    Dir.mktmpdir do |dir|
+      ops = File.join(dir, 'ops')
+      FileUtils.mkdir_p(ops)
+      # A shell that reaches for --apply (universe.json protection) and
+      # omits PUBLISH_DRY_RUN=0 despite being the publish wrapper.
+      File.write(File.join(ops, 'run_publish.sh'),
+                 "#!/bin/bash\nset -eu\nruby scripts/btco/ingest.rb --apply\n")
+      # A plist that would let launchd respawn (RunAtLoad true).
+      File.write(File.join(ops, 'com.mimir.publish.plist'),
+                 GOOD_PLIST.sub('<false/>', '<true/>'))
+
+      bad = BTC::Health.scan_ops(ops)
+      assert bad.any? { |m| m.include?('--apply') }, "expected --apply flag, got #{bad.inspect}"
+      assert bad.any? { |m| m.include?('PUBLISH_DRY_RUN=0') }, 'expected missing-dry-run flag'
+      assert bad.any? { |m| m.include?('RunAtLoad') }, 'expected RunAtLoad-true flag'
+    end
+  end
+
+  def test_flags_malformed_plist
+    Dir.mktmpdir do |dir|
+      ops = File.join(dir, 'ops')
+      FileUtils.mkdir_p(ops)
+      File.write(File.join(ops, 'run_publish.sh'), "#!/bin/bash\nexport PUBLISH_DRY_RUN=0\n")
+      File.write(File.join(ops, 'x.plist'), "<plist><dict><key>Label</key></dict>\n") # unclosed
+      bad = BTC::Health.scan_ops(ops)
+      assert bad.any? { |m| m.include?('well-formed') || m.include?('XML') }, "got #{bad.inspect}"
+    end
+  end
+
+  def test_flags_shell_syntax_error
+    Dir.mktmpdir do |dir|
+      ops = File.join(dir, 'ops')
+      FileUtils.mkdir_p(ops)
+      File.write(File.join(ops, 'run_publish.sh'),
+                 "#!/bin/bash\nexport PUBLISH_DRY_RUN=0\nif true; then\n") # unterminated if
+      File.write(File.join(ops, 'com.mimir.publish.plist'), GOOD_PLIST)
+      bad = BTC::Health.scan_ops(ops)
+      assert bad.any? { |m| m.include?('syntax') }, "got #{bad.inspect}"
+    end
+  end
+
+  def test_flags_apply_inside_a_plist
+    Dir.mktmpdir do |dir|
+      ops = File.join(dir, 'ops')
+      FileUtils.mkdir_p(ops)
+      # A plist could schedule --apply directly in ProgramArguments; the
+      # ban covers every ops file, not just the shell wrappers.
+      File.write(File.join(ops, 'com.mimir.evil.plist'),
+                 GOOD_PLIST.sub('/tmp/x/ops/run_publish.sh',
+                                '/tmp/x/scripts/btco/ingest.rb --apply x'))
+      bad = BTC::Health.scan_ops(ops)
+      assert bad.any? { |m| m.include?('--apply') }, "got #{bad.inspect}"
     end
   end
 end

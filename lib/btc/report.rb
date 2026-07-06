@@ -34,8 +34,11 @@ module BTC
 
     # Write the one-line tmux status artifact. The /tmp/<basename>.status
     # paths are frozen (--tmux contract); this just centralizes them.
-    def status(basename, line)
-      File.write("/tmp/#{basename}.status", line + "\n")
+    # +dir+ is injectable so TESTS never touch the real /tmp artifacts
+    # (a test run used to clobber /tmp/publish.status and poison the
+    # tmux health line on any box that is both dev and staging).
+    def status(basename, line, dir: '/tmp')
+      File.write(File.join(dir, "#{basename}.status"), line + "\n")
     end
 
     # The JSON form carries an additive 'unavailable': true marker so
