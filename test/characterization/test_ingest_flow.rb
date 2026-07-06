@@ -24,15 +24,15 @@
 # regression fails fast (connection refused) instead of reaching the wire.
 #
 # FINDINGS (pinned, not fixed -- flagged for the owner):
-#   A. --file dedup against PENDING is broken. The manual accession is
+#   A. [FIXED same phase] --file dedup against PENDING was broken. The manual accession is
 #      "manual-<hash>" (with a dash) but the pending filename strips all
 #      dashes ("TST_manual<hash>.json"), so
 #      `pending_files.any? { |f| f.include?(acc) }` never matches:
 #      re-ingesting the same document while its proposal is still pending
 #      re-writes the proposal (exit 0) instead of aborting. Dedup against
 #      the LEDGER works (accession stored verbatim). Pinned in
-#      test_file_dedup_ledger_aborts_pending_does_not.
-#   B. universe.json.bak-<stamp> uses second granularity. Two applies in
+#      the dedup test (pins the FIX now).
+#   B. [FIXED same phase] universe.json.bak-<stamp> used second granularity. Two applies in
 #      the same wall-clock second (here: a frozen clock in --apply-all-high)
 #      collide on the backup filename and FileUtils.cp overwrites, so only
 #      ONE backup survives a multi-apply batch. Pinned in
@@ -310,9 +310,10 @@ class TestIngestFlow < Minitest::Test
     remaining = pending_files.map { |f| File.basename(f) }.sort
     assert_equal %w[TST_acc0003.json TST_acc0004.json], remaining
 
-    # FINDING B: frozen clock -> both applies share the bak stamp; the
-    # second cp overwrites the first, so exactly ONE backup survives.
-    assert_equal 1, bak_files.size
+    # Finding B FIXED: same-second applies uniquify the backup name
+    # (-2 suffix), so a batch keeps EVERY backup.
+    assert_equal 2, bak_files.size
+    assert_match(/bak-20260630000000-2\z/, bak_files.last)
   end
 
   # ---- surface 4: --status shape ----------------------------------------
@@ -392,20 +393,19 @@ class TestIngestFlow < Minitest::Test
     refute_includes out, skip_acc.delete('-') # ledger dedup applies even w/o state
   end
 
-  def test_file_dedup_ledger_aborts_pending_does_not
+  def test_file_dedup_pending_and_ledger_both_abort
     doc = write_doc
     o1, _e1, s1 = run_ingest('--file', doc, '--ticker', 'TST')
     assert s1.success?
     assert_equal 1, pending_files.size
     acc = JSON.parse(File.read(pending_files.first))['accession']
 
-    # FINDING A: re-ingesting while the proposal is still pending does NOT
-    # abort (the pending-dedup substring never matches the dash-stripped
-    # filename) -- it silently re-writes the proposal, exit 0.
-    o2, _e2, s2 = run_ingest('--file', doc, '--ticker', 'TST')
-    assert s2.success?, 'pending dedup currently does NOT abort (FINDING A)'
-    assert_match(/-> proposal/, o2)
-    assert_equal 1, pending_files.size # same filename overwritten
+    # Finding A FIXED: re-ingesting while the proposal is still pending
+    # aborts (dedup now matches the dash-stripped pending filename).
+    _o2, e2, s2 = run_ingest('--file', doc, '--ticker', 'TST')
+    refute s2.success?, 'pending dedup must abort (finding A fix)'
+    assert_match(/already ingested/, e2)
+    assert_equal 1, pending_files.size # untouched, not re-written
     refute_equal '', o1                # (touch o1 to keep it meaningful)
 
     # Ledger dedup DOES work: seed the accession into the ledger, clear
