@@ -3,9 +3,10 @@
 # deploy.rb -- owner-run Cloudflare Worker deploy automation (M4-5,
 # ARCHITECTURE.md section 6 Phase 4).
 #
-#   rake deploy                     # OWNER-RUN full deploy + smoke
+#   rake deploy                     # OWNER-RUN: code + DATA live + smoke
 #   DEPLOY_DRY_RUN=1 rake deploy    # assemble everything, run nothing
 #   DEPLOY_SKIP_CHECKS=1 rake deploy  # skip tree-clean + rake-gate (re-runs)
+#   DEPLOY_SKIP_PUBLISH=1 rake deploy # code-only push, no data publish
 #
 # Golden Rule 3 (CLAUDE.md): deploys are HUMAN actions. This task is
 # never run by the loop and REFUSES under CI (ENV['CI'] set -> abort with
@@ -26,9 +27,14 @@
 #      wrangler reads CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID from
 #      the inherited env (one-token ruling); the legacy CF_API_TOKEN
 #      name is unset in the child in case a stale env file exports it.
-#   4. smoke -- GET /healthz (200 {ok:true}), /api/v1/index (200 envelope,
-#      age sane), /api/v1/definitely:missing (404), via BTC::Http; a
-#      PASS/FAIL line each, nonzero exit on any FAIL.
+#   4. publish -- PUBLISH_DRY_RUN=0 ruby publish/publish.rb (deploy means
+#      LIVE, data included -- owner ruling at Gate 4; skippable via
+#      DEPLOY_SKIP_PUBLISH=1 for code-only pushes; cron owns routine
+#      publishing from Phase 5).
+#   5. smoke -- GET /healthz (200 {ok:true}), /api/v1/index (200 envelope,
+#      age sane AND the four chart:* keys listed -- content, not just
+#      freshness), /api/v1/definitely:missing (404), GET / (dashboard
+#      shell), via BTC::Http; a PASS/FAIL line each, nonzero exit on FAIL.
 #
 # The SAME deploy ships the static dashboard: wrangler.toml's [assets]
 # block serves web/ on the worker's host (owner feedback at Gate 4 --
@@ -203,6 +209,13 @@ module BTC
       ok ? [true, '200 {ok:true}'] : [false, '200 but body is not {ok:true}']
     end
 
+    # Chart keys the published index MUST list -- an index without them
+    # is a pre-Phase-3 publish and the dashboard renders no charts
+    # (found live at Gate 4: age alone passed while the site looked
+    # broken; content matters, not just freshness).
+    CHART_KEYS = %w[chart:gex_profile chart:scenario_strip
+                    chart:lppl_regime chart:btco_table].freeze
+
     def verdict_index(code, body, now)
       return [false, "expected 200, got #{code || 'error'}"] unless code == 200
 
@@ -214,7 +227,13 @@ module BTC
       return [false, 'generated_at is in the future'] if age < -SKEW_S
       return [false, format('stale: age %.1f days > 7', age / 86_400.0)] if age > MAX_AGE_S
 
-      [true, format('200 envelope, age %.1fh', age / 3600.0)]
+      keys = (env.dig('payload', 'keys') || []).map { |r| r['key'] }
+      missing = CHART_KEYS - keys
+      unless missing.empty?
+        return [false, "index lists no #{missing.join('/')} -- old publish? re-publish and re-run"]
+      end
+
+      [true, format('200 envelope, age %.1fh, %d keys incl. charts', age / 3600.0, keys.size)]
     rescue JSON::ParserError, ArgumentError, TypeError
       [false, 'not a valid envelope (parse/age failed)']
     end
@@ -287,8 +306,9 @@ module BTC
 
       if dry
         io.puts ''
-        io.puts 'DRY RUN (DEPLOY_DRY_RUN=1) -- wrangler and smoke probes NOT run.'
+        io.puts 'DRY RUN (DEPLOY_DRY_RUN=1) -- wrangler, publish and smoke probes NOT run.'
         io.puts format('would run: %s', cmd.join(' '))
+        io.puts 'would run: PUBLISH_DRY_RUN=0 ruby publish/publish.rb  (skip with DEPLOY_SKIP_PUBLISH=1)'
         io.puts dashboard_note
         return 0
       end
@@ -317,6 +337,21 @@ module BTC
       end
 
       io.puts format('deployed host: %s', host)
+
+      # Deploy means LIVE, data included (owner ruling at Gate 4: a
+      # deploy that leaves the site rendering stale/chart-less data is
+      # broken by the owner's definition). A real publish runs before
+      # the smoke so the probes validate fresh data. Skippable for
+      # code-only pushes; cron owns routine publishing from Phase 5.
+      unless truthy(env['DEPLOY_SKIP_PUBLISH'])
+        io.puts ''
+        io.puts 'publishing data: PUBLISH_DRY_RUN=0 ruby publish/publish.rb'
+        pub_ok, pub_out = runner.call(%w[ruby publish/publish.rb],
+                                      { 'PUBLISH_DRY_RUN' => '0' })
+        io.puts BTC::Env.redact(pub_out.to_s).lines.last(3).join
+        raise Error, 'publish failed -- the worker is deployed but KV data was not refreshed' unless pub_ok
+      end
+
       io.puts ''
       io.puts 'post-deploy smoke:'
       results = smoke(host, http: http, now: now)
