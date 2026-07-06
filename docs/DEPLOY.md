@@ -71,7 +71,7 @@ DEPLOY_DRY_RUN=1 rake deploy
 EXPECT: a pre-flight table of seven `[ok]` rows (wrangler, token,
 account, namespace, DEPLOY_NAME -- shown, it is the hostname -- tree,
 gate), then
-`would run: ... wrangler deploy -c data/wrangler.generated.toml`.
+`would run: ... wrangler deploy -c wrangler.generated.toml`.
 Nothing has been deployed. If a row says `MISSING`, see section 4.
 
 **2.2 Make sure KV has data** (first deploy, or after long sleep):
@@ -171,15 +171,18 @@ re-publishing, never by rollback.
 **What `rake deploy` actually does**: (1) pre-flight -- wrangler
 present, `CLOUDFLARE_*` env set (printed as `set`/`MISSING`, values
 never echoed), tree clean, `rake` gate green; (2) writes
-`data/wrangler.generated.toml` from the committed `wrangler.toml`
+`wrangler.generated.toml` from the committed `wrangler.toml`
 template, filling the KV namespace id from env and the worker name
-from `DEPLOY_NAME` (the generated file lives in gitignored `data/`, so
-real ids are never committable); (3) runs `wrangler deploy -c` that
-file -- wrangler authenticates from the inherited env; (4) probes the
-deployed host. It refuses under CI and is deny-listed for the loop.
+from `DEPLOY_NAME` -- at the REPO ROOT, because wrangler resolves the
+config's relative paths (`main`, `[assets]`) from the config file's
+own directory; the file is gitignored by name so real ids are never
+committable; (3) runs `wrangler deploy -c` that file -- wrangler
+authenticates from the inherited env; (4) probes the deployed host.
+It refuses under CI and is deny-listed for the loop.
 
-**Env reference**: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_KV_NAMESPACE_ID` (both
-required; never printed), `DEPLOY_NAME` (optional hostname),
+**Env reference**: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`,
+`CLOUDFLARE_KV_NAMESPACE_ID` (all required; never printed),
+`DEPLOY_NAME` (required; the public hostname, shown in pre-flight),
 `DEPLOY_HOST` (optional -- overrides the smoke-probe host if wrangler's
 output can't be parsed), `DEPLOY_DRY_RUN=1`, `DEPLOY_SKIP_CHECKS=1`.
 **One token, one name** (owner ruling at Gate 4, 2026-07-05): the

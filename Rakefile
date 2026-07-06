@@ -139,7 +139,7 @@ namespace :web do
 end
 
 desc 'Deploy the Worker to Cloudflare (OWNER-RUN; never in CI -- Golden ' \
-     'Rule 3). Pre-flight, generate data/wrangler.generated.toml (gitignored, ' \
+     'Rule 3). Pre-flight, generate wrangler.generated.toml (gitignored, ' \
      'never committed), wrangler deploy, post-deploy smoke. ' \
      'DEPLOY_DRY_RUN=1 assembles without deploying; DEPLOY_SKIP_CHECKS=1 ' \
      'skips tree/gate on re-runs. Not in the default gate.'

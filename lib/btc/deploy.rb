@@ -16,10 +16,13 @@
 #      green (the last two skippable together via DEPLOY_SKIP_CHECKS=1).
 #      In DRY RUN the table is informational (never blocks): a dev box
 #      without wrangler / a dirty tree still proves the pipeline.
-#   2. generate config -- substitute CLOUDFLARE_KV_NAMESPACE_ID into the committed
-#      wrangler.toml template, write data/wrangler.generated.toml (data/
-#      is gitignored, so the filled config is never committable).
-#   3. deploy -- `wrangler deploy -c data/wrangler.generated.toml`;
+#   2. generate config -- substitute CLOUDFLARE_KV_NAMESPACE_ID into the
+#      committed wrangler.toml template, write wrangler.generated.toml
+#      AT THE REPO ROOT (gitignored by name): wrangler resolves main /
+#      [assets].directory relative to the CONFIG FILE, so the generated
+#      copy must sit beside the template or every path breaks (found
+#      live at Gate 4: a data/ copy hunted for data/web/worker.mjs).
+#   3. deploy -- `wrangler deploy -c wrangler.generated.toml`;
 #      wrangler reads CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID from
 #      the inherited env (one-token ruling); the legacy CF_API_TOKEN
 #      name is unset in the child in case a stale env file exports it.
@@ -48,7 +51,7 @@ module BTC
     class Error < StandardError; end
 
     TEMPLATE_PATH  = 'wrangler.toml'
-    GENERATED_PATH = 'data/wrangler.generated.toml'
+    GENERATED_PATH = 'wrangler.generated.toml'
     PLACEHOLDER    = 'FILLED_FROM_CLOUDFLARE_KV_NAMESPACE_ID_BY_RAKE_DEPLOY'
     CF_ENV         = %w[CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID
                         CLOUDFLARE_KV_NAMESPACE_ID].freeze
@@ -301,7 +304,9 @@ module BTC
       # fail to deploy).
       ok, out = runner.call(cmd, { 'CF_API_TOKEN' => nil })
       unless ok
-        io.puts BTC::Env.redact(out.to_s).lines.last(5).join
+        # 15 lines: wrangler leads with the actual [ERROR] and pads with
+        # advice -- a 5-line tail cut off the root cause (Gate 4 lesson)
+        io.puts BTC::Env.redact(out.to_s).lines.last(15).join
         raise Error, 'wrangler deploy failed (see output above)'
       end
 

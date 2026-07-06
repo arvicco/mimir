@@ -116,6 +116,21 @@ class TestBtcDeploy < Minitest::Test
     assert_match(/CLOUDFLARE_KV_NAMESPACE_ID/, e.message)
   end
 
+  def test_generated_config_sits_beside_the_template_so_relative_paths_hold
+    # wrangler resolves main / [assets].directory relative to the CONFIG
+    # FILE, not the cwd. The generated copy must live in the template's
+    # directory or every relative path silently breaks (Gate 4 live
+    # failure: a copy under data/ hunted for data/web/worker.mjs).
+    assert_equal File.dirname(BTC::Deploy::TEMPLATE_PATH),
+                 File.dirname(BTC::Deploy::GENERATED_PATH)
+    root = File.expand_path('../..', __dir__)
+    tmpl = File.read(File.join(root, BTC::Deploy::TEMPLATE_PATH))
+    main   = tmpl[/^main = "(.+)"$/, 1]
+    assets = tmpl[/^directory = "(.+)"$/, 1]
+    assert File.file?(File.join(root, main)), "main #{main} not found beside the config"
+    assert File.directory?(File.join(root, assets)), "assets dir #{assets} not found beside the config"
+  end
+
   # ---- pre-flight report shape ---------------------------------------
 
   def test_preflight_missing_env_reports_MISSING_never_the_value
@@ -202,7 +217,7 @@ class TestBtcDeploy < Minitest::Test
   # ---- deploy command assembly ---------------------------------------
 
   def test_deploy_command_array
-    assert_equal ['wrangler', 'deploy', '-c', 'data/wrangler.generated.toml'],
+    assert_equal ['wrangler', 'deploy', '-c', 'wrangler.generated.toml'],
                  BTC::Deploy.deploy_command
     assert_equal ['wrangler', 'deploy', '-c', 'x.toml'], BTC::Deploy.deploy_command('x.toml')
   end
