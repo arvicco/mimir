@@ -140,15 +140,32 @@ any time with `rake ops:status` (section 8, step 1).
 Puts a one-glance publisher-health indicator in the tmux status bar,
 driven by `ops/publish_health.rb` reading `/tmp/publish.status`.
 
-**3.1 Add three lines to `~/.tmux.conf`** (adjust the path to your
-repo). The token goes on a SECOND status line -- the first one is
-yours; this does not touch it:
+**3.1 Add the token to `~/.tmux.conf`** (adjust the path to your
+repo -- replace `<you>`; a literal `<you>` left in place is the #1
+reason the token never appears). Pick by whether your extra status
+lines are free:
+
+If `status-format[1]` is unused, give the token its own second line:
 
 ```
 set -g status 2
 set -g status-format[1] '#[align=right]#(ruby /Users/<you>/Dev/mimir/ops/publish_health.rb)'
 set -g status-interval 30
 ```
+
+If line 1 already carries your own format, add a THIRD line instead
+(`status-format[2]`, tmux >= 3.0 supports up to 5):
+
+```
+set -g status 3
+set -g status-format[2] '#[align=right]#(ruby /Users/<you>/Dev/mimir/ops/publish_health.rb)'
+set -g status-interval 30
+```
+
+Or merge into an existing line: append the `#(ruby ...)` INSIDE your
+line's existing `#[align=right]` run (with a separator) -- opening a
+second `#[align=right]` block restarts right-alignment mid-line and
+garbles the layout.
 
 **3.2 Reload tmux config.**
 
