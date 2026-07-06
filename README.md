@@ -229,4 +229,6 @@ network, owner-run); the skip messages say exactly which.
 Read `docs/METHODOLOGY.md` (how to interpret the outputs), `CLAUDE.md`
 (ground rules), `ARCHITECTURE.md` (design + phases), `docs/DEV-LOOP.md`
 (how this gets built), `docs/TOOL-REVIEW.md` (per-tool audit),
-`docs/BACKLOG.md` (work state). ENV reference: `.env.example`.
+`docs/BACKLOG.md` (work state), `docs/RUNBOOK.md` (operate the box:
+launchd agents, tmux health line, rotate token / recover from stale).
+ENV reference: `.env.example`.
