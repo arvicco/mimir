@@ -73,6 +73,34 @@
   }
   .dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
   .green { background: #35c46a; } .amber { background: #e2a52b; } .red { background: #e04b4b; }
+  /* BTCo universe table (shared table builder in render.js; CSS is
+     per-page by convention -- copied verbatim from index.html) */
+  /* BTCo universe table (M4-7): a compact full-width strip appended below
+     the four charts (grid-column 1 / -1). Borderless except a 1px row
+     separator; mono tabular numerals at 11px; click-to-sort headers are
+     real <button>s (bright = the sorted column, dim = the rest). Density
+     is the point -- all rows, no pagination, no scroll region. */
+  .card.wide { grid-column: 1 / -1; }
+  table.btco { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  table.btco th, table.btco td { padding: 4px 10px; text-align: right; white-space: nowrap; }
+  table.btco th.tick, table.btco td.tick { text-align: left; }
+  table.btco td, table.btco th.num {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums; font-size: 11px;
+  }
+  table.btco thead th { font-size: 11px; font-weight: 600; vertical-align: bottom; }
+  table.btco tbody tr { border-top: 1px solid #2a2f38; }
+  table.btco tbody tr:hover { background: #20252d; }
+  table.btco .dim { color: #5b636e; }           /* null cells render a dim -- */
+  table.btco .fl-st { color: #e04b4b; }          /* STALE flag */
+  table.btco .fl-ph { color: #e2a52b; }          /* placeholder * flag */
+  /* Header sort control: dim until it owns the sort, then it brightens. */
+  .sortbtn {
+    cursor: pointer; padding: 0; background: none; border: 0;
+    font: inherit; color: #7f8896; white-space: nowrap;
+  }
+  .sortbtn.active { color: #d7dce3; }
+  .sortbtn:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
   .grid {
     display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
   }
@@ -242,6 +270,16 @@ async function loadChart(key) {
   var chartKeys = await loadIndex();
   for (var i = 0; i < chartKeys.length; i++) {
     await loadChart(chartKeys[i]);
+  }
+  // BTCo universe table, in-quadrant (shared renderer; unified view --
+  // same card anatomy as the dashboard). Artifact missing -> err card.
+  try {
+    var benv = await getJSON(DATA + "btco_latest.json");
+    R.attachBtcoTable(document.getElementById("grid"), benv);
+  } catch (e) {
+    document.getElementById("grid").appendChild(
+      R.errCard("btco:latest", "btco_latest.json unreadable (" + e.message +
+                ") -- re-run PUBLISH_DRY_RUN=1 ruby publish/publish.rb."));
   }
   window.addEventListener("resize", function () {
     R.charts.forEach(function (c) { c.resize(); });
