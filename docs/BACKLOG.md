@@ -599,6 +599,34 @@ Acceptance: unit tests with a fake runner pin file shape, date-guard,
 Status note: done (sonnet first pass, no deviations; fable review
       clean) -- 78f24d1.
 
+## M5-6 · rake ops:install|status|uninstall -- interactive ops installer  [tier: opus -- owner-run automation wrapping launchctl with programmatic verification, the rake deploy pattern; fable spec + review (secret-adjacent, system-state mutating)] [status: ready] [deps: M5-1, M5-2, M5-5]
+Goal: owner ruling 2026-07-06 (live from the gold staging install):
+      "wrapped in the interactive script instead of loading human with
+      tasks humans bad at" -- the RUNBOOK 1-2/4 copy-paste blocks
+      (REPO shell state, sed, bootstrap, sleep-then-eyeball) become
+      lib/btc/ops.rb + three Rake tasks, owner-run ONLY (refuse under
+      CI and when stdin is not a TTY -- which also locks the loop
+      out). install: pre-flight table (env file presence/mode/keys
+      export-aware, ruby, wrappers, plists via the health scans,
+      launchctl present) -> render __REPO__ -> write to
+      ~/Library/LaunchAgents -> bootout-if-loaded -> bootstrap ->
+      verify state via launchctl print -> per agent an interactive
+      "kickstart now? [y/N]" that POLLS the log for the new run marker
+      + summary line (no sleeps, no eyeballing), checks
+      /tmp/publish.status freshness and the dated snapshot file, and
+      prints a PASS/FAIL verification table. status: one command --
+      agents' state/last-exit, last log marker + summary each, status
+      file line + age, newest snapshot date. uninstall: confirm,
+      bootout both, rm installed plists. RUNBOOK sections 1-2/4
+      collapse to script invocations + EXPECT; manual commands move to
+      the Background section as fallback reference.
+Acceptance: BTC::Ops fully injectable (runner/io/clock/home/repo,
+      poll sleeper); unit tests cover pre-flight fails, install happy
+      path, already-loaded reinstall, kickstart verify success/timeout
+      /failure-line, declined prompts, uninstall; CI refusal + TTY
+      refusal pinned; no secret ever read or printed (env checks are
+      presence-only); rake green; RUNBOOK updated in the same packet.
+
 ## Gate 5 (human) -- concrete checklist (M5-4)
 Staged rollout (owner ruling 2026-07-06): the first install happens on
 GOLD as staging, novo gets it only after the 48h-green proof. The KV
