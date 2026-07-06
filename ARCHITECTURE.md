@@ -280,32 +280,34 @@ BEFORE any new feature work. Stage 0 runs interactively with the owner.
 - **Gate 5:** owner installs the agents per RUNBOOK; green for ~48h.
   The one-week soak continues in parallel and closes at Gate 6.
 
-### Phase 6 -- BTCo ingest to real data
+### Phase 6 -- LPPL history backfill + MSTR GEX panel
+(Swapped with the ingest phase, owner ruling 2026-07-06: this work is
+mostly autonomous; ingest is owner-interactive and moves back.)
+- additive `--as-of` replay mode for the lppl suite (current-day
+  semantics untouched); sequential ledger + fit-history rebuild from
+  the Oct-2025 peak (D7-a), verified by reproducing the already-
+  recorded days byte-identically before any historical write
+  (owner-blessed one-shot, backup first). Import beats recompute
+  wherever pre-handoff ledger files exist (D7-b).
+- `v1:gex_mstr:latest` + `v1:chart:gex_mstr` published (additive index
+  growth); card tab widget in the gex_profile quadrant (4th renderer
+  hook -- owner ruling D7-c required, options presented first).
+- **Gate 6:** replay verification reviewed; backfilled ledger blessed;
+  MSTR tab visual review. Soak week reviewed here if complete.
+
+### Phase 7 -- BTCo ingest to real data
 - ingest flow characterization (fixture tests for discovery / extraction
   / apply), live shakedown on latest filings per company (the extraction
   schema reports absolute numbers, so no backlog replay is needed; add
   the missing XXI/NAKA CIKs), owner reviews and applies proposals until
   no `placeholder:true` remains. Ingestion stays INTERACTIVE (owner
-  ruling 2026-07-06): the only scheduled piece is a daily discovery
-  alert (list new filings, surface a count in the tmux/status layer --
-  no fetch, no AI analysis, no state mutation); analysis and apply
-  happen in owner sessions.
-- **Gate 6:** real universe data live on the dashboard; soak week
-  complete; KV free-tier usage reviewed (writes/day well under limits);
-  **tag v1**. Everything after is v1.x.
-
-### Phase 7 -- LPPL history backfill + MSTR GEX panel
-- additive `--as-of` replay mode for the lppl suite (current-day
-  semantics untouched); sequential ledger + fit-history rebuild over the
-  owner-ruled window, verified by reproducing the already-recorded days
-  byte-identically before any historical write (owner-blessed one-shot,
-  backup first). Import beats recompute wherever pre-handoff ledger
-  files exist.
-- `v1:gex_mstr:latest` + `v1:chart:gex_mstr` published (additive index
-  growth); card tab widget in the gex_profile quadrant (4th renderer
-  hook -- owner ruling required per the design skill).
-- **Gate 7:** replay verification reviewed; backfilled ledger blessed;
-  MSTR tab visual review.
+  ruling 2026-07-06, D6-a): the only scheduled piece is a daily
+  discovery alert (list new filings, surface a count in the tmux/status
+  layer -- no fetch, no AI analysis, no state mutation); analysis and
+  apply happen in owner sessions.
+- **Gate 7:** real universe data live on the dashboard; soak closed +
+  KV free-tier usage reviewed (if not already at Gate 6); **tag v1**.
+  Everything after is v1.x.
 
 ### Phase 8 -- Coinglass groundwork + module upgrades (docs/improvements.md)
 - `lib/btc/coinglass.rb` + per-endpoint TTL file cache + tier probe
