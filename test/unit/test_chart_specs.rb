@@ -61,11 +61,24 @@ class TestChartSpecs < Minitest::Test
     assert_nil metas['lppl_regime']['tooltip_formatter']
     assert_nil metas['btco_table']['height']
     assert_nil metas['scenario_strip']['legend_widget']
-    # gex_mstr carries no renderer hooks: its single net-GEX series does
-    # not match gex_levels' per-venue C/P input, and M6-4 owns tab_group
+    # gex_mstr carries no drawn-legend/tooltip hooks: its single net-GEX
+    # series does not match gex_levels' per-venue C/P input
     assert_nil metas['gex_mstr']['tooltip_formatter']
     assert_nil metas['gex_mstr']['legend_widget']
-    assert_nil metas['gex_mstr']['tab_group']
+    # M6-4 (owner ruling D7-c, 2026-07-06): the two GEX charts share ONE
+    # dashboard card as [BTC][MSTR] tabs. tab_group pairs them; tab_pos
+    # fixes BTC first (the index sorts keys alphabetically, so gex_mstr
+    # would otherwise lead). tab_label is the button text.
+    assert_equal 'gex', metas['gex_profile']['tab_group']
+    assert_equal 'BTC', metas['gex_profile']['tab_label']
+    assert_equal 1, metas['gex_profile']['tab_pos']
+    assert_equal 'gex', metas['gex_mstr']['tab_group']
+    assert_equal 'MSTR', metas['gex_mstr']['tab_label']
+    assert_equal 2, metas['gex_mstr']['tab_pos']
+    # the other three charts are not part of any tab group
+    assert_nil metas['scenario_strip']['tab_group']
+    assert_nil metas['lppl_regime']['tab_group']
+    assert_nil metas['btco_table']['tab_group']
   end
 
   # ---- gex_profile structure -------------------------------------------

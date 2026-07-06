@@ -32,8 +32,15 @@
 #     `(p) DERI (c)` -- p/c toggle one side, the venue name both; owner
 #     review round 4). The spec ships legend.show=false so ECharts still
 #     owns series selection; the widget drives it via legend actions.
-# All three are part of the chart contract; add a hook only with an
-# owner ruling.
+#   meta['tab_group'] (+ tab_label / tab_pos) -- M6-4, owner ruling D7-c
+#     (2026-07-06): charts sharing a tab_group render into ONE dashboard
+#     card as tabs (currently only 'gex': gex_profile [BTC] + gex_mstr
+#     [MSTR]). tab_label is the button text; tab_pos fixes the tab order
+#     (ascending) so BTC leads even though the index sorts gex_mstr first.
+#     The renderer builds the card from the first group member it loads
+#     and attaches the rest; each key keeps its own header liveness dot.
+# All four are part of the chart contract; add a hook only with an owner
+# ruling.
 #
 # No IO, no ENV, no network in this file.
 
@@ -66,7 +73,12 @@ module Publish
           # need aggregation, and the grouped (p) VENUE (c) toggles need
           # HTML, neither of which a JSON option can express
           'tooltip_formatter' => 'gex_levels',
-          'legend_widget' => 'gex_cp'
+          'legend_widget' => 'gex_cp',
+          # tab-group hook (M6-4, owner ruling D7-c 2026-07-06): this and
+          # chart:gex_mstr share ONE dashboard card as [BTC][MSTR] tabs.
+          # tab_pos is explicit because the index sorts keys alphabetically
+          # (gex_mstr < gex_profile) yet BTC must be the default/first tab.
+          'tab_group' => 'gex', 'tab_label' => 'BTC', 'tab_pos' => 1
         }
       },
       'gex_mstr' => {
@@ -88,10 +100,13 @@ module Publish
                     'red below (net short). The CBOE chain reports net gamma ' \
                     'per strike, not a call/put split, so bars are single-sided. ' \
                     'Lines: spot (grey), flip = net-GEX zero crossing (amber), ' \
-                    'CW/PW = biggest call/put walls.'
+                    'CW/PW = biggest call/put walls.',
           # no tooltip_formatter: the gex_levels formatter aggregates per-venue
           # call/put series (C/P + '<venue> C/P'), which this single net-GEX
           # series does not carry -- the default axis tooltip is correct here.
+          # tab-group hook (M6-4, owner ruling D7-c 2026-07-06): shares the
+          # BTC gex_profile card as the second [MSTR] tab (BTC is tab_pos 1).
+          'tab_group' => 'gex', 'tab_label' => 'MSTR', 'tab_pos' => 2
         }
       },
       'scenario_strip' => {

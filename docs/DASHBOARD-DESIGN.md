@@ -107,3 +107,46 @@ focus-visible ring, focus opens the bubble (a11y floor). Unified across BOTH pag
 (owner ruling, same day): the cluster/bubble/pub-slot builder lives in
 render.js (MimirRender.liveHeader) so index.html and preview.html
 cannot drift apart -- sign-off happens against one design.
+
+## GEX tabs (owner ruling D7-c, 2026-07-06 -- Option A)
+
+The two GEX charts (`chart:gex_profile`, BTC, on the coin's price axis;
+`chart:gex_mstr`, MSTR, on the equity's) share ONE card in the top-right
+quadrant, switched by a `[BTC][MSTR]` tab bar. The 2x2 grid is preserved
+(they do not each claim a quadrant); BTC is the default/first tab. Both
+keys keep their own header liveness dot -- `liveHeader` is key-driven and
+unchanged. MSTR gamma stays deliberately un-merged from the BTC profile
+(different axis, different subject); the tabs put them one keystroke apart
+without pretending they are one series.
+
+**Meta contract (a fourth renderer hook, additive; chart_specs.rb).**
+Charts sharing a `tab_group` render into one card as tabs:
+
+- `tab_group` -- group id (currently only `'gex'`); charts with the same
+  id are tabbed siblings. Absent = a solo card (unchanged).
+- `tab_label` -- the tab button text (`'BTC'` / `'MSTR'`).
+- `tab_pos` -- ascending tab order. Explicit because the published index
+  sorts keys alphabetically (`chart:gex_mstr` < `chart:gex_profile`), so
+  the renderer loads MSTR first; `tab_pos` 1/2 keeps BTC leading.
+
+**Renderer behavior (render.js, rev m6-tab1).** The first group member
+loaded builds the shared card -- head with the active tab's key title, the
+`ⓘ` bubble affordance, the tab bar, and the badge -- and every member
+(including the first) attaches its own hidden chart div plus a tab button
+inserted at its `tab_pos`. A tab click reveals that member's div and
+`resize()`s it (a div init'd while `display:none` is 0x0 until told its
+real size), lights its button (dim=inactive/bright=active, the `.sortbtn`
+pattern), and swaps the card title, hover bubble and staleness badge to
+that member's envelope. The badge swap is written to work with BOTH the
+static preview badge and index.html's ticking `data-generated-at` badge,
+so the 1 s age ticker follows whichever tab is visible. A grouped chart's
+`legend_widget` (BTC's `(p) DERI (c)`) hosts on its OWN chart div, so the
+floating legend hides with its tab. `buildChartCard` returns the SAME card
+for every member; each page guards its append (`!card.isConnected`) so the
+card is not moved out of grid order.
+
+**Failed-tab fallback.** If one tab's envelope fails to fetch, the other
+still renders in the shared card; the failed key falls back to the page's
+existing separate error card (naming the key + its producer) rather than an
+in-panel error -- the acceptable fallback the ruling allows, since the
+error is caught in page transport before the group card exists.
