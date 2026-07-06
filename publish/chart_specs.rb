@@ -546,7 +546,10 @@ module Publish
               [0.25, '#0f7a5c'], [0.5, '#e6a23c'], [0.75, '#e08e0b'], [1, '#c63939']
             ] } },
             'pointer' => { 'width' => 4 },
-            'title' => { 'offsetCenter' => [0, '-40%'] },
+            # series title hidden (owner report 2026-07-06): at any inner
+            # offset it collides with the tick labels, and 'stress' is
+            # already carried by the chart title + the band detail text
+            'title' => { 'show' => false },
             'detail' => { 'formatter' => latest['band'].to_s, 'fontSize' => 14,
                           'offsetCenter' => [0, '72%'] },
             'data' => [{ 'value' => latest['stress'], 'name' => 'stress' }] }

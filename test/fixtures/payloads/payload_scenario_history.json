@@ -13,6 +13,34 @@
         "onchain_value": 0,
         "stables": -1
       }
+    },
+    {
+      "ts": "2026-07-05T12:42:32Z",
+      "composite": -0.333,
+      "regime": "LEAN-FLUSH",
+      "scores": {
+        "etf_flows": 0,
+        "funding_basis": 0,
+        "cb_premium": 0,
+        "macro": -1,
+        "hash_ribbons": -1,
+        "onchain_value": 0,
+        "stables": -1
+      }
+    },
+    {
+      "ts": "2026-07-06T04:54:34Z",
+      "composite": -0.5,
+      "regime": "FLUSH",
+      "scores": {
+        "etf_flows": 0,
+        "funding_basis": 0,
+        "cb_premium": -1,
+        "macro": -1,
+        "hash_ribbons": -1,
+        "onchain_value": 0,
+        "stables": -1
+      }
     }
   ]
 }
