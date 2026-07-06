@@ -61,6 +61,11 @@ class TestChartSpecs < Minitest::Test
     assert_nil metas['lppl_regime']['tooltip_formatter']
     assert_nil metas['btco_table']['height']
     assert_nil metas['scenario_strip']['legend_widget']
+    # gex_mstr carries no renderer hooks: its single net-GEX series does
+    # not match gex_levels' per-venue C/P input, and M6-4 owns tab_group
+    assert_nil metas['gex_mstr']['tooltip_formatter']
+    assert_nil metas['gex_mstr']['legend_widget']
+    assert_nil metas['gex_mstr']['tab_group']
   end
 
   # ---- gex_profile structure -------------------------------------------
@@ -158,6 +163,55 @@ class TestChartSpecs < Minitest::Test
 
       assert_equal labels.size, s['data'].size, "#{s['name']} misaligned with axis"
     end
+  end
+
+  # ---- gex_mstr structure (M6-3) ---------------------------------------
+
+  def mstr_payload
+    @mstr_payload ||= JSON.parse(File.read(File.join(PAYLOADS, 'payload_gex_mstr.json')))
+  end
+
+  def test_gex_mstr_title_carries_spot_from_fixture
+    # spot 102.22 rendered raw-dollar (below 1k), one-line 13px title
+    opt = build('gex_mstr')
+    assert_equal 'MSTR GEX $M/1% · spot 102.22', opt['title']['text']
+    assert_equal 13, opt['title']['textStyle']['fontSize']
+  end
+
+  def test_gex_mstr_one_net_bar_per_strike_coloured_by_sign
+    opt = build('gex_mstr')
+    bar = opt['series'].find { |s| s['type'] == 'bar' }
+    assert_equal 'net GEX', bar['name']
+    assert_equal 1, opt['series'].size # single-venue: one series, no C/P split
+    strikes = mstr_payload['profile'].keys.sort_by(&:to_f)
+    assert_equal strikes.size, bar['data'].size
+    assert_equal opt['xAxis']['data'].size, bar['data'].size
+    # each bar's colour tracks the sign of its net gamma (teal long / red short)
+    bar['data'].each_with_index do |d, i|
+      want = d['value'].negative? ? '#c63939' : '#0f7a5c'
+      assert_equal want, d['itemStyle']['color'], "strike #{strikes[i]}"
+    end
+  end
+
+  def test_gex_mstr_marklines_spot_flip_and_walls_snapped
+    marks = build('gex_mstr')['series'].first['markLine']['data']
+    assert_equal %w[spot flip CW PW], marks.map { |m| m['label']['formatter'] }
+    # walls snap to the exact fixture strikes (107 CW, 80 PW)
+    cw = marks.find { |m| m['label']['formatter'] == 'CW' }
+    pw = marks.find { |m| m['label']['formatter'] == 'PW' }
+    assert_equal '107', cw['xAxis']
+    assert_equal '80', pw['xAxis']
+    # spot snaps to the nearest strike (102 for spot 102.22)
+    assert_equal '102', marks.first['xAxis']
+  end
+
+  def test_gex_mstr_default_zoom_is_spot_plus_minus_30pct
+    zoom = build('gex_mstr')['dataZoom'].first
+    assert_equal 'inside', zoom['type']
+    # startValue/endValue are real category labels drawn from the strikes
+    labels = build('gex_mstr')['xAxis']['data']
+    assert_includes labels, zoom['startValue']
+    assert_includes labels, zoom['endValue']
   end
 
   # ---- scenario_strip structure ----------------------------------------
