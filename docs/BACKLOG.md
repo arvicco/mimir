@@ -909,7 +909,13 @@ Acceptance: every CLI mode covered by at least one test; real
       capstruct/ and universe.json byte-untouched by the suite
       (the /tmp-clobber lesson); rake green.
 
-## M7-2 · discovery-alert job + status contract  [tier: opus] [status: todo] [deps: M7-1]
+## M7-2 · discovery-alert job + status contract  [tier: opus] [status: done 2026-07-06, d343851] [deps: M7-1]
+Review notes: fable review catch -- the ops:tmux idempotence check
+treated a pre-M7-2 bar (health token, no ingest fragment) as done, so
+an already-installed box (gold!) could never receive the upgrade;
+added the in-place append variant + test. Token contract: ING n! /
+empty-on-quiet / ING ? on broken discovery, always exit 0.
+Integration test proves submissions-endpoint-only + no state.json.
 Goal: the D6-a scheduled piece. (a) additive `--dry --json` surface on
       ingest.rb: one JSON line {new: n, filings: [{ticker, form, date,
       accession}...]} -- contract test same commit; (b) ops/btco_alert.rb
@@ -940,6 +946,19 @@ Goal: (a) write XXI cik 2070457 + NAKA cik 1946573 into universe.json
       (c) shakedown continues until no placeholder:true remains
       (extraction schema reports ABSOLUTE numbers -- latest filing per
       company suffices, no backlog replay).
+      SESSION RUNBOOK (prepared 2026-07-06, present fresh at session):
+      0. owner approves the CIK patch (one word); loop edits + commits.
+      1. env presence: grep -cE '^(export +)?(EDGAR_UA|ANTHROPIC_API_KEY)=.'
+         ~/.config/mimir/env  -> EXPECT 2.
+      2-4. per US company (MSTR SMLR GME DJT XXI NAKA):
+         ingest.rb --ticker T --limit 3  -> proposals;
+         --review  -> diffs; --apply <acc> or --dismiss <acc>.
+      5. Metaplanet 3350 via --file <TDnet doc> --ticker 3350.
+      6. --status + grep placeholder count -> EXPECT 0.
+      7. rake ops:install (adds the alert agent, idempotent for the
+         other two) + rake ops:tmux (offers the ING append).
+      8. optional immediate publish, else the bi-hourly agent carries
+         the real data to the dashboard within 2 h.
 Acceptance: universe.json fully real (7/7 placeholder:false), every
       change carried by a ledger line + backup; next publish shows
       real BTCo data on the dashboard; the session runbook survived
