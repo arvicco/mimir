@@ -22,6 +22,75 @@
         "logperiodic": 0,
         "percentile": 0
       }
+    },
+    {
+      "ts": "2026-07-05T12:38:12Z",
+      "composite": 0.0,
+      "verdict": "STRESSED",
+      "bf": -426.35,
+      "ratio": 0.468,
+      "days_below_strong": 0,
+      "trough_date": null,
+      "trough_px": null,
+      "omega": 8.6,
+      "p_lp": 0.178,
+      "z": -1.8,
+      "pct_emp": 0.24,
+      "z_record": true,
+      "days_le_p01": 19,
+      "scores": {
+        "trend": -1,
+        "envelope": 1,
+        "fit": 0,
+        "logperiodic": 0,
+        "percentile": 0
+      }
+    },
+    {
+      "ts": "2026-07-05T12:42:41Z",
+      "composite": 0.0,
+      "verdict": "STRESSED",
+      "bf": -426.35,
+      "ratio": 0.468,
+      "days_below_strong": 0,
+      "trough_date": null,
+      "trough_px": null,
+      "omega": 8.6,
+      "p_lp": 0.178,
+      "z": -1.8,
+      "pct_emp": 0.24,
+      "z_record": true,
+      "days_le_p01": 19,
+      "scores": {
+        "trend": -1,
+        "envelope": 1,
+        "fit": 0,
+        "logperiodic": 0,
+        "percentile": 0
+      }
+    },
+    {
+      "ts": "2026-07-06T04:54:06Z",
+      "composite": 0.0,
+      "verdict": "STRESSED",
+      "bf": -427.34,
+      "ratio": 0.472,
+      "days_below_strong": 0,
+      "trough_date": null,
+      "trough_px": null,
+      "omega": 8.7,
+      "p_lp": 0.188,
+      "z": -1.78,
+      "pct_emp": 0.29,
+      "z_record": true,
+      "days_le_p01": 20,
+      "scores": {
+        "trend": -1,
+        "envelope": 1,
+        "fit": 0,
+        "logperiodic": 0,
+        "percentile": 0
+      }
     }
   ]
 }

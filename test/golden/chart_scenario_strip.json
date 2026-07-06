@@ -1,7 +1,7 @@
 {
   "backgroundColor": "transparent",
   "title": {
-    "text": "Scenario LEAN-FLUSH -0.17",
+    "text": "Scenario NEUTRAL +0.08",
     "textStyle": {
       "fontSize": 13
     }
@@ -118,6 +118,14 @@
         [
           "2026-07-04T19:48:13Z",
           -0.333
+        ],
+        [
+          "2026-07-05T12:42:32Z",
+          -0.333
+        ],
+        [
+          "2026-07-06T04:54:34Z",
+          -0.5
         ]
       ],
       "markLine": {
@@ -235,7 +243,7 @@
         [
           0,
           0,
-          0
+          1
         ],
         [
           0,
