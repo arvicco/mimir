@@ -136,8 +136,9 @@ launchctl print gui/$(id -u)/com.mimir.publish | grep -E 'state|path'
 launchctl print gui/$(id -u)/com.mimir.gex-snapshot | grep -E 'state|path'
 ```
 
-EXPECT: each prints `state = waiting` (idle between runs; `running` if it
-happens to be mid-run) and a `path = .../run_*.sh` pointing at your repo.
+EXPECT: each prints `state = not running` (the normal idle state for
+an interval agent between runs; `running` if it happens to be mid-run)
+and a `path = .../run_*.sh` pointing at your repo.
 `Could not find service` means 2.2 did not take -- re-run it.
 
 **2.4 Force one publish now and verify the log marker.**
@@ -240,7 +241,7 @@ now prints `Could not find service`.
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mimir.publish.plist
 ```
 
-EXPECT: no output; `launchctl print` shows `state = waiting` again.
+EXPECT: no output; `launchctl print` shows `state = not running` again.
 
 **4.3 Uninstall permanently** (bootout, then delete the LaunchAgents
 copy so it does not reload on next login). Repeat per label:
@@ -415,7 +416,8 @@ elsewhere (browser cache? refresh hard).
 launchctl print gui/$(id -u)/com.mimir.publish | grep -E 'state|last exit code'
 ```
 
-EXPECT: `state = waiting` and `last exit code = 0`.
+EXPECT: `state = not running` and `last exit code = 0` (or
+`(never exited)` if the agent has not fired since install).
 FAILURE: `Could not find service` -> the agent is not loaded, re-run
 section 2.2. A nonzero `last exit code` -> a run failed; continue to
 Step 3 to see why.
