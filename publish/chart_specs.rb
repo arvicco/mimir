@@ -69,6 +69,31 @@ module Publish
           'legend_widget' => 'gex_cp'
         }
       },
+      'gex_mstr' => {
+        inputs: %w[payload_gex_mstr.json], fn: :gex_mstr,
+        meta: {
+          'desc' => 'Dollar gamma dealers must re-hedge per 1% MSTR move, ' \
+                    'bucketed by strike on MSTR\'s own price axis (CBOE ' \
+                    'single-name chain). Above zero = long gamma (dealer ' \
+                    'hedging pins price); below zero = short gamma (hedging ' \
+                    'amplifies moves). MSTR gamma is deliberately NOT merged ' \
+                    'into the BTC-equivalent profile -- it lives on the equity, ' \
+                    'not the coin. Naive dealer model: trust levels and walls ' \
+                    'more than the sign (METHODOLOGY.md).',
+          'axes' => { 'x' => 'MSTR price level (strikes, zoomed to spot +-30% ' \
+                             'by default; wheel/drag to zoom out)',
+                      'y' => 'net dealer gamma, $M per 1% MSTR move (per bar: ' \
+                             'teal = long, red = short)' },
+          'help' => 'One bar per strike, teal above zero (net long gamma) / ' \
+                    'red below (net short). The CBOE chain reports net gamma ' \
+                    'per strike, not a call/put split, so bars are single-sided. ' \
+                    'Lines: spot (grey), flip = net-GEX zero crossing (amber), ' \
+                    'CW/PW = biggest call/put walls.'
+          # no tooltip_formatter: the gex_levels formatter aggregates per-venue
+          # call/put series (C/P + '<venue> C/P'), which this single net-GEX
+          # series does not carry -- the default axis tooltip is correct here.
+        }
+      },
       'scenario_strip' => {
         inputs: %w[payload_scenario_latest.json payload_scenario_history.json],
         fn: :scenario_strip,
@@ -278,6 +303,95 @@ module Publish
 
     def nearest_label(levels, value)
       level_label(levels.min_by { |l| (l.to_i - value.to_i).abs })
+    end
+
+    # ---- gex_mstr (M6-3) ----------------------------------------------
+    #
+    # gex:mstr payload (scripts/gex_us.rb MSTR --json, a single object) ->
+    # the single-venue variant of the gex_profile grammar, on MSTR's own
+    # price axis (D7-c: the two GEX charts share one card as tabs, so the
+    # dark theme, palette, fonts and title/tooltip shapes match). SIBLING
+    # builder, not a gex_profile adapter: gex_us's payload carries NET
+    # gamma per strike ({strike => signed $}) -- calls and puts are already
+    # summed by inst_gex, so there is no call/put split to stack, and its
+    # walls sit under top-level call_wall/put_wall['strike'] (not a nested
+    # 'combined' with ['level']). One bar per strike, coloured per bar
+    # teal (net long) / red (net short); markLines for spot, flip and the
+    # call/put walls. Shares musd (and the palette) with gex_profile.
+    GEX_TEAL = '#0f7a5c'
+    GEX_RED  = '#c63939'
+
+    def gex_mstr(gex)
+      profile = gex['profile'] || {}
+      levels  = profile.keys.sort_by { |k| k.to_f }
+      bars = levels.map do |l|
+        m = musd(profile[l].to_i)
+        { 'value' => m, 'itemStyle' => { 'color' => m.negative? ? GEX_RED : GEX_TEAL } }
+      end
+
+      {
+        # the renderer inits with the ECharts DARK THEME (professionally
+        # tuned text/legend/axis colors); transparent bg lets the card
+        # surface show through -- identical framing to gex_profile
+        'backgroundColor' => 'transparent',
+        'title' => { 'text' => format('MSTR GEX $M/1%% · spot %s', mstr_label(gex['spot'])),
+                     'textStyle' => { 'fontSize' => 13 } },
+        'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 }, 'axisPointer' => { 'type' => 'shadow' } },
+        'grid' => { 'left' => 52, 'right' => 92, 'top' => 30, 'bottom' => 26 },
+        'xAxis' => { 'type' => 'category', 'data' => levels.map { |l| mstr_label(l) } },
+        'yAxis' => { 'type' => 'value' },
+        # all strikes stay in the data; the default window shows the
+        # +-30% band around spot (deep-OTM tails reachable by zoom-out)
+        'dataZoom' => [
+          { 'type' => 'inside',
+            'startValue' => nearest_mstr_label(levels, gex['spot'].to_f * 0.7),
+            'endValue' => nearest_mstr_label(levels, gex['spot'].to_f * 1.3) }
+        ],
+        'series' => [
+          { 'name' => 'net GEX', 'type' => 'bar', 'data' => bars,
+            'markLine' => mstr_mark_lines(gex, levels) }
+        ]
+      }
+    end
+
+    # ---- gex_mstr internals -------------------------------------------
+
+    # Strike/price label on the MSTR dollar axis: raw dollars below 1k,
+    # 'k'-compacted above (matches gex_us.rb's own price formatting).
+    def mstr_label(value)
+      v = value.to_f
+      v >= 1000 ? format('%.1fk', v / 1000.0) : format('%g', v.round(2))
+    end
+
+    def nearest_mstr_label(levels, value)
+      mstr_label(levels.min_by { |l| (l.to_f - value.to_f).abs })
+    end
+
+    # Spot (solid grey) + flip (solid amber) + call/put walls (dashed)
+    # snapped to the nearest strike so they land on the category axis.
+    def mstr_mark_lines(gex, levels)
+      lines = []
+      if gex['spot']
+        lines << { 'xAxis' => nearest_mstr_label(levels, gex['spot']),
+                   'label' => { 'formatter' => 'spot' },
+                   'lineStyle' => { 'color' => '#c9ccd1', 'type' => 'solid', 'width' => 1 } }
+      end
+      if gex['gamma_flip']
+        lines << { 'xAxis' => nearest_mstr_label(levels, gex['gamma_flip']),
+                   'label' => { 'formatter' => 'flip' },
+                   'lineStyle' => { 'color' => '#e6a23c', 'type' => 'solid', 'width' => 2 } }
+      end
+      if gex['call_wall']
+        lines << { 'xAxis' => nearest_mstr_label(levels, gex['call_wall']['strike']),
+                   'label' => { 'formatter' => 'CW' },
+                   'lineStyle' => { 'color' => GEX_TEAL, 'type' => 'dashed' } }
+      end
+      if gex['put_wall']
+        lines << { 'xAxis' => nearest_mstr_label(levels, gex['put_wall']['strike']),
+                   'label' => { 'formatter' => 'PW' },
+                   'lineStyle' => { 'color' => GEX_RED, 'type' => 'dashed' } }
+      end
+      { 'symbol' => 'none', 'data' => lines }
     end
 
     # ---- scenario_strip (M3-2) ----------------------------------------
