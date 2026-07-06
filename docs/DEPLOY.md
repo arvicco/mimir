@@ -74,18 +74,9 @@ gate), then
 `would run: ... wrangler deploy -c wrangler.generated.toml`.
 Nothing has been deployed. If a row says `MISSING`, see section 4.
 
-**2.2 Make sure KV has data** (first deploy, or after long sleep --
-an old publish means red badges and, if it predates the chart keys,
-NO chart cards at all):
-
-```
-PUBLISH_DRY_RUN=0 ruby publish/publish.rb   # real publish -- EXPECT: PUB LIVE 11/11
-```
-
-(`PUBLISH_DRY_RUN=0` is required -- unset means DRY-RUN by design;
-a dry run writes local files and touches nothing in KV.)
-
-**2.3 Deploy for real:**
+**2.2 Deploy for real** -- code AND data; a deploy leaves the site
+fully live (it runs a real publish itself; `DEPLOY_SKIP_PUBLISH=1`
+for a code-only push):
 
 ```
 rake deploy
@@ -93,19 +84,25 @@ rake deploy
 
 EXPECT, in order: the pre-flight table (all `[ok]`), the generated-
 config line, `deploying: wrangler deploy ...`, `deployed host:
-https://<name>.<subdomain>.workers.dev`, and four smoke probes:
+https://<name>.<subdomain>.workers.dev`, a publish
+(`PUB ... LIVE 11/11` line), and four smoke probes:
 
 ```
 post-deploy smoke:
   [PASS] GET /healthz                      200 {ok:true}
-  [PASS] GET /api/v1/index                 200 envelope, age 0.3h
+  [PASS] GET /api/v1/index                 200 envelope, age 0.0h, 11 keys incl. charts
   [PASS] GET /api/v1/definitely:missing    404 as expected
   [PASS] GET / (dashboard)                 200 dashboard html
 ```
 
-**2.4 Open the printed host in a browser.** That's the dashboard, live.
+The index probe checks CONTENT, not just freshness: all four
+`chart:*` keys must be listed, or it fails.
 
-That's the whole routine -- every future deploy is 2.1 + 2.3.
+**2.3 Open the printed host in a browser.** That's the dashboard, live.
+
+That's the whole routine -- every future deploy is 2.1 + 2.2.
+(Between deploys, data freshness is the publisher's job --
+`PUBLISH_DRY_RUN=0 ruby publish/publish.rb`, cron-owned from Phase 5.)
 
 ---
 
@@ -162,8 +159,9 @@ All boxes checked -> Gate 4 accepted.
 | pre-flight `rake gate FAILED` | tests/health red | fix first -- do not deploy over a red gate |
 | `wrangler deploy failed` with an authorization/permission error | the token lacks Workers Scripts Edit | edit the token's permissions in the console (section 1.1 step 2), re-run |
 | wrangler warns `Using "CF_API_TOKEN" ... deprecated` on manual commands | a stale `CF_API_TOKEN` line is still exported somewhere | delete/rename it (section 1.1 step 2); `rake deploy` shields itself by unsetting the legacy name |
-| smoke `index` FAIL (404 or stale) | KV empty or old | `PUBLISH_DRY_RUN=0 ruby publish/publish.rb`, then `DEPLOY_SKIP_CHECKS=1 rake deploy` |
-| dashboard loads but shows NO charts, banner about missing chart keys | KV holds a publish older than the chart pipeline (pre-Phase-3 7-key set) | `PUBLISH_DRY_RUN=0 ruby publish/publish.rb`, reload |
+| `publish failed -- the worker is deployed but KV data was not refreshed` | a producer crashed or CF env missing mid-publish | run `PUBLISH_DRY_RUN=0 ruby publish/publish.rb` by hand to see the full output, then reload |
+| smoke `index` FAIL (404, stale, or `chart:* missing`) | KV empty, old, or a pre-chart publish | `PUBLISH_DRY_RUN=0 ruby publish/publish.rb`, then `DEPLOY_SKIP_CHECKS=1 DEPLOY_SKIP_PUBLISH=1 rake deploy` to re-probe |
+| dashboard loads but shows NO charts, banner about missing chart keys | same as above -- KV predates the chart pipeline | `PUBLISH_DRY_RUN=0 ruby publish/publish.rb`, reload |
 | smoke `dashboard` FAIL | assets missing from the deploy | check `wrangler.toml` has the `[assets]` block; re-run |
 | deployed the wrong thing | -- | `wrangler deployments list`, then `wrangler rollback --version-id <last-good>` (assets roll back with the worker -- one rollback reverts everything) |
 
@@ -190,7 +188,8 @@ It refuses under CI and is deny-listed for the loop.
 `CLOUDFLARE_KV_NAMESPACE_ID` (all required; never printed),
 `DEPLOY_NAME` (required; the public hostname, shown in pre-flight),
 `DEPLOY_HOST` (optional -- overrides the smoke-probe host if wrangler's
-output can't be parsed), `DEPLOY_DRY_RUN=1`, `DEPLOY_SKIP_CHECKS=1`.
+output can't be parsed), `DEPLOY_DRY_RUN=1`, `DEPLOY_SKIP_CHECKS=1`,
+`DEPLOY_SKIP_PUBLISH=1` (code-only push; data untouched).
 **One token, one name** (owner ruling at Gate 4, 2026-07-05): the
 single mimir token carries both KV-write (publisher) and Workers
 Scripts Edit (deploy) permissions, and lives in ONE variable --

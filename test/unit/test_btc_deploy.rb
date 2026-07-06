@@ -284,7 +284,7 @@ class TestBtcDeploy < Minitest::Test
     gen = (now - 3600).iso8601
     transport_for(
       '/healthz' => FakeRes.new('200', '{"ok":true,"worker_ts":"x"}'),
-      '/api/v1/index' => FakeRes.new('200', %({"v":1,"generated_at":"#{gen}","payload":{}})),
+      '/api/v1/index' => FakeRes.new('200', %({"v":1,"generated_at":"#{gen}","payload":{"keys":[{"key":"chart:gex_profile"},{"key":"chart:scenario_strip"},{"key":"chart:lppl_regime"},{"key":"chart:btco_table"}]}})),
       '/api/v1/definitely:missing' => FakeRes.new('404', '{"error":"unknown key"}'),
       '/' => FakeRes.new('200', '<html><head><title>mimir</title></head></html>')
     )
@@ -304,7 +304,7 @@ class TestBtcDeploy < Minitest::Test
     gen = (now - 60).iso8601
     transport_for(
       '/healthz' => FakeRes.new('200', '{"ok":true,"worker_ts":"x"}'),
-      '/api/v1/index' => FakeRes.new('200', %({"generated_at":"#{gen}"})),
+      '/api/v1/index' => FakeRes.new('200', %({"generated_at":"#{gen}","payload":{"keys":[{"key":"chart:gex_profile"},{"key":"chart:scenario_strip"},{"key":"chart:lppl_regime"},{"key":"chart:btco_table"}]}})),
       '/api/v1/definitely:missing' => FakeRes.new('404', '{}'),
       '/' => FakeRes.new('200', '<title>mimir</title>')
     )
@@ -326,6 +326,64 @@ class TestBtcDeploy < Minitest::Test
       refute dep[:env].key?('CLOUDFLARE_API_TOKEN'),
              'canonical token name must pass through untouched'
     end
+  end
+
+  def test_real_deploy_publishes_data_before_smoke
+    # Deploy means LIVE, data included (owner ruling): a real publish
+    # runs between wrangler deploy and the smoke probes.
+    calls, code = run_real_deploy
+    assert_equal 0, code
+    pub = calls.find { |c| c[:cmd] == %w[ruby publish/publish.rb] }
+    refute_nil pub, 'publish step missing'
+    assert_equal({ 'PUBLISH_DRY_RUN' => '0' }, pub[:env])
+    # ordering: wrangler deploy strictly before publish
+    ideploy = calls.index { |c| c[:cmd][1] == 'deploy' }
+    assert_operator ideploy, :<, calls.index(pub)
+  end
+
+  def test_deploy_skip_publish_flag_skips_the_publish_step
+    calls, code = run_real_deploy(extra_env: { 'DEPLOY_SKIP_PUBLISH' => '1' })
+    assert_equal 0, code
+    assert_nil calls.find { |c| c[:cmd] == %w[ruby publish/publish.rb] }
+  end
+
+  # Shared harness: full run with fake transport + recording runner.
+  def run_real_deploy(extra_env: {})
+    now = Time.utc(2026, 7, 5, 12, 0, 0)
+    gen = (now - 60).iso8601
+    keys = '{"keys":[{"key":"chart:gex_profile"},{"key":"chart:scenario_strip"},{"key":"chart:lppl_regime"},{"key":"chart:btco_table"}]}'
+    transport_for(
+      '/healthz' => FakeRes.new('200', '{"ok":true,"worker_ts":"x"}'),
+      '/api/v1/index' => FakeRes.new('200', %({"generated_at":"#{gen}","payload":#{keys}})),
+      '/api/v1/definitely:missing' => FakeRes.new('404', '{}'),
+      '/' => FakeRes.new('200', '<title>mimir</title>')
+    )
+    Dir.mktmpdir do |dir|
+      tmpl = File.join(dir, 'wrangler.toml')
+      out  = File.join(dir, 'data', 'wrangler.generated.toml')
+      File.write(tmpl, %(id = "#{BTC::Deploy::PLACEHOLDER}"\n))
+      calls = []
+      runner = lambda do |cmd, overrides = {}|
+        calls << { cmd: cmd, env: overrides }
+        [true, cmd[1] == 'deploy' ? 'https://mimir.acct.workers.dev' : 'ok']
+      end
+      code = BTC::Deploy.run(env: ENV_OK.merge('DEPLOY_SKIP_CHECKS' => '1').merge(extra_env),
+                             runner: runner, io: StringIO.new, now: now,
+                             template_path: tmpl, out_path: out)
+      return [calls, code]
+    end
+  end
+
+  def test_smoke_index_without_chart_keys_fails
+    # Content, not just freshness: the live Gate 4 KV held a pre-chart
+    # publish -- fresh-enough age, zero chart cards. Must FAIL loudly.
+    now = Time.utc(2026, 7, 5, 12, 0, 0)
+    gen = (now - 1800).iso8601
+    ok, detail = BTC::Deploy.verdict_index(
+      200, %({"generated_at":"#{gen}","payload":{"keys":[{"key":"gex:combined"}]}}), now)
+    refute ok
+    assert_match(/chart:/, detail)
+    assert_match(/re-publish/, detail)
   end
 
   def test_smoke_dashboard_verdict
@@ -367,7 +425,7 @@ class TestBtcDeploy < Minitest::Test
   def test_smoke_index_fresh_passes
     now = Time.utc(2026, 7, 5, 12, 0, 0)
     gen = (now - 1800).iso8601
-    ok, detail = BTC::Deploy.verdict_index(200, %({"generated_at":"#{gen}"}), now)
+    ok, detail = BTC::Deploy.verdict_index(200, %({"generated_at":"#{gen}","payload":{"keys":[{"key":"chart:gex_profile"},{"key":"chart:scenario_strip"},{"key":"chart:lppl_regime"},{"key":"chart:btco_table"}]}}), now)
     assert ok
     assert_match(/age 0\.5h/, detail)
   end
