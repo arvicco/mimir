@@ -203,18 +203,194 @@ function errCard(key, msg) {
   return card;
 }
 
+// Instantiate ONE chart div+echarts from an envelope, applying the
+// meta-declared renderer hooks and the universal never-clip tooltip.
+// The div is NOT appended here (the caller places it); echarts.init runs
+// on the detached div, so the caller must chart.resize() once it is in
+// layout. legendHost is where a legend_widget attaches its HTML: the card
+// for a solo chart, or (default, when null) the chart div itself for a
+// tabbed member, so the floating widget hides with its tab. Pushes onto
+// `charts` for window-resize. Returns { div, chart }.
+function buildChartInstance(env, key, meta, legendHost) {
+  var div = document.createElement("div");
+  div.className = "chart";
+  if (meta && meta.height) div.style.height = meta.height + "px";
+  var host = legendHost || div; // grouped members host the widget on their div
+
+  // Built-in DARK THEME: professionally tuned text/legend/axis colors
+  // for dark surfaces (bright active legend entries, dim inactive --
+  // the light-theme defaults invert that on our background). Specs set
+  // backgroundColor transparent so the card surface shows through.
+  var chart = echarts.init(div, "dark");
+  chart.setOption(env.payload); // verbatim -- payload IS the contract...
+  // ...except the meta-declared renderer hooks (chart_specs.rb header)
+  // and the universal never-clip tooltip policy above (render-layer
+  // behavior, like the dark theme -- not a per-chart option).
+  // confine:false is REQUIRED here: ECharts applies confine AFTER the
+  // position callback and would clamp a flipped tooltip back into the
+  // (below-the-fold) container -- the callback owns containment now.
+  chart.setOption({ tooltip: { position: tooltipPosition(div), confine: false } });
+  if (meta && meta.tooltip_formatter && FORMATTERS[meta.tooltip_formatter]) {
+    chart.setOption({ tooltip: { formatter: FORMATTERS[meta.tooltip_formatter] } });
+  }
+  if (meta && meta.legend_widget && WIDGETS[meta.legend_widget]) {
+    WIDGETS[meta.legend_widget](host, chart, env.payload);
+  }
+  charts.push(chart);
+  return { div: div, chart: chart };
+}
+
+// Point a badge at an envelope's staleness, compatible with BOTH host
+// pages (M6-4 tab swap): index.html rewrites the badge to a ticking
+// dot+age keyed off data-generated-at/data-ttl, preview.html keeps the
+// static "green · ttl Ns" text. Detect which shape is present: if a
+// .age span exists (index's ticker structure) only refresh the dot +
+// data attributes (the page's 1 s ticker owns the age text); otherwise
+// rewrite the static text. Always sets the data attributes so the
+// ticker follows whichever tab is visible.
+function setBadge(badge, env) {
+  var cls = staleClass(env.generated_at, env.ttl_hint_s);
+  badge.setAttribute("data-generated-at", env.generated_at);
+  badge.setAttribute("data-ttl", env.ttl_hint_s);
+  var age = badge.querySelector(".age");
+  if (age) {
+    var dot = badge.querySelector(".dot");
+    if (dot) dot.className = "dot " + cls; // instant; age caught up by the ticker
+  } else {
+    badge.innerHTML = '<span class="dot ' + cls + '"></span>' +
+      cls + ' &middot; ttl ' + env.ttl_hint_s + 's';
+  }
+}
+
+// Live tab-groups, keyed by meta.tab_group (M6-4). One entry per shared
+// card: its head chrome (title/badge/bubble), the tab bar, and every
+// member { pos, label, key, env, meta, div, chart, btn }. Fresh per page
+// load (module-scope, like `charts`).
+var GROUPS = {};
+
+// Show one member of a tab group: reveal its chart div (and RESIZE it --
+// a div init'd while display:none renders 0x0 until told its real size),
+// hide the rest, light its tab button, and swap the shared card's title,
+// hover bubble and staleness badge to that member's envelope. Called on
+// every attach (lowest tab_pos wins the default) and on every tab click.
+function activateGroup(g, member) {
+  g.active = member;
+  g.members.forEach(function (m) {
+    var on = m === member;
+    m.div.style.display = on ? "" : "none";
+    m.btn.classList.toggle("active", on);
+    m.btn.setAttribute("aria-selected", on ? "true" : "false");
+    // every tab stays naturally focusable (the .sortbtn convention);
+    // roving tabindex would need arrow-key handlers this page doesn't
+    // have, leaving the inactive tab keyboard-unreachable
+  });
+  g.card.dataset.key = member.key;   // reflect the visible key
+  g.keySpan.textContent = member.key; // owner always sees which key this is
+  var nb = buildBubble(member.meta);  // swap the hover help to this tab
+  while (g.bubble.firstChild) g.bubble.removeChild(g.bubble.firstChild);
+  while (nb.firstChild) g.bubble.appendChild(nb.firstChild);
+  setBadge(g.badge, member.env);      // staleness follows the visible tab
+  requestAnimationFrame(function () { member.chart.resize(); });
+}
+
+// Build (or extend) a tab-group card (M6-4, owner ruling D7-c). The
+// FIRST group member seen builds the shared card -- head with title, ⓘ,
+// a [BTC][MSTR] tab bar and the badge, plus the hover bubble; every
+// member (including the first) attaches its own hidden chart div and a
+// tab button inserted at its tab_pos. Returns the SAME card element for
+// every member of the group -- the caller MUST NOT re-append it once it
+// is connected (that would MOVE the card and break the 2x2 grid order).
+function buildGroupedCard(env, key, meta, groupId) {
+  var g = GROUPS[groupId];
+  if (!g) {
+    var card = document.createElement("div");
+    card.className = "card";
+    var head = document.createElement("div");
+    head.className = "card-head";
+    var keySpan = document.createElement("span");
+    keySpan.className = "key hover"; // group members always carry meta
+    head.appendChild(keySpan);
+    var info = document.createElement("span");
+    info.className = "info hover";
+    info.textContent = "ⓘ";
+    info.tabIndex = 0; // keyboard-reachable: focus opens the bubble
+    head.appendChild(info);
+    var tabbar = document.createElement("span");
+    tabbar.className = "tabbar";
+    tabbar.setAttribute("role", "tablist");
+    tabbar.setAttribute("aria-label", "chart variant");
+    head.appendChild(tabbar);
+    var badge = document.createElement("span");
+    badge.className = "badge";
+    head.appendChild(badge);
+    card.appendChild(head);
+    var bubble = document.createElement("div");
+    bubble.className = "bubble";
+    card.appendChild(bubble);
+    // Flip the bubble upward when its default position would clip at the
+    // viewport bottom (owner review round 5). Identical to the solo card.
+    function orient() {
+      requestAnimationFrame(function () {
+        if (!bubble.getBoundingClientRect().height) return;
+        bubble.classList.remove("up");
+        if (bubble.getBoundingClientRect().bottom > window.innerHeight) {
+          bubble.classList.add("up");
+        }
+      });
+    }
+    head.addEventListener("mouseover", orient);
+    head.addEventListener("focusin", orient);
+    g = GROUPS[groupId] = { card: card, keySpan: keySpan, tabbar: tabbar,
+                            badge: badge, bubble: bubble, members: [], active: null };
+  }
+
+  // Each member owns its chart div (hidden until its tab is active) and a
+  // legend widget attached to that div, so a floating widget hides with
+  // its tab (a solo chart attaches the widget to the whole card).
+  var inst = buildChartInstance(env, key, meta, null);
+  inst.div.style.display = "none";
+  g.card.appendChild(inst.div);
+  var member = { pos: meta.tab_pos == null ? 99 : meta.tab_pos,
+                 label: meta.tab_label || (env.key || key),
+                 key: env.key || key, env: env, meta: meta,
+                 div: inst.div, chart: inst.chart };
+  var btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "tabbtn";
+  btn.setAttribute("role", "tab");
+  btn.textContent = member.label;
+  btn.addEventListener("click", function () { activateGroup(g, member); });
+  member.btn = btn;
+  g.members.push(member);
+
+  // Re-order the tab bar by tab_pos (buttons arrive in load order, which
+  // the alphabetical index makes MSTR-before-BTC) and default the visible
+  // tab to the lowest tab_pos -- BTC leads (owner ruling D7-c).
+  g.members.sort(function (a, b) { return a.pos - b.pos; });
+  while (g.tabbar.firstChild) g.tabbar.removeChild(g.tabbar.firstChild);
+  g.members.forEach(function (m) { g.tabbar.appendChild(m.btn); });
+  activateGroup(g, g.members[0]);
+  return g.card;
+}
+
 // Build a chart card from an already-fetched envelope. Returns the card
 // element; the caller appends it to the document IN THE SAME TASK (the
 // rAF below then sizes the chart once layout exists -- echarts.init ran
 // while the card was detached, i.e. 0x0). The created echarts instance
 // is pushed onto `charts` for window-resize handling. Throws on a bad
 // payload -- the caller wraps this and shows errCard on failure.
+// A chart whose meta declares a tab_group (M6-4) shares ONE card with
+// its group siblings; buildGroupedCard returns the SAME (possibly
+// already-connected) card for each member -- the caller guards its
+// append accordingly.
 function buildChartCard(env, key) {
+  var meta = env.meta || null;
+  if (meta && meta.tab_group) return buildGroupedCard(env, key, meta, meta.tab_group);
+
   var card = document.createElement("div");
   card.className = "card";
   card.dataset.key = env.key || key; // pages locate specific cards by key
   var badgeCls = staleClass(env.generated_at, env.ttl_hint_s);
-  var meta = env.meta || null;
   var head = document.createElement("div");
   head.className = "card-head";
 
@@ -237,9 +413,6 @@ function buildChartCard(env, key) {
     badgeCls + ' &middot; ttl ' + env.ttl_hint_s + 's';
   head.appendChild(badge);
 
-  var div = document.createElement("div");
-  div.className = "chart";
-  if (meta && meta.height) div.style.height = meta.height + "px";
   card.appendChild(head);
   if (meta) {
     var bubble = buildBubble(meta);
@@ -262,29 +435,9 @@ function buildChartCard(env, key) {
     head.addEventListener("mouseover", orient);
     head.addEventListener("focusin", orient);
   }
-  card.appendChild(div);
-
-  // Built-in DARK THEME: professionally tuned text/legend/axis colors
-  // for dark surfaces (bright active legend entries, dim inactive --
-  // the light-theme defaults invert that on our background). Specs set
-  // backgroundColor transparent so the card surface shows through.
-  var chart = echarts.init(div, "dark");
-  chart.setOption(env.payload); // verbatim -- payload IS the contract...
-  // ...except the meta-declared renderer hooks (chart_specs.rb header)
-  // and the universal never-clip tooltip policy above (render-layer
-  // behavior, like the dark theme -- not a per-chart option).
-  // confine:false is REQUIRED here: ECharts applies confine AFTER the
-  // position callback and would clamp a flipped tooltip back into the
-  // (below-the-fold) container -- the callback owns containment now.
-  chart.setOption({ tooltip: { position: tooltipPosition(div), confine: false } });
-  if (meta && meta.tooltip_formatter && FORMATTERS[meta.tooltip_formatter]) {
-    chart.setOption({ tooltip: { formatter: FORMATTERS[meta.tooltip_formatter] } });
-  }
-  if (meta && meta.legend_widget && WIDGETS[meta.legend_widget]) {
-    WIDGETS[meta.legend_widget](card, chart, env.payload);
-  }
-  charts.push(chart);
-  requestAnimationFrame(function () { chart.resize(); });
+  var inst = buildChartInstance(env, key, meta, card);
+  card.appendChild(inst.div);
+  requestAnimationFrame(function () { inst.chart.resize(); });
   return card;
 }
 
@@ -438,7 +591,7 @@ function attachBtcoTable(gridEl, env) {
 // rev: bump on EVERY render.js change; `MimirRender.rev` in the console
 // answers "which renderer is this tab actually running?" after deploys.
 window.MimirRender = {
-  rev: "m5-hd3",
+  rev: "m6-tab1",
   staleClass: staleClass,
   hhmm: hhmm,
   liveHeader: liveHeader,
