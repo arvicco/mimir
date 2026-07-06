@@ -697,12 +697,110 @@ rule). Details in ARCHITECTURE.md section 6; concepts in
 docs/improvements.md + docs/scenario_upgrades.md.
 
 **Phase 6 -- LPPL history backfill + MSTR GEX panel** (swapped ahead
-of ingest, owner ruling 2026-07-06 -- autonomous work first): additive
---as-of replay mode; sequential ledger+fit-history rebuild from the
-Oct-2025 peak (D7-a), verified byte-identical on already-recorded days
-first, owner-blessed one-shot write; import of pre-handoff files if
-found (D7-b). MSTR GEX: v1:gex_mstr:latest + chart key + quadrant
-presentation per D7-c ruling (design options presented first).
+of ingest, owner ruling 2026-07-06 -- autonomous work first).
+Elaborated 2026-07-06 at Gate 5 close; packets below.
+
+## M6-1 · lppl `--as-of DATE` replay mode  [tier: opus vs fable spec] [status: todo]
+Goal: additive replay flag on scripts/lppl/lppl.rb (and passed through
+      to every module): compute the suite verdict exactly as it would
+      have been computed on DATE, from the price cache alone.
+      Current-day semantics byte-identical when the flag is absent
+      (characterization first). Mechanics per the survey:
+      1) price series truncated IN MEMORY to rows <= DATE (prices.csv
+         never rewritten; --skip-update implied by --as-of);
+      2) every `Time.now.utc` anchor frozen to DATE midnight UTC --
+         lppl.rb ts, report.rb module ts, fit.rb history ts,
+         trend.rb 1y-lookback cutoff;
+      3) date-evolving state read-filtered, never truncated on disk:
+         trend_scores.csv rows with date <= DATE (appends naturally
+         bounded by the truncated series), fit_history.jsonl entries
+         with ts <= DATE (the stability window sees only what a run
+         on DATE could have seen);
+      4) `--history` still explicit: replay without it writes nothing.
+      NO math/threshold change anywhere -- same estimators, same
+      Random.new(42) bootstrap, same sims count (pin it in replay).
+Acceptance: characterization pins current no-flag behavior BEFORE the
+      change; `--as-of <each of the recorded ledger days> --history`
+      into a scratch BTC_DATA_DIR reproduces the recorded entries
+      byte-identically modulo ts (ts frozen to DATE-midnight is the
+      documented, tested difference); --json/--tmux contracts
+      unchanged (additive only: replay mode may add an `as_of` field
+      -- contract test in the same commit); rake green.
+
+## M6-2 · staged backfill driver + verification protocol  [tier: fable protocol, opus driver] [status: todo] [deps: M6-1]
+Goal: rake `lppl:backfill` -- sequential day-by-day replay from the
+      Oct-2025 cycle peak (D7-a) to the day before the live ledger
+      starts, writing ledger + fit_history into a STAGING dir via the
+      existing BTC_DATA_DIR seam (real files untouched by construction).
+      Resumable (skips dates already in the staging ledger), progress
+      line per day, runtime estimated up front (~270 days x one offline
+      suite run). Verification is two-stage because the fit-history
+      stability window evolves with the ledger:
+      stage A (exactness): replay each already-recorded day under the
+        recorded starting state -> byte-identical (M6-1 acceptance);
+      stage B (consistency): full sequential rebuild including the
+        recorded days -> field-level diff vs the live ledger on the
+        overlap presented to the owner (stability-derived fields MAY
+        legitimately differ -- the rebuilt run sees 9 months of fit
+        history where the live run saw 0-2 entries; the diff report
+        says exactly which fields and why).
+      The one-shot promotion of staging -> live ledger/fit_history is
+      an OWNER action at Gate 6: task prints the exact copy commands
+      incl. timestamped backup of the current files; the loop never
+      runs them (Golden Rule 3 discipline applied to data).
+      D7-b gate: before the rebuild is blessed, owner confirms whether
+      any pre-handoff ledger files exist anywhere -- import beats
+      recompute for covered dates.
+Acceptance: driver tests with fake runner (sequential order, resume,
+      staging isolation pinned -- real data/ paths never opened for
+      write); stage-A green; stage-B diff report produced; publish
+      tail (lppl:ledger, 365-line tail) verified against the staged
+      ledger size in a dry-run; rake green.
+
+## M6-3 · gex:mstr producer + chart spec  [tier: opus] [status: todo]
+Goal: publish MSTR dealer-gamma alongside the BTC family. gex_us.rb
+      already handles MSTR (CBOE single-name chain; the CBOE source is
+      already in health SOURCES); NOT mergeable into gex_btc_combined
+      -- MSTR gamma lives on MSTR's own price axis (pinned in that
+      script's header). Work: PRODUCERS entry
+      ['gex:mstr', gex_us.rb MSTR --json, 60, 1_800] (11 -> 12 keys);
+      `gex_mstr` chart spec -- single-venue profile on the MSTR price
+      axis reusing the gex_profile visual grammar (call/put bars,
+      flip/call-wall/put-wall marklines, gex_levels tooltip formatter;
+      whether to reuse :gex_profile via payload adapter or a sibling
+      builder decided in the spec); payload fixture recorded per the
+      documented dry-run procedure + golden; contract updates in the
+      same commit: pipeline key-list/count tests 11 -> 12, publish
+      health test strings, index growth is additive by construction.
+      PUB token expectation moves to 12/12 -- RUNBOOK/soak-note
+      mention in the same packet (publish_health derives n/m at run
+      time; only test strings pin it).
+Acceptance: dry-run publish shows 12/12 with v1:gex_mstr:latest +
+      v1:chart:gex_mstr in the index; golden reviewed at real
+      geometry; contract tests updated additively; rake green.
+
+## M6-4 · MSTR quadrant presentation  [tier: opus impl, fable design review] [status: BLOCKED on D7-c ruling]
+Goal: render chart:gex_mstr per the owner's D7-c choice (options with
+      mockups presented at phase open -- tab widget in the GEX
+      quadrant vs fifth card; merged axes is off the table, see M6-3).
+      Whichever form: render.js rev bump, unified across index.html +
+      preview.html (one design, owner ruling 2026-07-06), mimir-design
+      skill governs, DEV-LOOP 6b self-screenshots at REAL card
+      geometry + Playwright interaction check (tab switching or card
+      presence) before owner handoff.
+Acceptance: per ruling; liveHeader dot appears for the new chart key;
+      goldens/screenshots reviewed; rake + web:test green.
+
+## M6-5 · README + Gate 6 prep  [tier: fable] [status: todo] [deps: M6-1..4]
+Goal: README updated for replay + MSTR capabilities (honest about the
+      ledger being backfilled-then-blessed, not organically grown);
+      Gate 6 checklist written concretely: stage-B diff review +
+      ledger blessing + one-shot promotion commands, MSTR visual
+      sign-off, soak-week review (window ends ~Jul 13; if Gate 6 lands
+      after, the KV-quota review from the Gate 5 carry-over closes
+      here), D7-b answer recorded.
+Acceptance: newcomer-readable README; gate checklist is runbook-style
+      (numbered steps + EXPECT lines).
 
 **Phase 7 -- BTCo ingest to real data** (pushed back: owner-interactive;
 Gate 7 = v1 tag): ingest flow characterization tests; discovery-alert
@@ -742,9 +840,10 @@ multi-phase plan approval)
 - D7-b Import of pre-handoff ledger files (if any exist): still open,
   owner checks by Gate 6; import beats recompute for covered dates.
 - D7-c 4th renderer hook (card tabs) for the MSTR GEX quadrant: owner
-  needs more context before ruling -- Phase 7 elaboration must open
-  with the design options (tab widget vs second card vs merged series)
-  incl. mockups, BEFORE any renderer work.
+  needs more context before ruling -- Phase 6 elaboration opens with
+  the design options (tab widget vs fifth card; merged series ruled
+  out on axes -- MSTR gamma lives on MSTR's own price axis) incl.
+  mockups, BEFORE any renderer work (M6-4 blocked on this ruling).
 - v1 tag scope: **RESOLVED -- as proposed** (v1 tags at Gate 6: real
   BTCo data live + soak week complete; later phases are v1.x).
 
