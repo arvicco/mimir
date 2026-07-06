@@ -110,14 +110,14 @@ class TestPublishPipeline < Minitest::Test
   def fixture_dry_run
     write_fixture_tails
     Publish::Pipeline.run(now: NOW, source: 'testhost', dry_run: true,
-                          runner: fixture_runner, out_dir: out_dir)
+                          runner: fixture_runner, out_dir: out_dir, status_dir: @dir)
   end
 
   def out_dir = File.join(@dir, 'preview')
 
   def dry_run(runner: mixed_runner)
     Publish::Pipeline.run(now: NOW, source: 'testhost', dry_run: true,
-                          runner: runner, out_dir: out_dir)
+                          runner: runner, out_dir: out_dir, status_dir: @dir)
   end
 
   # -- dry-run file layout -------------------------------------------------
@@ -212,7 +212,7 @@ class TestPublishPipeline < Minitest::Test
 
   def test_status_line_format
     dry_run
-    line = File.read('/tmp/publish.status')
+    line = File.read(File.join(@dir, 'publish.status'))
     # 6 written (gex, scenario:latest, 2 tails, chart:scenario_strip,
     # index) of 11 expected (4 producers + 2 tails + 4 charts + 1 index).
     assert_equal "PUB DRY 6/11 keys 12:00 UTC\n", line
@@ -221,9 +221,9 @@ class TestPublishPipeline < Minitest::Test
   def test_status_line_live_label
     inject_kv { FakeRes.new('200', 'ok') }
     Publish::Pipeline.run(now: NOW, source: 'testhost', dry_run: false,
-                          runner: fixture_runner, env: ENV_OK)
+                          runner: fixture_runner, env: ENV_OK, status_dir: @dir)
     # all four sources + two tails + four charts + index publish cleanly.
-    assert_equal "PUB LIVE 11/11 keys 12:00 UTC\n", File.read('/tmp/publish.status')
+    assert_equal "PUB LIVE 11/11 keys 12:00 UTC\n", File.read(File.join(@dir, 'publish.status'))
   end
 
   # -- real mode: v1:-prefixed PUTs + 403 abort ----------------------------
@@ -244,7 +244,7 @@ class TestPublishPipeline < Minitest::Test
   def test_real_mode_puts_v1_prefixed_keys
     calls = inject_kv { FakeRes.new('200', '{"success":true}') }
     s = Publish::Pipeline.run(now: NOW, source: 'testhost', dry_run: false,
-                              runner: fixture_runner, env: ENV_OK)
+                              runner: fixture_runner, env: ENV_OK, status_dir: @dir)
     # every producer + tail + chart + index put exactly once, v1:-prefixed.
     assert_equal 11, calls.size
     assert(calls.all? { |c| c[:uri].include?('/values/v1%3A') })
@@ -260,7 +260,7 @@ class TestPublishPipeline < Minitest::Test
     inject_kv { FakeRes.new('403', 'denied') }
     assert_raises(Publish::KV::Error) do
       Publish::Pipeline.run(now: NOW, source: 'testhost', dry_run: false,
-                            runner: fixture_runner, env: ENV_OK)
+                            runner: fixture_runner, env: ENV_OK, status_dir: @dir)
     end
   end
 
