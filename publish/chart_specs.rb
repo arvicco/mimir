@@ -542,6 +542,10 @@ module Publish
             'data' => companies.map { |c| c['net_mnav'] } },
           { 'name' => 'stress', 'type' => 'gauge', 'min' => 0, 'max' => 100,
             'center' => ['84%', '56%'], 'radius' => '48%',
+            # 290px card (renderer height hook): 10 tick labels crowd and
+            # overlap at the dial top -- 5 coarser ticks, smaller labels
+            'splitNumber' => 5,
+            'axisLabel' => { 'fontSize' => 9, 'distance' => 12 },
             'axisLine' => { 'lineStyle' => { 'width' => 14, 'color' => [
               [0.25, '#0f7a5c'], [0.5, '#e6a23c'], [0.75, '#e08e0b'], [1, '#c63939']
             ] } },

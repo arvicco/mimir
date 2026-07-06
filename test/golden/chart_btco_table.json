@@ -102,6 +102,11 @@
         "56%"
       ],
       "radius": "48%",
+      "splitNumber": 5,
+      "axisLabel": {
+        "fontSize": 9,
+        "distance": 12
+      },
       "axisLine": {
         "lineStyle": {
           "width": 14,
