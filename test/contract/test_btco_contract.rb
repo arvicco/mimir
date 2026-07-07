@@ -12,12 +12,17 @@ require 'tmpdir'
 require 'fileutils'
 
 class TestBtcoContract < Minitest::Test
+  # 'sources' additive (M7-8), always present. 'spot_stale' is present
+  # only when spot came from cache (absent on fresh fixtures), so it is
+  # NOT in this frozen set.
   TOP_KEYS = %w[aggregate_leverage band below_1_btc_weighted btc_spot
                 companies headline median_mnav median_net_mnav name score
-                stale_entries stress ts].freeze
+                sources stale_entries stress ts].freeze
+  # 'px_stale' likewise present only when a quote came from cache; not here.
   COMPANY_KEYS = %w[btc btc_as_of cebe_sats_sh ccy ev_per_btc leverage
                     mnav net_mnav placeholder px sats_sh_diluted stale
                     ticker verdict].freeze
+  SOURCE_KEYS = %w[name as_of stale].freeze
   FAIL_SOFT_KEYS = %w[headline name score ts unavailable].freeze
   BANDS    = %w[CALM ELEVATED STRESSED CRITICAL].freeze
   VERDICTS = %w[DEEP-DISC UNDER FAIR RICH OVER N/A].freeze
@@ -67,6 +72,20 @@ class TestBtcoContract < Minitest::Test
     assert_includes BANDS, j['band']
     assert_kind_of Integer, j['stale_entries']
 
+    # M7-8: sources always present + fresh; spot_stale absent when fresh
+    assert_kind_of Array, j['sources']
+    refute_empty j['sources']
+    j['sources'].each do |s|
+      assert_contract_keys SOURCE_KEYS, s, 'sources[]'
+      assert Time.iso8601(s['as_of'])
+      assert_equal false, s['stale'], 'contract fixtures are all fresh'
+    end
+    names = j['sources'].map { |s| s['name'] }
+    assert_includes names, 'deribit_index'
+    assert_includes names, 'cboe_quote_IBIT' # the US leg quotes off the shim
+    assert_includes names, 'frankfurter'     # the JPY leg pulls FX
+    refute j.key?('spot_stale'), 'fresh spot: spot_stale absent'
+
     assert_equal 2, j['companies'].size
     j['companies'].each do |c|
       assert_contract_keys COMPANY_KEYS, c, 'companies[]'
@@ -74,6 +93,7 @@ class TestBtcoContract < Minitest::Test
       assert_kind_of Float, c['leverage']
       assert_includes [true, false], c['stale']
       assert_includes [true, false], c['placeholder']
+      refute c.key?('px_stale'), 'fresh quote: px_stale absent'
     end
 
     us = j['companies'].find { |c| c['ticker'] == 'IBIT' }
