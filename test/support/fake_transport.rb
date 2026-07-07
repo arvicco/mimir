@@ -39,6 +39,7 @@ module FakeTransport
     ['farside',                     'farside_flows.html'], # also matches the archive-proxy URL
     ['flow-history',                'coinglass_flows.json'],
     ['frankfurter',                 'frankfurter_fx.json'],
+    ['bitcointreasuries',           'bitcointreasuries_table.html'],
     ['submissions/CIK',             'edgar_submissions.json'],
     ['Archives/edgar',              'edgar_filing.html']
   ].freeze
