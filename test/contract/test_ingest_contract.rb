@@ -150,6 +150,10 @@ class TestIngestContract < Minitest::Test
       Respond with ONLY a JSON object (no markdown fences, no prose) with this
       exact schema. Use null for anything the document does not state. Numbers
       are absolute (not deltas), in units of coins / shares / USD face value.
+      shares_basic/shares_diluted are shares OUTSTANDING as of the latest
+      stated date (e.g. the 10-Q cover page count) -- NEVER weighted-average
+      share counts from the income statement; if only weighted averages are
+      stated, use null.
       {"no_material_change": bool,
        "btc": number|null, "btc_as_of": "YYYY-MM-DD"|null,
        "shares_basic": number|null, "shares_diluted": number|null,

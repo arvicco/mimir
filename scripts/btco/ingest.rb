@@ -111,6 +111,10 @@ SCHEMA_NOTE = <<~SCHEMA
   Respond with ONLY a JSON object (no markdown fences, no prose) with this
   exact schema. Use null for anything the document does not state. Numbers
   are absolute (not deltas), in units of coins / shares / USD face value.
+  shares_basic/shares_diluted are shares OUTSTANDING as of the latest
+  stated date (e.g. the 10-Q cover page count) -- NEVER weighted-average
+  share counts from the income statement; if only weighted averages are
+  stated, use null.
   {"no_material_change": bool,
    "btc": number|null, "btc_as_of": "YYYY-MM-DD"|null,
    "shares_basic": number|null, "shares_diluted": number|null,
@@ -177,12 +181,36 @@ def write_proposal(ticker, meta, ext, diff, mode)
   path
 end
 
+# Strip a btc/btc_as_of pair that is OLDER than what the model already
+# holds (owner ruling, 2026-07-07 session: a stale count is not material
+# for us and must not even reach review -- catch-up runs walk newest-first
+# so older filings' counts are superseded before they are analysed).
+# Returns the possibly-reduced diff.
+def drop_stale_btc(cur, ext, meta, diff)
+  return diff unless diff.key?('btc') || diff.key?('btc_as_of')
+
+  prop_asof = ext['btc_as_of'] || meta[:date]
+  return diff unless cur['btc_as_of'] && prop_asof &&
+                     prop_asof.to_s <= cur['btc_as_of'].to_s
+
+  diff.reject { |k, _| %w[btc btc_as_of].include?(k) }
+end
+
 def analyse_one(cur, raw, meta)
   text = Btco.excerpt(Btco.strip_html(raw))
   ext  = ai_extract(cur, text, meta)
   mode = ext ? 'ai' : 'heuristic'
   ext ||= heuristic_extract(text)
   diff = Btco.diff_against(cur, ext)
+  stripped = drop_stale_btc(cur, ext, meta, diff)
+  if stripped.size < diff.size && stripped.empty?
+    # caller marks the accession seen on any non-raise return, so this
+    # filing will not re-analyse next run (same path as no-material-change)
+    puts format('  %-6s %s %s: btc older than model (%s) -- no proposal', cur['ticker'],
+                meta[:form], meta[:date], mode)
+    return nil
+  end
+  diff = stripped
   if ext['no_material_change'] && diff.empty?
     puts format('  %-6s %s %s: no material change (%s)', cur['ticker'],
                 meta[:form], meta[:date], mode)

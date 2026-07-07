@@ -259,6 +259,33 @@ class TestIngestFlow < Minitest::Test
 
   # ---- surface 3: --apply-all-high (AI/high only + reload between) -------
 
+  # Propose-time stale-btc filter (owner ruling, 2026-07-07): an analysis
+  # whose only content is a btc count OLDER than the model produces NO
+  # proposal at all; when other fields are present the proposal is written
+  # with the stale btc pair stripped from its diff.
+  def test_stale_btc_only_analysis_produces_no_proposal
+    uni = synthetic_universe
+    company(uni, 'TST')['btc_as_of'] = '2026-12-31' # ahead of FROZEN_NOW
+    write_universe(uni)
+    doc = write_doc('The Company held 12,345 bitcoin as of June 1, 2026.')
+    out, err, st = run_ingest('--file', doc, '--ticker', 'TST')
+    assert st.success?, err
+    assert_match(/btc older than model .* -- no proposal/, out)
+    assert_empty pending_files
+  end
+
+  def test_stale_btc_stripped_but_other_fields_still_propose
+    uni = synthetic_universe
+    company(uni, 'TST')['btc_as_of'] = '2026-12-31'
+    write_universe(uni)
+    _out, err, st = run_ingest('--file', write_doc, '--ticker', 'TST')
+    assert st.success?, err
+    assert_equal 1, pending_files.size
+    pr = JSON.parse(File.read(pending_files.first))
+    refute pr['diff'].key?('btc'), 'stale btc must be stripped from the diff'
+    assert pr['diff'].key?('shares_basic'), 'fresh fields still propose'
+  end
+
   # As-of guard (owner catch, 2026-07-07): applying an OLDER filing's
   # proposal after a newer btc count is in the model must not regress
   # btc/btc_as_of; the other diffed fields still apply.
