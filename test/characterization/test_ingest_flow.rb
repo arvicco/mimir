@@ -286,6 +286,34 @@ class TestIngestFlow < Minitest::Test
     assert pr['diff'].key?('shares_basic'), 'fresh fields still propose'
   end
 
+  def test_dismiss_all_scoped_and_unscoped
+    write_proposal_file('TST_acc0001.json', 'ticker' => 'TST', 'accession' => 'acc-0001',
+                                            'form' => '8-K', 'filing_date' => '2026-06-01',
+                                            'url' => 'u', 'mode' => 'ai',
+                                            'extraction' => { 'confidence' => 'high', 'summary' => 's' },
+                                            'diff' => {})
+    write_proposal_file('NAKA_acc0002.json', 'ticker' => 'NAKA', 'accession' => 'acc-0002',
+                                             'form' => '8-K', 'filing_date' => '2026-06-01',
+                                             'url' => 'u', 'mode' => 'ai',
+                                             'extraction' => { 'confidence' => 'high', 'summary' => 's' },
+                                             'diff' => {})
+    uni_before = File.read(universe_path)
+
+    out, err, st = run_ingest('--dismiss-all', '--ticker', 'TST')
+    assert st.success?, err
+    assert_match(/dismissed TST_acc0001\.json/, out)
+    assert_equal ['NAKA_acc0002.json'], pending_files.map { |f| File.basename(f) }
+
+    out, _err, st = run_ingest('--dismiss-all')
+    assert st.success?
+    assert_match(/dismissed NAKA_acc0002\.json/, out)
+    assert_empty pending_files
+    assert_equal uni_before, File.read(universe_path), 'dismiss-all must not touch universe'
+
+    _out, _err, st = run_ingest('--dismiss-all')
+    refute st.success?, 'empty pending aborts'
+  end
+
   # As-of guard (owner catch, 2026-07-07): applying an OLDER filing's
   # proposal after a newer btc count is in the model must not regress
   # btc/btc_as_of; the other diffed fields still apply.
