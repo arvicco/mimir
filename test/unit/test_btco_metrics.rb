@@ -157,6 +157,20 @@ class TestCompanyRow < Minitest::Test
     assert_nil r[:stale] # no btc_as_of -> stale nil (falsy), pinned as-is
   end
 
+  # Null share counts (a fresh placeholder skeleton) must yield nil
+  # metrics, never Infinity/NaN (2026-07-07 FloatDomainError crash).
+  def test_null_shares_yield_nil_share_metrics_not_infinity
+    r = Btco.company_row({ 'ticker' => 'NEW', 'btc' => 8_000,
+                           'shares_basic' => nil, 'shares_diluted' => nil,
+                           'debt_face' => nil, 'pref_liq' => nil,
+                           'converts' => [], 'btc_as_of' => '2026-05-01' },
+                         10.0, 1.0, BTC_PX, NOW)
+    assert_nil r[:sats_d]
+    assert_nil r[:cebe]
+    assert_nil r[:mnav] # mcap 0 must not read as 'below NAV' in aggregates
+    assert_equal 8_000.0, r[:btc]
+  end
+
   def test_diluted_floor_is_basic_count
     r = row('shares_diluted' => 500_000) # below basic 1M -> floored
     assert_close 100.0 * 1e8 / 1_000_000, r[:sats_d], 1e-6

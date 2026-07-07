@@ -46,9 +46,12 @@ module Btco
     nav     = btc * btc_px
     mcap    = px_usd * shs_b
     net_nav = nav - senior
-    sats_d  = btc * 1e8 / shs_d
-    cebe    = [net_nav, 0.0].max / btc_px * 1e8 / shs_a
-    mnav    = nav.zero? ? nil : mcap / nav
+    # nil (never Infinity/NaN) when share counts are unknown -- a fresh
+    # placeholder entry carries null shares and must render as dim --,
+    # not crash the aggregate (2026-07-07 session, FloatDomainError)
+    sats_d  = shs_d.positive? ? btc * 1e8 / shs_d : nil
+    cebe    = shs_a.positive? ? [net_nav, 0.0].max / btc_px * 1e8 / shs_a : nil
+    mnav    = nav.zero? || mcap.zero? ? nil : mcap / nav
     netm    = net_nav > 0 ? mcap / net_nav : nil
     ev_btc  = btc.zero? ? nil : (mcap + senior) / btc
     lev     = nav.zero? ? 0.0 : senior / nav

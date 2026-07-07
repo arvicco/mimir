@@ -260,7 +260,8 @@ if ARGV.include?('--json')
     sources: sources.map { |s| { name: s[:name], as_of: s[:as_of], stale: s[:stale] } },
     companies: rows.map do |r|
       h = { ticker: r[:t], px: r[:px], ccy: r[:ccy], btc: r[:btc].round,
-            sats_sh_diluted: r[:sats_d].round, cebe_sats_sh: r[:cebe].round,
+            sats_sh_diluted: r[:sats_d] && r[:sats_d].round,
+            cebe_sats_sh: r[:cebe] && r[:cebe].round,
             mnav: r[:mnav] && r[:mnav].round(3), net_mnav: r[:netm] && r[:netm].round(3),
             ev_per_btc: r[:ev] && r[:ev].round, leverage: r[:lev].round(3),
             verdict: verdict.(r), btc_as_of: r[:as_of],
@@ -287,8 +288,10 @@ puts format('%-6s %9s %9s %10s %10s %6s %6s %9s %5s  %-9s %s',
             'tick', 'px', 'BTC', 'sats/shD', 'CEBE s/sh', 'mNAV', 'netNAV',
             'EV/BTC', 'lev', 'verdict', 'as-of')
 rows.sort_by { |r| -r[:btc] }.each do |r|
-  puts format('%-6s %9.2f %9d %10d %10d %6s %6s %9s %4.0f%%  %-9s %s%s%s',
-              r[:t], r[:px], r[:btc], r[:sats_d], r[:cebe],
+  puts format('%-6s %9.2f %9d %10s %10s %6s %6s %9s %4.0f%%  %-9s %s%s%s',
+              r[:t], r[:px], r[:btc],
+              r[:sats_d] ? format('%d', r[:sats_d]) : '--',
+              r[:cebe] ? format('%d', r[:cebe]) : '--',
               r[:mnav] ? format('%.2f', r[:mnav]) : '--',
               r[:netm] ? format('%.2f', r[:netm]) : 'neg',
               r[:ev] ? format('%d', r[:ev]) : '--',
