@@ -23,6 +23,8 @@
 #   ruby ingest.rb --apply <acc|path>  # apply one proposal to universe.json
 #   ruby ingest.rb --apply-all-high    # apply every high-confidence proposal
 #   ruby ingest.rb --dismiss <acc>     # reject a proposal
+#   ruby ingest.rb --dismiss-all       # reject every pending proposal
+#                                      #   (--ticker X scopes to one company)
 #   ruby ingest.rb --status            # per-company ingestion state
 #
 # Already-ingested tracking: discovery consults BOTH capstruct/state.json
@@ -364,6 +366,18 @@ if (t = arg('--dismiss'))
   f = pending_files.find { |x| x.include?(t.delete('-')) } or abort 'no such proposal'
   FileUtils.rm(f)
   puts "dismissed #{File.basename(f)}"
+  exit
+end
+if ARGV.include?('--dismiss-all')
+  files = pending_files
+  if (tk = arg('--ticker'))
+    files = files.select { |f| File.basename(f).start_with?("#{tk}_") }
+  end
+  abort 'no pending proposals' if files.empty?
+  files.each do |f|
+    FileUtils.rm(f)
+    puts "dismissed #{File.basename(f)}"
+  end
   exit
 end
 if (t = arg('--apply'))
