@@ -944,7 +944,7 @@ Incident response: index carries last-good rows for skipped keys
 fail-soft payloads -- the NaN gauge). Both proven on the live surface
 during the Deribit outage.
 
-## M7-8 · per-source last-good cache + partial computation  [tier: fable design, opus impl] [status: PLANNED -- owner priority ruling 2026-07-07, awaiting plan approval]
+## M7-8 · per-source last-good cache + partial computation  [tier: fable design, opus impl] [status: done 2026-07-07, 4dc617c]
 Owner: one dead provider must never blank a card; suites combine
 cached-stale + fresh sources, stale sources marked (amber/!). Plan:
 (a) lib/btc/source_cache.rb read-through last-good cache over BTC::Http
@@ -955,7 +955,38 @@ indicators, both pages, Playwright + 6b checklist. Scenario modules
 EXPLICITLY out (score-0 vs stale-reuse = Phase 9 research decision).
 Mixing time bases is an owner-ruled semantics change (this ruling).
 
-## M7-3 · CIK enablement + owner shakedown  [tier: fable prep, OWNER sessions] [status: todo] [deps: M7-1]
+## M7-9 · third-party sanity refs in --review  [tier: fable] [status: done 2026-07-07, 866eb97+df31a97] [owner request, mid-session]
+BTC::TreasuryRef reads the bitcointreasuries.net table (SourceCache
+name 'treasury_ref', alias 3350->Metaplanet); --review prints a ref
+line per proposal, ⚠ at >2% divergence, silent when the ref is dead
+(advisory only). Coinglass evaluated and REJECTED for cause: our tier
+has ETF flows only, no per-company treasury endpoint.
+
+## M7-10 · catch-up composite mode  [tier: fable design] [status: queued 2026-07-07]
+Walk filings newest->older until every field has been stated once;
+emit ONE composite proposal per company with per-field provenance
+(filing + date per field). Solves both field completeness on sparse
+filers and the current no-per-field-date limitation that forces the
+"apply newest last" discipline. NOTE 2026-07-08: scope against the
+data-source research findings first -- structured sources (SEC
+companyfacts dei counts, CoinGecko treasury list) may shrink what
+extraction still has to do.
+
+## M7-3 · CIK enablement + owner shakedown  [tier: fable prep, OWNER sessions] [status: sessions complete 2026-07-08, 9354ceb..dc0c8df -- 6/8 real, residuals below] [deps: M7-1]
+RESIDUALS (2026-07-08): XXI + 3350 remain placeholder seeds @2025-06-30
+(XXI's count 43,514 matches CoinGecko's current figure, so the seed is
+right but unledgered; 3350 is BADLY stale -- CoinGecko shows Metaplanet
+at 43,000 vs our 15,555 -- and its TDnet --file path was never run;
+3350 also returned "no price, skipped" in the 07-08 smoke). BLSH
+placeholder:false but shares_basic null (the 6-K stated no outstanding
+count; renders dim -- by design). NAKA shares one filing behind (SEC
+companyfacts dei: 696,085,586 @2026-05-11 10-Q vs applied 690,018,254
+@10-K) and its pending 10-K btc (5,342 @2025-12-31) is newer than the
+model's 5,765 @2025-08-31 -- CoinGecko shows 4,467 today, so a fresher
+filing likely exists. MSTR 2029 convert face edit ($3.0B -> $1.5B per
+the May-15 8-K) still awaiting owner yes/no. 3 DJT pendings recommended
+for dismiss. The 0-placeholder finish line + ops:install/ops:tmux move
+to the residual session.
 Goal: (a) write XXI cik 2070457 + NAKA cik 1946573 into universe.json
       -- a deliberate human-approved edit (Golden Rule: universe.json
       changes only via reviewed proposals or deliberate human edit;
