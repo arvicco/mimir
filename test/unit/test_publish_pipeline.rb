@@ -127,25 +127,27 @@ class TestPublishPipeline < Minitest::Test
   def test_preview_file_set_and_names
     dry_run
     got = Dir.children(out_dir).sort
-    # scenario_strip and gex_mstr (healthy MSTR fixture) both build;
-    # gex_profile (minimal GEX, no 'profiles'), lppl_regime + btco_table
-    # (missing sources) all SKIP.
-    assert_equal %w[chart_gex_mstr.json chart_scenario_strip.json gex_combined.json
+    # only gex_mstr (healthy MSTR fixture) builds; scenario_strip SKIPS
+    # (its scenario:latest input is fail-soft 'unavailable' -- the
+    # 2026-07-07 junk-chart guard), gex_profile (minimal GEX, no
+    # 'profiles'), lppl_regime + btco_table (missing sources) all SKIP.
+    assert_equal %w[chart_gex_mstr.json gex_combined.json
                     gex_mstr.json index.json lppl_ledger.json
                     scenario_history.json scenario_latest.json], got
   end
 
   def test_summary_keys_and_skips
     s = dry_run
-    # gex:combined + gex:mstr published, scenario fail-soft published, both
-    # tails published, gex_mstr + scenario_strip charts built, plus the
-    # index. lppl (raise) + btco (garbage) producers skipped; gex_profile
-    # (no 'profiles'), lppl_regime + btco_table (absent sources) charts
-    # skipped.
+    # gex:combined + gex:mstr published, scenario fail-soft published
+    # (the SUITE envelope: honest status), both tails published,
+    # chart:gex_mstr built, plus the index. lppl (raise) + btco (garbage)
+    # producers skipped; chart:scenario_strip skipped (fail-soft input --
+    # junk-chart guard), gex_profile (no 'profiles'), lppl_regime +
+    # btco_table (absent sources) charts skipped.
     assert_equal %w[gex:combined gex:mstr scenario:latest scenario:history
-                    lppl:ledger chart:gex_mstr chart:scenario_strip index], s[:keys]
+                    lppl:ledger chart:gex_mstr index], s[:keys]
     assert_equal %w[lppl:latest btco:latest chart:gex_profile
-                    chart:lppl_regime chart:btco_table], s[:skipped]
+                    chart:scenario_strip chart:lppl_regime chart:btco_table], s[:skipped]
     assert_equal 'DRY', s[:mode]
     assert_equal out_dir, s[:out_dir]
   end
@@ -179,12 +181,78 @@ class TestPublishPipeline < Minitest::Test
     # MIN ttl across published members: scenario/gex 1800 beat lppl 86400.
     assert_equal 1_800, idx['ttl_hint_s']
     keys = idx['payload']['keys'].map { |r| r['key'] }
-    # the built chart:gex_mstr + chart:scenario_strip are listed too (sorted in).
-    assert_equal %w[chart:gex_mstr chart:scenario_strip gex:combined gex:mstr
+    # the built chart:gex_mstr is listed too (sorted in); scenario_strip
+    # skipped (fail-soft input) and there is no previous index to carry from.
+    assert_equal %w[chart:gex_mstr gex:combined gex:mstr
                     lppl:ledger scenario:history scenario:latest], keys
     # lppl:latest + btco:latest never made it into the index.
     refute_includes keys, 'lppl:latest'
     refute_includes keys, 'btco:latest'
+  end
+
+  # -- index carry: keep-last-good membership (2026-07-07 incident) --------
+
+  # Run 1: everything healthy -> full index in the preview dir. Run 2
+  # (2h later): gex:combined raises (the Deribit outage shape) -> the new
+  # index CARRIES the last-good rows for gex:combined and
+  # chart:gex_profile at their RUN-1 generated_at instead of dropping them.
+  def test_index_carries_last_good_rows_for_skipped_keys
+    fixture_dry_run
+    later = NOW + 2 * 3600
+    outage = lambda do |argv, t|
+      raise 'HTTP 503 (deribit down)' if argv.include?('scripts/gex_btc_combined.rb')
+
+      fixture_runner.call(argv, t)
+    end
+    Publish::Pipeline.run(now: later, source: 'testhost', dry_run: true,
+                          runner: outage, out_dir: out_dir, status_dir: @dir)
+
+    rows = JSON.parse(File.read(File.join(out_dir, 'index.json')))['payload']['keys']
+    carried = rows.select { |r| %w[gex:combined chart:gex_profile].include?(r['key']) }
+    assert_equal 2, carried.size, 'skipped keys must stay in the index'
+    carried.each { |r| assert_equal iso(NOW), r['generated_at'], 'carried row keeps the OLD stamp' }
+    # live keys carry the new stamp; the index stays sorted.
+    fresh = rows.find { |r| r['key'] == 'gex:mstr' }
+    assert_equal iso(later), fresh['generated_at']
+    assert_equal rows.map { |r| r['key'] }.sort, rows.map { |r| r['key'] }
+  end
+
+  def test_index_carry_ignores_keys_no_longer_expected
+    fixture_dry_run
+    # doctor the previous index: add a retired key -- it must NOT haunt.
+    path = File.join(out_dir, 'index.json')
+    prev = JSON.parse(File.read(path))
+    prev['payload']['keys'] << { 'key' => 'retired:key', 'generated_at' => iso(NOW) }
+    File.write(path, JSON.pretty_generate(prev))
+
+    outage = lambda do |argv, t|
+      raise 'boom' if argv.include?('scripts/gex_btc_combined.rb')
+
+      fixture_runner.call(argv, t)
+    end
+    Publish::Pipeline.run(now: NOW + 3600, source: 'testhost', dry_run: true,
+                          runner: outage, out_dir: out_dir, status_dir: @dir)
+    keys = JSON.parse(File.read(File.join(out_dir, 'index.json')))['payload']['keys']
+           .map { |r| r['key'] }
+    refute_includes keys, 'retired:key'
+    assert_includes keys, 'gex:combined' # the expected skip IS carried
+  end
+
+  def test_no_previous_index_means_no_carry_and_no_crash
+    s = dry_run # mixed runner, fresh out_dir -- several keys skipped
+    keys = JSON.parse(File.read(File.join(out_dir, 'index.json')))['payload']['keys']
+           .map { |r| r['key'] }
+    refute_includes keys, 'lppl:latest'
+    assert_includes s[:skipped], 'lppl:latest'
+  end
+
+  # -- junk-chart guard (2026-07-07 incident) -------------------------------
+
+  def test_chart_skipped_when_input_payload_is_fail_soft
+    err = capture_subprocess_io { dry_run }[1]
+    assert_match(/SKIP chart:scenario_strip \(input scenario:latest unavailable\)/, err)
+    refute File.exist?(File.join(out_dir, 'chart_scenario_strip.json')),
+           'no chart artifact may be built from a fail-soft payload'
   end
 
   # -- tail windowing (pinned cutoff) --------------------------------------
@@ -217,10 +285,10 @@ class TestPublishPipeline < Minitest::Test
   def test_status_line_format
     dry_run
     line = File.read(File.join(@dir, 'publish.status'))
-    # 8 written (gex:combined, gex:mstr, scenario:latest, 2 tails,
-    # chart:gex_mstr, chart:scenario_strip, index) of 13 expected
-    # (5 producers + 2 tails + 5 charts + 1 index).
-    assert_equal "PUB DRY 8/13 keys 12:00 UTC\n", line
+    # 7 written (gex:combined, gex:mstr, scenario:latest, 2 tails,
+    # chart:gex_mstr, index) of 13 expected (5 producers + 2 tails +
+    # 5 charts + 1 index); scenario_strip skipped on fail-soft input.
+    assert_equal "PUB DRY 7/13 keys 12:00 UTC\n", line
   end
 
   def test_status_line_live_label
