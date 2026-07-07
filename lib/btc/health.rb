@@ -18,6 +18,7 @@ require 'json'
 require 'rexml/document'
 require_relative 'http'
 require_relative 'flows'
+require_relative 'treasury_ref'
 
 module BTC
   module Health
@@ -90,6 +91,13 @@ module BTC
         url: 'https://open-api-v4.coinglass.com/api/etf/bitcoin/flow-history',
         headers: -> { { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] } },
         check: ->(b) { j = JSON.parse(b); j['code'].to_s == '0' && !j['data'].to_a.empty? } },
+      # soft: an advisory ingest sanity reference (M7-9) -- if the
+      # aggregator is down or reshapes, --review just omits the ref line,
+      # so degradation WARNs rather than failing the probe run.
+      { name: 'bitcointreasuries ref', src: 'lib/btc/treasury_ref.rb',
+        marker: 'bitcointreasuries.net', soft: true,
+        url: 'https://bitcointreasuries.net/',
+        check: ->(b) { TreasuryRef.parse_table(b).size >= 10 } },
       { name: 'frankfurter fx', src: 'scripts/btco/btco.rb',
         marker: 'api.frankfurter.dev/v1/latest',
         url: 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=JPY',

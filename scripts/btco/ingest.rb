@@ -62,6 +62,7 @@ require 'fileutils'
 require 'digest'
 require_relative '../../lib/btc/util'
 require_relative '../../lib/btc/http'
+require_relative '../../lib/btc/treasury_ref'
 require_relative 'ingest_text'
 
 DIR      = File.expand_path(__dir__)
@@ -225,6 +226,38 @@ if ARGV.include?('--status')
   exit
 end
 
+# M7-9: independent third-party sanity line for --review. Cross-checks the
+# proposal's BTC figure against an outside aggregator (BTC::TreasuryRef)
+# so the owner can catch an AI-extraction error against a source mimir
+# does not control. ADVISORY ONLY -- an unknown company, a dead/absent
+# reference, or ANY error prints NOTHING and never blocks review. Returns
+# the line string, or nil to print nothing.
+def treasury_ref_line(pr)
+  prop = pr.dig('diff', 'btc', 'to') || pr.dig('extraction', 'btc')
+  return nil unless prop.is_a?(Numeric)
+
+  ref = BTC::TreasuryRef.btc_for(pr['ticker'])
+  return nil unless ref
+
+  rb = ref['btc'].to_f
+  return nil unless rb.positive?
+
+  verdict = if ((prop - rb).abs / rb) > 0.02
+              format("⚠ proposal diverges %.1f%%", (prop - rb).abs / rb * 100)
+            else
+              'proposal matches'
+            end
+  format('  ref:     %s BTC (%s, as-of %s) -- %s',
+         commafy(ref['btc']), ref['source'], ref['as_of'].to_s[0, 10], verdict)
+rescue StandardError
+  nil
+end
+
+# 843775 -> "843,775" (thousands separators for the human ref line).
+def commafy(num)
+  num.to_i.to_s.reverse.gsub(/(\d{3})(?=\d)/, '\\1,').reverse
+end
+
 def show_review
   files = pending_files
   puts(files.empty? ? 'no pending proposals' : "#{files.size} pending:")
@@ -235,6 +268,7 @@ def show_review
                 pr['extraction']['confidence'])
     puts "  #{pr['extraction']['summary']}"
     pr['diff'].each { |k, v| puts format('  %-16s %s', k, v.inspect) }
+    if (rl = treasury_ref_line(pr)) then puts rl end
     puts "  #{pr['url']}" if pr['url']
     # exact, paste-ready commands -- never make the reviewer assemble
     # them from a placeholder (owner feedback, 2026-07-07 session)
