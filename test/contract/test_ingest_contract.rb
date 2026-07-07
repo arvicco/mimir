@@ -92,6 +92,12 @@ class TestIngestContract < Minitest::Test
     assert st.success?, "ingest --dry exit #{st.exitstatus}: #{err}"
     assert_match(/TST\s+\d+ new filing\(s\)/, out)
     assert_match(%r{https://www\.sec\.gov/Archives/edgar/data/}, out)
+    # NEWEST first (2026-07-07 owner session: oldest-first + --limit made a
+    # year-long catch-up apply stale data; absolute-number schema means the
+    # latest filing supersedes older ones)
+    dates = out.scan(/\b(\d{4}-\d{2}-\d{2})\b/).flatten
+    assert_operator dates.size, :>=, 2, 'fixture should list several filings'
+    assert_equal dates.sort.reverse, dates, 'discovery must analyse newest first'
     # --dry must not write state or proposals for the discovered filings
     refute File.exist?(File.join(SANDBOX, 'scripts/btco/capstruct/state.json'))
   end

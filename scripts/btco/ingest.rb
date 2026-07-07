@@ -69,7 +69,9 @@ UNIVERSE = File.join(DIR, 'universe.json')
 CAPDIR   = File.join(DIR, 'capstruct')
 PENDING  = File.join(CAPDIR, 'pending')
 STATE    = File.join(CAPDIR, 'state.json')
-FORMS    = %w[8-K 10-Q 10-K 424B5].freeze
+# 6-K/20-F: foreign private issuers (BLSH is Cayman-domiciled) never file
+# 8-K/10-Q -- without these the filter silently blinds discovery to them.
+FORMS    = %w[8-K 10-Q 10-K 424B5 6-K 20-F].freeze
 NUMKEYS  = Btco::NUMKEYS # canonical list lives in ingest_text.rb
 
 def arg(flag)
@@ -362,7 +364,11 @@ universe['companies'].each do |c|
   next if idx.empty?
 
   puts format('%-6s %d new filing(s)', c['ticker'], idx.size) unless dry_json
-  idx.reverse.each do |i| # oldest first
+  # NEWEST first (EDGAR's recent arrays are reverse-chronological, so plain
+  # order): the extraction schema reports ABSOLUTE numbers, so the latest
+  # filing supersedes everything older -- oldest-first + --limit made a
+  # year-long catch-up apply stale data (owner session, 2026-07-07).
+  idx.each do |i|
     break if budget <= 0
 
     acc  = r['accessionNumber'][i]
