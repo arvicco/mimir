@@ -18,7 +18,12 @@
 #   exits nonzero, or emits unparseable JSON is SKIPPED (warn to stderr,
 #   key absent) -- a nonzero gex/btco means keep-last-good, never publish
 #   garbage. A fail-soft producer (valid JSON carrying 'unavailable') is
-#   published AS-IS: "unavailable" is a real, honest state.
+#   published AS-IS: "unavailable" is a real, honest state -- but NO
+#   CHART is built from it (junk-chart guard, 2026-07-07 incident), and
+#   keep-last-good extends to INDEX MEMBERSHIP: every expected-but-
+#   skipped key keeps its previous index row (old generated_at from the
+#   prior index -- KV in live mode, out_dir in dry), so a transient
+#   upstream outage AGES keys on the dashboard instead of vanishing them.
 # - TAILS read a jsonl history file and publish only the trailing window
 #   (90d scenario, 365d lppl) of lines whose 'ts' is >= now - window.
 #   Absent/unreadable file or zero surviving lines -> key SKIPPED.
@@ -112,7 +117,13 @@ module Publish
       end
 
       records = envelopes.to_a
-      records << ['index', Publish.build_index(envelopes.values, now: now, source: source)] unless envelopes.empty?
+      unless envelopes.empty?
+        all_keys = PRODUCERS.map(&:first) + TAILS.map(&:first) +
+                   Publish::Charts::CHARTS.keys.map { |n| 'chart:' + n }
+        carry = index_carry(all_keys - envelopes.keys, dry_run, out_dir, env)
+        records << ['index', Publish.build_index(envelopes.values, now: now,
+                                                 source: source, carry: carry)]
+      end
 
       published = dry_run ? write_preview(records, out_dir) : write_kv(records, env)
 
@@ -186,6 +197,12 @@ module Publish
       unless inputs.all? { |k| envelopes.key?(k) }
         return skip_chart(key, 'inputs not published')
       end
+      # A fail-soft payload ('unavailable': true, F-12) is an honest suite
+      # status, not chartable data -- building from one published a NaN
+      # gauge / empty table (2026-07-07 incident). Skip instead;
+      # keep-last-good + the index carry keep the previous chart visible.
+      bad = inputs.find { |k| envelopes[k]['payload'].is_a?(Hash) && envelopes[k]['payload']['unavailable'] }
+      return skip_chart(key, "input #{bad} unavailable") if bad
 
       option = Publish::Charts.public_send(spec[:fn], *inputs.map { |k| envelopes[k]['payload'] })
       ttl = inputs.map { |k| envelopes[k]['ttl_hint_s'] }.min
@@ -205,6 +222,37 @@ module Publish
     def skip_chart(key, reason)
       warn BTC::Env.redact("publish: SKIP #{key} (#{reason})")
       nil
+    end
+
+    # Keep-last-good extends to INDEX MEMBERSHIP (2026-07-07 incident:
+    # a Deribit outage skipped gex:combined and the key VANISHED from the
+    # index-driven dashboard even though KV kept its value). For every
+    # expected-but-skipped key, carry the row from the PREVIOUS index --
+    # old generated_at, so the dashboard shows an honestly aging key.
+    # Keys removed from the expected set stop being carried naturally.
+    # Any failure here degrades to no carry, never a crashed publish.
+    def index_carry(missing, dry_run, out_dir, env)
+      return [] if missing.empty?
+
+      keep = previous_index_rows(dry_run, out_dir, env)
+             .select { |r| missing.include?(r['key']) }
+      keep.each { |r| warn "publish: index carries last-good #{r['key']}@#{r['generated_at']}" }
+      keep
+    rescue StandardError => e
+      warn BTC::Env.redact("publish: no index carry (#{e.class}: #{e.message.to_s[0, 80]})")
+      []
+    end
+
+    def previous_index_rows(dry_run, out_dir, env)
+      raw = if dry_run
+              path = File.join(out_dir, 'index.json')
+              return [] unless File.file?(path)
+
+              File.read(path)
+            else
+              Publish::KV.get('v1:index', env: env)
+            end
+      JSON.parse(raw).dig('payload', 'keys') || []
     end
 
     # DRY: pretty-JSON each envelope to <key with ':' -> '_'>.json.
