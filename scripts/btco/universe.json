@@ -86,14 +86,20 @@
       "stooq": "djt.us",
       "ccy": "USD",
       "cik": "1849635",
-      "btc": 15000,
-      "btc_as_of": "2025-07-31",
-      "shares_basic": 279000000,
+      "btc": 9542.16,
+      "btc_as_of": "2026-03-31",
+      "shares_basic": 276953828,
       "shares_diluted": 300000000,
-      "debt_face": 0,
+      "debt_face": 1000000000,
       "pref_liq": 0,
-      "converts": [],
-      "placeholder": true,
+      "converts": [
+        {
+          "face": 1000000000,
+          "conv_price": 0.034722,
+          "label": "0% Convertible Senior Secured Notes due 2028-05-29"
+        }
+      ],
+      "placeholder": false,
       "note": "holds BTC + BTC-related securities; coin-equivalent count approximate"
     },
     {
@@ -104,12 +110,12 @@
       "cik": "1946573",
       "btc": 5765,
       "btc_as_of": "2025-08-31",
-      "shares_basic": 100000000,
-      "shares_diluted": 120000000,
-      "debt_face": 0,
+      "shares_basic": 690018254,
+      "shares_diluted": 890148039,
+      "debt_face": 165000000,
       "pref_liq": 0,
       "converts": [],
-      "placeholder": true,
+      "placeholder": false,
       "note": "KindlyMD merger structure; all counts approximate -- verify before use"
     },
     {
@@ -119,14 +125,14 @@
       "stooq": "asst.us",
       "cik": "1920406",
       "cik_manual_px": null,
-      "btc": 19882,
-      "btc_as_of": "2026-05-01",
-      "shares_basic": null,
+      "btc": 19864,
+      "btc_as_of": "2026-07-02",
+      "shares_basic": 82725831,
       "shares_diluted": null,
       "debt_face": null,
       "pref_liq": null,
       "converts": [],
-      "placeholder": true
+      "placeholder": false
     },
     {
       "ticker": "BLSH",
@@ -142,7 +148,7 @@
       "debt_face": null,
       "pref_liq": null,
       "converts": [],
-      "placeholder": true
+      "placeholder": false
     },
     {
       "ticker": "ABTC",
@@ -153,12 +159,12 @@
       "cik_manual_px": null,
       "btc": 8000,
       "btc_as_of": "2026-05-01",
-      "shares_basic": null,
+      "shares_basic": 1063013205,
       "shares_diluted": null,
       "debt_face": null,
       "pref_liq": null,
       "converts": [],
-      "placeholder": true
+      "placeholder": false
     }
   ]
 }
