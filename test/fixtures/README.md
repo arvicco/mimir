@@ -28,3 +28,4 @@ Recorded 2026-07-04 18:27 UTC:
 - `fred_dfii10.json` -- OK (https://api.stlouisfed.org/fred/series/observations?series_id=DFII10&api_key=[REDACTED]&file_type=json&sort_order=desc&limit=25)
 - `edgar_submissions.json` -- OK (https://data.sec.gov/submissions/CIK0001050446.json)
 - `edgar_filing.html` -- OK (https://www.sec.gov/Archives/edgar/data/1050446/000119312526286871/mstr-20260629.htm)
+- `bitcointreasuries_table.html` -- OK (https://bitcointreasuries.net/ -- trimmed to 9 entity objects, M7-9 treasury ref)
