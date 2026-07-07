@@ -932,6 +932,29 @@ Acceptance: alert job provably does no fetch/AI/state-write (test:
       state.json absent after run); ops tasks green on the fake fs
       suite; rake green.
 
+## M7-5 · daily evidence agent + content-recency guard  [tier: opus vs fable spec] [status: done 2026-07-07, f1134eb]
+Incident response, owner-ruled: the retired cron's --history duty as
+the 4th managed agent (06:45 local) + the PUB! ... OLD token when a
+published tail's newest entry exceeds 30h. Verification discipline
+rules recorded in CLAUDE.md + DEV-LOOP 6b same day (2c3a348).
+
+## M7-6 · pipeline keep-last-good hardening  [tier: fable] [status: done 2026-07-07, 08c709c]
+Incident response: index carries last-good rows for skipped keys
+(vanishing-chart bug); junk-chart guard (charts never built from
+fail-soft payloads -- the NaN gauge). Both proven on the live surface
+during the Deribit outage.
+
+## M7-8 · per-source last-good cache + partial computation  [tier: fable design, opus impl] [status: PLANNED -- owner priority ruling 2026-07-07, awaiting plan approval]
+Owner: one dead provider must never blank a card; suites combine
+cached-stale + fresh sources, stale sources marked (amber/!). Plan:
+(a) lib/btc/source_cache.rb read-through last-good cache over BTC::Http
+(48h hard cap proposed); (b) gex family adoption + additive 'sources'
+payload member + stale venue marking; (c) btco adoption (stale spot
+marks gauge/mNAV, table rows already flag); (d) renderer stale
+indicators, both pages, Playwright + 6b checklist. Scenario modules
+EXPLICITLY out (score-0 vs stale-reuse = Phase 9 research decision).
+Mixing time bases is an owner-ruled semantics change (this ruling).
+
 ## M7-3 · CIK enablement + owner shakedown  [tier: fable prep, OWNER sessions] [status: todo] [deps: M7-1]
 Goal: (a) write XXI cik 2070457 + NAKA cik 1946573 into universe.json
       -- a deliberate human-approved edit (Golden Rule: universe.json
