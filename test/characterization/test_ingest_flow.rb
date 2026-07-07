@@ -197,7 +197,9 @@ class TestIngestFlow < Minitest::Test
     assert_match(/1 pending:/, rout)
     assert_match(/TST\s+MANUAL/, rout)
     assert_includes rout, pr['extraction']['summary']
-    assert_match(/btc\s+\{.*"from" => 100.*"to" => 12345/, rout)
+    # whitespace-agnostic around =>: Hash#inspect prints {"k"=>v} on the
+    # 3.3 CI target but {"k" => v} on newer local rubies (CI red 07-06/07)
+    assert_match(/btc\s+\{.*"from"\s*=>\s*100.*"to"\s*=>\s*12345/, rout)
     assert_match(/shares_basic\s+\{.*123456789/, rout)
 
     # --apply mutates universe.json in place.

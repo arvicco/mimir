@@ -89,6 +89,10 @@ same commit (`rake health` fails on registry drift).
 - [ ] file header comment updated if behavior/usage changed
 - [ ] success claims cite an outcome-level check (what would a user
       see?), not only signals the system emits about itself
+- [ ] CI green on the pushed head before calling a packet done -- the
+      local ruby is NEWER than the 3.3 target, so the local gate cannot
+      catch 3.3-runtime differences (e.g. Hash#inspect spacing); CI is
+      the 3.3 authority
 
 ### Verification discipline (owner-ruled 2026-07-07, after the
 ### frozen-evidence incident -- docs/WORKLOG.md that date)
