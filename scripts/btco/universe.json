@@ -7,8 +7,8 @@
       "stooq": "mstr.us",
       "ccy": "USD",
       "cik": "1050446",
-      "btc": 597325,
-      "btc_as_of": "2025-06-30",
+      "btc": 843775,
+      "btc_as_of": "2026-07-05",
       "shares_basic": 273000000,
       "shares_diluted": 304000000,
       "debt_face": 0,
@@ -45,7 +45,7 @@
           "label": "2032"
         }
       ],
-      "placeholder": true,
+      "placeholder": false,
       "note": "share counts and pref stack grow weekly via ATMs -- refresh from latest 8-K/10-Q"
     },
     {
