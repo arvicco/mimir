@@ -289,7 +289,21 @@ def apply_proposal(universe, file)
   bak = "#{UNIVERSE}.bak-#{stamp}-#{n += 1}" while File.exist?(bak)
   FileUtils.cp(UNIVERSE, bak)
 
+  # As-of guard (owner catch, 2026-07-07 session): an older filing's BTC
+  # count must never regress a newer one already in the model. The btc /
+  # btc_as_of pair is skipped (with a note) when the proposal's as-of
+  # (extracted btc_as_of, else filing_date) is not newer than the model's.
+  # Other fields carry no per-field date until the M7-10 provenance work,
+  # so review order still matters for them -- apply newest last.
+  prop_asof = pr.dig('extraction', 'btc_as_of') || pr['filing_date']
+  keep_btc  = cur['btc_as_of'] && prop_asof && prop_asof.to_s <= cur['btc_as_of'].to_s &&
+              pr['diff'].key?('btc')
+  puts format('  btc/btc_as_of SKIPPED: model already newer (%s > %s) -- kept %s BTC',
+              cur['btc_as_of'], prop_asof, cur['btc']) if keep_btc
+
   pr['diff'].each do |k, v|
+    next if keep_btc && %w[btc btc_as_of].include?(k)
+
     case k
     when 'converts_add'
       cur['converts'] = cur['converts'].to_a + v
