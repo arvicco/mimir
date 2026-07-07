@@ -288,15 +288,64 @@ class TestPublishPipeline < Minitest::Test
     # 7 written (gex:combined, gex:mstr, scenario:latest, 2 tails,
     # chart:gex_mstr, index) of 13 expected (5 producers + 2 tails +
     # 5 charts + 1 index); scenario_strip skipped on fail-soft input.
-    assert_equal "PUB DRY 7/13 keys 12:00 UTC\n", line
+    # The synthetic tails demonstrate the M7-5 content-recency guard IN
+    # ONE LINE: scenario:history's newest entry is NOW-1d (24h < 30h, FRESH,
+    # no marker) but lppl:ledger's newest is NOW-10d (> 30h) -> ` OLD:...`.
+    assert_equal "PUB DRY 7/13 keys 12:00 UTC OLD:lppl:ledger\n", line
   end
 
   def test_status_line_live_label
+    # Fresh tails (< 30h) so this pin isolates the LIVE label: it is
+    # byte-identical to the pre-M7-5 line, proving the OLD marker is
+    # additive and stays quiet when the evidence is current.
+    fresh = iso(NOW - 5 * 3600)
+    File.write(File.join(@dir, 'scenario', 'history.jsonl'),
+               JSON.generate('ts' => fresh, 'composite' => 0.1) + "\n")
+    File.write(File.join(@dir, 'lppl', 'ledger.jsonl'),
+               JSON.generate('ts' => fresh, 'bf' => 1.0) + "\n")
     inject_kv { FakeRes.new('200', 'ok') }
     Publish::Pipeline.run(now: NOW, source: 'testhost', dry_run: false,
                           runner: fixture_runner, env: ENV_OK, status_dir: @dir)
     # all five sources + two tails + five charts + index publish cleanly.
     assert_equal "PUB LIVE 13/13 keys 12:00 UTC\n", File.read(File.join(@dir, 'publish.status'))
+  end
+
+  # -- content-recency guard (M7-5, 2026-07-07 frozen-evidence incident) ---
+
+  # Age BOTH synthetic tails past 30h -> the marker names BOTH keys, in
+  # TAILS order (scenario:history before lppl:ledger).
+  def test_status_line_marks_both_stale_tails
+    stale = iso(NOW - 40 * 3600) # 40h > 30h
+    File.write(File.join(@dir, 'scenario', 'history.jsonl'),
+               JSON.generate('ts' => stale, 'composite' => 0.1) + "\n")
+    File.write(File.join(@dir, 'lppl', 'ledger.jsonl'),
+               JSON.generate('ts' => stale, 'bf' => 1.0) + "\n")
+    dry_run
+    assert_equal "PUB DRY 7/13 keys 12:00 UTC OLD:scenario:history,lppl:ledger\n",
+                 File.read(File.join(@dir, 'publish.status'))
+  end
+
+  # Both tails fresh (< 30h) -> no marker at all.
+  def test_status_line_no_marker_when_all_tails_fresh
+    fresh = iso(NOW - 5 * 3600) # 5h < 30h
+    File.write(File.join(@dir, 'scenario', 'history.jsonl'),
+               JSON.generate('ts' => fresh, 'composite' => 0.1) + "\n")
+    File.write(File.join(@dir, 'lppl', 'ledger.jsonl'),
+               JSON.generate('ts' => fresh, 'bf' => 1.0) + "\n")
+    dry_run
+    assert_equal "PUB DRY 7/13 keys 12:00 UTC\n", File.read(File.join(@dir, 'publish.status'))
+  end
+
+  # A SKIPPED tail (no file) earns NO OLD marker -- the n/m shortfall
+  # already flags it; only a PUBLISHED-but-stale tail is marked.
+  def test_status_line_skipped_tail_is_not_marked_old
+    FileUtils.rm(File.join(@dir, 'lppl', 'ledger.jsonl'))       # lppl:ledger SKIPPED
+    fresh = iso(NOW - 5 * 3600)
+    File.write(File.join(@dir, 'scenario', 'history.jsonl'),
+               JSON.generate('ts' => fresh, 'composite' => 0.1) + "\n")
+    dry_run
+    # 6/13 now (one tail gone); no OLD marker (skip, not stale).
+    assert_equal "PUB DRY 6/13 keys 12:00 UTC\n", File.read(File.join(@dir, 'publish.status'))
   end
 
   # -- real mode: v1:-prefixed PUTs + 403 abort ----------------------------

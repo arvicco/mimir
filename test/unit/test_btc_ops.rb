@@ -49,8 +49,9 @@ class TestBtcOps < Minitest::Test
 
     def wrapper_for(label)
       case label
-      when 'com.mimir.publish'      then 'run_publish.sh'
-      when 'com.mimir.gex-snapshot' then 'run_gex_snapshot.sh'
+      when 'com.mimir.publish'       then 'run_publish.sh'
+      when 'com.mimir.gex-snapshot'  then 'run_gex_snapshot.sh'
+      when 'com.mimir.suite-history' then 'run_suite_history.sh'
       else 'run_btco_alert.sh'
       end
     end
@@ -187,7 +188,7 @@ class TestBtcOps < Minitest::Test
   def test_install_renders_plist_without_placeholder_into_launchagents
     write_env
     fake = FakeLaunchctl.new(repo: @repo)
-    code = install(fake, input: StringIO.new("n\nn\nn\n")) # decline all kickstarts
+    code = install(fake, input: StringIO.new("n\nn\nn\nn\n")) # decline all kickstarts
     assert_equal 0, code
 
     installed = File.join(@home, 'Library', 'LaunchAgents', 'com.mimir.publish.plist')
@@ -211,7 +212,7 @@ class TestBtcOps < Minitest::Test
     write_env
     fake = FakeLaunchctl.new(repo: @repo,
                              loaded: { 'com.mimir.publish' => true, 'com.mimir.gex-snapshot' => true })
-    code = install(fake, input: StringIO.new("n\nn\nn\n"))
+    code = install(fake, input: StringIO.new("n\nn\nn\nn\n"))
     assert_equal 0, code
 
     bootout_i = fake.calls.index do |c|
@@ -228,7 +229,7 @@ class TestBtcOps < Minitest::Test
   def test_fresh_install_does_not_bootout
     write_env
     fake = FakeLaunchctl.new(repo: @repo) # nothing loaded
-    install(fake, input: StringIO.new("n\nn\nn\n"))
+    install(fake, input: StringIO.new("n\nn\nn\nn\n"))
     refute(fake.calls.any? { |c| c[0, 2] == %w[launchctl bootout] },
            'a fresh install must not bootout')
   end
@@ -239,7 +240,7 @@ class TestBtcOps < Minitest::Test
     write_env
     fake = FakeLaunchctl.new(repo: @repo)
     io = StringIO.new
-    code = install(fake, input: StringIO.new("n\nn\nn\n"), io: io)
+    code = install(fake, input: StringIO.new("n\nn\nn\nn\n"), io: io)
     assert_equal 0, code
     refute(fake.calls.any? { |c| c[0, 2] == %w[launchctl kickstart] },
            'declined kickstart must not run launchctl kickstart')
@@ -263,19 +264,25 @@ class TestBtcOps < Minitest::Test
                                        "written: #{gdir}/2026-07-06.json\n")
         FileUtils.mkdir_p(gdir)
         File.write(File.join(gdir, '2026-07-06.json'), '{}')
-      else # com.mimir.btco-alert
+      when 'com.mimir.btco-alert'
         append_log('btco_alert.log', "=== run_btco_alert 2026-07-06T12:00:00Z\n" \
                                      "alert: no new filings -> quiet\n")
+      else # com.mimir.suite-history
+        append_log('suite_history.log', "=== run_suite_history 2026-07-06T12:00:00Z\n" \
+                                        "suite-history: lppl updated -- LPPL SUPPORTED +0.55\n" \
+                                        "suite-history: scenario updated -- COMPOSITE +0.20\n" \
+                                        "suite-history OK: 2/2 suites updated (lppl, scenario)\n")
       end
     end
     fake = FakeLaunchctl.new(repo: @repo, on_kickstart: on_kick)
     io = StringIO.new
-    code = install(fake, input: StringIO.new("y\ny\ny\n"), io: io, clock: fixed_clock)
+    code = install(fake, input: StringIO.new("y\ny\ny\ny\n"), io: io, clock: fixed_clock)
 
     assert_equal 0, code, io.string
     assert_includes io.string, 'publish LIVE: 11 written'
     assert_includes io.string, "written: #{gdir}/2026-07-06.json"
     assert_includes io.string, 'alert: no new filings -> quiet'
+    assert_includes io.string, 'suite-history OK: 2/2 suites updated'
     # every verification row PASSed, none FAILed
     refute_includes io.string.split('verification:').last, '[FAIL]'
     assert(fake.calls.any? { |c| c[0, 3] == %w[launchctl kickstart -k] })
@@ -289,7 +296,7 @@ class TestBtcOps < Minitest::Test
     fake = FakeLaunchctl.new(repo: @repo, on_kickstart: ->(_l) {}) # log never grows
     io = StringIO.new
     # advancing clock: 100s per call, publish timeout 240s -> times out
-    code = install(fake, input: StringIO.new("y\nn\nn\n"), io: io,
+    code = install(fake, input: StringIO.new("y\nn\nn\nn\n"), io: io,
                    clock: advancing_clock(100), sleeper: ->(s) { sleeps << s })
     assert_equal 1, code
     assert_includes io.string, 'TIMEOUT'
@@ -306,7 +313,7 @@ class TestBtcOps < Minitest::Test
     end
     fake = FakeLaunchctl.new(repo: @repo, on_kickstart: on_kick)
     io = StringIO.new
-    code = install(fake, input: StringIO.new("y\nn\nn\n"), io: io, clock: fixed_clock)
+    code = install(fake, input: StringIO.new("y\nn\nn\nn\n"), io: io, clock: fixed_clock)
     assert_equal 1, code
     assert_includes io.string, 'FAIL'
     assert_includes io.string, 'ABORT'
@@ -347,7 +354,7 @@ class TestBtcOps < Minitest::Test
   def test_uninstall_accepted_bootouts_and_deletes
     la = File.join(@home, 'Library', 'LaunchAgents')
     FileUtils.mkdir_p(la)
-    labels = %w[com.mimir.publish com.mimir.gex-snapshot com.mimir.btco-alert]
+    labels = %w[com.mimir.publish com.mimir.gex-snapshot com.mimir.btco-alert com.mimir.suite-history]
     labels.each { |l| File.write(File.join(la, "#{l}.plist"), 'x') }
     fake = FakeLaunchctl.new(repo: @repo, loaded: labels.to_h { |l| [l, true] })
     code = BTC::Ops.uninstall(home: @home, runner: fake.method(:call), io: StringIO.new,
@@ -360,9 +367,10 @@ class TestBtcOps < Minitest::Test
     end
   end
 
-  def test_agents_list_covers_three_agents_including_btco_alert
+  def test_agents_list_covers_four_agents_including_suite_history
     labels = BTC::Ops::AGENTS.map(&:first)
-    assert_equal %w[com.mimir.publish com.mimir.gex-snapshot com.mimir.btco-alert], labels
+    assert_equal %w[com.mimir.publish com.mimir.gex-snapshot com.mimir.btco-alert
+                    com.mimir.suite-history], labels
   end
 
   # ---- tmux health line ----------------------------------------------

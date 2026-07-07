@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  com.mimir.suite-history : launchd user agent for the daily evidence-trail
+  advance (successor to the owner's retired nightly history cron; M7-5).
+  (XML comments forbid a double hyphen, so this block uses colons/parens.)
+
+  INSTALL (HUMAN action, Golden Rule 3; full steps in docs/RUNBOOK.md):
+    Substitute the __REPO__ placeholder with the absolute repo path, e.g.
+      sed "s#__REPO__#$HOME/Dev/mimir#g" ops/com.mimir.suite-history.plist \
+        > ~/Library/LaunchAgents/com.mimir.suite-history.plist
+    then:
+      launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mimir.suite-history.plist
+
+  StartCalendarInterval Hour=6 Minute=45 fires once per calendar day at
+  06:45 local time (deliberately BEFORE the 07:45 BTCo alert and the
+  08:15 GEX snapshot), so the day's ledger / history / price cache are
+  current before anything reads them. If the machine is asleep at 06:45,
+  launchd runs the job at the next wake per calendar semantics.
+
+  RunAtLoad false: do not run immediately on agent load (the owner decides
+  when the first run is due). No KeepAlive: this is a one-shot daily job,
+  not a service to respawn.
+-->
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.mimir.suite-history</string>
+    <key>ProgramArguments</key>
+    <array>
+      <string>__REPO__/ops/run_suite_history.sh</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+      <key>Hour</key>
+      <integer>6</integer>
+      <key>Minute</key>
+      <integer>45</integer>
+    </dict>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>ProcessType</key>
+    <string>Background</string>
+  </dict>
+</plist>

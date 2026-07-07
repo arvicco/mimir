@@ -73,7 +73,11 @@ module BTC
        timeout: 90, kind: :snapshot],
       ['com.mimir.btco-alert', 'run_btco_alert.sh',
        log: 'btco_alert.log', marker: '=== run_btco_alert',
-       success_re: /alert: /, timeout: 60, kind: :alert]
+       success_re: /alert: /, timeout: 60, kind: :alert],
+      ['com.mimir.suite-history', 'run_suite_history.sh',
+       log: 'suite_history.log', marker: '=== run_suite_history',
+       success_re: %r{suite-history OK: \d+/\d+ suites updated},
+       timeout: 660, kind: :history]
     ].freeze
 
     module_function
