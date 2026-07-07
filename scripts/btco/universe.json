@@ -2,83 +2,163 @@
   "note": "SEED DATA -- every entry carries btc_as_of and placeholder:true. Values are from filings/announcements circa the stated dates and are certainly stale; run `ruby btco.rb --check-filings` and update from the listed documents before trusting outputs. Fields: btc (coins held), shares_basic / shares_diluted (assumed diluted), debt_face (straight debt, USD), pref_liq (preferred liquidation preference, USD), converts (per-tranche face USD + conversion price in listing ccy), stooq (quote symbol), ccy (listing currency), cik (SEC, null = non-US/unknown), manual_px (fallback if no quote source).",
   "companies": [
     {
-      "name": "Strategy", "ticker": "MSTR", "stooq": "mstr.us", "ccy": "USD",
+      "name": "Strategy",
+      "ticker": "MSTR",
+      "stooq": "mstr.us",
+      "ccy": "USD",
       "cik": "1050446",
-      "btc": 597325, "btc_as_of": "2025-06-30",
-      "shares_basic": 273000000, "shares_diluted": 304000000,
-      "debt_face": 0, "pref_liq": 3400000000,
+      "btc": 597325,
+      "btc_as_of": "2025-06-30",
+      "shares_basic": 273000000,
+      "shares_diluted": 304000000,
+      "debt_face": 0,
+      "pref_liq": 3400000000,
       "converts": [
-        { "face": 1010000000, "conv_price": 183.19, "label": "2028" },
-        { "face": 3000000000, "conv_price": 672.40, "label": "2029" },
-        { "face": 800000000,  "conv_price": 149.77, "label": "2030A" },
-        { "face": 2000000000, "conv_price": 433.43, "label": "2030B" },
-        { "face": 604000000,  "conv_price": 232.72, "label": "2031" },
-        { "face": 800000000,  "conv_price": 204.33, "label": "2032" }
+        {
+          "face": 1010000000,
+          "conv_price": 183.19,
+          "label": "2028"
+        },
+        {
+          "face": 3000000000,
+          "conv_price": 672.4,
+          "label": "2029"
+        },
+        {
+          "face": 800000000,
+          "conv_price": 149.77,
+          "label": "2030A"
+        },
+        {
+          "face": 2000000000,
+          "conv_price": 433.43,
+          "label": "2030B"
+        },
+        {
+          "face": 604000000,
+          "conv_price": 232.72,
+          "label": "2031"
+        },
+        {
+          "face": 800000000,
+          "conv_price": 204.33,
+          "label": "2032"
+        }
       ],
       "placeholder": true,
       "note": "share counts and pref stack grow weekly via ATMs -- refresh from latest 8-K/10-Q"
     },
     {
-      "name": "Twenty One Capital", "ticker": "XXI", "stooq": "xxi.us", "ccy": "USD",
+      "name": "Twenty One Capital",
+      "ticker": "XXI",
+      "stooq": "xxi.us",
+      "ccy": "USD",
       "cik": "2070457",
-      "btc": 43514, "btc_as_of": "2025-06-30",
-      "shares_basic": 346000000, "shares_diluted": 400000000,
-      "debt_face": 485000000, "pref_liq": 0,
+      "btc": 43514,
+      "btc_as_of": "2025-06-30",
+      "shares_basic": 346000000,
+      "shares_diluted": 400000000,
+      "debt_face": 485000000,
+      "pref_liq": 0,
       "converts": [],
       "placeholder": true,
       "note": "dual-class structure; diluted count approximate -- see prior XXI capital-structure model"
     },
     {
-      "name": "Metaplanet", "ticker": "3350", "stooq": "3350.jp", "ccy": "JPY",
+      "name": "Metaplanet",
+      "ticker": "3350",
+      "stooq": "3350.jp",
+      "ccy": "JPY",
       "cik": null,
-      "btc": 15555, "btc_as_of": "2025-06-30",
-      "shares_basic": 590000000, "shares_diluted": 700000000,
-      "debt_face": 0, "pref_liq": 0,
+      "btc": 15555,
+      "btc_as_of": "2025-06-30",
+      "shares_basic": 590000000,
+      "shares_diluted": 700000000,
+      "debt_face": 0,
+      "pref_liq": 0,
       "converts": [],
       "placeholder": true,
       "note": "JP disclosures (TDnet), no EDGAR; zero-coupon bonds + MS warrants -- update manually"
     },
     {
-      "name": "Semler Scientific", "ticker": "SMLR", "stooq": "smlr.us", "ccy": "USD",
-      "cik": "1554859",
-      "btc": 4449, "btc_as_of": "2025-06-30",
-      "shares_basic": 9700000, "shares_diluted": 11500000,
-      "debt_face": 100000000, "pref_liq": 0,
-      "converts": [],
-      "placeholder": true,
-      "note": "operating business adds non-BTC value ignored by these metrics"
-    },
-    {
-      "name": "GameStop", "ticker": "GME", "stooq": "gme.us", "ccy": "USD",
-      "cik": "1326380",
-      "btc": 4710, "btc_as_of": "2025-06-30",
-      "shares_basic": 447000000, "shares_diluted": 480000000,
-      "debt_face": 0, "pref_liq": 0,
-      "converts": [
-        { "face": 1500000000, "conv_price": 29.85, "label": "2030" }
-      ],
-      "placeholder": true,
-      "note": "BTC is small vs cash pile -- mNAV meaningless standalone; kept for universe breadth"
-    },
-    {
-      "name": "Trump Media", "ticker": "DJT", "stooq": "djt.us", "ccy": "USD",
+      "name": "Trump Media",
+      "ticker": "DJT",
+      "stooq": "djt.us",
+      "ccy": "USD",
       "cik": "1849635",
-      "btc": 15000, "btc_as_of": "2025-07-31",
-      "shares_basic": 279000000, "shares_diluted": 300000000,
-      "debt_face": 0, "pref_liq": 0,
+      "btc": 15000,
+      "btc_as_of": "2025-07-31",
+      "shares_basic": 279000000,
+      "shares_diluted": 300000000,
+      "debt_face": 0,
+      "pref_liq": 0,
       "converts": [],
       "placeholder": true,
       "note": "holds BTC + BTC-related securities; coin-equivalent count approximate"
     },
     {
-      "name": "Nakamoto Holdings", "ticker": "NAKA", "stooq": "naka.us", "ccy": "USD",
+      "name": "Nakamoto Holdings",
+      "ticker": "NAKA",
+      "stooq": "naka.us",
+      "ccy": "USD",
       "cik": "1946573",
-      "btc": 5765, "btc_as_of": "2025-08-31",
-      "shares_basic": 100000000, "shares_diluted": 120000000,
-      "debt_face": 0, "pref_liq": 0,
+      "btc": 5765,
+      "btc_as_of": "2025-08-31",
+      "shares_basic": 100000000,
+      "shares_diluted": 120000000,
+      "debt_face": 0,
+      "pref_liq": 0,
       "converts": [],
       "placeholder": true,
       "note": "KindlyMD merger structure; all counts approximate -- verify before use"
+    },
+    {
+      "ticker": "ASST",
+      "name": "Strive, Inc. (ex-Semler merged 2026-01)",
+      "ccy": "USD",
+      "stooq": "asst.us",
+      "cik": "1920406",
+      "cik_manual_px": null,
+      "btc": 19882,
+      "btc_as_of": "2026-05-01",
+      "shares_basic": null,
+      "shares_diluted": null,
+      "debt_face": null,
+      "pref_liq": null,
+      "converts": [],
+      "placeholder": true
+    },
+    {
+      "ticker": "BLSH",
+      "name": "Bullish (exchange; FPI 6-K/20-F filer)",
+      "ccy": "USD",
+      "stooq": "blsh.us",
+      "cik": "1872195",
+      "cik_manual_px": null,
+      "btc": 24000,
+      "btc_as_of": "2026-05-01",
+      "shares_basic": null,
+      "shares_diluted": null,
+      "debt_face": null,
+      "pref_liq": null,
+      "converts": [],
+      "placeholder": true
+    },
+    {
+      "ticker": "ABTC",
+      "name": "American Bitcoin Corp. (miner-accumulator)",
+      "ccy": "USD",
+      "stooq": "abtc.us",
+      "cik": "1755953",
+      "cik_manual_px": null,
+      "btc": 8000,
+      "btc_as_of": "2026-05-01",
+      "shares_basic": null,
+      "shares_diluted": null,
+      "debt_face": null,
+      "pref_liq": null,
+      "converts": [],
+      "placeholder": true
     }
   ]
 }
