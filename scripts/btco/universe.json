@@ -20,7 +20,7 @@
     },
     {
       "name": "Twenty One Capital", "ticker": "XXI", "stooq": "xxi.us", "ccy": "USD",
-      "cik": null,
+      "cik": "2070457",
       "btc": 43514, "btc_as_of": "2025-06-30",
       "shares_basic": 346000000, "shares_diluted": 400000000,
       "debt_face": 485000000, "pref_liq": 0,
@@ -72,7 +72,7 @@
     },
     {
       "name": "Nakamoto Holdings", "ticker": "NAKA", "stooq": "naka.us", "ccy": "USD",
-      "cik": null,
+      "cik": "1946573",
       "btc": 5765, "btc_as_of": "2025-08-31",
       "shares_basic": 100000000, "shares_diluted": 120000000,
       "debt_face": 0, "pref_liq": 0,
