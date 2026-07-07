@@ -90,12 +90,12 @@
       "btc_as_of": "2026-03-31",
       "shares_basic": 276953828,
       "shares_diluted": 300000000,
-      "debt_face": 1000000000,
+      "debt_face": 0,
       "pref_liq": 0,
       "converts": [
         {
           "face": 1000000000,
-          "conv_price": 0.034722,
+          "conv_price": 34.722,
           "label": "0% Convertible Senior Secured Notes due 2028-05-29"
         }
       ],
