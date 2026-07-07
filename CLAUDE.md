@@ -87,6 +87,41 @@ same commit (`rake health` fails on registry drift).
 - [ ] no secrets in code, logs, fixtures, or error messages
 - [ ] diff is minimal; unrelated code untouched
 - [ ] file header comment updated if behavior/usage changed
+- [ ] success claims cite an outcome-level check (what would a user
+      see?), not only signals the system emits about itself
+
+### Verification discipline (owner-ruled 2026-07-07, after the
+### frozen-evidence incident -- docs/WORKLOG.md that date)
+1. **Outcome-first.** No "done / green / proven live" claim without at
+   least one check at the outermost user-visible surface, asserting the
+   outcome against a reference INDEPENDENT of the system under test.
+   For publish/ops work: fetch the LIVE dashboard's data and compare
+   the newest data point INSIDE the payloads (ledger ts, history ts,
+   price date) against the wall clock -- never against `generated_at`,
+   which the pipeline itself mints.
+2. **Decommissioning inventory.** Before any process is retired or
+   replaced, enumerate every duty it performed (full command lines,
+   every file it wrote, every side effect) and map each duty to a
+   successor. Unmapped duties become decision items, never silent
+   drops. (The incident: the retired cron ran `--history`; the new
+   agents didn't; nobody diffed the two.)
+3. **Contradiction protocol.** When the owner's observation contradicts
+   telemetry, the default assumption is a telemetry blind spot.
+   Reproduce what they see at THEIR surface first, then work inward.
+   Hard rule: never re-assert health from an instrument already
+   contradicted once -- find an independent one.
+4. **Content-progress invariants.** Every scheduled producer carries a
+   machine-checked invariant on its OUTPUT's progress, not its
+   execution ("if a duty matters enough to schedule, its outcome
+   matters enough to monitor"). See ops/publish_health.rb's OLD flag
+   and the daily evidence agent.
+5. **Surface review = the full checklist** in docs/DEV-LOOP.md section
+   6b (elements present and filled, order/placement, per-chart data
+   recency vs cadence, no NaN/null/empty renders, cross-element
+   consistency, designed failure states shown honestly, interactions
+   respond, clean console, real geometry + mobile, keyboard floor) --
+   liveness markers alone are NEVER sufficient. Gate soaks include
+   "the surface shows newer data each day than the day before."
 
 ## Code style
 
