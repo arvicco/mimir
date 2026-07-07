@@ -100,6 +100,9 @@ class TestIngestFlow < Minitest::Test
     FileUtils.mkdir_p(File.join(@sandbox, 'scripts'))
     FileUtils.cp_r(REAL_BTCO, @btco)
     FileUtils.rm_rf(File.join(@btco, 'capstruct'))
+    # a live owner session leaves real universe.json.bak-* in scripts/btco/
+    # -- scrub them from the SANDBOX copy or the bak-count pins misfire
+    Dir.glob(File.join(@btco, 'universe.json.bak-*')).each { |f| File.delete(f) }
     File.symlink(File.join(ROOT, 'lib'), File.join(@sandbox, 'lib')) # see header
     write_universe(synthetic_universe)
     @ingest = File.join(@btco, 'ingest.rb')
@@ -255,6 +258,33 @@ class TestIngestFlow < Minitest::Test
   end
 
   # ---- surface 3: --apply-all-high (AI/high only + reload between) -------
+
+  # As-of guard (owner catch, 2026-07-07): applying an OLDER filing's
+  # proposal after a newer btc count is in the model must not regress
+  # btc/btc_as_of; the other diffed fields still apply.
+  def test_apply_skips_btc_older_than_model
+    uni = synthetic_universe
+    company(uni, 'TST')['btc'] = 843_775
+    company(uni, 'TST')['btc_as_of'] = '2026-07-05'
+    write_universe(uni)
+    write_proposal_file('TST_accold.json',
+                        'ticker' => 'TST', 'accession' => 'acc-old', 'form' => '10-Q',
+                        'filing_date' => '2026-05-10', 'url' => 'u', 'mode' => 'ai',
+                        'extraction' => { 'btc' => 568_840, 'btc_as_of' => '2026-03-31',
+                                          'shares_basic' => 5_000,
+                                          'confidence' => 'high', 'summary' => 's' },
+                        'diff' => { 'btc' => { 'from' => 843_775, 'to' => 568_840 },
+                                    'btc_as_of' => { 'from' => '2026-07-05', 'to' => '2026-03-31' },
+                                    'shares_basic' => { 'from' => 1_000, 'to' => 5_000 } })
+
+    out, err, st = run_ingest('--apply', 'acc-old')
+    assert st.success?, err
+    assert_match(/btc\/btc_as_of SKIPPED: model already newer/, out)
+    after = company(read_universe, 'TST')
+    assert_equal 843_775, after['btc'], 'older filing must not regress btc'
+    assert_equal '2026-07-05', after['btc_as_of']
+    assert_equal 5_000, after['shares_basic'], 'other fields still apply'
+  end
 
   def test_apply_all_high_applies_only_ai_high_and_reloads_between
     write_universe('companies' => [company(synthetic_universe, 'TST')])
