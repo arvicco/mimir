@@ -25,6 +25,11 @@
 #
 # Failure mode: aborts with a message on stderr, exit != 0 (no fail-soft
 # JSON) -- downstream consumers must treat nonzero exit as keep-last-good.
+# Last-good cache (M7-8): the CBOE chain and Deribit index read through
+# BTC::SourceCache, so a source outage computes off its cached copy
+# (within a 48h cap) instead of aborting; only a dead source with NO cache
+# aborts. --json gains a top-level 'sources' list ({name,as_of,stale}) per
+# ticker and a top-level 'stale' => true when the chain came from cache.
 
 require 'json'
 require 'time'
@@ -32,6 +37,7 @@ require_relative '../lib/btc/options'
 require_relative '../lib/btc/util'
 require_relative '../lib/btc/http'
 require_relative '../lib/btc/deribit'
+require_relative '../lib/btc/source_cache'
 require_relative '../lib/btc/report'
 require_relative '../lib/btc/format'
 
@@ -39,14 +45,19 @@ CBOE = 'https://cdn.cboe.com/api/global/delayed_quotes/options'
 MULT = 100.0 # shares per contract
 BTC_ETFS = %w[IBIT FBTC BITB ARKB GBTC BTC HODL BTCO BRRR EZBC].freeze
 
-def get_json(url)
-  JSON.parse(BTC::Http.get(url, { 'User-Agent' => 'gex_us.rb' }))
-rescue StandardError => e
-  abort "fetch #{url}: #{e.class}: #{e.message}"
-end
-
+# The CBOE chain via the shared last-good cache ('cboe_<ticker>', M7-8):
+# a chain outage still computes off the cached board (marked stale);
+# no cache within the cap re-raises and we abort (the documented hard
+# failure). Returns [spot, book, source={name,as_of,stale}].
 def parse_chain(ticker, max_days, now)
-  data = get_json("#{CBOE}/#{ticker}.json")['data']
+  url = "#{CBOE}/#{ticker}.json"
+  begin
+    r = BTC::SourceCache.fetch_json("cboe_#{ticker.downcase}", url,
+                                    { 'User-Agent' => 'gex_us.rb' }, now: now)
+  rescue StandardError => e
+    abort "fetch #{url}: #{e.class}: #{e.message}"
+  end
+  data = r['data']['data']
   abort "#{ticker}: no data in CBOE response" unless data
 
   spot = (data['current_price'] || data['close']).to_f
@@ -70,7 +81,7 @@ def parse_chain(ticker, max_days, now)
   end.compact
   abort "#{ticker}: no live instruments parsed" if book.empty?
 
-  [spot, book]
+  [spot, book, { name: "cboe_#{ticker.downcase}", as_of: r['as_of'], stale: r['stale'] }]
 end
 
 # Dollar gamma per 1% move at hypothetical spot x (x IS each
@@ -86,13 +97,16 @@ abort 'usage: gex_us.rb TICKER [TICKER ...] [--max-days N] [--json|--tmux]' if t
 max_days = BTC::Util.arg('--max-days')&.to_f
 now      = Time.now.utc
 
-btc_spot = nil
+btc_spot   = nil
+deribit_src = nil # {name,as_of,stale} shared by every BTC-ETF ticker below
 if (tickers & BTC_ETFS).any?
   begin
-    btc_spot = BTC::Deribit.index_price('btc_usd')
+    di = BTC::Deribit.index('btc_usd', now: now)
   rescue StandardError => e
     abort "fetch deribit index: #{e.class}: #{e.message}"
   end
+  btc_spot    = di[:price]
+  deribit_src = { name: 'deribit_index', as_of: di[:as_of], stale: di[:stale] }
 end
 
 fmt_m  = BTC::Format.method(:musd)
@@ -101,7 +115,13 @@ fmt_px = ->(v) { v >= 1000 ? format('%.1fk', v / 1000.0) : format('%g', v.round(
 json_acc = []
 
 tickers.each do |ticker|
-  spot, book = parse_chain(ticker, max_days, now)
+  spot, book, cboe_src = parse_chain(ticker, max_days, now)
+
+  # sources consulted for THIS ticker: the deribit index (BTC ETFs only,
+  # for the BTC-equivalent annotations) plus its own CBOE chain (M7-8).
+  sources = []
+  sources << deribit_src if deribit_src && BTC_ETFS.include?(ticker)
+  sources << cboe_src
 
   profile = Hash.new(0.0)
   book.each { |o| profile[o[:k]] += BTC::Options.inst_gex(o, spot, MULT) }
@@ -119,7 +139,7 @@ tickers.each do |ticker|
   pxb    = ->(v) { ratio ? format('%s (%.1fK)', fmt_px.(v), v / ratio / 1000.0) : fmt_px.(v) }
 
   if ARGV.include?('--json')
-    json_acc << {
+    obj = {
       ticker: ticker, spot: spot.round(2), ts: now.iso8601,
       net_gex_usd_per_1pct: total.round,
       regime: total.negative? ? 'short_gamma' : 'long_gamma',
@@ -131,8 +151,14 @@ tickers.each do |ticker|
                                 btc: to_btc.(put_wall[0]) && to_btc.(put_wall[0]).round },
       put_call_oi: pc.round(3),
       instruments: book.size,
+      # additive (M7-8): sources consulted this run; top-level 'stale' is
+      # present ONLY when the CBOE chain came from cache (absent = fresh),
+      # so the all-fresh contract fixtures stay field-set valid.
+      sources: sources.map { |s| { name: s[:name], as_of: s[:as_of], stale: s[:stale] } },
       profile: Hash[profile.sort.map { |k, v| [k, v.round] }]
     }
+    obj[:stale] = true if cboe_src[:stale]
+    json_acc << obj
     next
   end
 

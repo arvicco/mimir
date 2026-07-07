@@ -49,6 +49,12 @@
 # Fail-soft: a dead input (universe, Deribit index, no priced companies)
 # degrades to a score-0 report with exit 0, matching the scenario/lppl
 # module contract; it never crashes an aggregate.
+# Last-good cache (M7-8): spot (shared 'deribit_index'), each CBOE quote
+# and the FX read through BTC::SourceCache, so a provider outage still
+# prices off cached copies (within a 48h cap) rather than blanking rows.
+# --json gains 'sources' ({name,as_of,stale}); 'spot_stale' and per-row
+# 'px_stale' flag cache-sourced inputs. Fail-soft only when spot has no
+# cache (spot is the NAV axis -- nothing to value coins against).
 #
 # Ruby >= 2.5, stdlib only.
 
@@ -59,6 +65,7 @@ require_relative '../../lib/btc/report'
 require_relative '../../lib/btc/util'
 require_relative '../../lib/btc/http'
 require_relative '../../lib/btc/deribit'
+require_relative '../../lib/btc/source_cache'
 
 UNIVERSE = BTC::Util.arg('--universe') ||
            File.join(File.expand_path(__dir__), 'universe.json')
@@ -121,25 +128,44 @@ if ARGV.include?('--check-filings')
 end
 
 # ---- live inputs -------------------------------------------------------------
+now = Time.now.utc
+
+# sources: every live upstream that returned data this run (fresh or stale),
+# each { name:, as_of:, stale: } -- surfaced additively in --json so the card
+# marks stale sources. Spot is the axis: fail-soft only when it has NO cache.
+sources = []
+UA = ENV['EDGAR_UA'] || 'btco.rb (set EDGAR_UA=name email)'
+
 begin
-  btc_px = BTC::Deribit.index_price('btc_usd')
+  di = BTC::Deribit.index('btc_usd', now: now)
 rescue StandardError => e
   fail_soft("deribit index: #{e.message}")
 end
+btc_px     = di[:price]
+spot_stale = di[:stale]
+sources << { name: 'deribit_index', as_of: di[:as_of], stale: di[:stale] }
 
 CBOE = 'https://cdn.cboe.com/api/global/delayed_quotes/options'
 
-quotes = {} # ticker -> price in listing ccy (US listings only)
+quotes   = {} # ticker -> price in listing ccy (US listings only)
+px_stale = {} # ticker -> true when the quote came from cache
 cos.each do |c|
   next unless (c['ccy'] || 'USD').upcase == 'USD'
 
   begin
-    d = get_json("#{CBOE}/#{c['ticker']}.json")['data']
+    r = BTC::SourceCache.fetch_json("cboe_quote_#{c['ticker']}",
+                                    "#{CBOE}/#{c['ticker']}.json",
+                                    { 'User-Agent' => UA }, read_timeout: 30, now: now)
+    d = r['data']['data']
     next unless d
 
     px = (d['current_price'] || d['close']).to_f
     px = d['close'].to_f if px <= 0
-    quotes[c['ticker']] = px if px > 0
+    next unless px > 0
+
+    quotes[c['ticker']]   = px
+    px_stale[c['ticker']] = r['stale']
+    sources << { name: "cboe_quote_#{c['ticker']}", as_of: r['as_of'], stale: r['stale'] }
   rescue StandardError => e
     warn "#{c['ticker']}: quote failed (#{e.message})"
   end
@@ -149,8 +175,14 @@ ccys = cos.map { |c| (c['ccy'] || 'USD').upcase }.uniq - ['USD']
 fx = Hash.new(1.0) # ccy -> units per USD
 unless ccys.empty?
   begin
-    rates = get_json("https://api.frankfurter.dev/v1/latest?base=USD&symbols=#{ccys.join(',')}")['rates'] || {}
+    r = BTC::SourceCache.fetch_json(
+      'frankfurter',
+      "https://api.frankfurter.dev/v1/latest?base=USD&symbols=#{ccys.join(',')}",
+      { 'User-Agent' => UA }, read_timeout: 30, now: now
+    )
+    rates = r['data']['rates'] || {}
     ccys.each { |x| fx[x] = rates[x].to_f }
+    sources << { name: 'frankfurter', as_of: r['as_of'], stale: r['stale'] }
   rescue StandardError => e
     warn "fx: #{e.message}"
     ccys.each { |x| fx[x] = 0.0 }
@@ -158,7 +190,6 @@ unless ccys.empty?
 end
 
 # ---- per-company metrics -----------------------------------------------------
-now  = Time.now.utc
 rows = []
 cos.each do |c|
   ccy = (c['ccy'] || 'USD').upcase
@@ -213,7 +244,12 @@ n_stale = rows.count { |r| r[:stale] }
 
 # ---- output ------------------------------------------------------------------
 if ARGV.include?('--json')
-  puts JSON.pretty_generate(
+  # additive (M7-8): 'sources' (always present) lists every live upstream
+  # consulted; 'spot_stale' and per-company 'px_stale' are present ONLY
+  # when true (absent = fresh), keeping the all-fresh contract fixtures
+  # field-set valid. The mNAV/stress math mixes cached-stale and fresh
+  # inputs exactly as if all fresh.
+  out = {
     name: 'btco', score: score, ts: now.iso8601, btc_spot: btc_px.round,
     stress: stress, band: band,
     headline: format('stress %d (%s): %.0f%% of BTC-weighted universe below mNAV 1, median mNAV %.2f, lev %.0f%%',
@@ -221,15 +257,20 @@ if ARGV.include?('--json')
     below_1_btc_weighted: (below_w * 100).round(1),
     median_mnav: mm.round(3), median_net_mnav: med_netm && med_netm.round(3),
     aggregate_leverage: agg_lev.round(3), stale_entries: n_stale,
+    sources: sources.map { |s| { name: s[:name], as_of: s[:as_of], stale: s[:stale] } },
     companies: rows.map do |r|
-      { ticker: r[:t], px: r[:px], ccy: r[:ccy], btc: r[:btc].round,
-        sats_sh_diluted: r[:sats_d].round, cebe_sats_sh: r[:cebe].round,
-        mnav: r[:mnav] && r[:mnav].round(3), net_mnav: r[:netm] && r[:netm].round(3),
-        ev_per_btc: r[:ev] && r[:ev].round, leverage: r[:lev].round(3),
-        verdict: verdict.(r), btc_as_of: r[:as_of],
-        stale: r[:stale] || false, placeholder: r[:ph] || false }
+      h = { ticker: r[:t], px: r[:px], ccy: r[:ccy], btc: r[:btc].round,
+            sats_sh_diluted: r[:sats_d].round, cebe_sats_sh: r[:cebe].round,
+            mnav: r[:mnav] && r[:mnav].round(3), net_mnav: r[:netm] && r[:netm].round(3),
+            ev_per_btc: r[:ev] && r[:ev].round, leverage: r[:lev].round(3),
+            verdict: verdict.(r), btc_as_of: r[:as_of],
+            stale: r[:stale] || false, placeholder: r[:ph] || false }
+      h[:px_stale] = true if px_stale[r[:t]]
+      h
     end
-  )
+  }
+  out[:spot_stale] = true if spot_stale
+  puts JSON.pretty_generate(out)
   exit
 end
 

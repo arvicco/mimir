@@ -207,7 +207,8 @@ module Publish
       levels = venues.flat_map { |v| gex['profiles'][v].keys }.uniq
                      .sort_by { |k| k.to_i }
       labels = levels.map { |l| level_label(l) }
-      bars   = venue_series(gex, venues, levels)
+      stale  = stale_venue_names(gex)
+      bars   = venue_series(gex, venues, levels, stale)
       series = aggregate_series(gex, venues, levels) + bars
       bars.first['markLine'] = mark_lines(gex, levels) if bars.first
 
@@ -216,8 +217,9 @@ module Publish
         # tuned text/legend/axis colors incl. dim-inactive legend states);
         # transparent bg lets the card surface show through
         'backgroundColor' => 'transparent',
-        'title' => { 'text' => format('GEX $M/1%% · spot %s',
-                                      level_label(gex['btc_spot'].to_i)),
+        'title' => { 'text' => format('GEX $M/1%% · spot %s%s',
+                                      level_label(gex['btc_spot'].to_i),
+                                      gex_stale_suffix(gex, venues, stale)),
                      'textStyle' => { 'fontSize' => 13 } },
         'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 }, 'axisPointer' => { 'type' => 'shadow' } },
         # hidden: the renderer's (p) VENUE (c) widget (meta.legend_widget)
@@ -269,22 +271,46 @@ module Publish
       end
     end
 
-    def venue_series(gex, venues, levels)
+    def venue_series(gex, venues, levels, stale = [])
       venues.each_with_index.flat_map do |venue, i|
         per = gex['profiles'][venue]
+        # stale marking (M7-8): a venue whose book came from cache gets a
+        # trailing '!' on its label ('DERI! C'); render.js's gex_levels
+        # formatter and gex_cp widget both parse /^(.*) ([CP])$/, so the
+        # bang rides through into m[1] with no renderer change.
+        label = stale.include?(venue) ? "#{venue_label(venue)}!" : venue_label(venue)
         # barGap -100% overlays the calls stack exactly on the puts stack
         # at each level (safe: calls >= 0, puts <= 0 -- they never cover
         # each other); the default side-by-side placement read as a
         # misalignment (owner review round 4)
-        [{ 'name' => "#{venue_label(venue)} C", 'type' => 'bar', 'stack' => 'calls',
+        [{ 'name' => "#{label} C", 'type' => 'bar', 'stack' => 'calls',
            'barGap' => '-100%',
            'itemStyle' => { 'color' => shade('calls', i, venues.size) },
            'data' => levels.map { |l| musd(per.dig(l, 'call').to_i) } },
-         { 'name' => "#{venue_label(venue)} P", 'type' => 'bar', 'stack' => 'puts',
+         { 'name' => "#{label} P", 'type' => 'bar', 'stack' => 'puts',
            'barGap' => '-100%',
            'itemStyle' => { 'color' => shade('puts', i, venues.size) },
            'data' => levels.map { |l| musd(per.dig(l, 'put').to_i) } }]
       end
+    end
+
+    # Names of venues whose book came from cache this run (M7-8): the
+    # additive per-venue 'stale' flag on the gex_btc_combined payload.
+    # Absent on all-fresh payloads -> [] -> byte-identical goldens.
+    def stale_venue_names(gex)
+      (gex['venues'] || []).select { |v| v['stale'] }.map { |v| v['name'] }
+    end
+
+    # Title suffix ' · stale: <names>' when any source is stale (M7-8):
+    # stale venue labels plus 'spot' when the Deribit index came from
+    # cache. Empty (no suffix) on all-fresh payloads.
+    def gex_stale_suffix(gex, venues, stale)
+      names = []
+      if (gex['sources'] || []).any? { |s| s['name'] == 'deribit_index' && s['stale'] }
+        names << 'spot'
+      end
+      names += venues.select { |v| stale.include?(v) }.map { |v| venue_label(v) }
+      names.empty? ? '' : " · stale: #{names.join(', ')}"
     end
 
     # Teal (calls) / red (puts) base hues, lightened stepwise per venue
@@ -357,7 +383,10 @@ module Publish
         # tuned text/legend/axis colors); transparent bg lets the card
         # surface show through -- identical framing to gex_profile
         'backgroundColor' => 'transparent',
-        'title' => { 'text' => format('MSTR GEX $M/1%% · spot %s', mstr_label(gex['spot'])),
+        # ' · stale' when the CBOE chain came from cache (M7-8, gex_us
+        # top-level 'stale'); absent on all-fresh payloads
+        'title' => { 'text' => format('MSTR GEX $M/1%% · spot %s%s', mstr_label(gex['spot']),
+                                      gex['stale'] ? ' · stale' : ''),
                      'textStyle' => { 'fontSize' => 13 } },
         'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 }, 'axisPointer' => { 'type' => 'shadow' } },
         # top 56: a two-band label zone between the 13px title and the plot
@@ -661,8 +690,12 @@ module Publish
         # tuned text/legend/axis colors incl. dim-inactive legend states);
         # transparent bg lets the card surface show through
         'backgroundColor' => 'transparent',
+        # ' · spot stale' when BTC spot came from cache (M7-8, btco
+        # 'spot_stale'): the whole NAV axis is on a stale coin price.
+        # Absent on all-fresh payloads -> byte-identical golden.
         'title' => {
-          'text' => format('BTCo stress %s %s', latest['stress'], latest['band'].to_s),
+          'text' => format('BTCo stress %s %s%s', latest['stress'], latest['band'].to_s,
+                           latest['spot_stale'] ? ' · spot stale' : ''),
           'textStyle' => { 'fontSize' => 13 }
         },
         'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 }, 'axisPointer' => { 'type' => 'shadow' } },
