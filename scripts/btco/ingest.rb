@@ -234,6 +234,10 @@ def show_review
     puts "  #{pr['extraction']['summary']}"
     pr['diff'].each { |k, v| puts format('  %-16s %s', k, v.inspect) }
     puts "  #{pr['url']}" if pr['url']
+    # exact, paste-ready commands -- never make the reviewer assemble
+    # them from a placeholder (owner feedback, 2026-07-07 session)
+    puts format('  apply:   ruby scripts/btco/ingest.rb --apply %s', pr['accession'])
+    puts format('  dismiss: ruby scripts/btco/ingest.rb --dismiss %s', pr['accession'])
   end
 end
 
