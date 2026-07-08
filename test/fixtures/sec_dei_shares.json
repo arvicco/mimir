@@ -1,0 +1,50 @@
+{
+  "cik": 1849635,
+  "taxonomy": "dei",
+  "tag": "EntityCommonStockSharesOutstanding",
+  "label": "Entity Common Stock, Shares Outstanding",
+  "description": "Indicate number of shares or other units outstanding of each of registrant's classes of capital or common stock or other ownership interests, if and as stated on cover of related periodic report. Where multiple classes or units exist define each class/interest by adding class of stock items such as Common Class A [Member], Common Class B [Member] or Partnership Interest [Member] onto the Instrument [Domain] of the Entity Listings, Instrument.",
+  "entityName": "Trump Media & Technology Group Corp.",
+  "units": {
+    "shares": [
+      {
+        "end": "2025-11-05",
+        "val": 279997636,
+        "accn": "0001140361-25-040977",
+        "fy": 2025,
+        "fp": "Q3",
+        "form": "10-Q",
+        "filed": "2025-11-07",
+        "frame": "CY2025Q3I"
+      },
+      {
+        "end": "2026-02-25",
+        "val": 276731315,
+        "accn": "0001140361-26-007174",
+        "fy": 2025,
+        "fp": "FY",
+        "form": "10-K",
+        "filed": "2026-02-27"
+      },
+      {
+        "end": "2026-04-28",
+        "val": 276953828,
+        "accn": "0001140361-26-018230",
+        "fy": 2025,
+        "fp": "FY",
+        "form": "10-K/A",
+        "filed": "2026-04-30",
+        "frame": "CY2026Q1I"
+      },
+      {
+        "end": "2026-05-06",
+        "val": 276953828,
+        "accn": "0001140361-26-020229",
+        "fy": 2026,
+        "fp": "Q1",
+        "form": "10-Q",
+        "filed": "2026-05-08"
+      }
+    ]
+  }
+}

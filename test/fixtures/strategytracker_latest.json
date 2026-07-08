@@ -1,0 +1,9 @@
+{
+  "version": "20260708T041926Z",
+  "timestamp": "2026-07-08T04:18:55.878579+00:00",
+  "previous_versions": ["20260708T040417Z", "20260708T034915Z"],
+  "files": {
+    "full": "all.v20260708T041926Z.json",
+    "light": "all-light.v20260708T041926Z.json"
+  }
+}

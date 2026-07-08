@@ -19,6 +19,8 @@
 #                                      #   the daily discovery-alert feed (M7-2)
 #   ruby ingest.rb --file f.txt --ticker 3350   # ingest a local document
 #                                      #   (e.g. Metaplanet TDnet text/HTML)
+#   ruby ingest.rb --tracker 3350      # proposal from StrategyTracker's feed
+#                                      #   (btc/as-of/shares only; M7-14)
 #   ruby ingest.rb --review            # show pending proposals with diffs
 #   ruby ingest.rb --apply <acc|path>  # apply one proposal to universe.json
 #   ruby ingest.rb --apply-all-high    # apply every high-confidence proposal
@@ -65,6 +67,8 @@ require 'digest'
 require_relative '../../lib/btc/util'
 require_relative '../../lib/btc/http'
 require_relative '../../lib/btc/treasury_ref'
+require_relative '../../lib/btc/coingecko_ref'
+require_relative '../../lib/btc/sec_shares'
 require_relative 'ingest_text'
 
 DIR      = File.expand_path(__dir__)
@@ -256,31 +260,59 @@ if ARGV.include?('--status')
   exit
 end
 
-# M7-9: independent third-party sanity line for --review. Cross-checks the
-# proposal's BTC figure against an outside aggregator (BTC::TreasuryRef)
-# so the owner can catch an AI-extraction error against a source mimir
-# does not control. ADVISORY ONLY -- an unknown company, a dead/absent
-# reference, or ANY error prints NOTHING and never blocks review. Returns
-# the line string, or nil to print nothing.
-def treasury_ref_line(pr)
+# M7-9/M7-11/M7-12: independent third-party sanity lines for --review.
+# Cross-checks a proposal's figures against sources mimir does not
+# control, so the owner can catch an extraction error at review time.
+# ADVISORY ONLY -- an unknown company, a dead/absent reference, or ANY
+# error prints NOTHING and never blocks review. Returns an array of
+# lines (possibly empty).
+#
+# BTC refs (M7-9 bitcointreasuries + M7-11 coingecko): two aggregators
+# that disagree with each other are themselves a signal worth seeing.
+# Shares ref (M7-12): SEC XBRL dei cover-page count with its as-of date
+# -- the structured version of the exact number the schema demands;
+# absent for multi-class filers (see lib/btc/sec_shares.rb), so no line
+# prints for them.
+def ref_lines(pr, cur)
+  lines = []
   prop = pr.dig('diff', 'btc', 'to') || pr.dig('extraction', 'btc')
-  return nil unless prop.is_a?(Numeric)
+  if prop.is_a?(Numeric)
+    [BTC::TreasuryRef, BTC::CoingeckoRef].each do |mod|
+      ref = begin
+        mod.btc_for(pr['ticker'])
+      rescue StandardError
+        nil
+      end
+      rb = ref ? ref['btc'].to_f : 0.0
+      next unless rb.positive?
 
-  ref = BTC::TreasuryRef.btc_for(pr['ticker'])
-  return nil unless ref
+      lines << format('  ref:     %s BTC (%s, as-of %s) -- %s',
+                      commafy(ref['btc']), ref['source'],
+                      ref['as_of'].to_s[0, 10], verdict_vs(prop, rb))
+    end
+  end
 
-  rb = ref['btc'].to_f
-  return nil unless rb.positive?
-
-  verdict = if ((prop - rb).abs / rb) > 0.02
-              format("⚠ proposal diverges %.1f%%", (prop - rb).abs / rb * 100)
-            else
-              'proposal matches'
-            end
-  format('  ref:     %s BTC (%s, as-of %s) -- %s',
-         commafy(ref['btc']), ref['source'], ref['as_of'].to_s[0, 10], verdict)
+  sh_prop = pr.dig('diff', 'shares_basic', 'to')
+  if sh_prop.is_a?(Numeric) && cur && cur['cik'].to_i.positive?
+    ref = BTC::SecShares.outstanding_for(cur['cik'], headers: UA)
+    if ref
+      lines << format('  shares:  %s (%s, as-of %s, %s) -- %s',
+                      commafy(ref['shares']), ref['source'], ref['as_of'],
+                      ref['form'], verdict_vs(sh_prop, ref['shares'].to_f))
+    end
+  end
+  lines
 rescue StandardError
-  nil
+  []
+end
+
+# proposal-vs-reference verdict string shared by every ref line.
+def verdict_vs(prop, ref)
+  if ((prop - ref).abs / ref) > 0.02
+    format("⚠ proposal diverges %.1f%%", (prop - ref).abs / ref * 100)
+  else
+    'proposal matches'
+  end
 end
 
 # 843775 -> "843,775" (thousands separators for the human ref line).
@@ -288,7 +320,7 @@ def commafy(num)
   num.to_i.to_s.reverse.gsub(/(\d{3})(?=\d)/, '\\1,').reverse
 end
 
-def show_review
+def show_review(universe)
   files = pending_files
   puts(files.empty? ? 'no pending proposals' : "#{files.size} pending:")
   files.each do |f|
@@ -298,7 +330,7 @@ def show_review
                 pr['extraction']['confidence'])
     puts "  #{pr['extraction']['summary']}"
     pr['diff'].each { |k, v| puts format('  %-16s %s', k, v.inspect) }
-    if (rl = treasury_ref_line(pr)) then puts rl end
+    ref_lines(pr, company(universe, pr['ticker'])).each { |rl| puts rl }
     puts "  #{pr['url']}" if pr['url']
     # exact, paste-ready commands -- never make the reviewer assemble
     # them from a placeholder (owner feedback, 2026-07-07 session)
@@ -359,7 +391,7 @@ def apply_proposal(universe, file)
 end
 
 if ARGV.include?('--review')
-  show_review
+  show_review(universe)
   exit
 end
 if (t = arg('--dismiss'))
@@ -414,6 +446,59 @@ if (path = arg('--file'))
            date: Time.now.utc.strftime('%Y-%m-%d'),
            url: File.expand_path(path) }
   analyse_one(cur, raw, meta)
+  exit
+end
+
+# ---- tracker ingestion (M7-14: StrategyTracker feed) ---------------------------
+# For companies the EDGAR path cannot serve (3350/Metaplanet files via
+# TDnet), StrategyTracker's open feed -- the engine behind Metaplanet's
+# OFFICIAL analytics page -- carries dated treasury rows with links to
+# the underlying disclosure PDFs (docs/BTCO-DATA-SOURCES.md). This mode
+# turns the LATEST row into a normal reviewed proposal: same pending/
+# review/apply pipeline, same ledger, nothing bypasses --apply. Only
+# btc/btc_as_of/shares_basic are proposed: the feed's diluted counts are
+# tracker-COMPUTED (not filing cover numbers) and its debt figure is
+# currency-ambiguous, so both stay out per the schema's honesty rule.
+# Interactive owner command -> fails hard with a message, no fail-soft.
+ST_LATEST = 'https://data.strategytracker.com/latest.json'
+if (tk = arg('--tracker'))
+  cur = company(universe, tk) or abort "unknown ticker #{tk}"
+  ptr  = JSON.parse(http(ST_LATEST))
+  full = ptr.dig('files', 'full') or abort 'tracker pointer has no full file'
+  # the full feed nests deeply enough to trip the default parser cap
+  data = JSON.parse(http("https://data.strategytracker.com/#{full}"),
+                    max_nesting: false)
+  key = ["#{tk}.T", "#{tk}.US", tk].find { |k| data['companies']&.key?(k) } or
+    abort "tracker does not list #{tk} (tried #{tk}.T/#{tk}.US/#{tk})"
+  row = data.dig('companies', key, 'processedMetrics', 'treasury_table')&.last or
+    abort "tracker has no treasury_table for #{key}"
+
+  acc = "tracker-#{Digest::SHA1.hexdigest(JSON.generate(row))[0, 12]}"
+  if ledger_accessions(tk).include?(acc) || pending_files.any? { |f| f.include?(acc.delete('-')) }
+    abort "already ingested (#{acc}) -- see --status / --review"
+  end
+
+  shares = row['Total Outstanding Shares']
+  ext = { 'no_material_change' => false,
+          'btc' => row['BTC Balance'], 'btc_as_of' => row['Date'],
+          'shares_basic' => (shares.to_i if shares), 'shares_diluted' => nil,
+          'debt_face' => nil, 'pref_liq' => nil,
+          'converts_add' => [], 'converts_remove' => [], 'atm_note' => nil,
+          'confidence' => 'medium',
+          'summary' => format('StrategyTracker %s treasury row %s: %s BTC, ' \
+                              '%s shares outstanding. Diluted/debt omitted ' \
+                              '(tracker-computed / currency-ambiguous) -- ' \
+                              'confirm against the linked disclosure.',
+                              key, row['Date'], row['BTC Balance'], shares || 'n/a') }
+  meta = { acc: acc, form: 'TRACKER', date: row['Date'],
+           url: row['Purchase Statement URL'] }
+  diff = drop_stale_btc(cur, ext, meta, Btco.diff_against(cur, ext))
+  abort "tracker row adds nothing newer than the model (btc as-of #{cur['btc_as_of']})" if diff.empty?
+
+  ppath = write_proposal(tk, meta, ext, diff, 'tracker')
+  puts format('%-6s TRACKER %s -> proposal %s [tracker/medium]',
+              tk, row['Date'], File.basename(ppath))
+  puts '  review with: ruby scripts/btco/ingest.rb --review'
   exit
 end
 

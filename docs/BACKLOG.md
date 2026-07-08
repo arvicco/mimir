@@ -962,6 +962,46 @@ line per proposal, ⚠ at >2% divergence, silent when the ref is dead
 (advisory only). Coinglass evaluated and REJECTED for cause: our tier
 has ETF flows only, no per-company treasury endpoint.
 
+## M7-11 · CoinGecko second BTC ref in --review  [tier: fable] [status: done 2026-07-08]
+lib/btc/coingecko_ref.rb (keyless snapshot, SourceCache
+'coingecko_treasury', symbol-prefix + name-alias lookup); --review
+prints BOTH aggregator ref lines (two refs disagreeing is itself a
+signal). Soft health entry; fixture recorded. Research basis:
+docs/BTCO-DATA-SOURCES.md. Follow-up decision item D8-e: wire the
+divergence (ref ahead of model) into the daily btco-alert as a
+discovery trigger -- ING token contract change, owner must rule.
+
+## M7-12 · SEC XBRL dei cover-count shares ref  [tier: fable] [status: done 2026-07-08]
+lib/btc/sec_shares.rb: companyconcept dei/EntityCommonStockShares
+Outstanding -> latest cover-page count WITH as-of date + form; --review
+prints a shares ref line when a proposal touches shares_basic (2%
+divergence warning). Multi-class filers (MSTR, ASST) are API-invisible
+(dimensional facts) -> nil, no line; their counts stay manual until
+M7-13. Soft health entry; per-CIK SourceCache. Also fixed: the flow
+harness leaked SourceCache writes into the real data/source_cache/
+(BTC_DATA_DIR now sandboxed in run_ingest).
+
+## M7-13 · deterministic filing-iXBRL parser  [tier: fable design, opus impl] [status: elaborated 2026-07-08, awaiting owner go]
+The research's biggest de-risking win, NOT yet built: parse each
+filing's inline-XBRL instance for (a) per-class dei cover counts
+(multi-class filers -- closes the M7-12 gap for MSTR/ASST) and (b)
+dimensional per-tranche convert facts (us-gaap DebtInstrumentFaceAmount
+/ DebtInstrumentConvertibleConversionPrice1 with axis/member contexts)
+-- replacing the AI-extraction error class that produced the DJT
+conv_price 1000x bug and the double-counted note. stdlib-only XML-ish
+parsing of ix: tags; proposals flow through the normal review/apply
+pipeline with mode 'xbrl'. Caveat pinned in the research: 8-K-exhibit
+-only terms never carry iXBRL -- those stay on the AI path.
+
+## M7-14 · tracker-sourced proposals (3350)  [tier: fable] [status: done 2026-07-08]
+ingest --tracker <T>: StrategyTracker's open feed (the engine behind
+Metaplanet's official analytics page) -> ONE reviewed proposal from the
+latest treasury_table row (btc/btc_as_of/shares_basic only -- diluted
+is tracker-computed, debt currency-ambiguous, both omitted per the
+schema honesty rule; url = the linked TDnet disclosure PDF). Same
+pending/review/apply pipeline + ledger; dedup by row hash; as-of guard
+applies. ToS caveat recorded in docs/BTCO-DATA-SOURCES.md.
+
 ## M7-10 · catch-up composite mode  [tier: fable design] [status: queued 2026-07-07]
 Walk filings newest->older until every field has been stated once;
 emit ONE composite proposal per company with per-field provenance

@@ -1,0 +1,88 @@
+{
+  "timestamp": "2026-07-08T04:18:55.878579+00:00",
+  "companies": {
+    "3350.T": {
+      "processedMetrics": {
+        "ticker": "3350.T",
+        "companyName": "Metaplanet",
+        "treasury_table": [
+          {
+            "Date": "2026-04-30",
+            "BTC Balance": 40177.0,
+            "Change": null,
+            "Market Price": null,
+            "Total Outstanding Shares": 1279913624,
+            "Diluted Shares Outstanding": 1630931625,
+            "Effective Diluted Shares": 1630931625,
+            "Use EV": true,
+            "Cash Balance": 55065711.246,
+            "Debt": 297065700.0,
+            "Purchase Statement URL": "https://contents.xj-storage.jp/xcontents/33500/1758d044/285f/4e65/93c0/04d9b3d9af96/140120260424510122.pdf",
+            "Stored FX Rate": null,
+            "Cost Basis": 4182691159.6672277,
+            "FX Rate on Purchase": 0.006383,
+            "dilutedShareTypes": [
+              {
+                "id": 1095,
+                "name": "Convertible Securities & Options",
+                "share_count": 351018001,
+                "include_in_effective_dilution": true,
+                "notes": "Calculated from fully diluted minus outstanding"
+              }
+            ]
+          },
+          {
+            "Date": "2026-06-30",
+            "BTC Balance": 43000.0,
+            "Change": 2823.0,
+            "Market Price": 79664.4419377,
+            "Total Outstanding Shares": 1281283624,
+            "Diluted Shares Outstanding": 1631543380,
+            "Effective Diluted Shares": 1631543380,
+            "Use EV": true,
+            "Cash Balance": 12000000.0,
+            "Debt": 464065700.0,
+            "Purchase Statement URL": "https://contents.xj-storage.jp/xcontents/33500/ef8f0fb6/d3f6/44c3/aafb/fbe407834e59/140120260702587030.pdf",
+            "Stored FX Rate": 159.57,
+            "Cost Basis": 4407583879.257355,
+            "FX Rate on Purchase": 0.006149,
+            "dilutedShareTypes": [
+              {
+                "id": 1224,
+                "name": "Convertible Securities & Options",
+                "share_count": 350259756,
+                "include_in_effective_dilution": true,
+                "notes": "Calculated from fully diluted minus outstanding"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "MSTR": {
+      "processedMetrics": {
+        "ticker": "MSTR",
+        "companyName": "Strategy",
+        "treasury_table": [
+          {
+            "Date": "2026-07-06",
+            "BTC Balance": 843775.0,
+            "Change": -2225.0,
+            "Market Price": 60773.0,
+            "Total Outstanding Shares": 371614000,
+            "Diluted Shares Outstanding": 401294000,
+            "Effective Diluted Shares": 401294000,
+            "Use EV": false,
+            "Cash Balance": 0,
+            "Debt": 0,
+            "Purchase Statement URL": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt6b18e7bc25a68a8f/6a4b0be1a8ab282d09015d81/form-8-k_07-06-2026.pdf",
+            "Stored FX Rate": null,
+            "Cost Basis": 63833642282.92303,
+            "FX Rate on Purchase": 1.0,
+            "dilutedShareTypes": []
+          }
+        ]
+      }
+    }
+  }
+}

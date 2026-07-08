@@ -40,6 +40,10 @@ module FakeTransport
     ['flow-history',                'coinglass_flows.json'],
     ['frankfurter',                 'frankfurter_fx.json'],
     ['bitcointreasuries',           'bitcointreasuries_table.html'],
+    ['companies/public_treasury',   'coingecko_treasury.json'],
+    ['api/xbrl/companyconcept',     'sec_dei_shares.json'],
+    ['strategytracker.com/latest',  'strategytracker_latest.json'],
+    ['strategytracker.com/all.',    'strategytracker_treasury.json'],
     ['submissions/CIK',             'edgar_submissions.json'],
     ['Archives/edgar',              'edgar_filing.html']
   ].freeze
