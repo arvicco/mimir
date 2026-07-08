@@ -29,3 +29,10 @@ Recorded 2026-07-04 18:27 UTC:
 - `edgar_submissions.json` -- OK (https://data.sec.gov/submissions/CIK0001050446.json)
 - `edgar_filing.html` -- OK (https://www.sec.gov/Archives/edgar/data/1050446/000119312526286871/mstr-20260629.htm)
 - `bitcointreasuries_table.html` -- OK (https://bitcointreasuries.net/ -- trimmed to 9 entity objects, M7-9 treasury ref)
+
+Recorded 2026-07-08 04:40 UTC (M7-11/12/14 structured sources):
+
+- `coingecko_treasury.json` -- OK (https://api.coingecko.com/api/v3/companies/public_treasury/bitcoin -- trimmed to the universe's 9 rows incl. the empty-symbol SpaceX row)
+- `sec_dei_shares.json` -- OK (https://data.sec.gov/api/xbrl/companyconcept/CIK0001849635/dei/EntityCommonStockSharesOutstanding.json -- DJT, trimmed to the last 4 facts)
+- `strategytracker_latest.json` -- OK (https://data.strategytracker.com/latest.json -- version pointer, verbatim)
+- `strategytracker_treasury.json` -- OK (https://data.strategytracker.com/all.v20260708T041926Z.json -- trimmed to 3350.T last 2 treasury rows + MSTR last row)

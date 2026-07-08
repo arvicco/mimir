@@ -169,6 +169,10 @@ class TestIngestFlow < Minitest::Test
     env = { 'RUBYOPT'           => "-I#{SUPPORT} -rfake_transport",
             'FAKE_NOW'          => FROZEN_NOW,
             'ANTHROPIC_API_KEY' => key,
+            # keep SourceCache writes (ref lines, M7-9/11/12) in the
+            # sandbox -- without this the subprocess caches fixture data
+            # into the REAL data/source_cache/ (leak found in M7-11)
+            'BTC_DATA_DIR'      => File.join(@sandbox, 'data'),
             'http_proxy'        => 'http://127.0.0.1:9',
             'https_proxy'       => 'http://127.0.0.1:9' }
     Open3.capture3(env, RbConfig.ruby, @ingest, *argv, chdir: @btco)
@@ -518,6 +522,113 @@ class TestIngestFlow < Minitest::Test
     assert_equal 'heuristic', pr['mode']
     assert_equal({ 'from' => 500, 'to' => 12_345 }, pr['diff']['btc'])
     assert_equal({ 'from' => 100, 'to' => 123_456_789 }, pr['diff']['shares_basic'])
+  end
+
+  # ---- surface 8: --tracker proposal (M7-14, StrategyTracker feed) -------
+  # The fake transport serves strategytracker_latest.json (version
+  # pointer) then strategytracker_treasury.json (trimmed feed, 3350.T
+  # latest row: 43,000 BTC @2026-06-30, 1,281,283,624 shares).
+
+  def tracker_universe(btc_as_of: '2020-01-01', btc: 15_555, shares: 590_000_000)
+    u = synthetic_universe
+    u['companies'] << {
+      'name' => 'Metaplanet', 'ticker' => '3350', 'ccy' => 'JPY',
+      'cik' => nil, 'btc' => btc, 'btc_as_of' => btc_as_of,
+      'shares_basic' => shares, 'shares_diluted' => nil,
+      'debt_face' => 0, 'pref_liq' => 0, 'converts' => [],
+      'placeholder' => true
+    }
+    write_universe(u)
+  end
+
+  def test_tracker_builds_reviewed_proposal_from_feed_row
+    tracker_universe
+    out, err, st = run_ingest('--tracker', '3350')
+    assert st.success?, "--tracker 3350 exit #{st.exitstatus}: #{err}\n#{out}"
+    assert_match(/3350\s+TRACKER 2026-06-30 -> proposal/, out)
+
+    assert_equal 1, pending_files.size
+    pr = JSON.parse(File.read(pending_files.first))
+    assert_equal PROPOSAL_KEYS, pr.keys.sort, 'same proposal schema as every mode'
+    assert_equal '3350', pr['ticker']
+    assert_equal 'TRACKER', pr['form']
+    assert_equal 'tracker', pr['mode']
+    assert_match(/\Atracker-[0-9a-f]{12}\z/, pr['accession'])
+    assert_match(%r{\Ahttps://contents\.xj-storage\.jp/}, pr['url'],
+                 'url is the underlying TDnet disclosure PDF')
+
+    assert_equal({ 'from' => 15_555, 'to' => 43_000.0 }, pr['diff']['btc'])
+    assert_equal({ 'from' => '2020-01-01', 'to' => '2026-06-30' }, pr['diff']['btc_as_of'])
+    assert_equal({ 'from' => 590_000_000, 'to' => 1_281_283_624 }, pr['diff']['shares_basic'])
+    # tracker-computed diluted + currency-ambiguous debt stay OUT (header rule)
+    assert_nil pr['extraction']['shares_diluted']
+    assert_nil pr['extraction']['debt_face']
+    # nothing applied: universe untouched until an explicit --apply
+    assert_equal 15_555, company(read_universe, '3350')['btc']
+  end
+
+  def test_tracker_dedup_aborts_while_pending
+    tracker_universe
+    _o, _e, st = run_ingest('--tracker', '3350')
+    assert st.success?
+    _o2, e2, s2 = run_ingest('--tracker', '3350')
+    refute s2.success?, 'same feed row must not re-propose'
+    assert_match(/already ingested \(tracker-/, e2)
+    assert_equal 1, pending_files.size
+  end
+
+  def test_tracker_row_adding_nothing_newer_aborts
+    # model already carries the feed row's btc as-of AND share count ->
+    # empty diff after the stale-btc strip -> abort, no proposal.
+    tracker_universe(btc_as_of: '2026-06-30', btc: 43_000, shares: 1_281_283_624)
+    _o, e, st = run_ingest('--tracker', '3350')
+    refute st.success?
+    assert_match(/adds nothing newer/, e)
+    assert_empty pending_files
+  end
+
+  def test_tracker_unknown_on_feed_aborts
+    _o, e, st = run_ingest('--tracker', 'TST') # feed lists 3350.T + MSTR only
+    refute st.success?
+    assert_match(/tracker does not list TST/, e)
+  end
+
+  # ---- surface 9: --review ref lines (M7-9/11 btc refs, M7-12 shares) ----
+
+  def test_review_prints_both_btc_refs_for_matching_proposal
+    tracker_universe
+    _o, _e, st = run_ingest('--tracker', '3350')
+    assert st.success?
+    out, err, st2 = run_ingest('--review')
+    assert st2.success?, "--review exit: #{err}"
+    refs = out.lines.select { |l| l.include?('  ref:') }
+    assert_equal 2, refs.size, "expected both aggregator ref lines in:\n#{out}"
+    assert(refs.any? { |l| l.include?('bitcointreasuries.net') })
+    assert(refs.any? { |l| l.include?('coingecko') })
+    # both aggregators carry 43,000 for Metaplanet -> the tracker proposal matches
+    refs.each { |l| assert_match(/43,000 BTC .* -- proposal matches/, l) }
+  end
+
+  def test_review_prints_sec_shares_ref_when_proposal_touches_shares
+    # TST has a cik; the MATERIAL_DOC proposal moves shares_basic to
+    # 123,456,789 while the recorded dei fixture says 276,953,828 -> the
+    # shares ref line prints with a divergence warning.
+    _o, _e, st = run_ingest('--file', write_doc, '--ticker', 'TST')
+    assert st.success?
+    out, _e2, st2 = run_ingest('--review')
+    assert st2.success?
+    sh = out.lines.find { |l| l.include?('  shares:') }
+    refute_nil sh, "expected a sec-xbrl shares ref line in:\n#{out}"
+    assert_match(/276,953,828 \(sec-xbrl dei, as-of 2026-05-06, 10-Q\)/, sh)
+    assert_match(/⚠ proposal diverges/, sh)
+  end
+
+  def test_review_prints_no_shares_ref_for_null_cik_company
+    _o, _e, st = run_ingest('--file', write_doc, '--ticker', 'NAKA')
+    assert st.success?
+    out, _e2, st2 = run_ingest('--review')
+    assert st2.success?
+    refute_match(/  shares:/, out, 'no cik -> no structured shares ref')
   end
 
   # ---- guard: real in-tree files untouched by the whole suite ----------

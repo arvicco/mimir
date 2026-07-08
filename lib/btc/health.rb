@@ -98,6 +98,22 @@ module BTC
         marker: 'bitcointreasuries.net', soft: true,
         url: 'https://bitcointreasuries.net/',
         check: ->(b) { TreasuryRef.parse_table(b).size >= 10 } },
+      # soft: the M7-11/M7-12 advisory review refs + the M7-14 tracker
+      # proposal source (docs/BTCO-DATA-SOURCES.md) -- --review omits the
+      # line / --tracker aborts with a message, so degradation WARNs.
+      { name: 'coingecko treasury ref', src: 'lib/btc/coingecko_ref.rb',
+        marker: 'api.coingecko.com/api/v3/companies/public_treasury', soft: true,
+        url: 'https://api.coingecko.com/api/v3/companies/public_treasury/bitcoin',
+        check: ->(b) { JSON.parse(b).fetch('companies').size >= 50 } },
+      { name: 'sec xbrl dei shares', src: 'lib/btc/sec_shares.rb',
+        marker: 'data.sec.gov/api/xbrl/companyconcept', soft: true,
+        url: 'https://data.sec.gov/api/xbrl/companyconcept/CIK0001849635/dei/EntityCommonStockSharesOutstanding.json',
+        headers: -> { { 'User-Agent' => ENV['EDGAR_UA'] || 'mimir health (set EDGAR_UA=name email)' } },
+        check: ->(b) { !JSON.parse(b).fetch('units').fetch('shares').to_a.empty? } },
+      { name: 'strategytracker feed', src: 'scripts/btco/ingest.rb',
+        marker: 'data.strategytracker.com', soft: true,
+        url: 'https://data.strategytracker.com/latest.json',
+        check: ->(b) { JSON.parse(b).fetch('files').key?('full') } },
       { name: 'frankfurter fx', src: 'scripts/btco/btco.rb',
         marker: 'api.frankfurter.dev/v1/latest',
         url: 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=JPY',
