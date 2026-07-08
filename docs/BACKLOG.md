@@ -1025,8 +1025,12 @@ companyfacts dei: 696,085,586 @2026-05-11 10-Q vs applied 690,018,254
 model's 5,765 @2025-08-31 -- CoinGecko shows 4,467 today, so a fresher
 filing likely exists. MSTR 2029 convert face edit ($3.0B -> $1.5B per
 the May-15 8-K) still awaiting owner yes/no. 3 DJT pendings recommended
-for dismiss. The 0-placeholder finish line + ops:install/ops:tmux move
-to the residual session.
+for dismiss. ops:install DONE 2026-07-08 (owner ran it; all 4 agents
+PASS -- suite-history + btco-alert now scheduled; the ING 128! count
+is the recomposed universe's old discovery floors, shrinks as newest
+filings are analysed/dismissed). Remaining finish line: 3350 tracker
+proposal apply (pending, both refs match), XXI ledgering, BLSH
+shares, 2029 convert yes/no, ops:tmux (optional ING token).
 Goal: (a) write XXI cik 2070457 + NAKA cik 1946573 into universe.json
       -- a deliberate human-approved edit (Golden Rule: universe.json
       changes only via reviewed proposals or deliberate human edit;
