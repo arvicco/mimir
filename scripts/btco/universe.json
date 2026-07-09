@@ -54,14 +54,35 @@
       "stooq": "xxi.us",
       "ccy": "USD",
       "cik": "2070457",
-      "btc": 43514,
-      "btc_as_of": "2025-06-30",
-      "shares_basic": 346000000,
+      "btc": 36504,
+      "btc_as_of": "2025-12-31",
+      "shares_basic": 346548153,
       "shares_diluted": 400000000,
-      "debt_face": 485000000,
+      "debt_face": 486500000,
       "pref_liq": 0,
-      "converts": [],
-      "placeholder": true,
+      "converts": [
+        {
+          "face": 486500000,
+          "conv_price": null,
+          "label": "1.0% Convertible Senior Notes due 2030"
+        },
+        {
+          "face": 486500000,
+          "conv_price": null,
+          "label": "1.00% Convertible Senior Secured Notes due 2030"
+        },
+        {
+          "face": 486500000,
+          "conv_price": 13.873,
+          "label": "1.00% Convertible Notes due 2030"
+        },
+        {
+          "face": 486500000,
+          "conv_price": null,
+          "label": "1.0% Convertible Senior Notes due 2030"
+        }
+      ],
+      "placeholder": false,
       "note": "dual-class structure; diluted count approximate -- see prior XXI capital-structure model"
     },
     {
