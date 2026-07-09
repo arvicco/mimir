@@ -1002,6 +1002,33 @@ schema honesty rule; url = the linked TDnet disclosure PDF). Same
 pending/review/apply pipeline + ledger; dedup by row hash; as-of guard
 applies. ToS caveat recorded in docs/BTCO-DATA-SOURCES.md.
 
+## M7-15 · per-ticker objective validation (validate.rb)  [tier: fable] [status: core done 2026-07-09; AI research layer = M7-15b todo]
+Owner ruling: "NONE of the ratios on file are close to what other
+researchers report... we need an objective source of truth; the
+universe filling process seems not grounded in reality." Built:
+scripts/btco/validate.rb (+validate_core.rb, 13 unit tests) -- per
+ticker prints OURS (the served row), EXTERNAL (StrategyTracker's
+published mNAV + inputs, bitcointreasuries/coingecko btc counts, SEC
+dei cover shares), RECONCILE (our-vs-tracker mNAV decomposed into the
+four input factors; dominant factor NAMES the divergent input;
+residual ~1 proves definitions agree), NEEDS (plain-words to-dos with
+exact commands). First live run: engine + definitions CONFIRMED
+against externals (ASST matches exactly; MSTR -6.4% fully explained,
+dominant = share count 350.4M Apr cover vs tracker 371.6M Jul-6 --
+ATMs outrun quarterly covers); every remaining oddity now has a named
+cause. M7-15b (todo): AI research layer -- dossier + web research per
+ticker for the fields no structured source covers (cash!, non-BTC
+business value, pref/convert terms); expected to formalize the "add
+cash to the model" decision.
+
+## D8-f · 3350 price source  [decision item, 2026-07-09]
+stooq's quote API is dead upstream (F-17); the recomposed 3350 entry
+carries no manual_px -> Metaplanet has NO dashboard row despite real
+data. Options: (a) manual_px + an owner refresh routine; (b) small
+packet: btco.rb prices 3350 from the StrategyTracker feed's USD
+stockPrice (source already registered; adds a btco runtime dependency
+on a third-party tracker). Owner picks.
+
 ## M7-10 · catch-up composite mode  [tier: fable design] [status: queued 2026-07-07]
 Walk filings newest->older until every field has been stated once;
 emit ONE composite proposal per company with per-field provenance
