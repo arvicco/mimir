@@ -100,6 +100,49 @@ class TestDiffAgainst < Minitest::Test
     assert_empty d
   end
 
+  # ---- duplicate-instrument guard (2026-07-09 XXI session: the same
+  # ---- $486.5M note entered FOUR times under varied label wording) ----
+
+  XXI_CUR = { 'btc' => 1, 'converts' => [
+    { 'face' => 486_500_000, 'conv_price' => 13.873,
+      'label' => '1.00% Convertible Notes due 2030' }
+  ] }.freeze
+
+  def test_converts_add_dedups_same_normalized_label
+    ext = { 'converts_add' => [{ 'face' => 486_500_000, 'conv_price' => nil,
+                                 'label' => '1.00%  Convertible Notes due 2030' }] }
+    assert_empty Btco.diff_against(XXI_CUR, ext)
+  end
+
+  def test_converts_add_dedups_same_face_and_due_year_despite_wording
+    # the XXI case: "Senior Secured" vs "Senior" vs bare wording -- same
+    # face, same due-year = the same instrument
+    ext = { 'converts_add' => [
+      { 'face' => 486_500_000, 'conv_price' => nil,
+        'label' => '1.0% Convertible Senior Secured Notes due 2030' }
+    ] }
+    assert_empty Btco.diff_against(XXI_CUR, ext)
+  end
+
+  def test_converts_add_keeps_genuinely_new_tranche
+    # MSTR-style: same due-year but a DIFFERENT face is a distinct tranche
+    ext = { 'converts_add' => [
+      { 'face' => 800_000_000, 'conv_price' => 149.77,
+        'label' => '2.00% Convertible Notes due 2030' }
+    ] }
+    d = Btco.diff_against(XXI_CUR, ext)
+    assert_equal 1, d['converts_add'].size
+  end
+
+  def test_new_tranches_handles_missing_labels_and_faces
+    have = [{ 'face' => 100, 'label' => 'Notes due 2031' }]
+    adds = [{ 'face' => nil, 'label' => 'Notes due 2031' },  # label match -> dup
+            { 'face' => 100, 'label' => '' }]                # no keys overlap -> kept
+    fresh = Btco.new_tranches(have, adds)
+    assert_equal 1, fresh.size
+    assert_equal 100, fresh.first['face']
+  end
+
   def test_no_material_change_yields_empty_diff
     assert_empty Btco.diff_against(CUR, { 'no_material_change' => true,
                                           'confidence' => 'high' })
