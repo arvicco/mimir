@@ -368,7 +368,14 @@ def apply_proposal(universe, file)
 
     case k
     when 'converts_add'
-      cur['converts'] = cur['converts'].to_a + v
+      # duplicate-instrument guard (2026-07-09 XXI session): a proposal
+      # written before the model gained the tranche must not re-add it
+      fresh = Btco.new_tranches(cur['converts'], v)
+      if (skipped = v.size - fresh.size).positive?
+        puts format('  converts_add: %d duplicate tranche(s) skipped (already in model)',
+                    skipped)
+      end
+      cur['converts'] = cur['converts'].to_a + fresh
     when 'converts_remove'
       cur['converts'] = cur['converts'].to_a.reject { |t| v.include?(t['label']) }
     else

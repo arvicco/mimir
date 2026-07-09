@@ -47,6 +47,13 @@ module Btco
   end
 
   # Field-level diff of an extraction against the current company model.
+  # converts_add is deduped against the tranches ALREADY in the model:
+  # every filing that mentions an existing note re-describes it (often
+  # with slightly different label wording), and the append-only apply
+  # semantics turned one XXI note into four tranches + a debt_face
+  # mirror (2026-07-09 owner session). Identity = same face amount +
+  # same due-year, or the same normalized label -- distinct real
+  # tranches differ in at least one (e.g. MSTR 2030A/B differ in face).
   def diff_against(cur, ext)
     d = {}
     NUMKEYS.each do |k|
@@ -57,8 +64,30 @@ module Btco
     end
     d['btc_as_of'] = { 'from' => cur['btc_as_of'], 'to' => ext['btc_as_of'] } if
       ext['btc_as_of'] && ext['btc_as_of'] != cur['btc_as_of']
-    d['converts_add']    = ext['converts_add']    if ext['converts_add'].to_a.any?
+    fresh = new_tranches(cur['converts'], ext['converts_add'])
+    d['converts_add']    = fresh                  if fresh.any?
     d['converts_remove'] = ext['converts_remove'] if ext['converts_remove'].to_a.any?
     d
+  end
+
+  # Tranches in adds that are NOT already in the model (see diff_against).
+  def new_tranches(existing, adds)
+    have = (existing || []).map { |t| tranche_keys(t) }
+    adds.to_a.reject do |t|
+      k = tranche_keys(t)
+      have.any? { |h| (h & k).any? }
+    end
+  end
+
+  # Identity keys for one tranche: [face+due-year] (when both are
+  # stated) and the normalized label.
+  def tranche_keys(t)
+    keys = []
+    label = t['label'].to_s.downcase.gsub(/[^a-z0-9%. ]+/, ' ').squeeze(' ').strip
+    keys << "label:#{label}" unless label.empty?
+    year = t['label'].to_s[/due[^0-9]*(\d{4})/i, 1]
+    face = t['face'].to_f
+    keys << "face:#{face.to_i}-due:#{year}" if face.positive? && year
+    keys
   end
 end
