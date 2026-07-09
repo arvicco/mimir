@@ -26,6 +26,7 @@ module BTC
     ALLOWED_ENV = {
       'scripts/btco/btco.rb'          => %w[EDGAR_UA],
       'scripts/btco/ingest.rb'        => %w[EDGAR_UA ANTHROPIC_API_KEY BTCO_MODEL],
+      'scripts/btco/validate.rb'      => %w[EDGAR_UA],
       'scripts/scenario/macro.rb'     => %w[FRED_API_KEY],
       'scripts/scenario/etf_flows.rb' => %w[COINGLASS_API_KEY],
       'scripts/scenario/scenario.rb'  => %w[HOME],

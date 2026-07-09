@@ -1,0 +1,182 @@
+{
+  "v": 1,
+  "key": "btco:latest",
+  "generated_at": "2026-07-09T13:31:54Z",
+  "ttl_hint_s": 3600,
+  "source": "gold",
+  "payload": {
+    "name": "btco",
+    "score": 0,
+    "ts": "2026-07-09T13:32:40Z",
+    "btc_spot": 62464,
+    "stress": 51,
+    "band": "STRESSED",
+    "headline": "stress 51 (STRESSED): 95% of BTC-weighted universe below mNAV 1, median mNAV 3.94, lev 20%",
+    "below_1_btc_weighted": 95.1,
+    "median_mnav": 3.94,
+    "median_net_mnav": 0.825,
+    "aggregate_leverage": 0.197,
+    "stale_entries": 2,
+    "sources": [
+      {
+        "name": "deribit_index",
+        "as_of": "2026-07-09T13:32:40Z",
+        "stale": false
+      },
+      {
+        "name": "cboe_quote_MSTR",
+        "as_of": "2026-07-09T13:32:40Z",
+        "stale": false
+      },
+      {
+        "name": "cboe_quote_XXI",
+        "as_of": "2026-07-09T13:32:40Z",
+        "stale": false
+      },
+      {
+        "name": "cboe_quote_DJT",
+        "as_of": "2026-07-09T13:32:40Z",
+        "stale": false
+      },
+      {
+        "name": "cboe_quote_NAKA",
+        "as_of": "2026-07-09T13:32:40Z",
+        "stale": false
+      },
+      {
+        "name": "cboe_quote_ASST",
+        "as_of": "2026-07-09T13:32:40Z",
+        "stale": false
+      },
+      {
+        "name": "cboe_quote_BLSH",
+        "as_of": "2026-07-09T13:32:40Z",
+        "stale": false
+      },
+      {
+        "name": "cboe_quote_ABTC",
+        "as_of": "2026-07-09T13:32:40Z",
+        "stale": false
+      },
+      {
+        "name": "frankfurter",
+        "as_of": "2026-07-09T13:32:40Z",
+        "stale": false
+      }
+    ],
+    "companies": [
+      {
+        "ticker": "MSTR",
+        "px": 94.53,
+        "ccy": "USD",
+        "btc": 843775,
+        "sats_sh_diluted": 240770,
+        "cebe_sats_sh": 194567,
+        "mnav": 0.629,
+        "net_mnav": 0.778,
+        "ev_per_btc": 51248,
+        "leverage": 0.192,
+        "verdict": "DEEP-DISC",
+        "btc_as_of": "2026-07-05",
+        "stale": false,
+        "placeholder": false
+      },
+      {
+        "ticker": "XXI",
+        "px": 5.28,
+        "ccy": "USD",
+        "btc": 43514,
+        "sats_sh_diluted": 10879,
+        "cebe_sats_sh": 8937,
+        "mnav": 0.672,
+        "net_mnav": 0.818,
+        "ev_per_btc": 53130,
+        "leverage": 0.178,
+        "verdict": "DEEP-DISC",
+        "btc_as_of": "2025-06-30",
+        "stale": true,
+        "placeholder": true
+      },
+      {
+        "ticker": "DJT",
+        "px": 8.48,
+        "ccy": "USD",
+        "btc": 9542,
+        "sats_sh_diluted": 3181,
+        "cebe_sats_sh": 0,
+        "mnav": 3.94,
+        "net_mnav": null,
+        "ev_per_btc": 350924,
+        "leverage": 1.678,
+        "verdict": "N/A",
+        "btc_as_of": "2026-03-31",
+        "stale": false,
+        "placeholder": false
+      },
+      {
+        "ticker": "NAKA",
+        "px": 3.88,
+        "ccy": "USD",
+        "btc": 5342,
+        "sats_sh_diluted": 600,
+        "cebe_sats_sh": 303,
+        "mnav": 8.023,
+        "net_mnav": 15.872,
+        "ev_per_btc": 532061,
+        "leverage": 0.494,
+        "verdict": "OVER",
+        "btc_as_of": "2025-12-31",
+        "stale": true,
+        "placeholder": false
+      },
+      {
+        "ticker": "ASST",
+        "px": 12.38,
+        "ccy": "USD",
+        "btc": 19864,
+        "sats_sh_diluted": 24012,
+        "cebe_sats_sh": 24012,
+        "mnav": 0.825,
+        "net_mnav": 0.825,
+        "ev_per_btc": 51558,
+        "leverage": 0.0,
+        "verdict": "DEEP-DISC",
+        "btc_as_of": "2026-07-02",
+        "stale": false,
+        "placeholder": false
+      },
+      {
+        "ticker": "BLSH",
+        "px": 25.77,
+        "ccy": "USD",
+        "btc": 24000,
+        "sats_sh_diluted": null,
+        "cebe_sats_sh": null,
+        "mnav": null,
+        "net_mnav": 0.0,
+        "ev_per_btc": 0,
+        "leverage": 0.0,
+        "verdict": "DEEP-DISC",
+        "btc_as_of": "2026-05-01",
+        "stale": false,
+        "placeholder": false
+      },
+      {
+        "ticker": "ABTC",
+        "px": 5.9064,
+        "ccy": "USD",
+        "btc": 8000,
+        "sats_sh_diluted": 753,
+        "cebe_sats_sh": 753,
+        "mnav": 12.565,
+        "net_mnav": 12.565,
+        "ev_per_btc": 784823,
+        "leverage": 0.0,
+        "verdict": "OVER",
+        "btc_as_of": "2026-05-01",
+        "stale": false,
+        "placeholder": false
+      }
+    ]
+  }
+}

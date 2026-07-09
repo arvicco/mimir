@@ -35,4 +35,8 @@ Recorded 2026-07-08 04:40 UTC (M7-11/12/14 structured sources):
 - `coingecko_treasury.json` -- OK (https://api.coingecko.com/api/v3/companies/public_treasury/bitcoin -- trimmed to the universe's 9 rows incl. the empty-symbol SpaceX row)
 - `sec_dei_shares.json` -- OK (https://data.sec.gov/api/xbrl/companyconcept/CIK0001849635/dei/EntityCommonStockSharesOutstanding.json -- DJT, trimmed to the last 4 facts)
 - `strategytracker_latest.json` -- OK (https://data.strategytracker.com/latest.json -- version pointer, verbatim)
-- `strategytracker_treasury.json` -- OK (https://data.strategytracker.com/all.v20260708T041926Z.json -- trimmed to 3350.T last 2 treasury rows + MSTR last row)
+- `strategytracker_treasury.json` -- OK (https://data.strategytracker.com/all.v20260708T041926Z.json -- re-trimmed 2026-07-09 to 3350.T/MSTR/ASST processedMetrics metric fields + last treasury rows, M7-15 validate)
+
+Recorded 2026-07-09 (M7-15 validation tool):
+
+- `btco_latest_payload.json` -- OK (own KV `v1:btco:latest`, 13:32Z envelope verbatim -- the published surface the validator reconciles against)
