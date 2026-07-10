@@ -274,7 +274,7 @@ class TestIngestFlow < Minitest::Test
     doc = write_doc('The Company held 12,345 bitcoin as of June 1, 2026.')
     out, err, st = run_ingest('--file', doc, '--ticker', 'TST')
     assert st.success?, err
-    assert_match(/btc older than model .* -- no proposal/, out)
+    assert_match(/nothing newer than the model .* -- no proposal/, out)
     assert_empty pending_files
   end
 
@@ -338,7 +338,7 @@ class TestIngestFlow < Minitest::Test
 
     out, err, st = run_ingest('--apply', 'acc-old')
     assert st.success?, err
-    assert_match(/btc\/btc_as_of SKIPPED: model already newer/, out)
+    assert_match(/btc SKIPPED: model as-of 2026-07-05 >= proposal 2026-03-31/, out)
     after = company(read_universe, 'TST')
     assert_equal 843_775, after['btc'], 'older filing must not regress btc'
     assert_equal '2026-07-05', after['btc_as_of']
@@ -629,6 +629,99 @@ class TestIngestFlow < Minitest::Test
     out, _e2, st2 = run_ingest('--review')
     assert st2.success?
     refute_match(/  shares:/, out, 'no cik -> no structured shares ref')
+  end
+
+  # ---- surface 10: per-field freshness gate (M7-16 owner ruling) ---------
+  # "Any ingestion is tested against the LATEST KNOWN GOOD ticker state."
+  # Every field carries an as-of (btc via btc_as_of, the rest via the
+  # entry's as_of map); stale fields are stripped at PROPOSE time and
+  # blocked at APPLY time.
+
+  def test_propose_strips_field_older_than_its_as_of
+    uni = synthetic_universe
+    company(uni, 'TST')['as_of'] = { 'shares_basic' => '2026-07-15' } # after FROZEN_NOW
+    write_universe(uni)
+    _out, err, st = run_ingest('--file', write_doc, '--ticker', 'TST')
+    assert st.success?, err
+    pr = JSON.parse(File.read(pending_files.first))
+    refute pr['diff'].key?('shares_basic'), 'field older than its as_of must be stripped'
+    assert pr['diff'].key?('btc'), 'fresh btc still proposes'
+  end
+
+  def test_apply_blocks_stale_field_and_stamps_fresh_ones
+    uni = synthetic_universe
+    company(uni, 'TST')['as_of'] = { 'shares_basic' => '2026-06-15' }
+    write_universe(uni)
+    write_proposal_file('TST_accstale.json',
+                        'ticker' => 'TST', 'accession' => 'acc-stale', 'form' => '8-K',
+                        'filing_date' => '2026-06-10', 'url' => 'u', 'mode' => 'ai',
+                        'extraction' => { 'btc_as_of' => '2026-06-10',
+                                          'confidence' => 'high', 'summary' => 's' },
+                        'diff' => { 'shares_basic' => { 'from' => 1_000, 'to' => 9_999 },
+                                    'debt_face' => { 'from' => 0, 'to' => 777 } })
+    out, err, st = run_ingest('--apply', 'acc-stale')
+    assert st.success?, err
+    assert_match(/shares_basic SKIPPED: model as-of 2026-06-15 >= proposal 2026-06-10/, out)
+    after = company(read_universe, 'TST')
+    assert_equal 1_000, after['shares_basic'], 'stale field must not regress'
+    assert_equal 777, after['debt_face'], 'unguarded-fresh field applies'
+    assert_equal '2026-06-10', after.dig('as_of', 'debt_face'), 'apply stamps the as_of map'
+  end
+
+  # ---- surface 11: --baseline (M7-16: research -> replace) ----------------
+  # ANTHROPIC_API_KEY set -> the fake transport serves the canned
+  # anthropic_baseline.json research response (btc 55,000 @2026-06-28,
+  # 2.0M shares, one convert tranche).
+
+  def test_baseline_writes_reviewed_proposal_and_apply_replaces_entry
+    uni = synthetic_universe
+    company(uni, 'TST')['converts'] = [{ 'face' => 9, 'conv_price' => 1, 'label' => 'OLD note due 2029' }]
+    write_universe(uni)
+
+    out, err, st = run_ingest('--baseline', 'TST', key: 'test-key')
+    assert st.success?, "--baseline exit #{st.exitstatus}: #{err}\n#{out}"
+    assert_match(/TST\s+BASELINE 2026-06-30 -> proposal/, out)
+    assert_equal 1, pending_files.size
+    pr = JSON.parse(File.read(pending_files.first))
+    assert_equal 'BASELINE', pr['form']
+    assert_equal 'ai-research', pr['mode']
+    assert_equal 55_000, pr.dig('baseline', 'btc')
+    assert_equal '2026-06-28', pr.dig('baseline', 'btc_as_of')
+    assert_equal({ 'from' => '1 tranche(s)', 'to' => '1 tranche(s) (replaces)' },
+                 pr['diff']['converts'])
+
+    # universe untouched until the explicit apply (review gate holds)
+    assert_equal 100, company(read_universe, 'TST')['btc']
+
+    out2, err2, st2 = run_ingest('--apply', pr['accession'])
+    assert st2.success?, "apply exit: #{err2}\n#{out2}"
+    after = company(read_universe, 'TST')
+    assert_equal 55_000, after['btc']
+    assert_equal '2026-06-28', after['btc_as_of']
+    assert_equal 2_000_000, after['shares_basic']
+    assert_equal '2026-06-27', after.dig('as_of', 'shares_basic'), 'as_of map stamped wholesale'
+    assert_equal [{ 'face' => 500, 'conv_price' => 10.0, 'label' => '1% Notes due 2031' }],
+                 after['converts'], 'converts REPLACED, old tranche gone'
+    assert_equal 'TST', after['ticker']
+    assert_equal '1050446', after['cik'], 'identity/plumbing keys preserved'
+    assert_equal false, after['placeholder']
+    ledger = JSON.parse(File.readlines(cap('TST.jsonl')).last)
+    assert_equal 'BASELINE', ledger['form']
+  end
+
+  def test_baseline_without_key_aborts
+    _out, err, st = run_ingest('--baseline', 'TST')
+    refute st.success?
+    assert_match(/needs ANTHROPIC_API_KEY/, err)
+  end
+
+  def test_baseline_dedups_against_pending_baseline
+    _o, _e, st = run_ingest('--baseline', 'TST', key: 'test-key')
+    assert st.success?
+    _o2, e2, s2 = run_ingest('--baseline', 'TST', key: 'test-key')
+    refute s2.success?
+    assert_match(/already pending/, e2)
+    assert_equal 1, pending_files.size
   end
 
   # ---- guard: real in-tree files untouched by the whole suite ----------
