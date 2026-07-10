@@ -45,6 +45,9 @@
     {
       "name": "spread",
       "type": "bar",
+      "itemStyle": {
+        "color": "#0f7a5c"
+      },
       "data": [
         {
           "value": 33.71,

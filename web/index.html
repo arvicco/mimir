@@ -218,7 +218,11 @@ var PRODUCERS = {
   gex_mstr:       "gex_us.rb",
   scenario_strip: "scenario.rb",
   lppl_regime:    "lppl.rb",
-  btco_table:     "btco.rb"
+  btco_table:     "btco.rb",
+  vol_surface:    "vol.rb",
+  vol_spread:     "vol_spread.rb",
+  vol_basis:      "basis.rb",
+  gex_trend:      "gex_trend.rb"
 };
 
 async function getJSON(url) {
@@ -415,7 +419,7 @@ async function loadBtco() {
     eb.style.display = "block";
     eb.textContent = "The published index lists no chart:* keys -- KV holds a publish " +
                      "older than the chart pipeline. Run: PUBLISH_DRY_RUN=0 ruby publish/publish.rb " +
-                     "(expect PUB LIVE 13/13), then reload.";
+                     "(expect PUB LIVE 22/22), then reload.";
   }
   for (var i = 0; i < chartKeys.length; i += 1) {
     await loadChart(chartKeys[i]);
