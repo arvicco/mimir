@@ -52,6 +52,29 @@ All three: `--json`, `--tmux`, `--max-days N`. No keys needed.
 several. Failure mode: these abort with exit != 0 (no fail-soft) --
 treat that as keep-last-good.
 
+## Volatility & positioning tools (Phase 8A)
+
+```
+ruby scripts/vol.rb          # BTC vol surface: ATM IV, 25d RR, 25d fly (7/30/90d)
+ruby scripts/vol_spread.rb   # MSTR-vs-BTC ATM IV spread per tenor
+ruby scripts/basis.rb        # Deribit futures basis curve + OI-weighted funding
+ruby scripts/gex_trend.rb    # time series over the daily GEX snapshots (local)
+ruby scripts/gex_check.rb    # our walls/flip vs Coinglass Deribit max pain
+```
+
+All five: `--json` (frozen contracts). No keys needed except the
+Coinglass legs (`basis.rb` funding, `gex_check.rb`) which read
+`COINGLASS_API_KEY` and fail soft to a reasoned null section without
+it. Everything here is DESCRIPTIVE -- no thresholds, no scores; the
+25-delta points are nearest-strike (no interpolation) from BS delta
+computed off Deribit's own mark IV; funding is percent per 8h
+(verified against Binance). `gex_trend.rb` reads
+`data/gex_history/`; the vol surface snapshots daily into
+`data/vol_history/` via the same 08:15 agent. On the dashboard these
+render as a fifth "Volatility" card ([SURFACE][SPREAD][BASIS] tabs)
+and a [TREND] tab on the GEX card -- live after the next gate's
+merge + deploy, not before.
+
 ## Scenario composite
 
 ```
@@ -159,8 +182,9 @@ PUBLISH_DRY_RUN=1 ruby publish/publish.rb   # DEFAULT: artifact set -> data/publ
 PUBLISH_DRY_RUN=0 ruby publish/publish.rb   # KV PUTs; needs CLOUDFLARE_ACCOUNT_ID/CLOUDFLARE_KV_NAMESPACE_ID/CLOUDFLARE_API_TOKEN
 ```
 
-Runs the five producers (the four suites plus MSTR dealer gamma via
-`gex_us.rb`), wraps every payload in the frozen envelope
+Runs the ten producers (the four suites, MSTR dealer gamma, and the
+five Phase-8A volatility/positioning tools), wraps every payload in
+the frozen envelope
 (`v/key/generated_at/ttl_hint_s/source/payload`), adds trailing
 history windows (scenario 90d, lppl 365d) and a `v1:index`, and writes
 files (dry) or Cloudflare KV keys (real). A producer that crashes or
@@ -259,20 +283,22 @@ action (Golden Rule 3) via the interactive tasks: `rake ops:install`
 
 ## Not implemented yet (roadmap in ARCHITECTURE.md)
 
-- Metaplanet (3350) dashboard row: data is baselined but unpriced
-  until D8-f is decided (`manual_px` vs tracker-priced).
 - The dashboard does not auto-refresh: a tab left open shows old data
   until reloaded (the refetch bundle is designed, awaiting an owner
   go -- it touches pinned ttl values).
 - The model has no `cash` / non-BTC-business fields, so mNAV for
   diversified holders (DJT, BLSH, miners) overstates richness by
   construction -- the M7-15b research question.
-- Phase 8 candidates (owner-approved waves, docs/DEV-PROPOSALS.md):
-  vol surface/skew, futures basis, GEX history analytics, max-pain
-  cross-check, Coinglass derivatives-positioning module, CFTC COT,
+- Phase 8 remaining candidates (owner-approved waves,
+  docs/DEV-PROPOSALS.md; family A -- vol surface, basis, GEX history,
+  max-pain cross-check, IV spread -- shipped 2026-07-10/11 as the
+  tools above): Coinglass derivatives-positioning module, CFTC COT,
   exchange reserves, Kalshi implied probabilities, bubble-index
   cross-ref, signal scorecard, ntfy push alerts, deterministic
   filing-iXBRL parser (M7-13). Scenario history seeding/replay.
+- IV rank / percentiles on the vol card: needs weeks of
+  `data/vol_history/` accumulation first (snapshotting starts when
+  phase-8 merges).
 - Queue-tail hardening: Cloudflare Access (email OTP / service tokens)
   in front of the Worker host -- console work, post-v1.
 
