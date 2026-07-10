@@ -1029,7 +1029,7 @@ packet: btco.rb prices 3350 from the StrategyTracker feed's USD
 stockPrice (source already registered; adds a btco runtime dependency
 on a third-party tracker). Owner picks.
 
-## M7-16 · baseline-reset + per-field freshness gate  [tier: fable] [status: core done 2026-07-10; pilot = owner runs --baseline XXI/ABTC] [owner-ruled]
+## M7-16 · baseline-reset + per-field freshness gate  [tier: fable] [status: applied 6/8 2026-07-10 -- MSTR/XXI/DJT/ASST/BLSH/ABTC grounded; NAKA + 3350 remain] [owner-ruled]
 THE PROCESS (owner ruling 2026-07-10, verbatim intent): "We need a
 separate regime to establish ground truth on shares/BTC counts AS OF
 CURRENT MOMENT, and then run our universe through it. THEN any
