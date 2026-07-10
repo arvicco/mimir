@@ -1246,14 +1246,14 @@ P-16 state machine and P-19 scorecard. Zero shared code with M8-1 --
 runs fully parallel. Decision (deferred to review): which derived
 series ship vs stay local.
 
-## M8-3 · Options positioning cross-check (P-5)  [tier: opus -- new source registration + health-style check] [status: todo] [deps: M8-1 (card real estate only; logic independent)]
+## M8-3 · Options positioning cross-check (P-5)  [tier: opus -- new source registration + health-style check] [status: stage 1 done 2026-07-10 -- Opus impl, Fable spec + review; lib\/btc\/gex_check.rb + scripts\/gex_check.rb; GEX-card line = stage 2] [deps: M8-1 (card real estate only; logic independent)]
 Coinglass option/info + option/max-pain (PROBED on our tier) vs our
 own computed walls: does Deribit max pain agree with our CW/PW?
 Report-only divergence line on the GEX card + a health-style test --
 an outcome-first check on the GEX suite itself, same philosophy as
 the ingest ref lines. Fixture + SOURCES registration same commit.
 
-## M8-4 · Futures basis & funding composite (P-3)  [tier: opus] [status: todo] [deps: --]
+## M8-4 · Futures basis & funding composite (P-3)  [tier: opus] [status: stage 1 done 2026-07-10 -- Opus impl, Fable spec + review + funding-unit fix (coinglass returns percent, verified vs binance x100.05); lib\/btc\/basis.rb + scripts\/basis.rb; card strip = stage 2] [deps: --]
 Deribit futures book (fetched, unused) -> annualized basis per tenor;
 Coinglass OI-weighted funding (PROBED) replaces the single-exchange
 Binance approximation FOR DISPLAY. Contango steepness = leverage
@@ -1261,7 +1261,7 @@ appetite; basis collapse/backwardation = stress. Sparkline strip on
 the Volatility card. Explicitly display-only: joining the scenario
 score is a separate owner ruling (NOT this packet).
 
-## M8-5 · MSTR-vs-BTC implied-vol spread (P-2)  [tier: sonnet -- pattern-following on M8-1's extraction seam] [status: todo] [deps: M8-1]
+## M8-5 · MSTR-vs-BTC implied-vol spread (P-2)  [tier: sonnet -- pattern-following on M8-1's extraction seam] [status: stage 1 done 2026-07-10 -- Sonnet impl, Fable spec + review; scripts\/vol_spread.rb on the M8-1 seam; card strip = stage 2] [deps: M8-1]
 Apply M8-1's IV extraction to the CBOE MSTR chain (already fetched);
 spread = MSTR IV - BTC IV at nearest-expiry pairing -- the market's
 live price of treasury-company leverage; nobody publishes this.
