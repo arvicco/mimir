@@ -45,6 +45,7 @@ module FakeTransport
     ['strategytracker.com/latest',  'strategytracker_latest.json'],
     ['strategytracker.com/all.',    'strategytracker_treasury.json'],
     ['api.anthropic.com',           'anthropic_baseline.json'],
+    ['query1.finance.yahoo.com',    'yahoo_quote_3350.json'],
     ['submissions/CIK',             'edgar_submissions.json'],
     ['Archives/edgar',              'edgar_filing.html']
   ].freeze
