@@ -59,7 +59,7 @@
       "btc_as_of": "2026-03-31",
       "shares_basic": 562284164,
       "shares_diluted": 597353076,
-      "debt_face": 486500000,
+      "debt_face": 0,
       "pref_liq": 0,
       "converts": [
         {
@@ -71,7 +71,7 @@
       "as_of": {
         "shares_basic": "2026-05-19",
         "shares_diluted": "2026-05-19",
-        "debt_face": "2025-12-08",
+        "debt_face": "2026-07-10",
         "pref_liq": "2026-03-31",
         "cash": "2026-03-31"
       },
@@ -84,20 +84,25 @@
       "placeholder": false
     },
     {
+      "btc": 43000,
+      "btc_as_of": "2026-06-30",
+      "shares_basic": 1281283624,
+      "shares_diluted": null,
+      "debt_face": 0,
+      "pref_liq": 149000000,
+      "converts": [],
+      "as_of": {
+        "shares_basic": "2026-06-30",
+        "debt_face": "2026-06-30",
+        "pref_liq": "2025-12-29"
+      },
       "name": "Metaplanet",
       "ticker": "3350",
       "stooq": "3350.jp",
       "ccy": "JPY",
       "cik": null,
-      "btc": 43000.0,
-      "btc_as_of": "2026-06-30",
-      "shares_basic": 1281283624,
-      "shares_diluted": 700000000,
-      "debt_face": 0,
-      "pref_liq": 0,
-      "converts": [],
-      "placeholder": false,
-      "note": "JP disclosures (TDnet), no EDGAR; zero-coupon bonds + MS warrants -- update manually"
+      "note": "JP disclosures (TDnet), no EDGAR; zero-coupon bonds + MS warrants -- update manually",
+      "placeholder": false
     },
     {
       "btc": 9542.16,
@@ -129,20 +134,27 @@
       "placeholder": false
     },
     {
+      "btc": 4467,
+      "btc_as_of": "2026-06-11",
+      "shares_basic": 17402048,
+      "shares_diluted": 22318088,
+      "debt_face": 165000000,
+      "pref_liq": 0,
+      "converts": [],
+      "as_of": {
+        "shares_basic": "2026-05-28",
+        "shares_diluted": "2026-03-31",
+        "debt_face": "2026-06-11",
+        "pref_liq": "2026-06-11",
+        "cash": "2026-03-31"
+      },
       "name": "Nakamoto Holdings",
       "ticker": "NAKA",
       "stooq": "naka.us",
       "ccy": "USD",
       "cik": "1946573",
-      "btc": 5342,
-      "btc_as_of": "2025-12-31",
-      "shares_basic": 690018254,
-      "shares_diluted": 890148039,
-      "debt_face": 165000000,
-      "pref_liq": 0,
-      "converts": [],
-      "placeholder": false,
-      "note": "KindlyMD merger structure; all counts approximate -- verify before use"
+      "note": "KindlyMD merger structure; all counts approximate -- verify before use",
+      "placeholder": false
     },
     {
       "btc": 19882,
