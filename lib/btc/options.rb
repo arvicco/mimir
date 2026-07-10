@@ -27,6 +27,24 @@ module BTC
       Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math::PI)
     end
 
+    # Standard-normal CDF via the complementary error function (stdlib
+    # Math.erfc): N(x) = 0.5 * erfc(-x / sqrt(2)). Exact at 0 (0.5) and
+    # symmetric to full double precision (N(x) + N(-x) == 1).
+    def norm_cdf(x)
+      0.5 * Math.erfc(-x / Math.sqrt(2))
+    end
+
+    # Black-Scholes delta with r = 0 (options priced off futures/forwards),
+    # same forward convention as bs_gamma. cp is 'C'/'P'; put delta is
+    # negative (N(d1) - 1). Degenerate inputs return 0.0 (mirrors bs_gamma).
+    def bs_delta(s, k, t, v, cp)
+      return 0.0 if t <= 0 || v <= 0 || s <= 0 || k <= 0
+
+      d1   = (Math.log(s / k) + 0.5 * v * v * t) / (v * Math.sqrt(t))
+      call = norm_cdf(d1)
+      cp == 'C' ? call : call - 1.0
+    end
+
     # Black-Scholes gamma with r = 0 (options priced off futures/forwards).
     def bs_gamma(s, k, t, v)
       return 0.0 if t <= 0 || v <= 0 || s <= 0 || k <= 0
