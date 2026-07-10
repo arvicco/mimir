@@ -1021,7 +1021,7 @@ ticker for the fields no structured source covers (cash!, non-BTC
 business value, pref/convert terms); expected to formalize the "add
 cash to the model" decision.
 
-## D8-f · 3350 price source  [decision item, 2026-07-09]
+## D8-f · 3350 price source  [RESOLVED 2026-07-10 -- owner: "3350.T is literally on Yahoo"]
 stooq's quote API is dead upstream (F-17); the recomposed 3350 entry
 carries no manual_px -> Metaplanet has NO dashboard row despite real
 data. Options: (a) manual_px + an owner refresh routine; (b) small

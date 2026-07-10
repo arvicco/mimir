@@ -13,8 +13,10 @@
 # Data flow: static fundamentals (BTC held, share counts, senior claims,
 # convert tranches) live in universe.json with per-field as-of dates and
 # are HUMAN-MAINTAINED; live inputs are US share prices (CBOE delayed
-# quotes, keyless), FX (Frankfurter/ECB, keyless), and BTC spot (Deribit
-# index). Non-US listings (Metaplanet) price via manual_px only.
+# quotes, keyless), FX (Frankfurter/ECB, keyless), BTC spot (Deribit
+# index), and non-US share prices (Yahoo chart API, keyless -- JPY
+# listings default to <ticker>.T, override via a 'yahoo' entry field;
+# manual_px remains the last fallback).
 # (Stooq served quotes+FX until its API died upstream 2026-07 --
 # TOOL-REVIEW.md F-17; universe.json's 'stooq' field is vestigial.)
 # --check-filings closes the loop: it queries EDGAR's submissions API
@@ -166,6 +168,36 @@ cos.each do |c|
     quotes[c['ticker']]   = px
     px_stale[c['ticker']] = r['stale']
     sources << { name: "cboe_quote_#{c['ticker']}", as_of: r['as_of'], stale: r['stale'] }
+  rescue StandardError => e
+    warn "#{c['ticker']}: quote failed (#{e.message})"
+  end
+end
+
+# Non-US listings (D8-f, owner-ruled 2026-07-10): Yahoo's chart API
+# serves primary-market quotes keyless (stooq, the original non-US
+# source, died upstream -- F-17). Symbol resolution: an explicit
+# 'yahoo' field on the universe entry wins; JPY listings default to
+# '<ticker>.T' (Tokyo). Price stays in listing ccy -- the FX block
+# below converts, same as always. Fail-soft: no quote -> the row is
+# skipped with a warn, never a crash; manual_px remains the last
+# fallback at row time.
+YAHOO = 'https://query1.finance.yahoo.com/v8/finance/chart'
+cos.each do |c|
+  next if quotes[c['ticker']] || (c['ccy'] || 'USD').upcase == 'USD'
+
+  sym = c['yahoo'] || (c['ccy'].to_s.upcase == 'JPY' ? "#{c['ticker']}.T" : nil)
+  next unless sym
+
+  begin
+    r = BTC::SourceCache.fetch_json("yahoo_quote_#{c['ticker']}",
+                                    "#{YAHOO}/#{sym}?interval=1d&range=1d",
+                                    { 'User-Agent' => UA }, read_timeout: 30, now: now)
+    px = r['data'].dig('chart', 'result', 0, 'meta', 'regularMarketPrice').to_f
+    next unless px.positive?
+
+    quotes[c['ticker']]   = px
+    px_stale[c['ticker']] = r['stale']
+    sources << { name: "yahoo_quote_#{c['ticker']}", as_of: r['as_of'], stale: r['stale'] }
   rescue StandardError => e
     warn "#{c['ticker']}: quote failed (#{e.message})"
   end

@@ -115,6 +115,12 @@ module BTC
         marker: 'data.strategytracker.com', soft: true,
         url: 'https://data.strategytracker.com/latest.json',
         check: ->(b) { JSON.parse(b).fetch('files').key?('full') } },
+      # soft: non-US quote source (D8-f) -- a dead quote drops the row
+      # (fail-soft by design), never blanks the card.
+      { name: 'yahoo quote (non-US)', src: 'scripts/btco/btco.rb',
+        marker: 'query1.finance.yahoo.com/v8/finance/chart', soft: true,
+        url: 'https://query1.finance.yahoo.com/v8/finance/chart/3350.T?interval=1d&range=1d',
+        check: ->(b) { JSON.parse(b).dig('chart', 'result', 0, 'meta', 'regularMarketPrice').to_f.positive? } },
       { name: 'frankfurter fx', src: 'scripts/btco/btco.rb',
         marker: 'api.frankfurter.dev/v1/latest',
         url: 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=JPY',
