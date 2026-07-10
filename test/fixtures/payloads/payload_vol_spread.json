@@ -1,0 +1,49 @@
+{
+  "ts": "2026-07-04T19:00:00Z",
+  "mstr_spot": 94.66,
+  "btc_spot": 63128.1,
+  "tenors": [
+    {
+      "tenor_d": 7,
+      "mstr": {
+        "expiry_d": 13.1,
+        "atm_iv": 0.7759,
+        "reason": null
+      },
+      "btc": {
+        "expiry_d": 355.5,
+        "atm_iv": 0.4388,
+        "reason": null
+      },
+      "spread_atm": 0.3371
+    },
+    {
+      "tenor_d": 30,
+      "mstr": {
+        "expiry_d": 27.1,
+        "atm_iv": 0.8617,
+        "reason": null
+      },
+      "btc": {
+        "expiry_d": 355.5,
+        "atm_iv": 0.4388,
+        "reason": null
+      },
+      "spread_atm": 0.4229
+    },
+    {
+      "tenor_d": 90,
+      "mstr": {
+        "expiry_d": 27.1,
+        "atm_iv": 0.8617,
+        "reason": null
+      },
+      "btc": {
+        "expiry_d": 355.5,
+        "atm_iv": 0.4388,
+        "reason": null
+      },
+      "spread_atm": 0.4229
+    }
+  ]
+}

@@ -39,8 +39,8 @@
 #   is attempted. Error text stays redacted (kv_client's pattern).
 # - STATUS (frozen --tmux contract): /tmp/publish.status carries
 #   `PUB DRY|LIVE <published>/<expected> keys HH:MM UTC` where
-#   expected = producers + tails + charts + 1 (the index) = n/13
-#   (5 producers + 2 tails + 5 charts + index). Pinned in the tests.
+#   expected = producers + tails + charts + 1 (the index) = n/18
+#   (10 producers + 2 tails + 5 charts + index). Pinned in the tests.
 #   ADDITIVE (M7-5, 2026-07-07 frozen-evidence incident): when a PUBLISHED
 #   tail's newest entry is older than STALE_EVIDENCE_H (30h), the line gains
 #   a trailing ` OLD:<key>[,<key>...]` marker (TAILS order), e.g.
@@ -74,7 +74,15 @@ module Publish
       ['gex:mstr',        ['ruby', 'scripts/gex_us.rb', 'MSTR', '--json'],             60,  1_800],
       ['scenario:latest', ['ruby', 'scripts/scenario/scenario.rb', '--json'],          120, 1_800],
       ['lppl:latest',     ['ruby', 'scripts/lppl/lppl.rb', '--json', '--skip-update'], 300, 86_400],
-      ['btco:latest',     ['ruby', 'scripts/btco/btco.rb', '--json'],                  60,  3_600]
+      ['btco:latest',     ['ruby', 'scripts/btco/btco.rb', '--json'],                  60,  3_600],
+      # M8-6: the GEX/volatility family (Phase 8A stage 2). All fail-soft
+      # (valid JSON, never 'unavailable') so they publish honestly even when
+      # an upstream leg is down; their charts read from these keys.
+      ['vol:latest',      ['ruby', 'scripts/vol.rb', '--json'],                        60,  1_800],
+      ['vol:spread',      ['ruby', 'scripts/vol_spread.rb', '--json'],                 90,  1_800],
+      ['basis:latest',    ['ruby', 'scripts/basis.rb', '--json'],                      60,  1_800],
+      ['gex:trend',       ['ruby', 'scripts/gex_trend.rb', '--json'],                  30,  86_400],
+      ['gex:check',       ['ruby', 'scripts/gex_check.rb', '--json'],                  120, 1_800]
     ].freeze
 
     # key, suite, in-tree default dir, filename, window_days, ttl_hint_s.

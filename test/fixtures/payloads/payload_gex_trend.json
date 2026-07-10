@@ -1,0 +1,67 @@
+{
+  "ts": "2026-07-10T18:00:00Z",
+  "days": 5,
+  "series": [
+    {
+      "date": "2026-07-06",
+      "spot": 62000,
+      "flip": 61000,
+      "flip_dist_pct": 1.61,
+      "cw": 66000,
+      "pw": 59000,
+      "net_gex": 100000000,
+      "regime": "long_gamma"
+    },
+    {
+      "date": "2026-07-07",
+      "spot": 63000,
+      "flip": 61200,
+      "flip_dist_pct": 2.86,
+      "cw": 66000,
+      "pw": 59000,
+      "net_gex": 100000000,
+      "regime": "long_gamma"
+    },
+    {
+      "date": "2026-07-08",
+      "spot": 62500,
+      "flip": 61300,
+      "flip_dist_pct": 1.92,
+      "cw": 67000,
+      "pw": 59000,
+      "net_gex": 100000000,
+      "regime": "long_gamma"
+    },
+    {
+      "date": "2026-07-09",
+      "spot": 63500,
+      "flip": 61500,
+      "flip_dist_pct": 3.15,
+      "cw": 67000,
+      "pw": 60000,
+      "net_gex": 100000000,
+      "regime": "long_gamma"
+    },
+    {
+      "date": "2026-07-10",
+      "spot": 64000,
+      "flip": 61650,
+      "flip_dist_pct": 3.67,
+      "cw": 68000,
+      "pw": 60000,
+      "net_gex": 100000000,
+      "regime": "long_gamma"
+    }
+  ],
+  "stats": {
+    "days": 5,
+    "regime": "long_gamma",
+    "regime_days": 5,
+    "transitions": 0,
+    "cw_moves": 2,
+    "pw_moves": 1,
+    "flip_dist_pct_min": 1.61,
+    "flip_dist_pct_max": 3.67,
+    "flip_dist_pct_last": 3.67
+  }
+}
