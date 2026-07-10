@@ -115,18 +115,42 @@ ruby scripts/btco/ingest.rb           # discover + analyse new filings
 ruby scripts/btco/ingest.rb --review  # inspect proposals, then --apply <acc>
 ```
 
-Fundamentals live in `scripts/btco/universe.json` (human-maintained,
-per-field as-of dates); only prices/FX/BTC spot are fetched live: US
-listings via CBOE delayed quotes, FX via Frankfurter/ECB, BTC via the
-Deribit index. Non-US listings (Metaplanet) price via `manual_px`
-only. (Stooq served quotes+FX until its API died upstream 2026-07 --
-TOOL-REVIEW.md F-17.)
-**Every shipped universe entry is `placeholder: true` seed data --
-update via ingest before the numbers mean anything.** `ingest.rb` with
-`ANTHROPIC_API_KEY` set uses Claude extraction (model override:
-`BTCO_MODEL`); without it, regex heuristics at low confidence. Nothing
-touches `universe.json` except an explicit `--apply`; applied changes
-are ledgered in `capstruct/<TICKER>.jsonl`.
+```
+ruby scripts/btco/ingest.rb --baseline XXI  # AI+web ground truth -> proposal
+ruby scripts/btco/validate.rb               # reconcile vs external researchers
+```
+
+Fundamentals live in `scripts/btco/universe.json`. **As of 2026-07-10
+all 8 entries are real, baselined data** (the placeholder-seed era is
+over) maintained under a two-regime process (owner-ruled, M7-16):
+
+- **Baseline** (`--baseline T`): an AI research session with web
+  search establishes the company's CURRENT ground truth -- every field
+  with its own value, as-of date, and source -- as ONE reviewed
+  proposal whose apply REPLACES the entry. This is how state is
+  ESTABLISHED (needs `ANTHROPIC_API_KEY`).
+- **Increment** (`ingest.rb` discovery / `--file` / `--tracker`):
+  filings and feeds propose changes that must BEAT the model's
+  per-field as-of dates (the freshness gate) and pass a
+  duplicate-instrument guard -- fresh info lands, stale data bounces.
+  Claude extraction when `ANTHROPIC_API_KEY` is set (model override
+  `BTCO_MODEL`), regex heuristics at low confidence otherwise.
+
+Nothing touches `universe.json` except an explicit `--apply`; every
+applied change is ledgered in `capstruct/<TICKER>.jsonl`. `--review`
+cross-checks each proposal against independent references
+(bitcointreasuries + CoinGecko BTC counts, SEC XBRL cover-page share
+counts) and prints paste-ready apply/dismiss commands.
+`validate.rb` is the standing objective audit: it reconciles the
+PUBLISHED dashboard row against StrategyTracker's mNAV (decomposed
+into the four inputs so the divergent one is NAMED), flags count
+divergence vs every ref, and prints plain-words to-dos per ticker.
+
+Prices/FX/BTC spot are fetched live: US listings via CBOE delayed
+quotes, FX via Frankfurter/ECB, BTC via the Deribit index. Known gap:
+Metaplanet (3350) has real data but NO dashboard row until its price
+source is decided (D8-f -- stooq died upstream, F-17; `manual_px` or
+tracker-priced).
 
 ## Publish pipeline (dry-run today; real publish is a human action)
 
@@ -217,36 +241,38 @@ checklist, rollback, and AUTH_TOKEN activation -- are in
 host, so there is no separate Pages step and the API is same-origin by
 construction.
 
-## Ops layer (Phase 5 -- prepared, installation is an owner action)
+## Ops layer (installed on gold since 2026-07-08; 4 launchd agents)
 
-Everything under `ops/` is ready to run but deliberately NOT installed
-by tooling (Golden Rule 3): `run_publish.sh` + `com.mimir.publish.plist`
-(bi-hourly live publisher), `gex_snapshot.rb` + wrapper + daily plist
-(dated local archive of both GEX `--json` outputs under
-`data/gex_history/` -- options data cannot be backfilled), and
-`publish_health.rb` (tmux status-right one-liner: green fresh / yellow
-amber-or-partial / red stale / `PUB ?` fail-soft). `rake health` audits
-all of it offline (shell syntax, plist keys, the --apply ban). The owner
-drives it with three interactive tasks (owner-run only -- they refuse
-under CI and without a TTY, Golden Rule 3): `rake ops:install` (pre-flight,
-render + bootstrap both agents, optional kickstart with a polled PASS/FAIL
-table), `rake ops:status` (agent state, log markers, status-file age,
-newest snapshot), `rake ops:uninstall` (confirm, bootout, remove plists).
-Install/operate/recover procedures: `docs/RUNBOOK.md`.
+Four managed agents run unattended: `com.mimir.publish` (bi-hourly
+live publisher), `com.mimir.gex-snapshot` (08:15, dated archive of
+both GEX outputs under `data/gex_history/` -- options data cannot be
+backfilled), `com.mimir.suite-history` (06:45, the daily lppl/scenario
+`--history` appends -- content freshness, guarded by the `PUB! ... OLD`
+flag when published tails stop moving >30h), and `com.mimir.btco-alert`
+(07:45, new-filing discovery -> `ING n!` status token). Status surfaces:
+the tmux one-liner (`publish_health.rb`: green fresh / yellow amber /
+red stale / OLD content-stall / `PUB ?` fail-soft). `rake health`
+audits everything offline. Installation on a NEW box stays an owner
+action (Golden Rule 3) via the interactive tasks: `rake ops:install`
+/ `ops:status` / `ops:uninstall` (TTY-gated, refuse under CI) +
+`rake ops:tmux` for the status-bar token. Procedures: `docs/RUNBOOK.md`.
 
 ## Not implemented yet (roadmap in ARCHITECTURE.md)
 
-- BTCo universe is still placeholder seed data; Phase 7 (ingest
-  shakedown + owner-applied proposals) replaces it with filing-derived
-  values and adds a daily new-filing discovery alert. Until then the
-  BTCo card's numbers carry `placeholder` flags and a ~year-old as-of.
-- The LIVE LPPL ledger still starts 2026-07-04 until the owner runs
-  the Gate 6 promotion (`rake lppl:promote`): the full Oct-2025-peak
-  replay history is already staged and verified. Scenario history
-  still starts 2026-07-04 (no replay mode; source-dependent seeding is
-  Phase 8).
-- Coinglass integration (docs/improvements.md), scenario v2 hypothesis
-  modules (docs/scenario_upgrades.md), dashboard round 2 -- Phases 8-10.
+- Metaplanet (3350) dashboard row: data is baselined but unpriced
+  until D8-f is decided (`manual_px` vs tracker-priced).
+- The dashboard does not auto-refresh: a tab left open shows old data
+  until reloaded (the refetch bundle is designed, awaiting an owner
+  go -- it touches pinned ttl values).
+- The model has no `cash` / non-BTC-business fields, so mNAV for
+  diversified holders (DJT, BLSH, miners) overstates richness by
+  construction -- the M7-15b research question.
+- Phase 8 candidates (owner-approved waves, docs/DEV-PROPOSALS.md):
+  vol surface/skew, futures basis, GEX history analytics, max-pain
+  cross-check, Coinglass derivatives-positioning module, CFTC COT,
+  exchange reserves, Kalshi implied probabilities, bubble-index
+  cross-ref, signal scorecard, ntfy push alerts, deterministic
+  filing-iXBRL parser (M7-13). Scenario history seeding/replay.
 - Queue-tail hardening: Cloudflare Access (email OTP / service tokens)
   in front of the Worker host -- console work, post-v1.
 
