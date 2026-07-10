@@ -100,26 +100,33 @@
       "note": "JP disclosures (TDnet), no EDGAR; zero-coupon bonds + MS warrants -- update manually"
     },
     {
-      "name": "Trump Media",
-      "ticker": "DJT",
-      "stooq": "djt.us",
-      "ccy": "USD",
-      "cik": "1849635",
       "btc": 9542.16,
       "btc_as_of": "2026-03-31",
       "shares_basic": 276953828,
-      "shares_diluted": 300000000,
-      "debt_face": 0,
+      "shares_diluted": 305800000,
+      "debt_face": 5325000,
       "pref_liq": 0,
       "converts": [
         {
           "face": 1000000000,
           "conv_price": 34.722,
-          "label": "0% Convertible Senior Secured Notes due 2028-05-29"
+          "label": "0.00% Convertible Senior Secured Notes due 2028-05-29 (put option at 100% of principal on 2026-11-30)"
         }
       ],
-      "placeholder": false,
-      "note": "holds BTC + BTC-related securities; coin-equivalent count approximate"
+      "as_of": {
+        "shares_basic": "2026-05-06",
+        "shares_diluted": "2026-03-31",
+        "debt_face": "2026-03-31",
+        "pref_liq": "2026-03-31",
+        "cash": "2025-12-31"
+      },
+      "name": "Trump Media",
+      "ticker": "DJT",
+      "stooq": "djt.us",
+      "ccy": "USD",
+      "cik": "1849635",
+      "note": "holds BTC + BTC-related securities; coin-equivalent count approximate",
+      "placeholder": false
     },
     {
       "name": "Nakamoto Holdings",
@@ -138,51 +145,70 @@
       "note": "KindlyMD merger structure; all counts approximate -- verify before use"
     },
     {
-      "ticker": "ASST",
-      "name": "Strive, Inc. (ex-Semler merged 2026-01)",
-      "ccy": "USD",
-      "stooq": "asst.us",
-      "cik": "1920406",
-      "cik_manual_px": null,
-      "btc": 19864,
+      "btc": 19882,
       "btc_as_of": "2026-07-02",
       "shares_basic": 82725831,
-      "shares_diluted": null,
-      "debt_face": null,
-      "pref_liq": null,
+      "shares_diluted": 84653128,
+      "debt_face": 0,
+      "pref_liq": 782950200,
       "converts": [],
+      "as_of": {
+        "shares_basic": "2026-07-02",
+        "shares_diluted": "2026-06-30",
+        "debt_face": "2026-07-02",
+        "pref_liq": "2026-07-02",
+        "cash": "2026-07-02"
+      },
+      "name": "Strive, Inc. (ex-Semler merged 2026-01)",
+      "ticker": "ASST",
+      "stooq": "asst.us",
+      "ccy": "USD",
+      "cik": "1920406",
+      "cik_manual_px": null,
       "placeholder": false
     },
     {
-      "ticker": "BLSH",
+      "btc": 24400,
+      "btc_as_of": "2026-06-30",
+      "shares_basic": 151650000,
+      "shares_diluted": 161266541,
+      "debt_face": 507100000,
+      "pref_liq": 0,
+      "converts": [],
+      "as_of": {
+        "shares_basic": "2026-07-10",
+        "shares_diluted": "2026-03-31",
+        "debt_face": "2026-03-31",
+        "pref_liq": "2026-03-31",
+        "cash": "2026-03-31"
+      },
       "name": "Bullish (exchange; FPI 6-K/20-F filer)",
-      "ccy": "USD",
+      "ticker": "BLSH",
       "stooq": "blsh.us",
+      "ccy": "USD",
       "cik": "1872195",
       "cik_manual_px": null,
-      "btc": 24000,
-      "btc_as_of": "2026-05-01",
-      "shares_basic": 150833916,
-      "shares_diluted": null,
-      "debt_face": null,
-      "pref_liq": null,
-      "converts": [],
       "placeholder": false
     },
     {
-      "ticker": "ABTC",
+      "btc": 8000,
+      "btc_as_of": "2026-07-06",
+      "shares_basic": 72819720,
+      "shares_diluted": null,
+      "debt_face": 0,
+      "pref_liq": 0,
+      "converts": [],
+      "as_of": {
+        "shares_basic": "2026-07-02",
+        "debt_face": "2026-03-31",
+        "pref_liq": "2026-03-31"
+      },
       "name": "American Bitcoin Corp. (miner-accumulator)",
-      "ccy": "USD",
+      "ticker": "ABTC",
       "stooq": "abtc.us",
+      "ccy": "USD",
       "cik": "1755953",
       "cik_manual_px": null,
-      "btc": 8000,
-      "btc_as_of": "2026-05-01",
-      "shares_basic": 1063013205,
-      "shares_diluted": null,
-      "debt_face": null,
-      "pref_liq": null,
-      "converts": [],
       "placeholder": false
     }
   ]
