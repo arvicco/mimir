@@ -34,11 +34,11 @@
 #   descriptive averages over the returned closes -- no weighting, no
 #   annualization.
 #
-#   UNITS: the API returns funding as a FRACTION per 8h; we multiply by 100
-#   for percent display. NOTE (2026-07-10 fixture): the recorded closes sit
-#   at ~0.001..0.010, i.e. ~0.1%..1.0% per 8h once scaled -- an order of
-#   magnitude above the canonical ~0.01% per 8h BTC funding. Displayed as
-#   documented (fraction x 100); the magnitude is flagged for owner review.
+#   UNITS: the API returns funding ALREADY IN PERCENT per 8h (verified
+#   2026-07-10 against Binance premiumIndex live: coinglass close 0.010005
+#   vs binance lastFundingRate fraction 0.0001 -- ratio 100.05, i.e. the
+#   canonical ~0.01%/8h). Values pass through unscaled; *_pct fields are
+#   percent per 8h.
 #
 # FAIL-SOFT (per leg, independent)
 #   The Deribit basis leg and the Coinglass funding leg are separate. Either
@@ -102,15 +102,14 @@ funding_points = 0
 funding_reason = nil
 begin
   raw    = BTC::Coinglass.funding_oi_history(interval: '8h')
-  closes = raw.last(30).map { |r| r['close'].to_f } # fractions per 8h
+  closes = raw.last(30).map { |r| r['close'].to_f } # already percent per 8h
   raise 'no funding closes returned' if closes.empty?
 
   funding_points = closes.size
-  to_pct = ->(v) { v && v * 100.0 } # fraction -> percent per 8h
-  funding_latest = to_pct.call(closes.last)
-  funding_d1  = to_pct.call(BTC::Basis.trailing_mean(closes, 3))
-  funding_d7  = to_pct.call(BTC::Basis.trailing_mean(closes, 21))
-  funding_d30 = to_pct.call(BTC::Basis.trailing_mean(closes, 90))
+  funding_latest = closes.last
+  funding_d1  = BTC::Basis.trailing_mean(closes, 3)
+  funding_d7  = BTC::Basis.trailing_mean(closes, 21)
+  funding_d30 = BTC::Basis.trailing_mean(closes, 90)
 rescue StandardError => e
   funding_latest = funding_d1 = funding_d7 = funding_d30 = nil
   funding_points = 0
