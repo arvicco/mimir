@@ -36,8 +36,20 @@
 #   and the script exits 1 so launchd / cron alarms. A partial capture
 #   (one success, one failure) writes the file and exits 0.
 #
+# VOL SNAPSHOT (M8-1)
+#   Alongside the GEX file this script also captures scripts/vol.rb --json
+#   into a SEPARATE dated file under
+#   BTC::Env.data_dir('vol_history','data/vol_history') via capture_vol,
+#   which mirrors capture()'s shape:
+#     { "date":, "captured_at":, "vol": <verbatim vol.rb --json | null>,
+#       "errors": { "vol": "<redacted message>" } }
+#   The vol capture is fully independent -- a vol failure records its error
+#   in the vol file (or writes no file, exactly like a both-fail GEX run)
+#   and NEVER affects the GEX snapshot's status or exit code above it.
+#
 # LOCAL-ONLY
-#   Snapshots land under BTC::Env.data_dir('gex_history','data/gex_history').
+#   Snapshots land under BTC::Env.data_dir('gex_history','data/gex_history')
+#   (GEX) and BTC::Env.data_dir('vol_history','data/vol_history') (vol).
 #   The data/ tree is gitignored; snapshots are never published to KV and
 #   never committed to git.
 
@@ -54,6 +66,10 @@ module Ops
       ['btc_combined', ['ruby', 'scripts/gex_btc_combined.rb', '--json'],        60],
       ['us',           ['ruby', 'scripts/gex_us.rb', 'IBIT', 'MSTR', '--json'],  60]
     ].freeze
+
+    # M8-1: the vol surface is a single capture written to its own dated
+    # file under vol_history (see capture_vol). key, argv, timeout_s.
+    VOL_CAPTURE = ['vol', ['ruby', 'scripts/vol.rb', '--json'], 60].freeze
 
     # Default subprocess runner: execute argv under Timeout, return the
     # child's full stdout as a String; raise on nonzero exit or timeout so
@@ -120,6 +136,47 @@ module Ops
 
       { status: failed_count > 0 ? :partial : :written, path: target }
     end
+
+    # M8-1: capture scripts/vol.rb --json into a dated file under +dir+
+    # (vol_history), mirroring capture()'s date-guard, atomic write, and
+    # redaction. A single capture, so a failure means "nothing worth
+    # archiving": no file is written and the status is :failed. This method
+    # is invoked independently of capture() so a vol outage cannot touch the
+    # GEX snapshot's outcome.
+    #
+    # Returns:
+    #   { status: :written, path: }          -- vol.rb --json captured
+    #   { status: :skipped, path: }          -- date-guard: file exists
+    #   { status: :failed,  path:, errors: } -- capture failed, no file
+    def capture_vol(dir:, now:, runner: DEFAULT_RUNNER)
+      date_str = now.utc.strftime('%Y-%m-%d')
+      target   = File.join(dir, "#{date_str}.json")
+
+      return { status: :skipped, path: target } if File.exist?(target)
+
+      FileUtils.mkdir_p(dir)
+
+      key, argv, timeout_s = VOL_CAPTURE
+      data = {
+        'date'        => date_str,
+        'captured_at' => now.utc.iso8601,
+        'vol'         => nil,
+        'errors'      => {}
+      }
+
+      begin
+        data['vol'] = JSON.parse(runner.call(argv, timeout_s))
+      rescue StandardError => e
+        data['errors'][key] = BTC::Env.redact(e.message.to_s)
+        return { status: :failed, path: target, errors: data['errors'] }
+      end
+
+      tmp = "#{target}.tmp"
+      File.write(tmp, JSON.generate(data))
+      File.rename(tmp, target)
+
+      { status: :written, path: target }
+    end
   end
 end
 
@@ -138,5 +195,20 @@ if __FILE__ == $PROGRAM_NAME
   when :failed
     $stderr.puts format('failed (both captures failed): %s', result[:path])
     exit 1
+  end
+
+  # M8-1: vol snapshot, fully contained -- any failure here is reported but
+  # must never affect the GEX snapshot's outcome or this process's exit
+  # code (the GEX write above has already completed).
+  begin
+    vol_dir = BTC::Env.data_dir('vol_history', 'data/vol_history')
+    vres    = Ops::GexSnapshot.capture_vol(dir: vol_dir, now: now)
+    case vres[:status]
+    when :skipped then puts format('vol skipped (today\'s file exists): %s', vres[:path])
+    when :written then puts format('vol written: %s', vres[:path])
+    when :failed  then $stderr.puts format('vol failed (not archived): %s', vres[:path])
+    end
+  rescue StandardError => e
+    $stderr.puts format('vol snapshot error (contained): %s', BTC::Env.redact(e.message.to_s))
   end
 end
