@@ -1110,12 +1110,37 @@ Acceptance: universe.json fully real (7/7 placeholder:false), every
       real BTCo data on the dashboard; the session runbook survived
       contact with the owner.
 
-## M7-4 · README + Gate 7 checklist + v1 prep  [tier: fable] [status: todo] [deps: M7-1..3]
-Goal: README's btco section drops the placeholder caveats (honestly:
-      as-of dates now filing-driven); Gate 7 checklist runbook-style
-      (interactive tasks over paste blocks); v1 tag is the owner's
-      gate action (tags are gate actions); soak-week review + KV quota
-      (156/day) + novo promotion land here if >= Jul 13.
+## M7-4 · README + Gate 7 checklist + v1 prep  [tier: fable] [status: done 2026-07-10]
+README rewritten: btco section describes the two-regime process
+(baseline + gated increments), validate.rb, real 8/8 universe; ops
+section reflects the 4 installed agents; not-implemented list refreshed
+(3350 price, refetch, cash-model, Phase 8 candidates).
+
+## GATE 7 CHECKLIST (owner runbook -- run on/after the July 13 soak review)
+
+1. `ruby scripts/btco/validate.rb`
+   EXPECT: every US ticker "nothing -- inputs agree with external refs"
+   (advisories about ATM share drift / mutually-disagreeing refs are
+   acceptable); 3350 rowless ONLY if D8-f is still undecided.
+2. Open the live dashboard; run the DEV-LOOP 6b eyeball: every card
+   filled, newest data points TODAY's (bi-hourly) / yesterday's
+   (daily), no NaN/blank, BTCo table shows 8 rows (7 if D8-f open),
+   no placeholder asterisks.
+   EXPECT: pub slot shows the current tick; day-over-day the data moved.
+3. Soak verdict: `grep OLD ~/Library/Logs/mimir/publish.log | tail`
+   EXPECT: no OLD flags since 2026-07-08 (the install date); if any,
+   read the matching worklog/incident entry before proceeding.
+4. Decide the open decision items or explicitly carry them past v1:
+   D8-e (divergence alert wiring), D8-f (3350 price), refetch bundle.
+5. Merge phase-7 -> main (PR), then tag v1 on main (tags are gate
+   actions): `git tag v1 && git push origin v1`.
+   EXPECT: CI green on main before tagging.
+6. Rule Phase 8 scope from docs/DEV-PROPOSALS.md (waves already
+   approved 2026-07-09; the gate picks the first packets).
+
+Background: v1 = real BTCo data end-to-end per the standing ruling;
+soak review folds in here (first gate after ~Jul 13). Novo promotion +
+KV quota check remain Gate 5 carry-overs, owner-scheduled.
 
 ## Decision items -- Phase 7
 - D8-a Alert token: **RESOLVED 2026-07-06 -- owner: "fine to place
