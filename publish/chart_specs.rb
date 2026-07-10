@@ -34,9 +34,11 @@
 #     owns series selection; the widget drives it via legend actions.
 #   meta['tab_group'] (+ tab_label / tab_pos) -- M6-4, owner ruling D7-c
 #     (2026-07-06): charts sharing a tab_group render into ONE dashboard
-#     card as tabs (currently only 'gex': gex_profile [BTC] + gex_mstr
-#     [MSTR]). tab_label is the button text; tab_pos fixes the tab order
-#     (ascending) so BTC leads even though the index sorts gex_mstr first.
+#     card as tabs -- 'gex' (gex_profile [BTC] + gex_mstr [MSTR] + gex_trend
+#     [TREND], M8-6) and 'vol' (vol_surface [SURFACE] + vol_spread [SPREAD]
+#     + vol_basis [BASIS], M8-6). tab_label is the button text; tab_pos fixes
+#     the tab order (ascending) so BTC leads even though the index sorts
+#     gex_mstr first.
 #     The renderer builds the card from the first group member it loads
 #     and attaches the rest; each key keeps its own header liveness dot.
 # All four are part of the chart contract; add a hook only with an owner
@@ -178,6 +180,95 @@ module Publish
                     'left as gaps. The gauge shows aggregate stress 0-100 in ' \
                     'green/amber/orange/red bands with the regime band as its ' \
                     'detail text.'
+        }
+      },
+      # ---- M8-6: the GEX/volatility family (Phase 8A stage 2) ----------
+      # Three vol charts share ONE dashboard card as [SURFACE][SPREAD][BASIS]
+      # tabs (tab_group 'vol'); their keys sort after 'scenario_strip' so the
+      # new card lands after the blessed quadrants. gex_trend joins the
+      # existing GEX card as a third [TREND] tab.
+      'vol_surface' => {
+        inputs: %w[payload_vol_latest.json], fn: :vol_surface,
+        meta: {
+          'desc' => 'The implied-vol term structure from Deribit\'s BTC option ' \
+                    'chain at three nominal tenors: ATM IV is the at-the-money ' \
+                    'level, RR25 the 25-delta risk reversal (call IV minus put ' \
+                    'IV) and FLY25 the 25-delta butterfly. GEX says where dealers ' \
+                    'are positioned; skew says what the market pays to insure the ' \
+                    'tails -- a negative RR25 means downside puts cost more than ' \
+                    'upside calls (fear).',
+          'axes' => { 'x' => 'requested tenor (7/30/90d); the actual option ' \
+                             'expiry backing each rides the tooltip as exp(d)',
+                      'y' => 'left: ATM implied vol (%); right: 25-delta skew in ' \
+                             'vol points (RR25 red, FLY25 amber)' },
+          'help' => 'ATM IV (teal) reads on the left axis; RR25 (red) and FLY25 ' \
+                    '(amber) are vol points on the right. A tenor whose chain was ' \
+                    'too thin (reason set) is dropped, not drawn as zero. ' \
+                    'Negative RR25 = downside fear; a rising FLY25 = fatter tails.',
+          'tab_group' => 'vol', 'tab_label' => 'SURFACE', 'tab_pos' => 0
+        }
+      },
+      'vol_spread' => {
+        inputs: %w[payload_vol_spread.json], fn: :vol_spread,
+        meta: {
+          'desc' => 'The market\'s live price of treasury-company leverage: ' \
+                    'MSTR\'s ATM implied vol minus BTC\'s, tenor by tenor. MSTR ' \
+                    'is a levered, reflexive BTC holder, so its options ' \
+                    'persistently trade richer; the spread (vol points) is how ' \
+                    'much extra the option market charges for that leverage now.',
+          'axes' => { 'x' => 'requested tenor (7/30/90d)',
+                      'y' => 'implied vol (%): bars = the MSTR-minus-BTC ATM ' \
+                             'spread in vol points, lines = each leg\'s ATM IV ' \
+                             '(MSTR bright, BTC dim)' },
+          'help' => 'Bars are the ATM spread (teal positive, red negative); the ' \
+                    'two lines are the raw ATM IV of each leg, so you can see ' \
+                    'whether a move came from MSTR richening or BTC cheapening. A ' \
+                    'leg whose chain failed drops its line and that tenor\'s bar.',
+          'tab_group' => 'vol', 'tab_label' => 'SPREAD', 'tab_pos' => 1
+        }
+      },
+      'vol_basis' => {
+        inputs: %w[payload_basis_latest.json], fn: :vol_basis,
+        meta: {
+          'desc' => 'The annualized basis of Deribit\'s dated BTC futures over ' \
+                    'spot, per expiry, plus the perpetual funding rate. Positive ' \
+                    'basis / positive funding = the market pays to be long ' \
+                    '(contango, leverage demand); a flip negative is ' \
+                    'deleveraging or fear. Funding is quoted per 8h; the ' \
+                    '1d/7d/30d means show whether the current print is an outlier.',
+          'axes' => { 'x' => 'days to expiry of each dated future (sub-1-day ' \
+                             'tenors omitted as microstructure noise)',
+                      'y' => 'annualized basis over spot (%); the dashed line is ' \
+                             '0 (fair)' },
+          'help' => 'The amber line is each future\'s annualized basis; above 0 ' \
+                    '= contango. The title carries the latest perpetual funding ' \
+                    '(%/8h) and its 1d/7d/30d means. If the futures leg is down ' \
+                    'the line is empty and only funding remains.',
+          'tab_group' => 'vol', 'tab_label' => 'BASIS', 'tab_pos' => 2
+        }
+      },
+      'gex_trend' => {
+        inputs: %w[payload_gex_trend.json payload_gex_check.json], fn: :gex_trend,
+        meta: {
+          'desc' => 'A time series over the daily BTC-combined GEX snapshots ' \
+                    '(accumulating since 2026-07-06): where spot sat each day ' \
+                    'relative to the gamma flip and the call/put walls, and how ' \
+                    'long the current gamma regime has held. Descriptive only -- ' \
+                    'every level is read straight from that day\'s snapshot, no ' \
+                    'scoring. The MP delta cross-checks our flip vs Coinglass ' \
+                    'max-pain.',
+          'axes' => { 'x' => 'day (the last N daily snapshots)',
+                      'y' => 'BTC price level ($k): spot (white), gamma flip ' \
+                             '(amber), call wall (teal), put wall (red)' },
+          'help' => 'Four price levels per day: spot vs the gamma flip (dealers ' \
+                    'pin above it, amplify below) and the call/put walls. The ' \
+                    'title carries flip distance last, the regime run length, ' \
+                    'and -- when the Coinglass cross-check is present -- MP ' \
+                    'Delta, spot vs their max-pain. Sparse history reads as ' \
+                    'filled dots.',
+          # joins the existing GEX card (D7-c) as a third tab after
+          # [BTC](pos 1) and [MSTR](pos 2); pos 3 keeps [TREND] last.
+          'tab_group' => 'gex', 'tab_label' => 'TREND', 'tab_pos' => 3
         }
       }
     }.freeze
@@ -739,6 +830,266 @@ module Publish
       s += ' *' if company['placeholder']
       s += ' STALE' if company['stale']
       s
+    end
+
+    # ---- M8-6 shared palette + scalers --------------------------------
+    # Vol charts use the TEXT-weight palette anchors (brighter than the bar
+    # anchors) since these are line/skew charts read against the dark card.
+    VOL_TEAL  = '#2fbf8f' # ATM IV / call wall lines
+    VOL_RED   = '#ef6b6b' # RR25 / put wall lines
+    VOL_AMBER = '#e6a23c' # FLY25 / flip / basis lines
+    VOL_MSTR  = '#d0d5db' # MSTR leg (brighter)
+    VOL_BTC   = '#7a828c' # BTC leg (dimmer)
+    VOL_SPOT  = '#d7dce3' # spot level line
+    VOL_GREY  = '#6b7178' # invisible carriers / notes
+
+    # vol.rb emits IV/skew as decimal fractions (0.4388 = 43.88%). Scale to
+    # the human unit at BUILD time (owner ruling) so axes/tooltips need no
+    # client formatting; a nil leg stays nil (an omitted point, never zero).
+    def vol_pct(frac)
+      frac.nil? ? nil : (frac.to_f * 100).round(2)
+    end
+
+    # ---- vol_surface (M8-6) -------------------------------------------
+    #
+    # vol:latest -> the implied-vol term structure at the three requested
+    # tenors. Compact one-line 13px title carries the 30d ATM level. Left
+    # axis = ATM IV (%), right axis = the 25-delta skew in vol points (RR25
+    # risk reversal, FLY25 butterfly). The nominal tenor's ACTUAL option
+    # expiry rides an invisible carrier line (yAxisIndex 2, a hidden axis)
+    # so it shows in the axis tooltip as exp(d) -- the gex aggregate-line
+    # idiom, pure JSON, no renderer formatter. A tenor whose leg failed
+    # (reason set) is an OMITTED point (nil), not a zero.
+    def vol_surface(vol)
+      tenors = vol['tenors'] || []
+      labels = tenors.map { |t| "#{t['tenor_d']}d" }
+      atm    = tenors.map { |t| vol_pct(t['atm_iv']) }
+      rr     = tenors.map { |t| vol_pct(t['rr25']) }
+      fly    = tenors.map { |t| vol_pct(t['fly25']) }
+      expiry = tenors.map { |t| t['expiry_d']&.to_f&.round }
+      head   = vol_atm_headline(tenors)
+
+      {
+        'backgroundColor' => 'transparent',
+        'title' => { 'text' => format('Vol surface · ATM %s', head),
+                     'textStyle' => { 'fontSize' => 13 } },
+        'tooltip' => { 'trigger' => 'axis', 'confine' => true,
+                       'textStyle' => { 'fontSize' => 11 } },
+        'legend' => { 'top' => 24, 'data' => %w[ATM\ IV RR25 FLY25] },
+        'grid' => { 'left' => 56, 'right' => 56, 'top' => 52, 'bottom' => 28 },
+        'xAxis' => { 'type' => 'category', 'data' => labels },
+        'yAxis' => [
+          # names ride the axes (rotated, in the gutters) so they never land
+          # in the one-line title row (owner review round 4)
+          { 'type' => 'value', 'name' => 'ATM IV %', 'position' => 'left',
+            'nameLocation' => 'middle', 'nameGap' => 44 },
+          { 'type' => 'value', 'name' => 'vol pts', 'position' => 'right',
+            'nameLocation' => 'middle', 'nameGap' => 40 },
+          # hidden carrier axis for exp(d): its ~355 range must not distort
+          # the ATM/skew axes, so it draws nothing.
+          { 'type' => 'value', 'show' => false }
+        ],
+        'series' => [
+          { 'name' => 'ATM IV', 'type' => 'line', 'yAxisIndex' => 0,
+            'symbol' => 'circle', 'symbolSize' => 7, # sparse: a filled dot must read
+            'itemStyle' => { 'color' => VOL_TEAL }, 'lineStyle' => { 'color' => VOL_TEAL },
+            'data' => atm },
+          { 'name' => 'RR25', 'type' => 'line', 'yAxisIndex' => 1,
+            'symbol' => 'circle', 'symbolSize' => 7,
+            'itemStyle' => { 'color' => VOL_RED }, 'lineStyle' => { 'color' => VOL_RED },
+            'data' => rr },
+          { 'name' => 'FLY25', 'type' => 'line', 'yAxisIndex' => 1,
+            'symbol' => 'circle', 'symbolSize' => 7,
+            'itemStyle' => { 'color' => VOL_AMBER }, 'lineStyle' => { 'color' => VOL_AMBER },
+            'data' => fly },
+          # invisible carrier: adds an "exp(d): <days>" row to the axis
+          # tooltip without a drawn line or a legend entry.
+          { 'name' => 'exp(d)', 'type' => 'line', 'yAxisIndex' => 2, 'silent' => true,
+            'symbol' => 'none', 'lineStyle' => { 'opacity' => 0 },
+            'itemStyle' => { 'color' => VOL_GREY }, 'data' => expiry }
+        ]
+      }
+    end
+
+    # Title tail 'ATM <tenor>d <pct>%': prefer the 30d ATM; on a null 30d
+    # fall back to the first tenor with a live ATM (labelled with ITS tenor,
+    # never a misleading 30d); 'n/a' when the whole surface is empty.
+    def vol_atm_headline(tenors)
+      t = tenors.find { |x| x['tenor_d'] == 30 && !x['atm_iv'].nil? } ||
+          tenors.find { |x| !x['atm_iv'].nil? }
+      return 'n/a' unless t
+
+      format('%dd %.1f%%', t['tenor_d'], vol_pct(t['atm_iv']))
+    end
+
+    # ---- vol_spread (M8-6) --------------------------------------------
+    #
+    # vol:spread -> MSTR-minus-BTC ATM implied vol per tenor (the live price
+    # of treasury-company leverage). Bars = the spread in vol points (teal
+    # positive / red negative, per bar); two thin lines = each leg's raw ATM
+    # IV (MSTR brighter, BTC dimmer) so a move is attributable. One shared
+    # vol-% axis: the bar height reads against each leg's absolute level. A
+    # failed leg drops its line and that tenor's bar (nil, never zero).
+    def vol_spread(spread)
+      tenors = spread['tenors'] || []
+      labels = tenors.map { |t| "#{t['tenor_d']}d" }
+      bars   = tenors.map do |t|
+        v = vol_pct(t['spread_atm'])
+        v.nil? ? nil : { 'value' => v, 'itemStyle' => { 'color' => v.negative? ? GEX_RED : GEX_TEAL } }
+      end
+      mstr = tenors.map { |t| vol_pct(t.dig('mstr', 'atm_iv')) }
+      btc  = tenors.map { |t| vol_pct(t.dig('btc', 'atm_iv')) }
+
+      {
+        'backgroundColor' => 'transparent',
+        'title' => { 'text' => format('MSTR-BTC IV · %s', vol_spread_headline(tenors)),
+                     'textStyle' => { 'fontSize' => 13 } },
+        'tooltip' => { 'trigger' => 'axis', 'confine' => true,
+                       'textStyle' => { 'fontSize' => 11 } },
+        'legend' => { 'top' => 24, 'data' => %w[spread MSTR BTC] },
+        'grid' => { 'left' => 56, 'right' => 24, 'top' => 52, 'bottom' => 28 },
+        'xAxis' => { 'type' => 'category', 'data' => labels },
+        'yAxis' => { 'type' => 'value', 'name' => 'vol %',
+                     'nameLocation' => 'middle', 'nameGap' => 44 },
+        'series' => [
+          { 'name' => 'spread', 'type' => 'bar', 'data' => bars },
+          { 'name' => 'MSTR', 'type' => 'line', 'symbol' => 'circle', 'symbolSize' => 6,
+            'itemStyle' => { 'color' => VOL_MSTR }, 'lineStyle' => { 'color' => VOL_MSTR, 'width' => 1 },
+            'data' => mstr },
+          { 'name' => 'BTC', 'type' => 'line', 'symbol' => 'circle', 'symbolSize' => 6,
+            'itemStyle' => { 'color' => VOL_BTC }, 'lineStyle' => { 'color' => VOL_BTC, 'width' => 1 },
+            'data' => btc }
+        ]
+      }
+    end
+
+    # Title tail '<tenor>d <+spread>': prefer 30d, else the first live spread.
+    def vol_spread_headline(tenors)
+      t = tenors.find { |x| x['tenor_d'] == 30 && !x['spread_atm'].nil? } ||
+          tenors.find { |x| !x['spread_atm'].nil? }
+      return 'n/a' unless t
+
+      format('%dd %+.1f', t['tenor_d'], vol_pct(t['spread_atm']))
+    end
+
+    # ---- vol_basis (M8-6) ---------------------------------------------
+    #
+    # basis:latest -> the annualized basis of each dated BTC future over
+    # spot (amber line, filled dots) with a 0 markLine, plus the perpetual
+    # funding rate on the title. Sub-1-day tenors are omitted (their
+    # annualized number is a microstructure artifact). The funding 1d/7d/30d
+    # means ride a small secondary title note (the lppl trough-note idiom) --
+    # on the chart, dynamic, not an extra series. A dead futures leg leaves
+    # the line empty; funding still shows.
+    def vol_basis(basis)
+      b      = basis['basis'] || {}
+      f      = basis['funding'] || {}
+      tenors = (b['tenors'] || []).select { |t| t['days'].to_f >= 1 }
+      labels = tenors.map { |t| "#{t['days'].to_f.round}d" }
+      ann    = tenors.map { |t| t['basis_ann_pct']&.to_f&.round(3) }
+
+      titles = [{ 'text' => format('Basis ann%% · funding %s', basis_funding_head(f)),
+                  'textStyle' => { 'fontSize' => 13 } }]
+      note = basis_funding_note(f)
+      if note
+        titles << { 'text' => note, 'top' => '86%', 'right' => 12,
+                    'textStyle' => { 'fontSize' => 11, 'fontWeight' => 'normal', 'color' => VOL_GREY } }
+      end
+
+      {
+        'backgroundColor' => 'transparent',
+        'title' => titles.size == 1 ? titles.first : titles,
+        'tooltip' => { 'trigger' => 'axis', 'confine' => true,
+                       'textStyle' => { 'fontSize' => 11 } },
+        'grid' => { 'left' => 56, 'right' => 24, 'top' => 44, 'bottom' => 32 },
+        'xAxis' => { 'type' => 'category', 'data' => labels },
+        'yAxis' => { 'type' => 'value', 'name' => 'ann basis %',
+                     'nameLocation' => 'middle', 'nameGap' => 44 },
+        'series' => [
+          { 'name' => 'ann basis', 'type' => 'line', 'symbol' => 'circle', 'symbolSize' => 7,
+            'itemStyle' => { 'color' => VOL_AMBER }, 'lineStyle' => { 'color' => VOL_AMBER },
+            'data' => ann,
+            'markLine' => { 'symbol' => 'none', 'silent' => true,
+                            'data' => [{ 'yAxis' => 0,
+                                         'label' => { 'formatter' => '0' },
+                                         'lineStyle' => { 'type' => 'dashed', 'color' => '#9aa0a6' } }] } }
+        ]
+      }
+    end
+
+    # Title funding token '<pct>%/8h' (funding.latest_pct is already %/8h),
+    # or 'n/a' when the funding leg is down.
+    def basis_funding_head(funding)
+      funding['latest_pct'].nil? ? 'n/a' : format('%.3f%%/8h', funding['latest_pct'].to_f)
+    end
+
+    # Secondary note with the 1d/7d/30d funding means, or nil when the leg is
+    # down (nothing to note).
+    def basis_funding_note(funding)
+      return nil if funding['latest_pct'].nil?
+
+      format('funding 1d %.3f · 7d %.3f · 30d %.3f (%%/8h)',
+             funding['d1_pct'].to_f, funding['d7_pct'].to_f, funding['d30_pct'].to_f)
+    end
+
+    # ---- gex_trend (M8-6) ---------------------------------------------
+    #
+    # gex:trend (+ gex:check for the cross-check suffix) -> the daily GEX
+    # snapshot levels over time: spot (white), gamma flip (amber), call wall
+    # (teal), put wall (red), all as BTC price in $k with filled dots
+    # (sparse history). The title carries flip-distance-last, the regime run
+    # length, and -- when the Coinglass cross-check is present -- MP Delta
+    # (spot vs their nearest max-pain). gex:check absent/null omits only the
+    # suffix; the chart still renders.
+    def gex_trend(trend, check = nil)
+      rows   = trend['series'] || []
+      stats  = trend['stats'] || {}
+      labels = rows.map { |r| gex_trend_day(r['date']) }
+
+      {
+        'backgroundColor' => 'transparent',
+        'title' => { 'text' => gex_trend_title(stats, check),
+                     'textStyle' => { 'fontSize' => 13 } },
+        'tooltip' => { 'trigger' => 'axis', 'confine' => true,
+                       'textStyle' => { 'fontSize' => 11 } },
+        'legend' => { 'top' => 24, 'data' => %w[spot flip CW PW] },
+        'grid' => { 'left' => 56, 'right' => 24, 'top' => 52, 'bottom' => 28 },
+        'xAxis' => { 'type' => 'category', 'data' => labels },
+        'yAxis' => { 'type' => 'value', 'name' => 'price ($k)', 'scale' => true,
+                     'nameLocation' => 'middle', 'nameGap' => 44 },
+        'series' => [
+          gex_trend_line('spot', rows, 'spot', VOL_SPOT),
+          gex_trend_line('flip', rows, 'flip', VOL_AMBER),
+          gex_trend_line('CW',   rows, 'cw',   VOL_TEAL),
+          gex_trend_line('PW',   rows, 'pw',   VOL_RED)
+        ]
+      }
+    end
+
+    # A price-level line in $k with filled dots (sparse-data rule); nil
+    # levels stay gaps.
+    def gex_trend_line(name, rows, field, color)
+      { 'name' => name, 'type' => 'line', 'symbol' => 'circle', 'symbolSize' => 7,
+        'itemStyle' => { 'color' => color }, 'lineStyle' => { 'color' => color },
+        'data' => rows.map { |r| r[field] && (r[field].to_f / 1000).round(2) } }
+    end
+
+    # 'YYYY-MM-DD' -> 'MM-DD' (compact category label); pass anything else
+    # through untouched.
+    def gex_trend_day(date)
+      m = /\A\d{4}-(\d{2}-\d{2})\z/.match(date.to_s)
+      m ? m[1] : date.to_s
+    end
+
+    # 'GEX trend · flip dist <+d>% · <n>d <regime>' plus, when the cross-check
+    # is present, ' · MP Δ<+d>%' (spot vs Coinglass nearest max-pain).
+    def gex_trend_title(stats, check)
+      dist = stats['flip_dist_pct_last']
+      base = format('GEX trend · flip dist %s · %dd %s',
+                    dist.nil? ? 'n/a' : format('%+.2f%%', dist.to_f),
+                    stats['regime_days'].to_i, stats['regime'].to_s)
+      mp = check && check['deltas'] && check['deltas']['nearest_vs_spot_pct']
+      mp.nil? ? base : base + format(' · MP Δ%+.2f%%', mp.to_f)
     end
   end
 end

@@ -75,10 +75,92 @@ class TestChartSpecs < Minitest::Test
     assert_equal 'gex', metas['gex_mstr']['tab_group']
     assert_equal 'MSTR', metas['gex_mstr']['tab_label']
     assert_equal 2, metas['gex_mstr']['tab_pos']
-    # the other three charts are not part of any tab group
+    # scenario/lppl/btco stay solo cards
     assert_nil metas['scenario_strip']['tab_group']
     assert_nil metas['lppl_regime']['tab_group']
     assert_nil metas['btco_table']['tab_group']
+    # M8-6: the three vol charts share ONE 'vol' card as SURFACE/SPREAD/BASIS
+    # tabs (SURFACE default at pos 0); gex_trend joins the GEX card as TREND
+    # at pos 3 (after BTC pos 1, MSTR pos 2), so its own key-sort is moot.
+    assert_equal %w[vol SURFACE 0],
+                 metas['vol_surface'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
+    assert_equal %w[vol SPREAD 1],
+                 metas['vol_spread'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
+    assert_equal %w[vol BASIS 2],
+                 metas['vol_basis'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
+    assert_equal %w[gex TREND 3],
+                 metas['gex_trend'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
+    # the vol charts carry no drawn-legend/tooltip renderer hooks
+    %w[vol_surface vol_spread vol_basis gex_trend].each do |n|
+      assert_nil metas[n]['tooltip_formatter'], n
+      assert_nil metas[n]['legend_widget'], n
+      assert_nil metas[n]['height'], n
+    end
+  end
+
+  # ---- M8-6 vol/gex family structure -----------------------------------
+
+  def test_vol_surface_scales_to_percent_and_omits_null_tenors
+    opt = build('vol_surface')
+    vol = JSON.parse(File.read(File.join(PAYLOADS, 'payload_vol_latest.json')))
+    assert_equal vol['tenors'].map { |t| "#{t['tenor_d']}d" }, opt['xAxis']['data']
+    atm = opt['series'].find { |s| s['name'] == 'ATM IV' }
+    # decimal fraction -> percent at build time (0.4388 -> 43.88)
+    assert_in_delta vol['tenors'].first['atm_iv'] * 100, atm['data'].first, 0.01
+    assert_equal 7, atm['symbolSize'] # sparse: a filled dot must read
+    # a null-reason tenor is an omitted point, never a zero
+    p2 = JSON.parse(JSON.generate(vol))
+    p2['tenors'][1].merge!('atm_iv' => nil, 'rr25' => nil, 'fly25' => nil, 'reason' => 'thin')
+    a2 = Publish::Charts.vol_surface(p2)['series'].find { |s| s['name'] == 'ATM IV' }
+    assert_nil a2['data'][1]
+    # the expiry carrier is invisible and out of the legend
+    exp = Publish::Charts.vol_surface(p2)['series'].find { |s| s['name'] == 'exp(d)' }
+    assert_equal 0, exp['lineStyle']['opacity']
+    refute_includes Publish::Charts.vol_surface(p2)['legend']['data'], 'exp(d)'
+  end
+
+  def test_vol_spread_bars_coloured_by_sign_legs_as_lines
+    opt = build('vol_spread')
+    bar = opt['series'].find { |s| s['name'] == 'spread' }
+    assert_equal 'bar', bar['type']
+    bar['data'].compact.each do |d|
+      want = d['value'].negative? ? '#c63939' : '#0f7a5c'
+      assert_equal want, d['itemStyle']['color']
+    end
+    assert_equal %w[MSTR BTC], opt['series'].select { |s| s['type'] == 'line' }.map { |s| s['name'] }
+    # a dead leg drops its line points and that tenor's bar (nil, not zero)
+    sp = JSON.parse(File.read(File.join(PAYLOADS, 'payload_vol_spread.json')))
+    sp['tenors'].each { |t| t['mstr'] = { 'expiry_d' => nil, 'atm_iv' => nil, 'reason' => 'down' }; t['spread_atm'] = nil }
+    d2 = Publish::Charts.vol_spread(sp)
+    assert(d2['series'].find { |s| s['name'] == 'MSTR' }['data'].all?(&:nil?))
+    assert(d2['series'].find { |s| s['name'] == 'spread' }['data'].all?(&:nil?))
+  end
+
+  def test_vol_basis_omits_sub_day_tenors_and_marks_zero
+    opt = build('vol_basis')
+    line = opt['series'].first
+    assert_equal 0, line['markLine']['data'].first['yAxis'] # fair-value line
+    # a synthetic sub-1-day tenor is dropped as microstructure noise
+    p2 = JSON.parse(File.read(File.join(PAYLOADS, 'payload_basis_latest.json')))
+    p2['basis']['tenors'].unshift('instrument' => 'BTC-PERP-ish', 'days' => 0.4,
+                                  'mark' => 1.0, 'basis_ann_pct' => 999.0)
+    x2 = Publish::Charts.vol_basis(p2)['xAxis']['data']
+    refute_includes x2, '0d'
+    refute(Publish::Charts.vol_basis(p2)['series'].first['data'].include?(999.0))
+  end
+
+  def test_gex_trend_title_suffix_only_with_cross_check
+    trend = JSON.parse(File.read(File.join(PAYLOADS, 'payload_gex_trend.json')))
+    check = JSON.parse(File.read(File.join(PAYLOADS, 'payload_gex_check.json')))
+    withc = Publish::Charts.gex_trend(trend, check)['title']['text']
+    assert_match(/GEX trend · flip dist \+3\.67% · 5d long_gamma · MP Δ/, withc)
+    # gex_check absent => suffix gracefully omitted, chart still renders
+    without = Publish::Charts.gex_trend(trend)['title']['text']
+    assert_equal 'GEX trend · flip dist +3.67% · 5d long_gamma', without
+    # price levels scaled to $k with filled dots (sparse-data rule)
+    spot = Publish::Charts.gex_trend(trend)['series'].find { |s| s['name'] == 'spot' }
+    assert_equal 62.0, spot['data'].first
+    assert_equal 7, spot['symbolSize']
   end
 
   # ---- gex_profile structure -------------------------------------------

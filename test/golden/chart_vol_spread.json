@@ -1,0 +1,106 @@
+{
+  "backgroundColor": "transparent",
+  "title": {
+    "text": "MSTR-BTC IV · 30d +42.3",
+    "textStyle": {
+      "fontSize": 13
+    }
+  },
+  "tooltip": {
+    "trigger": "axis",
+    "confine": true,
+    "textStyle": {
+      "fontSize": 11
+    }
+  },
+  "legend": {
+    "top": 24,
+    "data": [
+      "spread",
+      "MSTR",
+      "BTC"
+    ]
+  },
+  "grid": {
+    "left": 56,
+    "right": 24,
+    "top": 52,
+    "bottom": 28
+  },
+  "xAxis": {
+    "type": "category",
+    "data": [
+      "7d",
+      "30d",
+      "90d"
+    ]
+  },
+  "yAxis": {
+    "type": "value",
+    "name": "vol %",
+    "nameLocation": "middle",
+    "nameGap": 44
+  },
+  "series": [
+    {
+      "name": "spread",
+      "type": "bar",
+      "data": [
+        {
+          "value": 33.71,
+          "itemStyle": {
+            "color": "#0f7a5c"
+          }
+        },
+        {
+          "value": 42.29,
+          "itemStyle": {
+            "color": "#0f7a5c"
+          }
+        },
+        {
+          "value": 42.29,
+          "itemStyle": {
+            "color": "#0f7a5c"
+          }
+        }
+      ]
+    },
+    {
+      "name": "MSTR",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 6,
+      "itemStyle": {
+        "color": "#d0d5db"
+      },
+      "lineStyle": {
+        "color": "#d0d5db",
+        "width": 1
+      },
+      "data": [
+        77.59,
+        86.17,
+        86.17
+      ]
+    },
+    {
+      "name": "BTC",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 6,
+      "itemStyle": {
+        "color": "#7a828c"
+      },
+      "lineStyle": {
+        "color": "#7a828c",
+        "width": 1
+      },
+      "data": [
+        43.88,
+        43.88,
+        43.88
+      ]
+    }
+  ]
+}
