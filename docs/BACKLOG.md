@@ -1029,7 +1029,28 @@ packet: btco.rb prices 3350 from the StrategyTracker feed's USD
 stockPrice (source already registered; adds a btco runtime dependency
 on a third-party tracker). Owner picks.
 
-## M7-10 · catch-up composite mode  [tier: fable design] [status: queued 2026-07-07]
+## M7-16 · baseline-reset + per-field freshness gate  [tier: fable] [status: core done 2026-07-10; pilot = owner runs --baseline XXI/ABTC] [owner-ruled]
+THE PROCESS (owner ruling 2026-07-10, verbatim intent): "We need a
+separate regime to establish ground truth on shares/BTC counts AS OF
+CURRENT MOMENT, and then run our universe through it. THEN any
+ingestion should be tested against LATEST KNOWN GOOD ticker state, to
+check if it's adding fresh info OR just trying to apply stale data."
+(a) Per-field freshness gate: universe entries gain an additive
+    as_of map (field -> date of the latest known-good statement);
+    propose-time strips any field whose provenance date does not beat
+    the model's (generalizing the btc as-of guard to EVERYTHING);
+    apply stamps the dates. Supersedes M7-10's motivation.
+(b) Baseline mode (ingest --baseline TICKER): AI + web-search research
+    session takes the full dossier (our entry, ledger, all structured
+    refs, latest filings) and produces ONE ground-truth-as-of-today
+    proposal with per-field value/as_of/source; owner reviews; apply
+    REPLACES the entry and stamps every as_of. Pilot: XXI + ABTC (the
+    two broken entries), then the whole universe.
+Prior failures this answers: XXI 4x-duplicated convert + btc regressed
+below aggregate reality; ABTC invisible reverse split; MSTR ATM-delta
+share drift. D8-f (3350 price) stays open.
+
+## M7-10 · catch-up composite mode  [tier: fable design] [status: SUPERSEDED by M7-16 2026-07-10]
 Walk filings newest->older until every field has been stated once;
 emit ONE composite proposal per company with per-field provenance
 (filing + date per field). Solves both field completeness on sparse

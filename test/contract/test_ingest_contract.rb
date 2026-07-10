@@ -174,6 +174,27 @@ class TestIngestContract < Minitest::Test
     'no_material_change true.'
   ].freeze
 
+  # M7-16: the --baseline research prompt + schema, pinned like the
+  # extraction prompt (editing either without updating this test in the
+  # same commit goes red).
+  BASELINE_FRAGMENTS = [
+    'You are establishing the GROUND-TRUTH capital structure of a ',
+    'Bitcoin treasury company AS OF TODAY',
+    'Use web search ',
+    'converts is the COMPLETE',
+    'current tranche list (it replaces the model\'s, so an omitted tranche',
+    '"corporate_actions": ["splits/mergers/renames affecting the model\'s numbers"]',
+    '"cash": {"value": number|null, "as_of": "YYYY-MM-DD"|null, "source": "str"|null}',
+    'OUTSTANDING cover/registry counts adjusted for any split -- NEVER'
+  ].freeze
+
+  def test_baseline_prompt_and_schema_pinned
+    src = File.read(File.join(ROOT, 'scripts/btco/ingest.rb'))
+    BASELINE_FRAGMENTS.each do |frag|
+      assert_includes src, frag, "ingest.rb baseline prompt/schema drifted at: #{frag.inspect}"
+    end
+  end
+
   def test_extraction_prompt_and_schema_pinned_verbatim
     src = File.read(File.join(ROOT, 'scripts/btco/ingest.rb'))
     assert_includes src, SCHEMA_SOURCE,
