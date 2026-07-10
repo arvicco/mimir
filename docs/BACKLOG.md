@@ -1227,7 +1227,7 @@ registration in the same commit; KV key count grows ~3-5 -- the Gate 5
 KV-quota check must precede go-live. Code agents work in isolated
 worktrees (Stage A tiering; no destructive git).
 
-## M8-1 · Vol surface & skew (P-1)  [tier: opus -- Fable spec + review; first-of-family: sets the IV-extraction seam M8-2/M8-5 reuse] [status: stage 1 done 2026-07-10 -- Opus impl, Fable spec + review; lib\/btc\/vol.rb + scripts\/vol.rb + vol_history snapshot; chart spec\/card = stage 2] [deps: --]
+## M8-1 · Vol surface & skew (P-1)  [tier: opus -- Fable spec + review; first-of-family: sets the IV-extraction seam M8-2/M8-5 reuse] [status: stage 1 done 2026-07-10 -- Opus impl, Fable spec + review; lib/btc/vol.rb + scripts/vol.rb + vol_history snapshot; chart spec/card = stage 2] [deps: --]
 Extract mark IV from the Deribit option book we already fetch (gex.rb
 discards it): ATM IV, 25-delta risk reversal, butterfly, per tenor
 bucket (7d/30d/90d nearest). Pure functions in a new lib seam
@@ -1237,7 +1237,7 @@ Daily snapshot to data/vol_history/ via the gex-snapshot 08:15 agent
 New vol_surface chart spec + golden + Volatility card. GEX says how
 dealers are positioned; skew says what the market pays for tails.
 
-## M8-2 · GEX history analytics (P-4)  [tier: opus -- pure local computation over existing snapshots, written spec] [status: stage 1 done 2026-07-10 -- Opus impl, Fable spec + review; lib\/btc\/gex_history.rb + scripts\/gex_trend.rb; card enrichment = stage 2] [deps: --]
+## M8-2 · GEX history analytics (P-4)  [tier: opus -- pure local computation over existing snapshots, written spec] [status: stage 1 done 2026-07-10 -- Opus impl, Fable spec + review; lib/btc/gex_history.rb + scripts/gex_trend.rb; card enrichment = stage 2] [deps: --]
 data/gex_history/ accumulates daily snapshots (since 2026-07-06)
 NOTHING reads. Compute flip-point distance time series, CW/PW wall
 migration, gamma-regime persistence/transition stats. Publishes as
@@ -1246,14 +1246,14 @@ P-16 state machine and P-19 scorecard. Zero shared code with M8-1 --
 runs fully parallel. Decision (deferred to review): which derived
 series ship vs stay local.
 
-## M8-3 · Options positioning cross-check (P-5)  [tier: opus -- new source registration + health-style check] [status: stage 1 done 2026-07-10 -- Opus impl, Fable spec + review; lib\/btc\/gex_check.rb + scripts\/gex_check.rb; GEX-card line = stage 2] [deps: M8-1 (card real estate only; logic independent)]
+## M8-3 · Options positioning cross-check (P-5)  [tier: opus -- new source registration + health-style check] [status: stage 1 done 2026-07-10 -- Opus impl, Fable spec + review; lib/btc/gex_check.rb + scripts/gex_check.rb; GEX-card line = stage 2] [deps: M8-1 (card real estate only; logic independent)]
 Coinglass option/info + option/max-pain (PROBED on our tier) vs our
 own computed walls: does Deribit max pain agree with our CW/PW?
 Report-only divergence line on the GEX card + a health-style test --
 an outcome-first check on the GEX suite itself, same philosophy as
 the ingest ref lines. Fixture + SOURCES registration same commit.
 
-## M8-4 · Futures basis & funding composite (P-3)  [tier: opus] [status: stage 1 done 2026-07-10 -- Opus impl, Fable spec + review + funding-unit fix (coinglass returns percent, verified vs binance x100.05); lib\/btc\/basis.rb + scripts\/basis.rb; card strip = stage 2] [deps: --]
+## M8-4 · Futures basis & funding composite (P-3)  [tier: opus] [status: stage 1 done 2026-07-10 -- Opus impl, Fable spec + review + funding-unit fix (coinglass returns percent, verified vs binance x100.05); lib/btc/basis.rb + scripts/basis.rb; card strip = stage 2] [deps: --]
 Deribit futures book (fetched, unused) -> annualized basis per tenor;
 Coinglass OI-weighted funding (PROBED) replaces the single-exchange
 Binance approximation FOR DISPLAY. Contango steepness = leverage
@@ -1261,8 +1261,20 @@ appetite; basis collapse/backwardation = stress. Sparkline strip on
 the Volatility card. Explicitly display-only: joining the scenario
 score is a separate owner ruling (NOT this packet).
 
-## M8-5 · MSTR-vs-BTC implied-vol spread (P-2)  [tier: sonnet -- pattern-following on M8-1's extraction seam] [status: stage 1 done 2026-07-10 -- Sonnet impl, Fable spec + review; scripts\/vol_spread.rb on the M8-1 seam; card strip = stage 2] [deps: M8-1]
+## M8-5 · MSTR-vs-BTC implied-vol spread (P-2)  [tier: sonnet -- pattern-following on M8-1's extraction seam] [status: stage 1 done 2026-07-10 -- Sonnet impl, Fable spec + review; scripts/vol_spread.rb on the M8-1 seam; card strip = stage 2] [deps: M8-1]
 Apply M8-1's IV extraction to the CBOE MSTR chain (already fetched);
 spread = MSTR IV - BTC IV at nearest-expiry pairing -- the market's
 live price of treasury-company leverage; nobody publishes this.
 Strip on the Volatility card.
+
+## M8-6 · Family A stage 2: publish wiring + Volatility card + GEX trend tab  [tier: opus -- Fable design direction + review; mimir-design skill binding] [status: in progress 2026-07-10] [deps: M8-1..M8-5]
+Pipeline PRODUCERS += vol:latest / vol:spread / basis:latest /
+gex:trend / gex:check (key count 13 -> 22; every count pin updated in
+the same commits). Four chart specs + goldens (PROVISIONAL until the
+owner blesses at the gate): vol_surface/vol_spread/vol_basis as the
+new Volatility card (tab_group 'vol', SURFACE default; keys named
+vol_* so the card sorts after the blessed quadrants), gex_trend joins
+the existing GEX card as a [TREND] tab (tab_pos 2) with the gex_check
+max-pain delta as a title suffix. web/: 404-copy map entries only;
+tab machinery is generic. Self-review loop per the skill (headless
+screenshots, crop-zoom, critique, fix) before handoff.
