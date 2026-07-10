@@ -177,15 +177,15 @@ same commit (`rake health` fails on registry drift).
 
 ## Current phase
 
-Phase 7 (BTCo ingest to real data, branch phase-7; Gate 6 closed
-2026-07-06, PR #7, ledger promoted 275 entries, 13 keys live; Gate 7
-= v1 tag per the standing real-data ruling; week-long soak reviewed
-at the first gate after ~Jul 13). OWNER-INTERACTIVE phase: analysis/
-review/apply happen in owner sessions (D6-a); the loop builds tests,
-the discovery-alert job and the shakedown harness. Stage A tiering
-(DEV-LOOP.md section 2): Fable orchestrates/reviews, Opus/Sonnet
-write most code; packets M7-1.. in docs/BACKLOG.md. Visual work
-follows .claude/skills/mimir-design; deploys, launchd installs and
-ingest --apply are HUMAN actions (Golden Rule 3; universe.json only
-via reviewed proposals). Consult ARCHITECTURE.md section 6 for Gate
-7; update this line at each gate.
+Phase 7 soaking (branch phase-7, complete at the outcome level 2026-07-10,
+8/8 universe live; Gate 7 = owner runbook in docs/BACKLOG.md on/after
+~Jul 13, tags v1) IN PARALLEL with Phase 8A (branch phase-8 off phase-7
+e48ce84; GEX/volatility family M8-1..M8-5 per docs/BACKLOG.md +
+DEV-PROPOSALS.md family A, owner-approved 2026-07-10; display-first, no
+score-membership changes; nothing installs or publishes until its own
+gate, so the soak is undisturbed). Stage A tiering (DEV-LOOP.md section
+2): Fable orchestrates/reviews, Opus/Sonnet write most code in isolated
+worktrees. Visual work follows .claude/skills/mimir-design; deploys,
+launchd installs and ingest --apply are HUMAN actions (Golden Rule 3;
+universe.json only via reviewed proposals). Update this line at each
+gate.
