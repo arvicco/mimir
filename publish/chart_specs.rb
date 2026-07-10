@@ -952,7 +952,10 @@ module Publish
         'yAxis' => { 'type' => 'value', 'name' => 'vol %',
                      'nameLocation' => 'middle', 'nameGap' => 44 },
         'series' => [
-          { 'name' => 'spread', 'type' => 'bar', 'data' => bars },
+          # series-level teal so the legend swatch matches the (positive)
+          # bars; per-bar itemStyle still overrides negatives to red.
+          { 'name' => 'spread', 'type' => 'bar', 'itemStyle' => { 'color' => GEX_TEAL },
+            'data' => bars },
           { 'name' => 'MSTR', 'type' => 'line', 'symbol' => 'circle', 'symbolSize' => 6,
             'itemStyle' => { 'color' => VOL_MSTR }, 'lineStyle' => { 'color' => VOL_MSTR, 'width' => 1 },
             'data' => mstr },
