@@ -1227,7 +1227,7 @@ registration in the same commit; KV key count grows ~3-5 -- the Gate 5
 KV-quota check must precede go-live. Code agents work in isolated
 worktrees (Stage A tiering; no destructive git).
 
-## M8-1 · Vol surface & skew (P-1)  [tier: opus -- Fable spec + review; first-of-family: sets the IV-extraction seam M8-2/M8-5 reuse] [status: todo] [deps: --]
+## M8-1 · Vol surface & skew (P-1)  [tier: opus -- Fable spec + review; first-of-family: sets the IV-extraction seam M8-2/M8-5 reuse] [status: stage 1 done 2026-07-10 -- Opus impl, Fable spec + review; lib\/btc\/vol.rb + scripts\/vol.rb + vol_history snapshot; chart spec\/card = stage 2] [deps: --]
 Extract mark IV from the Deribit option book we already fetch (gex.rb
 discards it): ATM IV, 25-delta risk reversal, butterfly, per tenor
 bucket (7d/30d/90d nearest). Pure functions in a new lib seam
@@ -1237,7 +1237,7 @@ Daily snapshot to data/vol_history/ via the gex-snapshot 08:15 agent
 New vol_surface chart spec + golden + Volatility card. GEX says how
 dealers are positioned; skew says what the market pays for tails.
 
-## M8-2 · GEX history analytics (P-4)  [tier: opus -- pure local computation over existing snapshots, written spec] [status: todo] [deps: --]
+## M8-2 · GEX history analytics (P-4)  [tier: opus -- pure local computation over existing snapshots, written spec] [status: stage 1 done 2026-07-10 -- Opus impl, Fable spec + review; lib\/btc\/gex_history.rb + scripts\/gex_trend.rb; card enrichment = stage 2] [deps: --]
 data/gex_history/ accumulates daily snapshots (since 2026-07-06)
 NOTHING reads. Compute flip-point distance time series, CW/PW wall
 migration, gamma-regime persistence/transition stats. Publishes as
