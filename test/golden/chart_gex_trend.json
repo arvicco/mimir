@@ -1,0 +1,126 @@
+{
+  "backgroundColor": "transparent",
+  "title": {
+    "text": "GEX trend · flip dist +3.67% · 5d long_gamma · MP Δ+0.59%",
+    "textStyle": {
+      "fontSize": 13
+    }
+  },
+  "tooltip": {
+    "trigger": "axis",
+    "confine": true,
+    "textStyle": {
+      "fontSize": 11
+    }
+  },
+  "legend": {
+    "top": 24,
+    "data": [
+      "spot",
+      "flip",
+      "CW",
+      "PW"
+    ]
+  },
+  "grid": {
+    "left": 56,
+    "right": 24,
+    "top": 52,
+    "bottom": 28
+  },
+  "xAxis": {
+    "type": "category",
+    "data": [
+      "07-06",
+      "07-07",
+      "07-08",
+      "07-09",
+      "07-10"
+    ]
+  },
+  "yAxis": {
+    "type": "value",
+    "name": "price ($k)",
+    "scale": true,
+    "nameLocation": "middle",
+    "nameGap": 44
+  },
+  "series": [
+    {
+      "name": "spot",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 7,
+      "itemStyle": {
+        "color": "#d7dce3"
+      },
+      "lineStyle": {
+        "color": "#d7dce3"
+      },
+      "data": [
+        62.0,
+        63.0,
+        62.5,
+        63.5,
+        64.0
+      ]
+    },
+    {
+      "name": "flip",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 7,
+      "itemStyle": {
+        "color": "#e6a23c"
+      },
+      "lineStyle": {
+        "color": "#e6a23c"
+      },
+      "data": [
+        61.0,
+        61.2,
+        61.3,
+        61.5,
+        61.65
+      ]
+    },
+    {
+      "name": "CW",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 7,
+      "itemStyle": {
+        "color": "#2fbf8f"
+      },
+      "lineStyle": {
+        "color": "#2fbf8f"
+      },
+      "data": [
+        66.0,
+        66.0,
+        67.0,
+        67.0,
+        68.0
+      ]
+    },
+    {
+      "name": "PW",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 7,
+      "itemStyle": {
+        "color": "#ef6b6b"
+      },
+      "lineStyle": {
+        "color": "#ef6b6b"
+      },
+      "data": [
+        59.0,
+        59.0,
+        59.0,
+        60.0,
+        60.0
+      ]
+    }
+  ]
+}

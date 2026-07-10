@@ -159,7 +159,9 @@ class TestPublishPipeline < Minitest::Test
                     lppl:ledger chart:gex_mstr index], s[:keys]
     assert_equal %w[lppl:latest btco:latest vol:latest vol:spread basis:latest
                     gex:trend gex:check chart:gex_profile
-                    chart:scenario_strip chart:lppl_regime chart:btco_table], s[:skipped]
+                    chart:scenario_strip chart:lppl_regime chart:btco_table
+                    chart:vol_surface chart:vol_spread chart:vol_basis
+                    chart:gex_trend], s[:skipped]
     assert_equal 'DRY', s[:mode]
     assert_equal out_dir, s[:out_dir]
   end
@@ -298,13 +300,13 @@ class TestPublishPipeline < Minitest::Test
     dry_run
     line = File.read(File.join(@dir, 'publish.status'))
     # 7 written (gex:combined, gex:mstr, scenario:latest, 2 tails,
-    # chart:gex_mstr, index) of 18 expected (10 producers + 2 tails +
-    # 5 charts + 1 index); scenario_strip skipped on fail-soft input, the
+    # chart:gex_mstr, index) of 22 expected (10 producers + 2 tails +
+    # 9 charts + 1 index); scenario_strip skipped on fail-soft input, the
     # five M8-6 producers skipped in the mixed path.
     # The synthetic tails demonstrate the M7-5 content-recency guard IN
     # ONE LINE: scenario:history's newest entry is NOW-1d (24h < 30h, FRESH,
     # no marker) but lppl:ledger's newest is NOW-10d (> 30h) -> ` OLD:...`.
-    assert_equal "PUB DRY 7/18 keys 12:00 UTC OLD:lppl:ledger\n", line
+    assert_equal "PUB DRY 7/22 keys 12:00 UTC OLD:lppl:ledger\n", line
   end
 
   def test_status_line_live_label
@@ -319,8 +321,8 @@ class TestPublishPipeline < Minitest::Test
     inject_kv { FakeRes.new('200', 'ok') }
     Publish::Pipeline.run(now: NOW, source: 'testhost', dry_run: false,
                           runner: fixture_runner, env: ENV_OK, status_dir: @dir)
-    # all ten sources + two tails + five charts + index publish cleanly.
-    assert_equal "PUB LIVE 18/18 keys 12:00 UTC\n", File.read(File.join(@dir, 'publish.status'))
+    # all ten sources + two tails + nine charts + index publish cleanly.
+    assert_equal "PUB LIVE 22/22 keys 12:00 UTC\n", File.read(File.join(@dir, 'publish.status'))
   end
 
   # -- content-recency guard (M7-5, 2026-07-07 frozen-evidence incident) ---
@@ -334,7 +336,7 @@ class TestPublishPipeline < Minitest::Test
     File.write(File.join(@dir, 'lppl', 'ledger.jsonl'),
                JSON.generate('ts' => stale, 'bf' => 1.0) + "\n")
     dry_run
-    assert_equal "PUB DRY 7/18 keys 12:00 UTC OLD:scenario:history,lppl:ledger\n",
+    assert_equal "PUB DRY 7/22 keys 12:00 UTC OLD:scenario:history,lppl:ledger\n",
                  File.read(File.join(@dir, 'publish.status'))
   end
 
@@ -346,7 +348,7 @@ class TestPublishPipeline < Minitest::Test
     File.write(File.join(@dir, 'lppl', 'ledger.jsonl'),
                JSON.generate('ts' => fresh, 'bf' => 1.0) + "\n")
     dry_run
-    assert_equal "PUB DRY 7/18 keys 12:00 UTC\n", File.read(File.join(@dir, 'publish.status'))
+    assert_equal "PUB DRY 7/22 keys 12:00 UTC\n", File.read(File.join(@dir, 'publish.status'))
   end
 
   # A SKIPPED tail (no file) earns NO OLD marker -- the n/m shortfall
@@ -357,8 +359,8 @@ class TestPublishPipeline < Minitest::Test
     File.write(File.join(@dir, 'scenario', 'history.jsonl'),
                JSON.generate('ts' => fresh, 'composite' => 0.1) + "\n")
     dry_run
-    # 6/18 now (one tail gone); no OLD marker (skip, not stale).
-    assert_equal "PUB DRY 6/18 keys 12:00 UTC\n", File.read(File.join(@dir, 'publish.status'))
+    # 6/22 now (one tail gone); no OLD marker (skip, not stale).
+    assert_equal "PUB DRY 6/22 keys 12:00 UTC\n", File.read(File.join(@dir, 'publish.status'))
   end
 
   # -- real mode: v1:-prefixed PUTs + 403 abort ----------------------------
@@ -381,7 +383,7 @@ class TestPublishPipeline < Minitest::Test
     s = Publish::Pipeline.run(now: NOW, source: 'testhost', dry_run: false,
                               runner: fixture_runner, env: ENV_OK, status_dir: @dir)
     # every producer + tail + chart + index put exactly once, v1:-prefixed.
-    assert_equal 18, calls.size
+    assert_equal 22, calls.size
     assert(calls.all? { |c| c[:uri].include?('/values/v1%3A') })
     # the chart keys are PUT as 'v1:chart:<name>' (colons url-encoded).
     assert(calls.any? { |c| c[:uri].include?('/values/v1%3Achart%3A') })
@@ -401,12 +403,13 @@ class TestPublishPipeline < Minitest::Test
 
   # -- chart envelopes (M3-5) ----------------------------------------------
 
-  # With the real fixture payloads all four charts build; pin their
+  # With the real fixture payloads all nine charts build; pin their
   # preview files, keys, and ttl INHERITANCE (min of the input ttls).
   def test_chart_envelopes_written_with_inherited_ttls
     s = fixture_dry_run
     %w[chart:gex_profile chart:gex_mstr chart:scenario_strip
-       chart:lppl_regime chart:btco_table].each { |k| assert_includes s[:keys], k }
+       chart:lppl_regime chart:btco_table chart:vol_surface chart:vol_spread
+       chart:vol_basis chart:gex_trend].each { |k| assert_includes s[:keys], k }
 
     mstr = JSON.parse(File.read(File.join(out_dir, 'chart_gex_mstr.json')))
     assert_equal 'chart:gex_mstr', mstr['key']
@@ -424,6 +427,16 @@ class TestPublishPipeline < Minitest::Test
 
     btco = JSON.parse(File.read(File.join(out_dir, 'chart_btco_table.json')))
     assert_equal 3_600, btco['ttl_hint_s'] # inherits btco:latest (3600)
+
+    # M8-6 vol charts each inherit their single input's 1800s ttl.
+    %w[vol_surface vol_spread vol_basis].each do |n|
+      env = JSON.parse(File.read(File.join(out_dir, "chart_#{n}.json")))
+      assert_equal 1_800, env['ttl_hint_s'], n
+    end
+    # gex_trend has TWO inputs (gex:trend 86400 + gex:check 1800) -> MIN 1800.
+    trend = JSON.parse(File.read(File.join(out_dir, 'chart_gex_trend.json')))
+    assert_equal 1_800, trend['ttl_hint_s']
+    assert trend['payload']['title']['text'].include?('MP Δ') # cross-check suffix present
   end
 
   def test_index_lists_chart_keys
@@ -431,10 +444,11 @@ class TestPublishPipeline < Minitest::Test
     idx = JSON.parse(File.read(File.join(out_dir, 'index.json')))
     keys = idx['payload']['keys'].map { |r| r['key'] }
     %w[chart:gex_profile chart:gex_mstr chart:scenario_strip
-       chart:lppl_regime chart:btco_table].each { |k| assert_includes keys, k }
+       chart:lppl_regime chart:btco_table chart:vol_surface chart:vol_spread
+       chart:vol_basis chart:gex_trend].each { |k| assert_includes keys, k }
     # index lists every published member but not itself: 10 sources + 2
-    # tails + 5 charts.
-    assert_equal 17, keys.size
+    # tails + 9 charts.
+    assert_equal 21, keys.size
   end
 
   # A builder crash SKIPs only that chart; the source key survives and the

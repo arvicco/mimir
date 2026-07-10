@@ -1,0 +1,83 @@
+{
+  "backgroundColor": "transparent",
+  "title": [
+    {
+      "text": "Basis ann% · funding 0.010%/8h",
+      "textStyle": {
+        "fontSize": 13
+      }
+    },
+    {
+      "text": "funding 1d 0.008 · 7d 0.007 · 30d 0.007 (%/8h)",
+      "top": "86%",
+      "right": 12,
+      "textStyle": {
+        "fontSize": 11,
+        "fontWeight": "normal",
+        "color": "#6b7178"
+      }
+    }
+  ],
+  "tooltip": {
+    "trigger": "axis",
+    "confine": true,
+    "textStyle": {
+      "fontSize": 11
+    }
+  },
+  "grid": {
+    "left": 56,
+    "right": 24,
+    "top": 44,
+    "bottom": 32
+  },
+  "xAxis": {
+    "type": "category",
+    "data": [
+      "4d",
+      "6d",
+      "356d"
+    ]
+  },
+  "yAxis": {
+    "type": "value",
+    "name": "ann basis %",
+    "nameLocation": "middle",
+    "nameGap": 44
+  },
+  "series": [
+    {
+      "name": "ann basis",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 7,
+      "itemStyle": {
+        "color": "#e6a23c"
+      },
+      "lineStyle": {
+        "color": "#e6a23c"
+      },
+      "data": [
+        -0.73,
+        0.906,
+        4.066
+      ],
+      "markLine": {
+        "symbol": "none",
+        "silent": true,
+        "data": [
+          {
+            "yAxis": 0,
+            "label": {
+              "formatter": "0"
+            },
+            "lineStyle": {
+              "type": "dashed",
+              "color": "#9aa0a6"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
