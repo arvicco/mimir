@@ -45,3 +45,12 @@ Recorded 2026-07-09 (M7-15 validation tool):
 Recorded 2026-07-10 (D8-f, non-US quotes):
 
 - `yahoo_quote_3350.json` -- OK (https://query1.finance.yahoo.com/v8/finance/chart/3350.T?interval=1d&range=1d -- trimmed to the meta block, 248.0 JPY)
+
+Recorded 2026-07-10 ~21:10 UTC (M8-3/M8-4/M8-5 sources; keyed probes by
+the loop under the owner's "keep going" ruling -- refresh on the next
+owner-run `rake fixtures:record` pass if recorder entries get added):
+
+- `coinglass_option_info.json` -- OK (https://open-api-v4.coinglass.com/api/option/info?symbol=BTC -- all 6 exchange rows, verbatim)
+- `coinglass_max_pain.json` -- OK (https://open-api-v4.coinglass.com/api/option/max-pain?symbol=BTC&exchange=Deribit -- trimmed to the first 4 expiry rows; NOTE the endpoint 400s without the exchange param)
+- `coinglass_funding_oi.json` -- OK (https://open-api-v4.coinglass.com/api/futures/funding-rate/oi-weight-history?symbol=BTC&interval=8h -- trimmed to the last 30 OHLC rows)
+- `cboe_options_mstr.json` -- OK (https://cdn.cboe.com/api/global/delayed_quotes/options/MSTR.json -- trimmed to 48 live rows: iv>0, oi>0, 16 nearest-ATM strikes across the 3 weekly expiries strictly after the recording day, spot 94.66)

@@ -29,6 +29,7 @@ module BTC
       'scripts/btco/validate.rb'      => %w[EDGAR_UA],
       'scripts/scenario/macro.rb'     => %w[FRED_API_KEY],
       'scripts/scenario/etf_flows.rb' => %w[COINGLASS_API_KEY],
+      'lib/btc/coinglass.rb'          => %w[COINGLASS_API_KEY],
       'scripts/scenario/scenario.rb'  => %w[HOME],
       'publish/publish.rb'            => %w[PUBLISH_DRY_RUN]
     }.freeze
@@ -90,6 +91,24 @@ module BTC
       { name: 'coinglass etf flows', src: 'scripts/scenario/etf_flows.rb',
         marker: 'open-api-v4.coinglass.com', env: 'COINGLASS_API_KEY',
         url: 'https://open-api-v4.coinglass.com/api/etf/bitcoin/flow-history',
+        headers: -> { { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] } },
+        check: ->(b) { j = JSON.parse(b); j['code'].to_s == '0' && !j['data'].to_a.empty? } },
+      # soft: M8-3/M8-4 display inputs via the BTC::Coinglass seam -- a
+      # dead endpoint degrades a strip/cross-check line (fail-soft), never
+      # a score, so degradation WARNs rather than failing the probe run.
+      { name: 'coinglass option info', src: 'lib/btc/coinglass.rb',
+        marker: 'option/info', env: 'COINGLASS_API_KEY', soft: true,
+        url: 'https://open-api-v4.coinglass.com/api/option/info?symbol=BTC',
+        headers: -> { { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] } },
+        check: ->(b) { j = JSON.parse(b); j['code'].to_s == '0' && !j['data'].to_a.empty? } },
+      { name: 'coinglass max pain', src: 'lib/btc/coinglass.rb',
+        marker: 'option/max-pain', env: 'COINGLASS_API_KEY', soft: true,
+        url: 'https://open-api-v4.coinglass.com/api/option/max-pain?symbol=BTC&exchange=Deribit',
+        headers: -> { { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] } },
+        check: ->(b) { j = JSON.parse(b); j['code'].to_s == '0' && !j['data'].to_a.empty? } },
+      { name: 'coinglass funding (oi-weighted)', src: 'lib/btc/coinglass.rb',
+        marker: 'oi-weight-history', env: 'COINGLASS_API_KEY', soft: true,
+        url: 'https://open-api-v4.coinglass.com/api/futures/funding-rate/oi-weight-history?symbol=BTC&interval=8h',
         headers: -> { { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] } },
         check: ->(b) { j = JSON.parse(b); j['code'].to_s == '0' && !j['data'].to_a.empty? } },
       # soft: an advisory ingest sanity reference (M7-9) -- if the
