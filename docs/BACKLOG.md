@@ -1267,7 +1267,7 @@ spread = MSTR IV - BTC IV at nearest-expiry pairing -- the market's
 live price of treasury-company leverage; nobody publishes this.
 Strip on the Volatility card.
 
-## M8-6 · Family A stage 2: publish wiring + Volatility card + GEX trend tab  [tier: opus -- Fable design direction + review; mimir-design skill binding] [status: in progress 2026-07-10] [deps: M8-1..M8-5]
+## M8-6 · Family A stage 2: publish wiring + Volatility card + GEX trend tab  [tier: opus -- Fable design direction + review; mimir-design skill binding] [status: done 2026-07-11 -- goldens PROVISIONAL until owner blesses; agent caught + fixed a legend-swatch bug; Fable visual verify caught its own stale-server screenshot trap] [deps: M8-1..M8-5]
 Pipeline PRODUCERS += vol:latest / vol:spread / basis:latest /
 gex:trend / gex:check (key count 13 -> 22; every count pin updated in
 the same commits). Four chart specs + goldens (PROVISIONAL until the
