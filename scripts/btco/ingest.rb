@@ -155,7 +155,10 @@ BASELINE_NOTE = <<~SCHEMA
   OUTSTANDING cover/registry counts adjusted for any split -- NEVER
   weighted averages. Face values are USD. converts is the COMPLETE
   current tranche list (it replaces the model's, so an omitted tranche
-  is a removed tranche). Use null only when nothing can be sourced.
+  is a removed tranche). debt_face is STRAIGHT debt ONLY, EXCLUDING
+  every tranche listed in converts (they are summed separately --
+  putting a note in both double-counts it). Use null only when nothing
+  can be sourced.
 SCHEMA
 
 def ai_extract(cur, text, meta)

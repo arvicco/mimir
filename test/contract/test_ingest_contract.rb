@@ -185,7 +185,9 @@ class TestIngestContract < Minitest::Test
     'current tranche list (it replaces the model\'s, so an omitted tranche',
     '"corporate_actions": ["splits/mergers/renames affecting the model\'s numbers"]',
     '"cash": {"value": number|null, "as_of": "YYYY-MM-DD"|null, "source": "str"|null}',
-    'OUTSTANDING cover/registry counts adjusted for any split -- NEVER'
+    'OUTSTANDING cover/registry counts adjusted for any split -- NEVER',
+    'debt_face is STRAIGHT debt ONLY, EXCLUDING',
+    'putting a note in both double-counts it'
   ].freeze
 
   def test_baseline_prompt_and_schema_pinned
