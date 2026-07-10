@@ -2,17 +2,12 @@
   "note": "SEED DATA -- every entry carries btc_as_of and placeholder:true. Values are from filings/announcements circa the stated dates and are certainly stale; run `ruby btco.rb --check-filings` and update from the listed documents before trusting outputs. Fields: btc (coins held), shares_basic / shares_diluted (assumed diluted), debt_face (straight debt, USD), pref_liq (preferred liquidation preference, USD), converts (per-tranche face USD + conversion price in listing ccy), stooq (quote symbol), ccy (listing currency), cik (SEC, null = non-US/unknown), manual_px (fallback if no quote source).",
   "companies": [
     {
-      "name": "Strategy",
-      "ticker": "MSTR",
-      "stooq": "mstr.us",
-      "ccy": "USD",
-      "cik": "1050446",
       "btc": 843775,
       "btc_as_of": "2026-07-05",
       "shares_basic": 350447872,
       "shares_diluted": null,
       "debt_face": 0,
-      "pref_liq": 3400000000,
+      "pref_liq": 15500000000,
       "converts": [
         {
           "face": 1010000000,
@@ -45,45 +40,48 @@
           "label": "2032"
         }
       ],
-      "placeholder": false,
-      "note": "share counts and pref stack grow weekly via ATMs -- refresh from latest 8-K/10-Q"
+      "as_of": {
+        "shares_basic": "2026-04-26",
+        "debt_face": "2026-07-05",
+        "pref_liq": "2026-05-25",
+        "cash": "2026-07-05"
+      },
+      "name": "Strategy",
+      "ticker": "MSTR",
+      "stooq": "mstr.us",
+      "ccy": "USD",
+      "cik": "1050446",
+      "note": "share counts and pref stack grow weekly via ATMs -- refresh from latest 8-K/10-Q",
+      "placeholder": false
     },
     {
-      "name": "Twenty One Capital",
-      "ticker": "XXI",
-      "stooq": "xxi.us",
-      "ccy": "USD",
-      "cik": "2070457",
-      "btc": 36504,
-      "btc_as_of": "2025-12-31",
-      "shares_basic": 346548153,
-      "shares_diluted": 400000000,
+      "btc": 43514,
+      "btc_as_of": "2026-03-31",
+      "shares_basic": 562284164,
+      "shares_diluted": 597353076,
       "debt_face": 486500000,
       "pref_liq": 0,
       "converts": [
         {
           "face": 486500000,
-          "conv_price": null,
-          "label": "1.0% Convertible Senior Notes due 2030"
-        },
-        {
-          "face": 486500000,
-          "conv_price": null,
-          "label": "1.00% Convertible Senior Secured Notes due 2030"
-        },
-        {
-          "face": 486500000,
           "conv_price": 13.873,
-          "label": "1.00% Convertible Notes due 2030"
-        },
-        {
-          "face": 486500000,
-          "conv_price": null,
-          "label": "1.0% Convertible Senior Notes due 2030"
+          "label": "1.00% Convertible Senior Secured Notes due December 1, 2030"
         }
       ],
-      "placeholder": false,
-      "note": "dual-class structure; diluted count approximate -- see prior XXI capital-structure model"
+      "as_of": {
+        "shares_basic": "2026-05-19",
+        "shares_diluted": "2026-05-19",
+        "debt_face": "2025-12-08",
+        "pref_liq": "2026-03-31",
+        "cash": "2026-03-31"
+      },
+      "name": "Twenty One Capital",
+      "ticker": "XXI",
+      "stooq": "xxi.us",
+      "ccy": "USD",
+      "cik": "2070457",
+      "note": "dual-class structure; diluted count approximate -- see prior XXI capital-structure model",
+      "placeholder": false
     },
     {
       "name": "Metaplanet",
