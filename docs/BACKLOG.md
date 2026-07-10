@@ -1160,6 +1160,9 @@ week; v1 tags at Gate 7 (real BTCo data, per the standing ruling).
 steps 1-5): lib/btc/coinglass.rb + TTL cache + tier probe; A1 etf_flows
 swap; B1 liqmap.rb; A2 cohort; A3/A4 -- all detail-only/parallel-run
 behind the research gate; scenario history seeded where sources permit.
+SUPERSEDED 2026-07-10: Phase 8 scope now comes from docs/DEV-PROPOSALS.md
+(waves approved 2026-07-09); packets M8-1.. below. The Coinglass client
+groundwork survives inside M8-3/M8-4 where those packets need it.
 
 **Phase 9 -- scenario v2 hypothesis modules** (scenario_upgrades.md):
 U1/U2 first, U4 early, U3/U5/U6 monitors, U7 housekeeping; weight-0
@@ -1204,3 +1207,62 @@ multi-phase plan approval)
   no code change required.
 - (D4-a LPPL price-vs-trend panel: no longer queue tail -- scheduled
   into Phase 10 at the 2026-07-06 plan approval.)
+
+## Phase 8A -- GEX / volatility family (branch: phase-8, cut from
+## phase-7 e48ce84; owner-approved 2026-07-10 to run IN PARALLEL with
+## the Phase 7 soak -- nothing installs or publishes until its own gate)
+
+Scope = DEV-PROPOSALS.md family A (P-1..P-5), display-first: no
+scenario-score membership changes in this phase (Golden Rule 4; score
+questions are separate later rulings). Decision defaults approved
+2026-07-10: P-1 standard conventions (25-delta from Deribit's own
+delta field, tenors bucketed to nearest 7d/30d/90d expiry, RR =
+call IV - put IV); P-5 report-only divergence (threshold picked
+empirically after weeks of data); P-2 nearest-expiry tenor pairing;
+layout = ONE new Volatility card hosting P-1/P-2/P-3 strips (D7-c tab
+machinery), P-4/P-5 enrich the existing GEX card. Cross-cutting:
+golden files + contract tests from birth for every new spec/--json;
+new Coinglass endpoints get fixtures (owner-run record) + health.rb
+registration in the same commit; KV key count grows ~3-5 -- the Gate 5
+KV-quota check must precede go-live. Code agents work in isolated
+worktrees (Stage A tiering; no destructive git).
+
+## M8-1 · Vol surface & skew (P-1)  [tier: opus -- Fable spec + review; first-of-family: sets the IV-extraction seam M8-2/M8-5 reuse] [status: todo] [deps: --]
+Extract mark IV from the Deribit option book we already fetch (gex.rb
+discards it): ATM IV, 25-delta risk reversal, butterfly, per tenor
+bucket (7d/30d/90d nearest). Pure functions in a new lib seam
+(lib/btc/vol.rb or scripts-local per spec), exact-value unit tests.
+Daily snapshot to data/vol_history/ via the gex-snapshot 08:15 agent
+(gex_history pattern) so IV rank/percentiles emerge after a few weeks.
+New vol_surface chart spec + golden + Volatility card. GEX says how
+dealers are positioned; skew says what the market pays for tails.
+
+## M8-2 · GEX history analytics (P-4)  [tier: opus -- pure local computation over existing snapshots, written spec] [status: todo] [deps: --]
+data/gex_history/ accumulates daily snapshots (since 2026-07-06)
+NOTHING reads. Compute flip-point distance time series, CW/PW wall
+migration, gamma-regime persistence/transition stats. Publishes as
+additive series on the GEX card (time-aware story); feeds the future
+P-16 state machine and P-19 scorecard. Zero shared code with M8-1 --
+runs fully parallel. Decision (deferred to review): which derived
+series ship vs stay local.
+
+## M8-3 · Options positioning cross-check (P-5)  [tier: opus -- new source registration + health-style check] [status: todo] [deps: M8-1 (card real estate only; logic independent)]
+Coinglass option/info + option/max-pain (PROBED on our tier) vs our
+own computed walls: does Deribit max pain agree with our CW/PW?
+Report-only divergence line on the GEX card + a health-style test --
+an outcome-first check on the GEX suite itself, same philosophy as
+the ingest ref lines. Fixture + SOURCES registration same commit.
+
+## M8-4 · Futures basis & funding composite (P-3)  [tier: opus] [status: todo] [deps: --]
+Deribit futures book (fetched, unused) -> annualized basis per tenor;
+Coinglass OI-weighted funding (PROBED) replaces the single-exchange
+Binance approximation FOR DISPLAY. Contango steepness = leverage
+appetite; basis collapse/backwardation = stress. Sparkline strip on
+the Volatility card. Explicitly display-only: joining the scenario
+score is a separate owner ruling (NOT this packet).
+
+## M8-5 · MSTR-vs-BTC implied-vol spread (P-2)  [tier: sonnet -- pattern-following on M8-1's extraction seam] [status: todo] [deps: M8-1]
+Apply M8-1's IV extraction to the CBOE MSTR chain (already fetched);
+spread = MSTR IV - BTC IV at nearest-expiry pairing -- the market's
+live price of treasury-company leverage; nobody publishes this.
+Strip on the Volatility card.
