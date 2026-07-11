@@ -77,6 +77,12 @@ same commit (`rake health` fails on registry drift).
    what the tools can do today.
 6. **STOP at gates.** Phase boundaries and anything listed in Golden Rule
    3 end your turn with a handoff summary, not an action.
+7. **Gate instructions live in `docs/Gate-N-runbook.md`** (owner ruling
+   2026-07-11), one file per gate, written for a human runner: numbered
+   steps with full copy-pasteable commands, real URLs/links, and an
+   EXPECT line per step; background quarantined at the end. Never bury
+   a gate checklist in BACKLOG.md or a chat summary; keep the runbook
+   current as gate scope evolves.
 
 ### Self-review checklist
 - [ ] Ruby 3.3-compatible (`rake compat` clean; no 3.4+/4.x-only constructs)
