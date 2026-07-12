@@ -1143,10 +1143,13 @@ SUPERSEDED 2026-07-10: Phase 8 scope now comes from docs/DEV-PROPOSALS.md
 (waves approved 2026-07-09); packets M8-1.. below. The Coinglass client
 groundwork survives inside M8-3/M8-4 where those packets need it.
 
-**Phase 9 -- scenario v2 hypothesis modules** (scenario_upgrades.md):
-U1/U2 first, U4 early, U3/U5/U6 monitors, U7 housekeeping; weight-0
-entries with pre-registered kill criteria; weight/threshold changes
-batched as research decisions on ledger evidence.
+**Phase 9 -- scenario v2 hypothesis modules** (scenario_upgrades.md;
+probe-amended 2026-07-12, see DEV-PROPOSALS.md Reconciliation): U1
+first, U4 early (longest parallel run), U3/U6 monitors, U7
+housekeeping; U2 + U5 blocked on the Coinglass tier (D9-a: plan
+upgrade vs alternate cohort source vs drop); weight-0 entries with
+pre-registered kill criteria; weight/threshold changes batched as
+research decisions on ledger evidence.
 
 **Phase 10 -- dashboard round 2**: flow_decay_curve, cohort_panel,
 expiry_timeline, macro_clock, liq_topology specs + D4-a LPPL price

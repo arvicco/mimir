@@ -1,5 +1,14 @@
 # improvements.md -- Coinglass API integration plan (Mimir)
 
+> STATUS 2026-07-12: reconciled into the phase plan -- see
+> docs/DEV-PROPOSALS.md "Reconciliation" section, which carries the
+> tier-probe corrections and WINS on conflict. Key deltas: the client
+> groundwork is BUILT (lib/btc/coinglass.rb, M8, minus TTL cache/tier
+> probe); A4's display half and A6's max-pain leg are BUILT (basis.rb,
+> gex_check.rb); headline 1 (cohort metrics) and B1 liqmap are
+> TIER-GATED on our plan -> decision item D9-a (plan upgrade vs
+> alternate source vs drop).
+
 Mapping of the Coinglass API v4 catalog (base
 `https://open-api-v4.coinglass.com`, auth header `CG-API-KEY`, docs:
 https://docs.coinglass.com/reference/endpoint-overview) onto the existing
