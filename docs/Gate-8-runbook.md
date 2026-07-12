@@ -95,6 +95,10 @@ EXPECT:
   2026-07-06) and keeps growing a point per day; `data/vol_history/`
   starts accumulating from the first post-deploy 08:15 snapshot (IV
   rank/percentiles become buildable after a few weeks).
+- The title ⓘ (next to "mimir") opens its orientation bubble on
+  hover/focus, and its "How to read this dashboard →" link loads
+  guide.html on the live host (opens `/guide.html`, the full reading
+  guide; "Methodology →" goes to the repo).
 
 ## Decide or explicitly carry at this gate
 
