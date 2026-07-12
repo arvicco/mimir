@@ -138,6 +138,34 @@
   .card-head:has(.hover:focus) ~ .bubble,
   .bubble:hover { display: block; }
   .info:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
+  /* Title ⓘ affordance + instant orientation bubble (M8-7). SAME instant
+     CSS hover/focus pattern as the card-head bubbles (never native title=).
+     It sits at the top of the page, so it opens DOWNWARD and can never clip
+     at the top; anchored to the header's left edge and width-capped so it
+     can't clip at the right either (mimir-design: overlays never clip).
+     Mirrored from index.html (unified-view ruling); the guide link is
+     relative, resolving to /web/guide.html under rake preview. */
+  #titleinfo {
+    font-size: 12px; color: #7f8896; cursor: help; flex: 0 0 auto;
+    margin-left: -8px; /* pull it close to the title (header gap is 14px) */
+  }
+  #titleinfo:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; border-radius: 3px; }
+  #titlebubble {
+    display: none; position: absolute; left: 0; top: calc(100% + 4px);
+    z-index: 50; width: max-content; max-width: min(360px, 92vw);
+    background: #232933; border: 1px solid #3a424e; border-radius: 8px;
+    padding: 10px 14px; font-size: 12px; line-height: 1.55; color: #ccd3dc;
+    box-shadow: 0 6px 24px rgba(0,0,0,.45); white-space: normal;
+  }
+  #titlebubble p { margin: 0 0 8px; }
+  #titlebubble p:last-child { margin-bottom: 0; }
+  #titlebubble .links { display: flex; gap: 16px; }
+  #titlebubble a { color: #a9d1ff; text-decoration: none; }
+  #titlebubble a:hover, #titlebubble a:focus { text-decoration: underline; }
+  #titlebubble a:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; border-radius: 2px; }
+  #head:has(#titleinfo:hover) #titlebubble,
+  #head:has(#titleinfo:focus) #titlebubble,
+  #titlebubble:hover, #titlebubble:focus-within { display: block; }
   .badge {
     display: inline-flex; align-items: center; gap: 6px; margin-left: auto;
     font-size: 11px; padding: 2px 8px; border-radius: 20px;
@@ -184,9 +212,17 @@
 <body>
   <div id="head">
     <h1>mimir -- publish preview</h1>
+    <span id="titleinfo" role="button" tabindex="0" aria-label="About this dashboard and how to read it">ⓘ</span>
     <span id="chips"></span>
     <span id="pub"></span>
     <div id="livebubble" role="status"></div>
+    <div id="titlebubble" role="region" aria-label="About mimir">
+      <p>mimir is a personal Bitcoin analytics dashboard: four instrument families computed on a private machine and published as pre-built charts every two hours. This page is a dumb renderer &mdash; it draws the last publish and computes nothing itself.</p>
+      <p class="links">
+        <a href="guide.html">How to read this dashboard &rarr;</a>
+        <a href="https://github.com/arvicco/mimir/blob/main/docs/METHODOLOGY.md">Methodology &rarr;</a>
+      </p>
+    </div>
   </div>
   <div id="banner"></div>
   <div id="grid" class="grid"></div>
