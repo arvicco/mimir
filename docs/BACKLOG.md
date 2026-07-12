@@ -1260,3 +1260,17 @@ the existing GEX card as a [TREND] tab (tab_pos 2) with the gex_check
 max-pain delta as a title suffix. web/: 404-copy map entries only;
 tab machinery is generic. Self-review loop per the skill (headless
 screenshots, crop-zoom, critique, fix) before handoff.
+
+## M8-7 · Dashboard guide + title bubble  [tier: opus -- Fable plan + prose/visual review] [status: done 2026-07-12] [deps: M8-6]
+Owner request 2026-07-12: user-facing "what is this and how to read
+it" doc linked from the top title. web/guide.html: single-file static
+page, dark theme, no JS/deps -- what mimir is, reading the header
+(dots/pub/keep-last-good), one section per card (What it shows / How
+to read / The title number / Cadence / When it fails), GitHub links to
+METHODOLOGY + README (repo public -- zero serving machinery). Title
+<h1> gains the card-head-pattern instant bubble (orientation paragraph
++ "How to read this dashboard ->" + "Methodology ->"), mirrored in
+preview.html; worker serves web/ wholesale so guide.html ships free.
+Every prose claim traced to METHODOLOGY/README/chart meta or the code
+(verdict buckets verified against btco.rb); honest blind-0 caveat kept.
+Ships with the Gate 8 deploy (runbook step 5 EXPECT added).
