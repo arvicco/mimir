@@ -1122,6 +1122,15 @@ Gate-N-runbook.md, fully specific -- commands, links, EXPECT lines).
 Run that file on/after the July 13 soak review.
 
 ## Decision items -- Phase 7
+- D8-g Blind-zero history rows (filed 2026-07-13 after the overnight
+  outage): when EVERY scenario module is fail-soft-unavailable, the
+  daily suite-history append still writes composite 0.0/NEUTRAL with
+  no marker -- indistinguishable from a real neutral day in the
+  published 90d strip. Options: (a) skip the append when all modules
+  are unavailable (gap in the series, honest); (b) append with an
+  additive `blind: true` field the chart can grey out (contract
+  change, additive); (c) leave as-is and rely on the worklog. Owner
+  picks; touches append semantics, so loop will not act alone.
 - D8-a Alert token: **RESOLVED 2026-07-06 -- owner: "fine to place
   near general mimir status info"** -- token joins the mimir status
   cluster (second line right section), written only when n > 0
