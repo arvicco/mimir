@@ -1283,3 +1283,31 @@ preview.html; worker serves web/ wholesale so guide.html ships free.
 Every prose claim traced to METHODOLOGY/README/chart meta or the code
 (verdict buckets verified against btco.rb); honest blind-0 caveat kept.
 Ships with the Gate 8 deploy (runbook step 5 EXPECT added).
+
+## M8-8 · Data integrity: detection + marking at write time  [tier: opus -- Fable plan + review] [status: dispatched 2026-07-13] [deps: --]
+Owner ruling 2026-07-13 (after the blind-zero incident): corrupted
+data never reaches the dashboard unmarked; mark at write, repair
+same-day, monitor persistence. This packet = the markers: scenario
+--history row gains additive blind:true (zero live modules) /
+unavailable:[names] (partial); lppl --history row gains
+stale_input:true when the price cache is older than the run date
+allows; gex/vol snapshot date-guard treats an errors-carrying file as
+retryable (today only). Contract tests same-commit; composite math
+untouched.
+
+## M8-9 · Data integrity: same-day repair loop  [tier: opus] [status: dispatched 2026-07-13] [deps: M8-8]
+ops/repair.rb (pure decision module + runner): scan TODAY's artifacts
+for blind/stale_input/errored-or-missing; if sources answer now,
+re-run the producer in same-day REPLACE mode (rewrite today's line /
+re-capture today's file, never duplicate) and log REPAIRED old->new.
+Wired into ops/run_publish.sh BEFORE publish (12 chances/day, healed
+row publishes same tick, no reinstall -- plist execs the repo script).
+Artifacts older than today are never touched: permanent marked gaps.
+
+## M8-10 · Data integrity: surface honesty + BLIND invariant  [tier: opus] [status: dispatched 2026-07-13] [deps: M8-8, M8-9]
+scenario_strip renders blind rows hollow/greyed (spec + golden + meta
+help); publish status line gains additive BLIND:<suite> marker (OLD
+pattern) when today's artifact is still marked after repair ran --
+monitor relays it. Gate-8 runbook + README updated. Post-ship one-time
+owner-approved edit: stamp the 2026-07-13 scenario row blind:true so
+the chart greys it (predates the mechanics; ledgered in worklog).
