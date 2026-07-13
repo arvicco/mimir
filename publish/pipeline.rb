@@ -47,6 +47,12 @@
 #   `PUB LIVE 13/13 keys 09:34 UTC OLD:lppl:ledger`. The marker is present
 #   ONLY when stale; a SKIPPED tail (no file) gets no marker -- the n/m
 #   shortfall already flags it. ops/publish_health.rb reads the marker.
+#   ADDITIVE (M8-10): when a published tail's FRESHEST entry still carries
+#   its M8-8 data-integrity marker (scenario:history -> blind, lppl:ledger ->
+#   stale_input) -- i.e. ops/repair.rb, run just before this publish, could
+#   not heal it -- the line gains a trailing ` BLIND:<suite>[,...]` marker
+#   (BLIND_MARKERS order), after any ` OLD:` suffix, e.g.
+#   `PUB LIVE 13/13 keys 09:34 UTC BLIND:scenario`. publish_health surfaces it.
 #
 # DATA SOURCES: the four scripts/ suites (subprocess), plus the scenario
 # history + lppl ledger jsonl under BTC::Env.data_dir(<suite>). No direct
@@ -103,6 +109,14 @@ module Publish
     # purpose: this is a research/ops invariant, NOT ENV-configurable.
     STALE_EVIDENCE_H = 30
 
+    # M8-10: tail key -> [status-line suite label, the M8-8 marker whose
+    # presence on the FRESHEST published entry means today's artifact is
+    # still corrupted after repair ran. Additive ` BLIND:<suite>` suffix.
+    BLIND_MARKERS = {
+      'scenario:history' => ['scenario', 'blind'],
+      'lppl:ledger'      => ['lppl',     'stale_input']
+    }.freeze
+
     # Default runner: run argv under a timeout, return the child's FULL
     # stdout as a String; raise on timeout or nonzero exit (-> SKIP).
     DEFAULT_RUNNER = lambda do |argv, timeout_s|
@@ -153,9 +167,14 @@ module Publish
       expected = PRODUCERS.size + TAILS.size + Publish::Charts::CHARTS.size + 1
       old = stale_tails(envelopes, now)
       old_suffix = old.empty? ? '' : format(' OLD:%s', old.join(','))
+      # M8-10: a still-marked freshest tail (repair, run just before this
+      # publish, could not heal it) rides an additive ` BLIND:<suite>` suffix.
+      blind = blind_tails(envelopes)
+      blind_suffix = blind.empty? ? '' : format(' BLIND:%s', blind.join(','))
       BTC::Report.status('publish',
-                         format('PUB %s %d/%d keys %s%s', dry_run ? 'DRY' : 'LIVE',
-                                published, expected, now.utc.strftime('%H:%M UTC'), old_suffix),
+                         format('PUB %s %d/%d keys %s%s%s', dry_run ? 'DRY' : 'LIVE',
+                                published, expected, now.utc.strftime('%H:%M UTC'),
+                                old_suffix, blind_suffix),
                          dir: status_dir)
 
       { keys: records.map(&:first), skipped: skipped,
@@ -239,6 +258,37 @@ module Publish
       rescue ArgumentError, TypeError
         nil
       end.compact.max
+    end
+
+    # The entry with the newest parseable 'ts' in a tail payload (nil when
+    # none). Never raises -- an unparseable ts sorts to the epoch.
+    def newest_entry(payload)
+      return nil unless payload.is_a?(Hash)
+
+      entries = payload['entries']
+      return nil unless entries.is_a?(Array) && !entries.empty?
+
+      entries.max_by do |e|
+        Time.parse(e['ts'].to_s)
+      rescue ArgumentError, TypeError
+        Time.at(0)
+      end
+    end
+
+    # M8-10: of the PUBLISHED tails, the suites whose FRESHEST entry still
+    # carries its M8-8 data-integrity marker (scenario:history -> 'blind',
+    # lppl:ledger -> 'stale_input') at publish time -- repair (run just
+    # before this publish) could not heal it. Returned in BLIND_MARKERS order
+    # so the ` BLIND:<suite>[,...]` suffix is deterministic. A skipped tail is
+    # absent from +envelopes+ and already shows in the n/m shortfall.
+    def blind_tails(envelopes)
+      BLIND_MARKERS.filter_map do |tail_key, (suite, marker)|
+        env = envelopes[tail_key]
+        next unless env
+
+        newest = newest_entry(env['payload'])
+        suite if newest.is_a?(Hash) && newest[marker]
+      end
     end
 
     # Build one registered chart from THIS run's collected payloads and

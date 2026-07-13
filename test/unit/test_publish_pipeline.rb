@@ -351,6 +351,47 @@ class TestPublishPipeline < Minitest::Test
     assert_equal "PUB DRY 7/22 keys 12:00 UTC\n", File.read(File.join(@dir, 'publish.status'))
   end
 
+  # -- BLIND data-integrity marker (M8-10, blind-zero incident) ------------
+
+  # Freshest scenario entry blind + freshest lppl entry stale_input -> the
+  # additive ` BLIND:<suite>` marker names both (BLIND_MARKERS order). Fresh
+  # ts (< 30h) isolates BLIND from the OLD marker.
+  def test_status_line_marks_blind_freshest_tails
+    fresh = iso(NOW - 5 * 3600)
+    File.write(File.join(@dir, 'scenario', 'history.jsonl'),
+               JSON.generate('ts' => fresh, 'composite' => 0.0, 'blind' => true) + "\n")
+    File.write(File.join(@dir, 'lppl', 'ledger.jsonl'),
+               JSON.generate('ts' => fresh, 'bf' => 1.0, 'stale_input' => true) + "\n")
+    dry_run
+    assert_equal "PUB DRY 7/22 keys 12:00 UTC BLIND:scenario,lppl\n",
+                 File.read(File.join(@dir, 'publish.status'))
+  end
+
+  # BLIND rides AFTER any OLD suffix when a tail is both stale AND blind.
+  def test_status_line_blind_composes_with_old
+    stale = iso(NOW - 40 * 3600) # 40h > 30h -> OLD too
+    File.write(File.join(@dir, 'scenario', 'history.jsonl'),
+               JSON.generate('ts' => stale, 'composite' => 0.0, 'blind' => true) + "\n")
+    File.write(File.join(@dir, 'lppl', 'ledger.jsonl'),
+               JSON.generate('ts' => stale, 'bf' => 1.0, 'stale_input' => true) + "\n")
+    dry_run
+    assert_equal "PUB DRY 7/22 keys 12:00 UTC " \
+                 "OLD:scenario:history,lppl:ledger BLIND:scenario,lppl\n",
+                 File.read(File.join(@dir, 'publish.status'))
+  end
+
+  # The marker reads the FRESHEST entry only: an older blind row followed by a
+  # fresh healthy print is a permanent gap, NOT a live BLIND condition.
+  def test_status_line_blind_only_on_freshest_entry
+    File.write(File.join(@dir, 'scenario', 'history.jsonl'),
+               [JSON.generate('ts' => iso(NOW - 2 * DAY), 'composite' => 0.0, 'blind' => true),
+                JSON.generate('ts' => iso(NOW - 5 * 3600), 'composite' => 0.1)].join("\n") + "\n")
+    File.write(File.join(@dir, 'lppl', 'ledger.jsonl'),
+               JSON.generate('ts' => iso(NOW - 5 * 3600), 'bf' => 1.0) + "\n")
+    dry_run
+    refute_includes File.read(File.join(@dir, 'publish.status')), 'BLIND'
+  end
+
   # A SKIPPED tail (no file) earns NO OLD marker -- the n/m shortfall
   # already flags it; only a PUBLISHED-but-stale tail is marked.
   def test_status_line_skipped_tail_is_not_marked_old
