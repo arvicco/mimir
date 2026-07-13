@@ -41,6 +41,21 @@
         "onchain_value": 0,
         "stables": -1
       }
+    },
+    {
+      "ts": "2026-07-07T04:45:10Z",
+      "composite": 0.0,
+      "regime": "NEUTRAL",
+      "scores": {
+        "etf_flows": 0,
+        "funding_basis": 0,
+        "cb_premium": 0,
+        "macro": 0,
+        "hash_ribbons": 0,
+        "onchain_value": 0,
+        "stables": 0
+      },
+      "blind": true
     }
   ]
 }

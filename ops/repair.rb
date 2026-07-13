@@ -52,7 +52,7 @@
 #   NOTHING. Every action is fail-soft: an exception in one is redacted,
 #   warned, and never blocks the others or the publish that follows.
 #
-# Ruby >= 2.5, stdlib only.
+# Ruby >= 3.3, stdlib only.
 
 require 'json'
 require 'time'

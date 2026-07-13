@@ -10,3 +10,11 @@ Regenerate deliberately (a payload refresh changes every dependent
 golden, which then needs visual re-review + `rake golden:approve`):
 run the dry-run publish, then copy each artifact's `payload` member
 into `payload_<key>.json` here.
+
+## Hand-added synthetic rows (not from the recorded set)
+
+- `payload_scenario_history.json` carries a trailing **synthetic blind
+  row** (`2026-07-07`, `"blind": true`, composite 0.0) so the M8-10
+  scenario_strip golden exercises the hollow/grey blind-day marker. The
+  recorded 2026-07-06 run had no outage, so no real blind row existed to
+  capture. Keep this row on any refresh (re-append it).

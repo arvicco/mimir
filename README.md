@@ -281,6 +281,21 @@ action (Golden Rule 3) via the interactive tasks: `rake ops:install`
 / `ops:status` / `ops:uninstall` (TTY-gated, refuse under CI) +
 `rake ops:tmux` for the status-bar token. Procedures: `docs/RUNBOOK.md`.
 
+Data-integrity guard (M8-8/9/10, after the 2026-07-13 blind-zero
+incident). Corrupted daily artifacts are marked at write time: a
+scenario history row with zero live modules gets `blind: true` (a
+partial degradation lists the down modules); an lppl ledger row whose
+price cache never reached yesterday gets `stale_input: true`; a GEX/vol
+snapshot with a non-empty errors map is retryable that same day.
+`ops/repair.rb`, run by the publish wrapper just before every bi-hourly
+publish, re-runs today's producers when the sources answer again and
+rewrites today's marked row / re-captures its snapshot in place (older
+damage is a permanent, marked gap -- never touched). If a row is still
+marked after repair, the publish status line carries `BLIND:scenario` /
+`BLIND:lppl` (surfaced by the tmux monitor beside `OLD`) and the
+scenario strip greys that day's point so a data outage never reads as a
+real neutral day.
+
 ## Not implemented yet (roadmap in ARCHITECTURE.md)
 
 - The dashboard does not auto-refresh: a tab left open shows old data

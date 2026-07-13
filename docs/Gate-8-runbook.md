@@ -99,6 +99,13 @@ EXPECT:
   hover/focus, and its "How to read this dashboard →" link loads
   guide.html on the live host (opens `/guide.html`, the full reading
   guide; "Methodology →" goes to the repo).
+- Data-integrity honesty (M8-8/9/10): on a healthy day the publish
+  status line carries NO `BLIND` marker --
+  `grep -o 'BLIND:[^ ]*' /tmp/publish.status` prints nothing (equiv:
+  the tmux `PUB` token shows no `BLIND`). A `BLIND:scenario` /
+  `BLIND:lppl` only appears when today's freshest scenario/lppl row is
+  still marked after ops/repair.rb ran, and the scenario strip greys
+  that day's point (hollow marker; hover help names the convention).
 
 ## Decide or explicitly carry at this gate
 

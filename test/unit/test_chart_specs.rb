@@ -442,7 +442,33 @@ class TestChartSpecs < Minitest::Test
     opt = build('scenario_strip')
     hist = JSON.parse(File.read(File.join(PAYLOADS, 'payload_scenario_history.json')))
     data = opt['series'].first['data']
-    assert_equal hist['entries'].map { |e| [e['ts'], e['composite']] }, data
+    assert_equal hist['entries'].size, data.size
+    # M8-10: healthy entries stay bare [ts, composite] pairs; a blind entry
+    # (M8-8 marker) becomes a styled object so the line still reads its value.
+    hist['entries'].zip(data).each do |e, pt|
+      if e['blind']
+        assert_equal [e['ts'], e['composite']], pt['value']
+      else
+        assert_equal [e['ts'], e['composite']], pt
+      end
+    end
+  end
+
+  # M8-10: a blind day renders as a hollow (transparent-fill) grey marker,
+  # visibly degraded from a real neutral print.
+  def test_scenario_blind_day_renders_hollow_grey_marker
+    opt = build('scenario_strip')
+    hist = JSON.parse(File.read(File.join(PAYLOADS, 'payload_scenario_history.json')))
+    blind_ts = hist['entries'].select { |e| e['blind'] }.map { |e| e['ts'] }
+    refute_empty blind_ts, 'fixture must carry a synthetic blind row (README)'
+    styled = opt['series'].first['data'].select { |d| d.is_a?(Hash) }
+    assert_equal blind_ts, styled.map { |d| d['value'].first }
+    styled.each do |d|
+      assert_equal 'transparent', d['itemStyle']['color'], 'blind marker is hollow'
+      assert_equal '#9aa0a6', d['itemStyle']['borderColor'], 'blind marker is grey'
+    end
+    # and the meta help names the convention
+    assert_match(/hollow\/grey/, Publish::Charts::CHARTS['scenario_strip'][:meta]['help'])
   end
 
   # ---- lppl_regime structure -------------------------------------------

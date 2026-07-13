@@ -130,7 +130,9 @@ module Publish
           'help' => 'Right column: one heatmap cell per module (red -1 / grey ' \
                     '0 / teal +1), the seven current scores top to bottom. ' \
                     'Inside band labels name each composite zone; hover the ' \
-                    'line for each reading.',
+                    'line for each reading. A hollow/grey point is a day ' \
+                    'recorded during a data outage (composite forced to 0) -- ' \
+                    'not a real neutral print.',
           # renderer hook: half-height card (owner review 2026-07-05 --
           # the strip was vertically stretched at full quadrant height)
           'height' => 250
@@ -558,10 +560,21 @@ module Publish
     SCN_BANDS = [[-0.70, 'FLUSH'], [-0.25, 'LEAN-FLUSH'], [0.0, 'NEUTRAL'],
                  [0.25, 'BASE'], [0.70, 'RECOVERY']].freeze
 
+    # M8-10: a day recorded during a data outage (M8-8 blind marker: every
+    # scored module unavailable, composite forced to 0) renders as a hollow
+    # grey marker so it never reads as a real neutral print. Healthy entries
+    # stay bare [ts, composite] pairs (the composite line is unbroken).
+    SCN_BLIND_ITEM = { 'color' => 'transparent', 'borderColor' => '#9aa0a6',
+                       'borderWidth' => 1.5 }.freeze
+
     def scenario_strip(latest, history)
       modules  = latest['modules'] || []
       names    = modules.map { |m| m['mod'] }
-      comp     = (history['entries'] || []).map { |e| [e['ts'], e['composite']] }
+      comp     = (history['entries'] || []).map do |e|
+        pt = [e['ts'], e['composite']]
+        e['blind'] ? { 'value' => pt, 'symbol' => 'circle', 'symbolSize' => 6,
+                       'itemStyle' => SCN_BLIND_ITEM } : pt
+      end
       # heatmap is now a vertical column: [col 0, row = module index, score]
       heat     = modules.each_with_index.map { |m, i| [0, i, m['score']] }
 
