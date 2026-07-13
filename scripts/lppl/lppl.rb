@@ -34,12 +34,14 @@
 # DATA-INTEGRITY MARKER (M8-8, additive). A live run on UTC day D expects
 # the price cache to carry the close for D-1: prices.rb excludes today's
 # incomplete row, and the Coin Metrics reference rate is 24/7 (no weekend
-# slack). The --history ledger line gains "stale_input": true when the
-# cache's newest dated row predates D-1 -- e.g. an overnight outage left
-# prices.rb unable to fetch, so the cache never advanced and the composite
-# is computed from frozen prices. Read-only on the cache; the key is
-# omitted on a fresh run, so old ledger lines stay valid. Marker only --
-# the composite/verdict math is unchanged (Golden Rule 4).
+# slack). Both the --history ledger line AND the --json output gain
+# "stale_input": true when the cache's newest dated row predates D-1 --
+# e.g. an overnight outage left prices.rb unable to fetch, so the cache
+# never advanced and the composite is computed from frozen prices.
+# Read-only on the cache; the key is omitted on a fresh run, so old ledger
+# lines / --json consumers stay valid. M8-9's repair reads the --json
+# marker to decide whether a stale ledger tail can be healed same-day.
+# Marker only -- the composite/verdict math is unchanged (Golden Rule 4).
 #
 # Ruby >= 2.5, stdlib only.
 
@@ -136,6 +138,13 @@ d = {}
 results.each { |r| d[r[:name]] = r[:detail] }
 ts = Lppl.now_utc
 
+# M8-8: stale_input when the price cache never reached D-1 (see header). Computed
+# once so the --history ledger line AND the --json marker agree; M8-9's repair
+# reads the --json marker to decide whether a stale ledger tail can be healed.
+last_px      = price_cache_last_date
+expected_px  = (Time.utc(ts.year, ts.month, ts.day) - 86_400).strftime('%Y-%m-%d')
+stale_input  = last_px.nil? || last_px < expected_px
+
 if ARGV.include?('--history')
   require 'fileutils'
   FileUtils.mkdir_p(File.dirname(LEDGER))
@@ -150,10 +159,7 @@ if ARGV.include?('--history')
     days_le_p01: d['percentile']['days_le_p01'],
     scores: Hash[results.map { |r| [r[:name], r[:score]] }]
   }
-  # M8-8: stale_input when the price cache never reached D-1 (see header).
-  last_px  = price_cache_last_date
-  expected = (Time.utc(ts.year, ts.month, ts.day) - 86_400).strftime('%Y-%m-%d')
-  row[:stale_input] = true if last_px.nil? || last_px < expected
+  row[:stale_input] = true if stale_input
   File.open(LEDGER, 'a') { |f| f.puts JSON.generate(row) }
 end
 
@@ -178,6 +184,7 @@ if ARGV.include?('--json')
   out = { ts: ts.iso8601, composite: composite.round(3),
           verdict: verdict, status_line: line, tests: results }
   out[:as_of] = AS_OF.strftime('%Y-%m-%d') if AS_OF # additive; absent when live
+  out[:stale_input] = true if stale_input # M8-8 additive; absent when fresh
   puts JSON.pretty_generate(out)
   exit
 end
