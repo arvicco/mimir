@@ -31,6 +31,16 @@
 # JSON line (this aggregator parses the LAST stdout line; anything else
 # degrades that test to score 0).
 #
+# DATA-INTEGRITY MARKER (M8-8, additive). A live run on UTC day D expects
+# the price cache to carry the close for D-1: prices.rb excludes today's
+# incomplete row, and the Coin Metrics reference rate is 24/7 (no weekend
+# slack). The --history ledger line gains "stale_input": true when the
+# cache's newest dated row predates D-1 -- e.g. an overnight outage left
+# prices.rb unable to fetch, so the cache never advanced and the composite
+# is computed from frozen prices. Read-only on the cache; the key is
+# omitted on a fresh run, so old ledger lines stay valid. Marker only --
+# the composite/verdict math is unchanged (Golden Rule 4).
+#
 # Ruby >= 2.5, stdlib only.
 
 require 'json'
@@ -67,6 +77,19 @@ def run_module(name, timeout, extra = [])
   BTC::Suite.run_module(DIR, name, timeout, extra)
 rescue StandardError => e
   { 'name' => name, 'score' => 0, 'headline' => "module failed (#{e.class})" }
+end
+
+# M8-8: newest dated row in the price cache (ISO YYYY-MM-DD), or nil when the
+# cache is absent. Read-only; the file is written sorted, but scan defensively.
+def price_cache_last_date
+  return nil unless File.exist?(Lppl::PRICES)
+
+  last = nil
+  File.foreach(Lppl::PRICES) do |ln|
+    d = ln[/\A(\d{4}-\d{2}-\d{2})/, 1]
+    last = d if d && (last.nil? || d > last)
+  end
+  last
 end
 
 # In as-of mode there is nothing to fetch -- replay works from the cache only,
@@ -116,19 +139,22 @@ ts = Lppl.now_utc
 if ARGV.include?('--history')
   require 'fileutils'
   FileUtils.mkdir_p(File.dirname(LEDGER))
-  File.open(LEDGER, 'a') do |f|
-    f.puts JSON.generate(
-      ts: ts.iso8601, composite: composite.round(3), verdict: verdict,
-      bf: d['trend']['bf'], ratio: d['envelope']['ratio'],
-      days_below_strong: d['envelope']['days_below_strong'],
-      trough_date: d['fit']['trough_date'], trough_px: d['fit']['trough_px'],
-      omega: d['fit']['omega'], p_lp: d['logperiodic']['p_value'],
-      z: d['percentile']['z'], pct_emp: d['percentile']['pct_emp'],
-      z_record: d['percentile']['record'],
-      days_le_p01: d['percentile']['days_le_p01'],
-      scores: Hash[results.map { |r| [r[:name], r[:score]] }]
-    )
-  end
+  row = {
+    ts: ts.iso8601, composite: composite.round(3), verdict: verdict,
+    bf: d['trend']['bf'], ratio: d['envelope']['ratio'],
+    days_below_strong: d['envelope']['days_below_strong'],
+    trough_date: d['fit']['trough_date'], trough_px: d['fit']['trough_px'],
+    omega: d['fit']['omega'], p_lp: d['logperiodic']['p_value'],
+    z: d['percentile']['z'], pct_emp: d['percentile']['pct_emp'],
+    z_record: d['percentile']['record'],
+    days_le_p01: d['percentile']['days_le_p01'],
+    scores: Hash[results.map { |r| [r[:name], r[:score]] }]
+  }
+  # M8-8: stale_input when the price cache never reached D-1 (see header).
+  last_px  = price_cache_last_date
+  expected = (Time.utc(ts.year, ts.month, ts.day) - 86_400).strftime('%Y-%m-%d')
+  row[:stale_input] = true if last_px.nil? || last_px < expected
+  File.open(LEDGER, 'a') { |f| f.puts JSON.generate(row) }
 end
 
 line = format('LPPL %s %+.2f BF%s r%s trough %s/%s w%s p%s Z%s@%s%s',

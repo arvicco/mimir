@@ -176,7 +176,31 @@ class TestLpplContract < Minitest::Test
     ledger = File.join(DATA_ROOT, 'lppl', 'ledger.jsonl')
     assert File.exist?(ledger), 'ledger.jsonl not written on --history'
     line = JSON.parse(File.readlines(ledger).last)
+    # RECORDED_NOW (2026-07-04) vs synthetic cache last (2026-07-04): the cache
+    # holds >= D-1, so this healthy line carries NO stale_input key.
     assert_contract_keys LEDGER_KEYS, line, 'ledger line'
     assert_equal TESTS.keys.sort, line['scores'].keys.sort
+    refute line.key?('stale_input'), 'a fresh cache must not carry the marker'
+  end
+
+  # M8-8: stale_input is additive -- present (and true) ONLY when the cache's
+  # newest row predates the run day's D-1. Isolated data dir (its own ledger)
+  # + a clock far ahead of the synthetic cache's last date forces staleness.
+  def test_history_ledger_line_stale_input_additive
+    root = File.join(Dir.tmpdir, "mimir-lppl-stale-#{Process.pid}")
+    FileUtils.mkdir_p(File.join(root, 'lppl'))
+    FileUtils.cp(File.join(DATA_ROOT, 'lppl', 'prices.csv'),
+                 File.join(root, 'lppl', 'prices.csv'))
+    _, err, st = run_script('scripts/lppl/lppl.rb', '--json', '--skip-update',
+                            '--history',
+                            env: lppl_env(root).merge('FAKE_NOW' => '2026-07-20T00:00:00Z'))
+    assert st.success?, err
+    line = JSON.parse(File.readlines(File.join(root, 'lppl', 'ledger.jsonl')).last)
+    assert_equal true, line['stale_input']
+    # additive: every frozen ledger key is still present alongside the marker.
+    assert_equal (LEDGER_KEYS + %w[stale_input]).sort, line.keys.sort,
+                 'stale_input must be purely additive to the ledger line'
+  ensure
+    FileUtils.rm_rf(root) if root
   end
 end
