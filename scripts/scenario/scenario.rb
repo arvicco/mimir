@@ -24,6 +24,18 @@
 # one JSON line (this aggregator parses the LAST stdout line; anything
 # else degrades that module to score 0).
 #
+# DATA-INTEGRITY MARKERS (M8-8, additive). A fail-soft module carries
+# 'unavailable': true in its --json (BTC::Report.fail_soft, F-12); a
+# crashed subprocess is treated the same. That signal rides through to:
+#   * --json:  every element of `modules` gains a boolean `unavailable`.
+#   * --history: the appended line gains, ONLY when degraded --
+#       "blind": true            when EVERY scored module is unavailable
+#                                (a "blind zero" -- composite 0.0 is data
+#                                absence, not a real neutral day), OR
+#       "unavailable": [names]   when SOME (not all) modules are down.
+#     A fully healthy line grows neither key (old lines stay valid).
+# These are markers only; composite math is unchanged (Golden Rule 4).
+#
 # Ruby >= 2.5, stdlib only.
 
 require 'json'
@@ -53,9 +65,12 @@ LABELS = {
 results = MODULES.map do |mod, w|
   begin
     r = BTC::Suite.run_module(DIR, mod, 45)
-    { mod: mod, w: w, score: r['score'].to_i, headline: r['headline'].to_s }
+    { mod: mod, w: w, score: r['score'].to_i, headline: r['headline'].to_s,
+      unavailable: r['unavailable'] == true } # M8-8: F-12 fail-soft marker
   rescue StandardError => e
-    { mod: mod, w: w, score: 0, headline: "module failed (#{e.class})" }
+    # A crashed/hung/unparseable subprocess is a live data absence too.
+    { mod: mod, w: w, score: 0, headline: "module failed (#{e.class})",
+      unavailable: true }
   end
 end
 
@@ -84,11 +99,17 @@ if ARGV.include?('--history')
   # one-time migration from the pre-2026-07 location
   legacy = File.join(ENV['HOME'].to_s, '.scenario_history.jsonl')
   FileUtils.mv(legacy, hist) if File.exist?(legacy) && !File.exist?(hist)
-  File.open(hist, 'a') do |f|
-    f.puts JSON.generate(ts: ts.iso8601, composite: composite.round(3),
-                         regime: regime,
-                         scores: Hash[results.map { |r| [r[:mod], r[:score]] }])
+  row = { ts: ts.iso8601, composite: composite.round(3), regime: regime,
+          scores: Hash[results.map { |r| [r[:mod], r[:score]] }] }
+  # M8-8: mark degraded rows so a data-absence zero is never mistaken for a
+  # real neutral day. blind == every scored module down; unavailable == some.
+  down = results.select { |r| r[:unavailable] }.map { |r| r[:mod] }
+  if !down.empty? && down.size == results.size
+    row[:blind] = true
+  elsif !down.empty?
+    row[:unavailable] = down
   end
+  File.open(hist, 'a') { |f| f.puts JSON.generate(row) }
 end
 
 line = format('SCN %s %+.2f %s', regime, composite,

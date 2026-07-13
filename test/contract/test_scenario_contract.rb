@@ -118,10 +118,60 @@ class TestScenarioContract < Minitest::Test
     # the aggregator keys modules by FILENAME (the F-11 quirks stay module-local)
     assert_equal MODULES.keys.sort, j['modules'].map { |m| m['mod'] }.sort
     j['modules'].each do |m|
-      assert_contract_keys %w[headline mod score w], m, 'modules[]'
+      # M8-8: `unavailable` is now an additive per-module boolean.
+      assert_contract_keys %w[headline mod score unavailable w], m, 'modules[]'
       assert_includes [-1, 0, 1], m['score']
       assert_kind_of Integer, m['w']
+      assert_includes [true, false], m['unavailable']
+      assert_equal false, m['unavailable'], 'healthy fixtures: no module is unavailable'
     end
+  end
+
+  # ---- M8-8: --history line data-integrity markers ---------------------
+
+  # Run scenario.rb --history against an isolated data dir; return the
+  # single appended JSONL line, parsed. +deny+ is the FAKE_HTTP_DENY value.
+  def history_line(deny: nil)
+    root = Dir.mktmpdir('mimir-scn-history')
+    env = FRED_ENV.merge('BTC_DATA_DIR' => root)
+    env['FAKE_HTTP_DENY'] = deny if deny
+    _, err, st = run_script('scripts/scenario/scenario.rb', '--json', '--history',
+                            env: env)
+    assert st.success?, err
+    hist = File.join(root, 'scenario', 'history.jsonl')
+    assert File.exist?(hist), 'history.jsonl not written on --history'
+    JSON.parse(File.readlines(hist).last)
+  ensure
+    FileUtils.remove_entry(root) if root && Dir.exist?(root)
+  end
+
+  HISTORY_BASE = %w[composite regime scores ts].freeze
+
+  # Healthy day: neither marker key -- old lines stay valid.
+  def test_history_line_healthy_carries_no_marker
+    line = history_line
+    assert_contract_keys HISTORY_BASE, line, 'scenario history line'
+    assert_equal MODULES.keys.sort, line['scores'].keys.sort
+    refute line.key?('blind')
+    refute line.key?('unavailable')
+  end
+
+  # Blind day: EVERY source denied -> every module fail-soft -> blind:true
+  # (and no partial `unavailable` list).
+  def test_history_line_blind_when_all_modules_unavailable
+    deny = %w[farside fapi.binance coinbase mempool coinmetrics llama.fi stlouisfed].join(',')
+    line = history_line(deny: deny)
+    assert_equal true, line['blind']
+    refute line.key?('unavailable')
+    assert_contract_keys(HISTORY_BASE + %w[blind], line, 'scenario blind line')
+  end
+
+  # Partial degradation: a strict subset denied -> unavailable:[names], no blind.
+  def test_history_line_unavailable_list_when_some_modules_down
+    line = history_line(deny: 'coinbase,mempool') # cb_premium + hash_ribbons
+    refute line.key?('blind')
+    assert_equal %w[cb_premium hash_ribbons], line['unavailable']
+    assert_contract_keys(HISTORY_BASE + %w[unavailable], line, 'scenario partial line')
   end
 
   def test_aggregator_tmux_contract

@@ -27,9 +27,14 @@
 #   stored verbatim and never filtered or wrapped.
 #
 # DATE-GUARD
-#   If today's dated file already exists, the script exits 0 without
-#   touching it. Re-runs are idempotent; a partial earlier capture is
-#   never overwritten.
+#   If today's dated file already exists AND is clean (empty errors map),
+#   the script exits 0 without touching it -- idempotent re-runs. But if
+#   today's file exists AND carries a non-empty errors map (a prior
+#   partial/failed capture, e.g. an overnight outage), the guard treats it
+#   as RETRYABLE: it re-captures and atomically REPLACES the file so a
+#   later run in the same day can heal it (M8-8; only today's file is ever
+#   touched). A both-fail retry leaves the existing errored file in place.
+#   An unreadable/unparseable existing file is treated as not-retryable.
 #
 # BOTH-FAIL SEMANTICS
 #   If BOTH captures fail, no file is written (nothing worth archiving)
@@ -86,6 +91,20 @@ module Ops
 
     module_function
 
+    # M8-8: today's dated file is RETRYABLE only when it exists AND carries a
+    # non-empty errors map (a prior partial/failed capture). A clean file
+    # (empty errors) short-circuits to :skipped; a fresh day has no file. Any
+    # read/parse problem is treated as not-retryable -- never clobber a file
+    # we cannot confirm is broken.
+    def retryable?(target)
+      return false unless File.exist?(target)
+
+      errs = JSON.parse(File.read(target))['errors']
+      errs.is_a?(Hash) && !errs.empty?
+    rescue StandardError
+      false
+    end
+
     # Capture both GEX outputs and write a dated snapshot under +dir+.
     #
     # Returns a result hash:
@@ -99,8 +118,9 @@ module Ops
       date_str = now.utc.strftime('%Y-%m-%d')
       target   = File.join(dir, "#{date_str}.json")
 
-      # Date-guard: today's file is already present -- idempotent, exit clean.
-      return { status: :skipped, path: target } if File.exist?(target)
+      # Date-guard: a present, clean file short-circuits; an errored file is
+      # re-captured and REPLACED (M8-8), a fresh day falls through to capture.
+      return { status: :skipped, path: target } if File.exist?(target) && !retryable?(target)
 
       FileUtils.mkdir_p(dir)
 
@@ -152,7 +172,9 @@ module Ops
       date_str = now.utc.strftime('%Y-%m-%d')
       target   = File.join(dir, "#{date_str}.json")
 
-      return { status: :skipped, path: target } if File.exist?(target)
+      # M8-8: same retry-on-error guard as capture() -- an errored vol file is
+      # re-captured and REPLACED; a clean one is left untouched.
+      return { status: :skipped, path: target } if File.exist?(target) && !retryable?(target)
 
       FileUtils.mkdir_p(dir)
 
