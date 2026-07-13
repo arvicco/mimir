@@ -59,5 +59,12 @@ set -a
 set +a
 
 cd "$REPO_DIR"
+
+# M8-9: try to heal today's data-integrity gaps (blind scenario row, stale
+# lppl ledger, errored/missing GEX-or-vol snapshot) BEFORE publishing so a
+# repair lands in this very tick. Fail-soft: repair.rb exits 0 by design, but
+# `|| ...` guards even a fatal crash so it can NEVER block the publish.
+"${MIMIR_RUBY:-ruby}" ops/repair.rb || echo "run_publish: repair step failed (continuing to publish)" >&2
+
 export PUBLISH_DRY_RUN=0
 exec "${MIMIR_RUBY:-ruby}" publish/publish.rb

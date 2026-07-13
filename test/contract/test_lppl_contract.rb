@@ -134,6 +134,24 @@ class TestLpplContract < Minitest::Test
       assert_kind_of Integer, t['w']
       assert_kind_of Hash, t['detail'] # full module --json object rides along
     end
+    # M8-8: stale_input is additive on --json too -- fresh cache omits it.
+    refute j.key?('stale_input'), 'a fresh cache must not carry the --json marker'
+  end
+
+  # M8-8/M8-9: --json exposes stale_input:true (only) when the cache is stale,
+  # so repair can read the fresh re-run's marker without touching the cache.
+  def test_aggregator_json_stale_input_additive
+    root = File.join(Dir.tmpdir, "mimir-lppl-json-stale-#{Process.pid}")
+    FileUtils.mkdir_p(File.join(root, 'lppl'))
+    FileUtils.cp(File.join(DATA_ROOT, 'lppl', 'prices.csv'),
+                 File.join(root, 'lppl', 'prices.csv'))
+    j = run_json('scripts/lppl/lppl.rb', '--json', '--skip-update',
+                 env: lppl_env(root).merge('FAKE_NOW' => '2026-07-20T00:00:00Z'))
+    assert_equal true, j['stale_input']
+    assert_contract_keys %w[composite stale_input status_line tests ts verdict], j,
+                         'lppl.rb --json (stale)'
+  ensure
+    FileUtils.rm_rf(root) if root
   end
 
   # M6-1: --as-of is an additive replay field -- present (only) with the flag,
