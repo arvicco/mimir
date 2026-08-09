@@ -212,7 +212,9 @@ class TestIngestContract < Minitest::Test
   def test_excerpt_parameters_pinned
     src = File.read(File.join(ROOT, 'scripts/btco/ingest_text.rb'))
     assert_includes src, "NUMKEYS = %w[btc shares_basic shares_diluted debt_face pref_liq].freeze"
-    assert_includes src, 'KEYRE = /bitcoin|\bbtc\b|shares? of (?:class [ab] )?common|issued and outstanding|'
+    # C1 fix (SBI review): inter-word gaps are \s+ because /x strips
+    # literal spaces; the old pin blessed six dead phrases.
+    assert_includes src, 'KEYRE = /bitcoin|\bbtc\b|shares?\s+of\s+(?:class\s+[ab]\s+)?common|'
     assert_includes src, 'def excerpt(text, cap = 40_000)'
     assert_includes src, 'spans << [[i - 1500, 0].max, [i + 1500, text.size].min]'
   end
