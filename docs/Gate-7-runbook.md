@@ -63,6 +63,11 @@ appears, read docs/WORKLOG.md for that date before proceeding.
   thing that confused us twice). Fixing it means the page re-pulls
   keys on a timer, which touches the pinned per-chart ttl values.
   Decide: build it / carry past v1.
+- **D8-h — shares_diluted convention** (SBI review finding C2, filed
+  2026-08-09; full text in docs/BACKLOG.md decision items): is
+  shares_diluted converts-inclusive "assumed diluted" or
+  outstanding-plus-ITM-only? Affects CEBE convert double-counting.
+  Decide the convention / carry past v1 (no code changes until ruled).
 
 ## 5. Merge and tag (your actions; loop verifies CI first)
 
@@ -99,6 +104,15 @@ live anywhere). Its own gate needs from you, after Gate 7:
   exchange reserves, Kalshi ladder, scorecard...).
 
 ## Background (not needed to run the gate)
+
+Ingest-data provenance note (M7-17, 2026-08-09): the SBI review's C1
+bug (keyword regex blind to "preferred stock" / "notes due" /
+share-count phrases) affected every ai-mode ingest before its fix. The
+ledger scan confirmed all such applies (2026-07-07..09) were superseded
+by the externally-reconciled M7-16 baseline sweep, so the universe you
+validated in step 1 does not rest on blind excerpts; the residual risk
+was missed (never-proposed) sections, which external reconciliation
+covers backward and the fix covers forward.
 
 v1 = real BTCo data end-to-end per the standing ruling; the soak week
 folds in here. Gate 5 carry-overs remain owner-scheduled: Novo
