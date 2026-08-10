@@ -10,9 +10,14 @@
 module Btco
   NUMKEYS = %w[btc shares_basic shares_diluted debt_face pref_liq].freeze
 
-  KEYRE = /bitcoin|\bbtc\b|shares? of (?:class [ab] )?common|issued and outstanding|
-           convertible|preferred stock|liquidation preference|at-the-market|
-           notes due|aggregate principal/xi
+  # NB: /x free-spacing strips literal spaces -- inter-word gaps MUST be
+  # \s+ or the phrase can never match (the C1 bug, SBI review 2026-07-31:
+  # 6 of 10 phrases were silently dead and excerpts missed share-count,
+  # preferred and notes sections).
+  KEYRE = /bitcoin|\bbtc\b|shares?\s+of\s+(?:class\s+[ab]\s+)?common|
+           issued\s+and\s+outstanding|convertible|preferred\s+stock|
+           liquidation\s+preference|at-the-market|notes\s+due|
+           aggregate\s+principal/xi
 
   module_function
 

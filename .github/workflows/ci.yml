@@ -22,7 +22,11 @@ jobs:
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
+      # same order as the local pre-commit gate (rake default):
+      # compat health fixtures:verify test web:test -- all offline
       - run: rake compat
+      - run: rake health
+      - run: rake fixtures:verify
       - run: rake test
       # Worker API tests (M4-1): node's built-in runner, zero npm --
       # runners ship node preinstalled; the task WARN-skips without it

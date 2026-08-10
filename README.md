@@ -128,7 +128,13 @@ staged history against the organically recorded days field-by-field.
 and fit history (diff, one prompt, timestamped backups) -- it is
 interactive-only (refuses CI and non-TTY), a deliberate human step.
 
-## BTCo treasury analyser
+## BTCo treasury analyser — FROZEN
+
+**Development stopped 2026-08-10 (owner ruling), pending a rethink.**
+The tools below still run and the dashboard table still renders, but
+the data is no longer maintained: rows go STALE as their as-of dates
+age, and no new filings are ingested. Do not trust the numbers for
+anything current.
 
 ```
 export EDGAR_UA='name email'          # SEC-required identifying UA
