@@ -1696,3 +1696,21 @@ Acceptance: rake green; additive + tested.
 All shadow fields live on the dashboard next to their frozen
 originals; a soak long enough for the owner to compare; the D9-*
 rulings made with data in front of them; flips applied; v1.1 tag.
+
+## M9-11 · Surface the shadow numbers on the LPPL card  [tier: opus -- mimir-design bound; additive payload/meta + goldens PROVISIONAL] [status: ready] [deps: M9-1..10]
+Goal: the D9 rulings need the shadow-vs-frozen comparison VISIBLE
+      during the soak. LPPL card gains a compact right-side scoreboard
+      (side-panels-right ruling) titled "shadow", one line per
+      comparison, frozen value then shadow value:
+        mean/eval  -1.26        (the density-honest trend reading)
+        365d/730d  -0.11/+0.16  (report-only long horizons)
+        damping    0.41 (<1)    (fit anti-bubble condition, report-only)
+        impr       29.2>27.9%   (frozen vs symmetric-null improvement)
+        p(osc)     .38>.24      (AR(1) vs GARCH bootstrap p)
+        freeze     .439>.358    (live bound vs freeze candidate)
+      Values come additively through the lppl:latest payload the
+      publish already carries into chart:lppl_regime; hover help
+      explains each line and names its decision item. No verdict or
+      panel content changes; goldens re-blessed PROVISIONAL.
+Acceptance: rake green; additive contract tests; screenshot-verified
+      against the design skill (density, no clipping, no collisions).
