@@ -83,7 +83,7 @@ class TestLpplContract < Minitest::Test
   # test file -> [required detail keys, optional detail keys (nil-dropped
   # or run-dependent), extra argv]
   TESTS = {
-    'trend'       => [%w[bf bf_by_horizon eval_points_1y], %w[bootstrap], []],
+    'trend'       => [%w[bf bf_by_horizon per_horizon eval_points_1y], %w[bootstrap], []],
     'envelope'    => [%w[ratio bound floor trough_ratios trend_today
                          days_below_strong days_below_floor], [], []],
     'fit'         => [%w[omega m tc_date filters],
@@ -113,6 +113,21 @@ class TestLpplContract < Minitest::Test
       assert_equal 0, j['score']
       assert_equal true, j['unavailable'] # F-12
       assert_match(/price cache/, j['headline'])
+    end
+  end
+
+  # M9-1: per_horizon is an additive density-invariant view -- one entry per
+  # horizon, each carrying {sum, mean_per_eval, n_evals}. The legacy bf /
+  # bf_by_horizon keys ride alongside unchanged.
+  def test_trend_per_horizon_shape
+    j = module_json('trend')
+    ph = j['per_horizon']
+    assert_kind_of Hash, ph
+    assert_equal %w[180 30 90], ph.keys.sort
+    ph.each_value do |h|
+      assert_equal %w[mean_per_eval n_evals sum], h.keys.sort
+      assert_kind_of Numeric, h['sum']
+      assert_kind_of Integer, h['n_evals']
     end
   end
 
