@@ -79,13 +79,14 @@ class TestChartSpecs < Minitest::Test
     assert_nil metas['scenario_strip']['tab_group']
     assert_nil metas['lppl_regime']['tab_group']
     assert_nil metas['btco_table']['tab_group']
-    # M8-6: the three vol charts share ONE 'vol' card as SURFACE/SPREAD/BASIS
-    # tabs (SURFACE default at pos 0); gex_trend joins the GEX card as TREND
-    # at pos 3 (after BTC pos 1, MSTR pos 2), so its own key-sort is moot.
+    # M8-6 as amended 2026-08-10 (owner 3x2-grid ruling): vol_surface +
+    # vol_basis share the 'vol' card as SURFACE/BASIS tabs (SURFACE
+    # default at pos 0); vol_spread is a SOLO top-right card, no tabs.
+    # gex_trend joins the GEX card as TREND at pos 3 (after BTC pos 1,
+    # MSTR pos 2), so its own key-sort is moot.
     assert_equal %w[vol SURFACE 0],
                  metas['vol_surface'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
-    assert_equal %w[vol SPREAD 1],
-                 metas['vol_spread'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
+    assert_nil metas['vol_spread']['tab_group']
     assert_equal %w[vol BASIS 2],
                  metas['vol_basis'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
     assert_equal %w[gex TREND 3],

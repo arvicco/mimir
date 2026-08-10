@@ -35,10 +35,11 @@
 #   meta['tab_group'] (+ tab_label / tab_pos) -- M6-4, owner ruling D7-c
 #     (2026-07-06): charts sharing a tab_group render into ONE dashboard
 #     card as tabs -- 'gex' (gex_profile [BTC] + gex_mstr [MSTR] + gex_trend
-#     [TREND], M8-6) and 'vol' (vol_surface [SURFACE] + vol_spread [SPREAD]
-#     + vol_basis [BASIS], M8-6). tab_label is the button text; tab_pos fixes
-#     the tab order (ascending) so BTC leads even though the index sorts
-#     gex_mstr first.
+#     [TREND], M8-6) and 'vol' (vol_surface [SURFACE] + vol_basis [BASIS];
+#     vol_spread is a SOLO card since 2026-08-10, owner 3x2-grid ruling).
+#     tab_label is the button text; tab_pos fixes the tab order
+#     (ascending) so BTC leads even though the index sorts gex_mstr
+#     first.
 #     The renderer builds the card from the first group member it loads
 #     and attaches the rest; each key keeps its own header liveness dot.
 # All four are part of the chart contract; add a hook only with an owner
@@ -185,10 +186,10 @@ module Publish
         }
       },
       # ---- M8-6: the GEX/volatility family (Phase 8A stage 2) ----------
-      # Three vol charts share ONE dashboard card as [SURFACE][SPREAD][BASIS]
-      # tabs (tab_group 'vol'); their keys sort after 'scenario_strip' so the
-      # new card lands after the blessed quadrants. gex_trend joins the
-      # existing GEX card as a third [TREND] tab.
+      # vol_surface + vol_basis share ONE dashboard card as
+      # [SURFACE][BASIS] tabs (tab_group 'vol'); vol_spread is a SOLO
+      # card (owner 3x2-grid ruling 2026-08-10, top-right by the GEX
+      # profile). gex_trend joins the existing GEX card as [TREND].
       'vol_surface' => {
         inputs: %w[payload_vol_latest.json], fn: :vol_surface,
         meta: {
@@ -225,8 +226,9 @@ module Publish
           'help' => 'Bars are the ATM spread (teal positive, red negative); the ' \
                     'two lines are the raw ATM IV of each leg, so you can see ' \
                     'whether a move came from MSTR richening or BTC cheapening. A ' \
-                    'leg whose chain failed drops its line and that tenor\'s bar.',
-          'tab_group' => 'vol', 'tab_label' => 'SPREAD', 'tab_pos' => 1
+                    'leg whose chain failed drops its line and that tenor\'s bar.'
+          # solo card since 2026-08-10 (owner ruling: 3x2 grid, spread
+          # top-right by the GEX profile) -- no tab_group
         }
       },
       'vol_basis' => {

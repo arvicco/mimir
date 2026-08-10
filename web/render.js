@@ -497,8 +497,24 @@ function liveHeader(o) {
   tally(o.idx.generated_at); // the index envelope itself is the last key
   var when = newestMs ? hhmm(new Date(newestMs).toISOString()) : "--:--";
   o.pubEl.textContent = "pub " + when + "Z · " + green + "/" + (rows.length + 1) + " fresh";
-  return rows.filter(function (r) { return r.key.indexOf("chart:") === 0; })
-             .map(function (r) { return r.key; });
+  var keys = rows.filter(function (r) { return r.key.indexOf("chart:") === 0; })
+                 .map(function (r) { return r.key; });
+  return keys.slice().sort(function (a, b) { return cardRank(a) - cardRank(b); });
+}
+
+// Card placement (owner ruling 2026-08-10): 3x2 grid, row 1 GEX ·
+// Volatility · Vol-Spread (top-right, by the GEX profile), row 2
+// Scenario · LPPL · BTCo. A tab-group's card is created by its FIRST
+// key in iteration order, so every group member ranks with its group.
+// Unknown keys keep index order after the known ones (fail-open for
+// future charts).
+var CARD_ORDER = ["chart:gex_profile", "chart:gex_mstr", "chart:gex_trend",
+                  "chart:vol_surface", "chart:vol_basis",
+                  "chart:vol_spread",
+                  "chart:scenario_strip", "chart:lppl_regime", "chart:btco_table"];
+function cardRank(key) {
+  var i = CARD_ORDER.indexOf(key);
+  return i === -1 ? CARD_ORDER.length : i;
 }
 
 // ---- BTCo universe table (M4-7; shared 2026-07-06, unified view) ------

@@ -1420,3 +1420,14 @@ Goal: the page re-pulls keys on a timer so an open tab converges to
 Acceptance: open tab shows a newer pub tick within one publish cycle
       without a reload; no request storm (>=60s floor per key);
       rake green; preview verified.
+
+## M8-14 · Gate 8 feedback: 3x2 grid, vol_spread solo top-right  [tier: fable -- owner-directed layout ruling] [status: done 2026-08-10]
+Owner ruling at the Gate 8 preview: six cards, 3 columns x 2 rows --
+row 1 GEX · Volatility · Vol-Spread (top-right by the GEX profile),
+row 2 Scenario · LPPL · BTCo. vol_spread leaves the 'vol' tab_group
+(SPREAD tab removed; Volatility keeps SURFACE/BASIS) and becomes a
+solo card. Card order = render.js CARD_ORDER (display concern, so the
+renderer owns it -- the published index stays alphabetical); grid CSS
+3-col with 2-col/1-col fallbacks, index.html + preview.html in sync.
+Goldens untouched (tab hooks live in meta, not the option). Verified
+by headless screenshot at 2000px: order, tabs, no clipping.
