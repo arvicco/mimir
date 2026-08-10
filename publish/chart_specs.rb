@@ -34,8 +34,9 @@
 #     owns series selection; the widget drives it via legend actions.
 #   meta['tab_group'] (+ tab_label / tab_pos) -- M6-4, owner ruling D7-c
 #     (2026-07-06): charts sharing a tab_group render into ONE dashboard
-#     card as tabs -- 'gex' (gex_profile [BTC] + gex_mstr [MSTR] + gex_trend
-#     [TREND], M8-6) and 'vol' (vol_surface [SURFACE] + vol_basis [BASIS];
+#     card as tabs -- 'gex' (gex_btc [BTC] + gex_mstr [MSTR] + gex_btc_trend
+#     [BTC TREND] + gex_mstr_trend [MSTR TREND], M8-6/M8-18) and 'vol'
+#     (vol_surface [SURFACE] + vol_basis [BASIS];
 #     vol_spread is a SOLO card since 2026-08-10, owner 3x2-grid ruling).
 #     tab_label is the button text; tab_pos fixes the tab order
 #     (ascending) so BTC leads even though the index sorts gex_mstr
@@ -53,7 +54,9 @@ module Publish
     # hover help rendered by preview.html/the dashboard -- desc for the
     # title bubble, axes + help behind the info affordance.
     CHARTS = {
-      'gex_profile' => {
+      # M8-18 (owner ruling 2026-08-10): chart key renamed gex_profile ->
+      # gex_btc (the builder fn stays :gex_profile -- an internal detail).
+      'gex_btc' => {
         inputs: %w[payload_gex_combined.json], fn: :gex_profile,
         meta: {
           'desc' => 'Dollar gamma dealers must re-hedge per 1% BTC move, ' \
@@ -77,10 +80,10 @@ module Publish
           # HTML, neither of which a JSON option can express
           'tooltip_formatter' => 'gex_levels',
           'legend_widget' => 'gex_cp',
-          # tab-group hook (M6-4, owner ruling D7-c 2026-07-06): this and
-          # chart:gex_mstr share ONE dashboard card as [BTC][MSTR] tabs.
-          # tab_pos is explicit because the index sorts keys alphabetically
-          # (gex_mstr < gex_profile) yet BTC must be the default/first tab.
+          # tab-group hook (M6-4, owner ruling D7-c 2026-07-06; extended M8-18
+          # 2026-08-10): the GEX card is now four tabs --
+          # [BTC][MSTR][BTC TREND][MSTR TREND]. tab_pos is explicit because the
+          # index sorts keys alphabetically yet BTC must be the default/first tab.
           'tab_group' => 'gex', 'tab_label' => 'BTC', 'tab_pos' => 1
         }
       },
@@ -317,7 +320,9 @@ module Publish
           'height' => 235
         }
       },
-      'gex_trend' => {
+      # M8-18 (owner ruling 2026-08-10): chart key renamed gex_trend ->
+      # gex_btc_trend, tab_label 'TREND' -> 'BTC TREND' (fn stays :gex_trend).
+      'gex_btc_trend' => {
         inputs: %w[payload_gex_trend.json payload_gex_check.json], fn: :gex_trend,
         meta: {
           'desc' => 'A time series over the daily BTC-combined GEX snapshots ' \
@@ -336,9 +341,38 @@ module Publish
                     'and -- when the Coinglass cross-check is present -- MP ' \
                     'Delta, spot vs their max-pain. Sparse history reads as ' \
                     'filled dots.',
-          # joins the existing GEX card (D7-c) as a third tab after
-          # [BTC](pos 1) and [MSTR](pos 2); pos 3 keeps [TREND] last.
-          'tab_group' => 'gex', 'tab_label' => 'TREND', 'tab_pos' => 3
+          # joins the existing GEX card (D7-c) as the third tab after
+          # [BTC](pos 1) and [MSTR](pos 2); pos 3 keeps [BTC TREND] before
+          # [MSTR TREND](pos 4).
+          'tab_group' => 'gex', 'tab_label' => 'BTC TREND', 'tab_pos' => 3
+        }
+      },
+      # M8-18 (owner ruling 2026-08-10): the daily MSTR GEX trend. Reads the
+      # SAME gex:trend payload as [BTC TREND], but from its additive top-level
+      # 'mstr' block (scripts/gex_trend.rb: {series, stats} over the MSTR `us`
+      # captures, MSTR's own dollar axis). Fourth tab of the GEX card, after
+      # [BTC TREND]. No max-pain cross-check (that is BTC-only), so no gex:check
+      # input.
+      'gex_mstr_trend' => {
+        inputs: %w[payload_gex_trend.json], fn: :gex_mstr_trend,
+        meta: {
+          'desc' => 'A time series over the daily MSTR GEX snapshots ' \
+                    '(accumulating since 2026-07-06): where MSTR spot sat each ' \
+                    'day relative to its own gamma flip and call/put walls, on ' \
+                    'the equity\'s dollar axis. Descriptive only -- every level ' \
+                    'is read straight from that day\'s single-name chain ' \
+                    'snapshot, no scoring. MSTR gamma lives on the equity, not ' \
+                    'the coin, so it is never merged into the BTC trend.',
+          'axes' => { 'x' => 'day (the last N daily snapshots)',
+                      'y' => 'MSTR price level ($): spot (white), gamma flip ' \
+                             '(amber), call wall (teal), put wall (red)' },
+          'help' => 'Four price levels per day: MSTR spot vs its gamma flip ' \
+                    '(dealers pin above it, amplify below) and the call/put ' \
+                    'walls. The title carries flip distance last and the regime ' \
+                    'run length. Sparse history reads as filled dots; a day with ' \
+                    'no MSTR capture is an honest gap.',
+          # fourth tab of the GEX card, after [BTC TREND](pos 3).
+          'tab_group' => 'gex', 'tab_label' => 'MSTR TREND', 'tab_pos' => 4
         }
       }
     }.freeze
@@ -1213,12 +1247,13 @@ module Publish
       }
     end
 
-    # A price-level line in $k with filled dots (sparse-data rule); nil
-    # levels stay gaps.
-    def gex_trend_line(name, rows, field, color)
+    # A price-level line with filled dots (sparse-data rule); nil levels stay
+    # gaps. +scale+ divides the raw level into the display unit -- 1000 for the
+    # BTC trend ($k), 1 for the MSTR trend (raw dollars, ~$100-400).
+    def gex_trend_line(name, rows, field, color, scale = 1000.0)
       { 'name' => name, 'type' => 'line', 'symbol' => 'circle', 'symbolSize' => 7,
         'itemStyle' => { 'color' => color }, 'lineStyle' => { 'color' => color },
-        'data' => rows.map { |r| r[field] && (r[field].to_f / 1000).round(2) } }
+        'data' => rows.map { |r| r[field] && (r[field].to_f / scale).round(2) } }
     end
 
     # 'YYYY-MM-DD' -> 'MM-DD' (compact category label); pass anything else
@@ -1237,6 +1272,50 @@ module Publish
                     stats['regime_days'].to_i, stats['regime'].to_s)
       mp = check && check['deltas'] && check['deltas']['nearest_vs_spot_pct']
       mp.nil? ? base : base + format(' · MP Δ%+.2f%%', mp.to_f)
+    end
+
+    # ---- gex_mstr_trend (M8-18) ---------------------------------------
+    #
+    # gex:trend's additive 'mstr' block -> the daily MSTR GEX snapshot levels
+    # over time: spot (white), gamma flip (amber), call wall (teal), put wall
+    # (red), as MSTR price in RAW DOLLARS (~$100-400, so NOT $k-scaled like the
+    # BTC trend) with filled dots (sparse history). Mirrors gex_trend's grammar
+    # (four price lines, one-line title carrying flip-distance-last + regime run
+    # length) but on MSTR's own axis and with NO max-pain cross-check (that is
+    # BTC-only). An absent/empty 'mstr' block still yields a valid option.
+    def gex_mstr_trend(trend)
+      mstr   = trend['mstr'] || {}
+      rows   = mstr['series'] || []
+      stats  = mstr['stats'] || {}
+      labels = rows.map { |r| gex_trend_day(r['date']) }
+
+      {
+        'backgroundColor' => 'transparent',
+        'title' => { 'text' => gex_mstr_trend_title(stats),
+                     'textStyle' => { 'fontSize' => 13 } },
+        'tooltip' => { 'trigger' => 'axis', 'confine' => true,
+                       'textStyle' => { 'fontSize' => 11 } },
+        'legend' => { 'top' => 24, 'data' => %w[spot flip CW PW] },
+        'grid' => { 'left' => 56, 'right' => 24, 'top' => 52, 'bottom' => 28 },
+        'xAxis' => { 'type' => 'category', 'data' => labels },
+        'yAxis' => { 'type' => 'value', 'name' => 'price ($)', 'scale' => true,
+                     'nameLocation' => 'middle', 'nameGap' => 44 },
+        'series' => [
+          gex_trend_line('spot', rows, 'spot', VOL_SPOT, 1.0),
+          gex_trend_line('flip', rows, 'flip', VOL_AMBER, 1.0),
+          gex_trend_line('CW',   rows, 'cw',   VOL_TEAL, 1.0),
+          gex_trend_line('PW',   rows, 'pw',   VOL_RED, 1.0)
+        ]
+      }
+    end
+
+    # 'MSTR GEX trend · flip dist <+d>% · <n>d <regime>' -- no cross-check tail
+    # (max-pain is a BTC-only check).
+    def gex_mstr_trend_title(stats)
+      dist = stats['flip_dist_pct_last']
+      format('MSTR GEX trend · flip dist %s · %dd %s',
+             dist.nil? ? 'n/a' : format('%+.2f%%', dist.to_f),
+             stats['regime_days'].to_i, stats['regime'].to_s)
     end
   end
 end

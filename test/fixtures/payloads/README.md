@@ -28,6 +28,15 @@ into `payload_<key>.json` here.
   BTC_DATA_DIR=$(mktemp -d) ruby scripts/vol_mstr.rb --json`. Already minimal
   (3 tenors); drives the `vol_surface_mstr` golden.
 
+- `payload_gex_trend.json` carries a **synthetic `mstr` block** (M8-18): the
+  additive top-level `mstr` = `{series, stats}` that `scripts/gex_trend.rb
+  --json` now emits from the MSTR entries of each snapshot's `us` capture. 5
+  days (`2026-07-06`..`2026-07-10`) of MSTR spot/flip/CW/PW on MSTR's own dollar
+  axis (~$95-101), drifting up, all `long_gamma`. The recorded 2026-07-06 set
+  predates the `mstr` field, so it is hand-added; it drives the
+  `gex_mstr_trend` golden. Keep it on any refresh (or regenerate from real
+  snapshots once several days of `us` captures exist).
+
 - `payload_vol_spread.json` carries a **synthetic `history` block** (M8-16):
   10 days (`2026-06-25`..`2026-07-04`), 5 tenors each (7/14/21/45/90d),
   spreads drifting ~0.40-0.47, with a deliberate **null 45d spread on

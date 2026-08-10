@@ -70,8 +70,8 @@ test('Vary: Authorization rides the cacheable 200, not the no-store paths', asyn
 });
 
 test('chart and index key shapes are accepted', async () => {
-  const env = fakeEnv({ 'v1:chart:gex_profile': ENVELOPE, 'v1:index': ENVELOPE });
-  assert.equal((await handle(get('/api/v1/chart:gex_profile'), env, NOW_MS)).status, 200);
+  const env = fakeEnv({ 'v1:chart:gex_btc': ENVELOPE, 'v1:index': ENVELOPE });
+  assert.equal((await handle(get('/api/v1/chart:gex_btc'), env, NOW_MS)).status, 200);
   assert.equal((await handle(get('/api/v1/index'), env, NOW_MS)).status, 200);
 });
 

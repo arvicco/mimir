@@ -14,9 +14,11 @@
 #
 # Each daily snapshot carries btc_combined.combined{net_gex_usd_per_1pct,
 # regime, gamma_flip, call_wall{level,gex}, put_wall{level,gex}, ...} plus
-# btc_combined.btc_spot. Days missing btc_combined or its combined block
-# are skipped (fail-soft: a partial/corrupt daily file never breaks the
-# series).
+# btc_combined.btc_spot, and a `us` array of the day's per-underlying
+# gex_us.rb captures (IBIT, MSTR). Days missing btc_combined or its combined
+# block are skipped (fail-soft: a partial/corrupt daily file never breaks the
+# series); #mstr_series (M8-18) reads the MSTR `us` entry the same way, on
+# MSTR's own dollar axis.
 #
 #   flip_dist_pct = (btc_spot - gamma_flip) / btc_spot * 100, 2dp -- how
 #   far spot sits above (+) / below (-) the day's gamma-flip level.
@@ -47,6 +49,45 @@ module BTC
           'regime' => c['regime']
         }
       end
+    end
+
+    # Per-day rows for MicroStrategy (MSTR) drawn from each snapshot's `us`
+    # capture (M8-18). Each daily snapshot carries a `us` array = the verbatim
+    # gex_us.rb --json output per US underlying; the MSTR entry holds
+    # {spot, gamma_flip, call_wall{strike}, put_wall{strike},
+    # net_gex_usd_per_1pct, regime}. Same row shape as #series (so #stats
+    # works unchanged), on MSTR's OWN dollar axis. Days without a usable MSTR
+    # capture are dropped (an honest gap), exactly like #series drops days
+    # without a combined block. Note the walls sit under 'strike' here (the
+    # single-name chain), not the BTC combined block's 'level'.
+    def mstr_series(snaps)
+      (snaps || []).filter_map do |snap|
+        m = mstr_entry(snap)
+        next unless m.is_a?(Hash)
+
+        spot = m['spot']
+        flip = m['gamma_flip']
+        {
+          'date' => snap['date'],
+          'spot' => spot,
+          'flip' => flip,
+          'flip_dist_pct' => flip_dist_pct(spot, flip),
+          'cw' => m.dig('call_wall', 'strike'),
+          'pw' => m.dig('put_wall', 'strike'),
+          'net_gex' => m['net_gex_usd_per_1pct'],
+          'regime' => m['regime']
+        }
+      end
+    end
+
+    # The MSTR element of a snapshot's `us` capture array, or nil when the
+    # snapshot has no `us` array or no MSTR entry (fail-soft: a partial daily
+    # file never breaks the series).
+    def mstr_entry(snap)
+      us = snap.is_a?(Hash) ? snap['us'] : nil
+      return nil unless us.is_a?(Array)
+
+      us.find { |e| e.is_a?(Hash) && e['ticker'] == 'MSTR' }
     end
 
     # (spot - flip) / spot * 100, rounded to 2dp. nil when either input is

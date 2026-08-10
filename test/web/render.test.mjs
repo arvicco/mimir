@@ -1,5 +1,5 @@
 // M6-4: render.js tab-group machinery (node built-in runner, zero npm).
-// The two GEX charts (chart:gex_profile [BTC], chart:gex_mstr [MSTR])
+// The two GEX charts (chart:gex_btc [BTC], chart:gex_mstr [MSTR])
 // share ONE dashboard card as tabs (owner ruling D7-c, 2026-07-06). This
 // pins the render-layer contract with a minimal DOM + echarts stub -- no
 // browser, no network. The full visual/interaction proof is the
@@ -112,7 +112,7 @@ function env(key, gen, meta, series) {
   return { key, generated_at: gen, ttl_hint_s: 1800, meta,
            payload: { series: series || [] } };
 }
-const BTC = () => env('chart:gex_profile', '2026-07-06T16:00:00Z',
+const BTC = () => env('chart:gex_btc', '2026-07-06T16:00:00Z',
   { desc: 'BTC gex', axes: { x: 'x', y: 'y' }, help: 'h',
     tooltip_formatter: 'gex_levels', legend_widget: 'gex_cp',
     tab_group: 'gex', tab_label: 'BTC', tab_pos: 1 },
@@ -126,9 +126,9 @@ const MSTR = () => env('chart:gex_mstr', '2026-07-06T15:00:00Z',
 
 test('both GEX members share ONE card, tabs ordered by tab_pos, BTC default', () => {
   const { R } = loadRender();
-  // index sorts alphabetically -> gex_mstr loads FIRST, gex_profile second
+  // load MSTR first to prove tab_pos ordering wins regardless of load order
   const cardA = R.buildChartCard(MSTR(), 'chart:gex_mstr');
-  const cardB = R.buildChartCard(BTC(), 'chart:gex_profile');
+  const cardB = R.buildChartCard(BTC(), 'chart:gex_btc');
   assert.equal(cardA, cardB, 'the 2nd member returns the SAME card element');
 
   const tabs = cardA.querySelector('.tabbar').children;
@@ -138,7 +138,7 @@ test('both GEX members share ONE card, tabs ordered by tab_pos, BTC default', ()
   assert.ok(!tabs[1].classList.contains('active'));
 
   // title + badge reflect the active (BTC) tab
-  assert.equal(cardA.querySelector('.key').textContent, 'chart:gex_profile');
+  assert.equal(cardA.querySelector('.key').textContent, 'chart:gex_btc');
   assert.equal(cardA.querySelector('.badge').getAttribute('data-generated-at'),
                '2026-07-06T16:00:00Z');
 
@@ -151,7 +151,7 @@ test('both GEX members share ONE card, tabs ordered by tab_pos, BTC default', ()
 test('the (p)/(c) legend widget hosts on the BTC chart div, so it hides with the tab', () => {
   const { R } = loadRender();
   R.buildChartCard(MSTR(), 'chart:gex_mstr');
-  const card = R.buildChartCard(BTC(), 'chart:gex_profile');
+  const card = R.buildChartCard(BTC(), 'chart:gex_btc');
   const legends = card.querySelectorAll('.cp-legend');
   assert.equal(legends.length, 1);
   assert.ok(legends[0].parentNode._classes.has('chart'),
@@ -161,7 +161,7 @@ test('the (p)/(c) legend widget hosts on the BTC chart div, so it hides with the
 test('clicking MSTR reveals + resizes its chart and swaps title/badge; BTC restores', () => {
   const { R, echarts } = loadRender();
   const card = R.buildChartCard(MSTR(), 'chart:gex_mstr');
-  R.buildChartCard(BTC(), 'chart:gex_profile');
+  R.buildChartCard(BTC(), 'chart:gex_btc');
   const tabs = card.querySelector('.tabbar').children; // [BTC, MSTR]
 
   const before = echarts.instances.reduce((s, i) => s + i._resizes, 0);
@@ -178,7 +178,7 @@ test('clicking MSTR reveals + resizes its chart and swaps title/badge; BTC resto
 
   tabs[0].click(); // back to BTC
   assert.ok(tabs[0].classList.contains('active'));
-  assert.equal(card.querySelector('.key').textContent, 'chart:gex_profile');
+  assert.equal(card.querySelector('.key').textContent, 'chart:gex_btc');
   assert.equal(card.querySelector('.badge').getAttribute('data-generated-at'),
                '2026-07-06T16:00:00Z');
 });

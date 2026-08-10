@@ -23,7 +23,7 @@
 // template whose namespace id is filled from ENV at deploy time.
 
 // Published keys after the "v1:" prefix: lowercase colon-separated
-// segments (gex:combined, chart:gex_profile, index). Anything else is
+// segments (gex:combined, chart:gex_btc, index). Anything else is
 // rejected before KV is consulted.
 const KEY_RE = /^[a-z0-9_]+(?::[a-z0-9_]+)*$/;
 const KEY_MAX = 64;
