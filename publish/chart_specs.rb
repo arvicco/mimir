@@ -825,11 +825,16 @@ module Publish
         'title' => titles.size == 1 ? titles.first : titles,
         'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 }, 'axisPointer' => { 'type' => 'cross' } },
         'axisPointer' => { 'link' => [{ 'xAxisIndex' => 'all' }] },
-        # three tight, evenly-spaced panels under a one-line title
+        # three panels under a one-line title. M8-18 R7 (owner ruling
+        # 2026-08-10): denser -- heights 19% -> 23% and the inter-grid gaps cut
+        # (14%/11% -> ~4%/4%) so the plots use the freed space. Only the bottom
+        # grid draws x (date) labels (the two upper grids duplicate it and keep
+        # axisLabel show:false); the bottom stops at 85% so those dates + the Z
+        # axis name stay readable.
         'grid' => [
-          { 'left' => 60, 'right' => 24, 'top' => 44, 'height' => '19%' },
-          { 'left' => 60, 'right' => 24, 'top' => '42%', 'height' => '19%' },
-          { 'left' => 60, 'right' => 24, 'top' => '72%', 'height' => '19%' }
+          { 'left' => 60, 'right' => 24, 'top' => 40, 'height' => '23%' },
+          { 'left' => 60, 'right' => 24, 'top' => '35%', 'height' => '23%' },
+          { 'left' => 60, 'right' => 24, 'top' => '62%', 'height' => '23%' }
         ],
         'xAxis' => [
           { 'type' => 'time', 'gridIndex' => 0, 'axisLabel' => { 'show' => false } },
