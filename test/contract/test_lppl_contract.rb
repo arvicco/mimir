@@ -89,7 +89,7 @@ class TestLpplContract < Minitest::Test
                          trend_today days_below_strong days_below_floor], [], []],
     'fit'         => [%w[omega m tc_date filters b_negative damping_ref_threshold],
                       %w[trough_date trough_px rmse_impr_pct trough_std_days
-                         damping], []],
+                         damping null_v2 improvement_v2], []],
     'logperiodic' => [%w[omega_peak p_value ar1_rho n_resid], [], %w[--sims 5]],
     'percentile'  => [%w[z pct_emp pct_gauss trend_px exponent ratio_to_trend
                          record prior_min_z prior_min_date days_le_p01
@@ -142,6 +142,21 @@ class TestLpplContract < Minitest::Test
     assert_includes [true, false], j['b_negative']
     assert_equal 1.0, j['damping_ref_threshold']
     assert_kind_of Numeric, j['damping'] if j.key?('damping')
+  end
+
+  # M9-6: the symmetric-null SHADOW rides additively -- null_v2 {tc, rmse,
+  # at_grid_edge} and improvement_v2 -- next to the frozen rmse_impr_pct, which
+  # must remain present and untouched. Both v2 fields are nil-droppable.
+  def test_fit_symmetric_null_v2_shape
+    j = module_json('fit')
+    if j.key?('null_v2')
+      nv = j['null_v2']
+      assert_equal %w[at_grid_edge rmse tc], nv.keys.sort
+      assert_kind_of Numeric, nv['rmse']
+      assert_includes [true, false], nv['at_grid_edge']
+      assert_match(/\A\d{4}-\d{2}-\d{2}\z/, nv['tc'])
+      assert_kind_of Numeric, j['improvement_v2']
+    end
   end
 
   # ---- aggregator ------------------------------------------------------
