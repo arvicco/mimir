@@ -2,6 +2,9 @@
 //
 //   GET /api/v1/:key  -> the KV envelope stored at "v1:<key>", VERBATIM.
 //                        200: Cache-Control public max-age=60,
+//                             Vary: Authorization (a shared cache must
+//                             never serve a token-authorized response to
+//                             an anonymous client once AUTH_TOKEN is set),
 //                             X-Generated-At, X-Data-Age-Seconds
 //                        404: {"error":"unknown key","key":...} (also for
 //                             malformed keys -- rejected before KV)
@@ -76,7 +79,8 @@ export async function handle(request, env, nowMs = Date.now()) {
   // Envelope verbatim -- the publisher's bytes are the contract. Age
   // headers come from a best-effort parse; a malformed value (should
   // never happen) still serves, just without them.
-  const headers = { ...JSON_HEADERS, 'Cache-Control': 'public, max-age=60' };
+  const headers = { ...JSON_HEADERS, 'Cache-Control': 'public, max-age=60',
+                    'Vary': 'Authorization' };
   try {
     const generatedAt = JSON.parse(value).generated_at;
     const ageS = Math.floor((nowMs - Date.parse(generatedAt)) / 1000);

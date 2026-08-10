@@ -197,10 +197,33 @@ function tooltipPosition(container) {
 function errCard(key, msg) {
   var card = document.createElement("div");
   card.className = "card err";
-  card.innerHTML = '<div class="card-head"><span class="key">' + key + '</span></div>' +
-                   '<div class="msg"></div>';
-  card.querySelector(".msg").textContent = msg;
+  // Node-built, not innerHTML: `key` is a KV-sourced string (M8-12 / SBI
+  // C4). Same DOM as before -- .card-head > .key, then .msg.
+  var head = document.createElement("div");
+  head.className = "card-head";
+  var keySpan = document.createElement("span");
+  keySpan.className = "key";
+  keySpan.textContent = key;
+  head.appendChild(keySpan);
+  card.appendChild(head);
+  var msgEl = document.createElement("div");
+  msgEl.className = "msg";
+  msgEl.textContent = msg;
+  card.appendChild(msgEl);
   return card;
+}
+
+// Static "<dot> cls · ttl Ns" badge content, built as nodes rather than
+// innerHTML because ttl_hint_s is a KV value (M8-12 / SBI C4). Clears
+// first so it is safe to re-fill (preview.html's tab swap re-runs it).
+// The dot span carries the staleness class; the text is one text node,
+// with a literal middot -- byte-identical to the old '&middot;' markup.
+function fillStaticBadge(badge, cls, ttlSec) {
+  while (badge.firstChild) badge.removeChild(badge.firstChild);
+  var dot = document.createElement("span");
+  dot.className = "dot " + cls;
+  badge.appendChild(dot);
+  badge.appendChild(document.createTextNode(cls + " · ttl " + ttlSec + "s"));
 }
 
 // Instantiate ONE chart div+echarts from an envelope, applying the
@@ -257,8 +280,7 @@ function setBadge(badge, env) {
     var dot = badge.querySelector(".dot");
     if (dot) dot.className = "dot " + cls; // instant; age caught up by the ticker
   } else {
-    badge.innerHTML = '<span class="dot ' + cls + '"></span>' +
-      cls + ' &middot; ttl ' + env.ttl_hint_s + 's';
+    fillStaticBadge(badge, cls, env.ttl_hint_s);
   }
 }
 
@@ -409,8 +431,7 @@ function buildChartCard(env, key) {
   }
   var badge = document.createElement("span");
   badge.className = "badge";
-  badge.innerHTML = '<span class="dot ' + badgeCls + '"></span>' +
-    badgeCls + ' &middot; ttl ' + env.ttl_hint_s + 's';
+  fillStaticBadge(badge, badgeCls, env.ttl_hint_s);
   head.appendChild(badge);
 
   card.appendChild(head);
@@ -591,7 +612,7 @@ function attachBtcoTable(gridEl, env) {
 // rev: bump on EVERY render.js change; `MimirRender.rev` in the console
 // answers "which renderer is this tab actually running?" after deploys.
 window.MimirRender = {
-  rev: "m6-tab1",
+  rev: "m8-12-textnodes",
   staleClass: staleClass,
   hhmm: hhmm,
   liveHeader: liveHeader,
