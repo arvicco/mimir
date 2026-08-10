@@ -99,6 +99,13 @@ EXPECT:
   hover/focus, and its "How to read this dashboard →" link loads
   guide.html on the live host (opens `/guide.html`, the full reading
   guide; "Methodology →" goes to the repo).
+- Auto-refresh (M8-13): leave the tab OPEN across one bi-hourly tick
+  (ticks at ~:45 odd hours) — the header pub time and card badges
+  advance by themselves, NO reload. This closes the stale-open-tab
+  trap that confused us twice.
+- Security headers (M8-12): `curl -sI https://mimir-cd12ef34.neromontanero.workers.dev/api/v1/index | grep -i vary`
+  shows `Vary: Authorization`; `curl -sI https://mimir-cd12ef34.neromontanero.workers.dev/ | grep -i content-security`
+  shows the CSP line.
 - Data-integrity honesty (M8-8/9/10): on a healthy day the publish
   status line carries NO `BLIND` marker --
   `grep -o 'BLIND:[^ ]*' /tmp/publish.status` prints nothing (equiv:
