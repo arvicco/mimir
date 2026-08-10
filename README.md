@@ -85,7 +85,9 @@ ruby scripts/scenario/etf_flows.rb           # any module runs standalone
 
 Seven weighted signals (ETF flows, funding/basis, Coinbase premium,
 macro liquidity, hash ribbons, MVRV, stablecoin supply) -> composite in
-[-1, +1] -> FLUSH / LEAN-FLUSH / NEUTRAL / BASE / RECOVERY.
+[-1, +1] -> FLUSH / LEAN-FLUSH / NEUTRAL / BASE / RECOVERY. The composite
+is an evidence index (a bounded weighted vote read by band), not a
+probability.
 `macro.rb` needs a free `FRED_API_KEY` (degrades to score 0 without).
 `etf_flows.rb` scrapes farside.co.uk, falling back to the Internet
 Archive snapshot and then CoinGlass (`COINGLASS_API_KEY`, free) -- see
@@ -109,11 +111,13 @@ rake lppl:backfill_diff                    # staged-vs-live verification report
 rake lppl:promote                          # OWNER, interactive: promote staged history
 ```
 
-Five tests (out-of-sample trend Bayes factor, damping envelope, LPPLS
-anti-bubble fit, Lomb-Scargle oscillation significance, valuation
-percentile monitor) -> REGIME-INTACT ... FALSIFIED verdict. First run
-downloads full BTC price history and bootstraps a score cache (takes a
-minute or two); daily runs are incremental. Keyless.
+Five tests (out-of-sample trend predictive-score differential, damping
+envelope, LPPLS anti-bubble fit, Lomb-Scargle oscillation significance,
+valuation percentile monitor) -> REGIME-INTACT ... FALSIFIED verdict.
+The verdict rides a composite that is an evidence index (a bounded
+weighted vote read by band), not a probability. First run downloads full
+BTC price history and bootstraps a score cache (takes a minute or two);
+daily runs are incremental. Keyless.
 
 `--as-of YYYY-MM-DD` computes the verdict exactly as a live run on
 that day would have, from the price cache alone: prices truncated to
