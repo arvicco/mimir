@@ -1431,3 +1431,22 @@ renderer owns it -- the published index stays alphabetical); grid CSS
 3-col with 2-col/1-col fallbacks, index.html + preview.html in sync.
 Goldens untouched (tab hooks live in meta, not the option). Verified
 by headless screenshot at 2000px: order, tabs, no clipping.
+
+## M8-15 · Gate 8 feedback: stacked vol card + finer spread tenors  [tier: fable -- owner-directed, new renderer hook] [status: done 2026-08-10]
+Two owner rulings during the Gate 8 preview review:
+(a) vol_surface + vol_basis = ONE card, TWO half-height charts stacked
+    (surface above basis), not tabs. New renderer hook group_style
+    'stack' (documented in the mimir-design skill, same commit): same
+    tab_group machinery, but every member always visible, each with
+    its own head/badge/bubble; meta height 235 each. Page initBadge
+    now honors per-badge envelope stamps so both sections tick
+    independently.
+(b) chart:vol_spread tenor ladder 7/14/21/45/90d (was 7/30/90) -- the
+    spread's term structure was invisible with three points. Additive
+    rows, per-tenor field set unchanged; found + fixed a second
+    hard-coded DEFAULT_TARGETS iteration in the pairing loop that
+    silently dropped the new tenors. Payload fixture still carries
+    7/30/90 (re-record at the next fixtures:record session; goldens
+    regenerate from the fixture so they are unaffected).
+Verified by headless screenshot: one vol card with both charts, five
+filled spread bars, 3x2 grid intact, 22/22 fresh.

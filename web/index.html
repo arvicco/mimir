@@ -96,6 +96,7 @@
   .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
   @media (max-width: 1160px) { .grid { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 780px)  { .grid { grid-template-columns: 1fr; } }
+  .stacksec { position: relative; } /* bubble + badge anchor per stacked section (owner ruling 2026-08-10) */
   .card {
     background: #1b1f26; border: 1px solid #2a2f38; border-radius: 8px;
     padding: 10px 12px; min-width: 0; position: relative;
@@ -334,12 +335,20 @@ function tickAll() {
 // Replace render.js's static badge text with the ticking dot + age, keyed
 // off data attributes the shared ticker scans.
 function initBadge(card, env) {
-  var badge = card.querySelector(".badge");
-  if (!badge) return;
-  badge.setAttribute("data-generated-at", env.generated_at);
-  badge.setAttribute("data-ttl", env.ttl_hint_s);
-  badge.innerHTML = '<span class="dot"></span><span class="age"></span>';
-  paintBadge(badge);
+  // A stacked card (group_style 'stack') carries one badge PER section,
+  // each already stamped with its own envelope's data attributes by the
+  // renderer -- honor those; fall back to the passed env for the solo/
+  // tab card whose single badge is unstamped on first build.
+  var badges = card.querySelectorAll(".badge");
+  for (var i = 0; i < badges.length; i += 1) {
+    var badge = badges[i];
+    if (!badge.getAttribute("data-generated-at")) {
+      badge.setAttribute("data-generated-at", env.generated_at);
+      badge.setAttribute("data-ttl", env.ttl_hint_s);
+    }
+    badge.innerHTML = '<span class="dot"></span><span class="age"></span>';
+    paintBadge(badge);
+  }
 }
 
 // ---- one chart card ---------------------------------------------------
