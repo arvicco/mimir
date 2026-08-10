@@ -825,20 +825,22 @@ module Publish
         'title' => titles.size == 1 ? titles.first : titles,
         'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 }, 'axisPointer' => { 'type' => 'cross' } },
         'axisPointer' => { 'link' => [{ 'xAxisIndex' => 'all' }] },
-        # three panels under a one-line title. M8-18 R7 (owner ruling
-        # 2026-08-10): denser -- heights 19% -> 23% and the inter-grid gaps cut
-        # (14%/11% -> ~4%/4%) so the plots use the freed space. Only the bottom
-        # grid draws x (date) labels (the two upper grids duplicate it and keep
-        # axisLabel show:false); the bottom stops at 85% so those dates + the Z
-        # axis name stay readable.
+        # three panels under a one-line title. M8-18 R7 + follow-up (owner
+        # rulings 2026-08-10): denser, and ONE date axis for the whole card --
+        # the panels are time-synchronized, so the two upper grids hide their
+        # entire axis furniture (labels AND ticks AND line), only the bottom
+        # grid draws dates; the freed pixels go into panel heights (23->25%)
+        # and tighter gaps.
         'grid' => [
-          { 'left' => 60, 'right' => 24, 'top' => 40, 'height' => '23%' },
-          { 'left' => 60, 'right' => 24, 'top' => '35%', 'height' => '23%' },
-          { 'left' => 60, 'right' => 24, 'top' => '62%', 'height' => '23%' }
+          { 'left' => 60, 'right' => 24, 'top' => 40, 'height' => '25%' },
+          { 'left' => 60, 'right' => 24, 'top' => '34%', 'height' => '25%' },
+          { 'left' => 60, 'right' => 24, 'top' => '61%', 'height' => '25%' }
         ],
         'xAxis' => [
-          { 'type' => 'time', 'gridIndex' => 0, 'axisLabel' => { 'show' => false } },
-          { 'type' => 'time', 'gridIndex' => 1, 'axisLabel' => { 'show' => false } },
+          { 'type' => 'time', 'gridIndex' => 0, 'axisLabel' => { 'show' => false },
+            'axisTick' => { 'show' => false }, 'axisLine' => { 'show' => false } },
+          { 'type' => 'time', 'gridIndex' => 1, 'axisLabel' => { 'show' => false },
+            'axisTick' => { 'show' => false }, 'axisLine' => { 'show' => false } },
           { 'type' => 'time', 'gridIndex' => 2 }
         ],
         # panel names ride their axes (rotated, left gutter): at the top

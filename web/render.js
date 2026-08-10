@@ -219,6 +219,10 @@ function tooltipPosition(container) {
   };
 }
 
+// Display rule (owner ruling 2026-08-10): the chart: prefix is internal
+// namespacing -- every user-visible key label drops it.
+function dispKey(key) { return String(key).replace(/^chart:/, ""); }
+
 function errCard(key, msg) {
   var card = document.createElement("div");
   card.className = "card err";
@@ -228,7 +232,7 @@ function errCard(key, msg) {
   head.className = "card-head";
   var keySpan = document.createElement("span");
   keySpan.className = "key";
-  keySpan.textContent = key;
+  keySpan.textContent = dispKey(key);
   head.appendChild(keySpan);
   card.appendChild(head);
   var msgEl = document.createElement("div");
@@ -377,7 +381,7 @@ function activateGroup(g, member) {
     // have, leaving the inactive tab keyboard-unreachable
   });
   g.card.dataset.key = member.key;   // reflect the visible key
-  g.keySpan.textContent = member.key; // owner always sees which key this is
+  g.keySpan.textContent = dispKey(member.key); // owner always sees which key this is
   var nb = buildBubble(member.meta);  // swap the hover help to this tab
   while (g.bubble.firstChild) g.bubble.removeChild(g.bubble.firstChild);
   while (nb.firstChild) g.bubble.appendChild(nb.firstChild);
@@ -572,7 +576,7 @@ function fillBubble(target, meta) {
 // A single-member stacked section: exactly the pre-M8-17 layout.
 function plainStackSection(m) {
   var s = stackShell(false);
-  s.keySpan.textContent = m.key;
+  s.keySpan.textContent = dispKey(m.key);
   fillBubble(s.bubble, m.meta);
   setBadge(s.badge, m.env);
   m.chartDiv.style.display = "";
@@ -595,7 +599,7 @@ function tabbedStackSection(ms) {
       x.btn.classList.toggle("active", on);
       x.btn.setAttribute("aria-selected", on ? "true" : "false");
     });
-    s.keySpan.textContent = m.key;
+    s.keySpan.textContent = dispKey(m.key);
     fillBubble(s.bubble, m.meta);
     setBadge(s.badge, m.env);
     requestAnimationFrame(function () { m.chart.resize(); });
@@ -643,7 +647,7 @@ function buildChartCard(env, key) {
   // meta); no meta means no bubble and no hover affordance.
   var keySpan = document.createElement("span");
   keySpan.className = "key" + (meta ? " hover" : "");
-  keySpan.textContent = env.key || key;
+  keySpan.textContent = dispKey(env.key || key);
   head.appendChild(keySpan);
   if (meta) {
     var info = document.createElement("span");
@@ -705,7 +709,7 @@ function liveHeader(o) {
   function hide() { o.bubbleEl.style.display = "none"; }
   rows.forEach(function (row) {
     tally(row.generated_at);
-    var label = row.key + "@" + hhmm(row.generated_at);
+    var label = dispKey(row.key) + "@" + hhmm(row.generated_at);
     var dot = document.createElement("button");
     dot.type = "button";
     dot.className = "ldot " + staleClass(row.generated_at, idxTtl);

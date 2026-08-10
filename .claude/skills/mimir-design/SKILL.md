@@ -72,6 +72,12 @@ chart to make room -- never as a separate strip elsewhere on the page
 (round 5: the full-width bottom table was rejected). One subject, one
 card.
 
+**Key labels drop the chart: prefix.** (Owner ruling 2026-08-10.) The
+prefix is internal namespacing (it is how the pipeline tells chart
+keys from producer keys); every user-visible label -- card heads,
+header-dot bubbles, error-card titles -- shows the bare name
+(render.js dispKey). KV key names themselves keep the prefix.
+
 **Card badges are dot-only.** (Owner ruling 2026-08-10, M8-18 R6.) A
 card/section freshness badge is JUST the coloured staleness dot,
 top-right -- no `● green · ttl 1800s`, no ticking `age` text (too
