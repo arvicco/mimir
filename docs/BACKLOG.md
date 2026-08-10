@@ -1116,6 +1116,42 @@ README rewritten: btco section describes the two-regime process
 section reflects the 4 installed agents; not-implemented list refreshed
 (3350 price, refetch, cash-model, Phase 8 candidates).
 
+## M7-17 · SBI review triage: C1 KEYRE fix + blast-radius check + CI parity  [tier: fable] [status: done 2026-08-09]
+Goal: the SBI consolidated review (2026-07-31, vs phase-6 5227c75)
+      confirmed three code bugs; the two that touch phase-7's active
+      surface land before Gate 7. C1: KEYRE /x free-spacing killed 6
+      of 10 keyword phrases -> excerpts blind to preferred/notes/share
+      sections; fixed (\s+ gaps), phrase tests added, contract pin
+      updated, outcome-checked on the real MSTR 8-K fixture. Blast
+      radius: all at-risk ai-mode applies (07-07..09) superseded by
+      the externally-reconciled M7-16 baseline sweep; residual = false
+      negatives only, fixed forward. C7: CI gained rake health +
+      fixtures:verify (gate parity). C2 -> decision item D8-h.
+Deferred to phase-8/9 per .docs/lppl-improvements.md (local notes):
+      C4 web hardening, C5 atomic prices.csv, C6 as-of write guard,
+      C8 trio; R1-R10 statistics revisions are all Golden-Rule-4
+      decision items, none acted on.
+
+## OWNER RULING 2026-08-10 -- BTCo DEVELOPMENT FROZEN
+The owner stopped all BTCo (treasury-company) development, pending a
+serious rethink: "Treasury dashboard is completely broken/unrepairable,
+we stop its development now." Trigger: the 2026-08-10 Gate 7 attempt --
+stale rows (XXI/DJT past 120d, MSTR shares a month behind), a
+heuristic-mode ingest run that dismissed the BTC-count 8-Ks, and a
+wrong CLI hint, on top of the maintenance load the ingest loop demands.
+Effect on plans:
+- No new BTCo packets. M7-15b (AI research layer), D8-h
+  (shares_diluted convention) and D8-e (divergence-alert wiring) are
+  FROZEN, not resolved.
+- Phase-8 family D proposals (P-14 pref yield, P-15 ledger event
+  studies) and any BTCo-card placements in DEV-PROPOSALS.md: FROZEN.
+- Code stays in the tree (scripts/btco/, ledgers, tests keep passing);
+  nothing is deleted. Decommissioning inventory rules apply if any
+  production surface (dashboard card, btco-alert agent, publish keys)
+  is later retired -- owner decides that at Gate 7, see the runbook.
+- Focus shifts to: Gate 7 (reduced scope) -> Gate 8 (vol/GEX family,
+  already built on phase-8) -> Phase 9 (LPPL statistics revision).
+
 ## GATE 7 CHECKLIST -- moved to docs/Gate-7-runbook.md (owner ruling
 2026-07-11: gate instructions always live in a dedicated
 Gate-N-runbook.md, fully specific -- commands, links, EXPECT lines).
@@ -1131,6 +1167,19 @@ Run that file on/after the July 13 soak review.
   additive `blind: true` field the chart can grey out (contract
   change, additive); (c) leave as-is and rely on the worklog. Owner
   picks; touches append semantics, so loop will not act alone.
+- D8-h shares_diluted convention (filed 2026-08-09; SBI review finding
+  C2): universe.json / metrics.rb / the extraction prompt never define
+  whether shares_diluted is converts-inclusive "assumed diluted" or
+  outstanding-plus-ITM-only. metrics.rb takes max(diluted, basic) for
+  per-share entitlements, so a converts-inclusive seed double-counts
+  ITM convert shares in CEBE and double-penalizes OTM tranches (the
+  MSTR seed is suspected converts-inclusive); the prompt says only
+  "shares OUTSTANDING". Owner picks the convention; then it gets
+  written into the universe schema note, metrics.rb header and the
+  extraction prompt in one commit, and existing seeds reconciled.
+  Until ruled: no code change (Golden Rule 4).
+  FROZEN 2026-08-10 with the BTCo development stop -- moot until the
+  rethink.
 - D8-a Alert token: **RESOLVED 2026-07-06 -- owner: "fine to place
   near general mimir status info"** -- token joins the mimir status
   cluster (second line right section), written only when n > 0

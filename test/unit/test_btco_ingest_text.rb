@@ -69,6 +69,45 @@ class TestExcerpt < Minitest::Test
   end
 end
 
+class TestKeywordPhrases < Minitest::Test
+  # C1 (SBI consolidated review 2026-07-31): KEYRE's /x free-spacing
+  # silently deleted the literal spaces inside 6 of 10 keyword phrases,
+  # so e.g. "preferred stock" could never match and excerpts sent to
+  # the extraction model systematically missed share-count, preferred
+  # and notes sections. These tests pin every phrase the regex is
+  # written to match, as it appears in real filing prose.
+  PHRASES = ['bitcoin', 'BTC', 'convertible', 'at-the-market',
+             'shares of common', 'share of common',
+             'shares of Class A common', 'shares of class b common',
+             'issued and outstanding', 'preferred stock',
+             'liquidation preference', 'notes due',
+             'aggregate principal'].freeze
+
+  def test_every_documented_phrase_matches_in_prose
+    PHRASES.each do |p|
+      assert_match Btco::KEYRE, "the #{p} amount",
+                   "phrase #{p.inspect} must match KEYRE"
+    end
+  end
+
+  def test_phrase_spanning_a_newline_matches
+    # strip_html collapses runs but keeps single newlines, so a phrase
+    # can arrive split across a line break.
+    assert_match Btco::KEYRE, "issued and\noutstanding"
+  end
+
+  def test_btc_requires_word_boundaries
+    refute_match Btco::KEYRE, 'webtcast'
+  end
+
+  def test_excerpt_windows_around_multiword_phrase
+    text = ('x' * 5_000) + 'preferred stock' + ('y' * 5_000)
+    out = Btco.excerpt(text)
+    assert_includes out, 'preferred stock'
+    assert_equal 3_000, out.size # +-1500 around the match start
+  end
+end
+
 class TestDiffAgainst < Minitest::Test
   CUR = { 'ticker' => 'TST', 'btc' => 100, 'shares_basic' => 1_000_000,
           'shares_diluted' => 1_200_000, 'debt_face' => 0, 'pref_liq' => 0,
