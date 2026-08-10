@@ -43,7 +43,9 @@ class TestVolSpreadContract < Minitest::Test
     assert j['btc_spot'].nil?  || j['btc_spot'].is_a?(Numeric)
 
     assert_kind_of Array, j['tenors']
-    assert_equal [7, 30, 90], j['tenors'].map { |t| t['tenor_d'] }
+    # finer ladder, owner-ruled 2026-08-10 (M8-15): additive rows, the
+    # per-tenor field set below is the unchanged frozen contract
+    assert_equal [7, 14, 21, 45, 90], j['tenors'].map { |t| t['tenor_d'] }
 
     j['tenors'].each_with_index do |t, i|
       assert_contract_keys TENOR_KEYS, t, "vol_spread.rb tenors[#{i}]"

@@ -79,24 +79,25 @@ class TestChartSpecs < Minitest::Test
     assert_nil metas['scenario_strip']['tab_group']
     assert_nil metas['lppl_regime']['tab_group']
     assert_nil metas['btco_table']['tab_group']
-    # M8-6 as amended 2026-08-10 (owner 3x2-grid ruling): vol_surface +
-    # vol_basis share the 'vol' card as SURFACE/BASIS tabs (SURFACE
-    # default at pos 0); vol_spread is a SOLO top-right card, no tabs.
-    # gex_trend joins the GEX card as TREND at pos 3 (after BTC pos 1,
-    # MSTR pos 2), so its own key-sort is moot.
-    assert_equal %w[vol SURFACE 0],
-                 metas['vol_surface'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
+    # M8-6 as amended 2026-08-10 (owner rulings, 3x2 grid): vol_surface +
+    # vol_basis share the 'vol' card as ONE CARD, TWO STACKED HALF-HEIGHT
+    # charts (group_style 'stack'; tab_pos = vertical order, surface on
+    # top); vol_spread is a SOLO top-right card, no group. gex_trend
+    # joins the GEX card as TREND at pos 3 (after BTC pos 1, MSTR pos 2).
+    assert_equal %w[vol stack 0 235],
+                 metas['vol_surface'].values_at('tab_group', 'group_style', 'tab_pos', 'height').map(&:to_s)
     assert_nil metas['vol_spread']['tab_group']
-    assert_equal %w[vol BASIS 2],
-                 metas['vol_basis'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
+    assert_equal %w[vol stack 2 235],
+                 metas['vol_basis'].values_at('tab_group', 'group_style', 'tab_pos', 'height').map(&:to_s)
     assert_equal %w[gex TREND 3],
                  metas['gex_trend'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
-    # the vol charts carry no drawn-legend/tooltip renderer hooks
+    # the vol charts carry no drawn-legend/tooltip renderer hooks;
+    # the stacked pair DOES carry height (half a card each)
     %w[vol_surface vol_spread vol_basis gex_trend].each do |n|
       assert_nil metas[n]['tooltip_formatter'], n
       assert_nil metas[n]['legend_widget'], n
-      assert_nil metas[n]['height'], n
     end
+    %w[vol_spread gex_trend].each { |n| assert_nil metas[n]['height'], n }
   end
 
   # ---- M8-6 vol/gex family structure -----------------------------------

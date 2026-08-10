@@ -19,15 +19,26 @@ another. When a new ruling lands, add it here in the same commit.
   text/axis/legend colors the theme already tunes — the light-theme
   defaults (near-black titles, inactive-brighter-than-active legends)
   are exactly what the owner rejected.
-- Exactly four renderer hooks exist, declared in envelope meta:
+- Exactly five renderer hooks exist, declared in envelope meta:
   `tooltip_formatter` (a NAME in the renderer's formatter registry),
   `height` (card pixels), `legend_widget` (a NAME in the renderer's
   HTML widget registry; the spec ships `legend.show=false` but keeps
   `legend.data` so ECharts still owns selection state and the widget
-  drives it via legend actions), and `tab_group` (+ `tab_label` /
+  drives it via legend actions), `tab_group` (+ `tab_label` /
   `tab_pos`; charts sharing a group render into ONE card as tabs --
-  owner ruling D7-c 2026-07-06, currently the two GEX charts). Add a
-  new hook only with an owner ruling.
+  owner ruling D7-c 2026-07-06, the GEX card), and `group_style:
+  'stack'` (owner ruling 2026-08-10: a tab_group rendered as ONE card
+  with every member ALWAYS visible, stacked vertically by tab_pos,
+  each member keeping its own head/badge/bubble at meta.height -- the
+  vol_surface + vol_basis card). Add a new hook only with an owner
+  ruling.
+
+- Card placement (owner ruling 2026-08-10): the dashboard is a 3x2
+  grid -- row 1 GEX · Volatility(stacked) · Vol-Spread, row 2
+  Scenario · LPPL · BTCo. Order lives in render.js CARD_ORDER (the
+  published index stays alphabetical); 3 columns is the norm, 2 under
+  1160px, 1 under 780px. Never restore a breakpoint that turns a
+  normal laptop window into 2 columns.
 - Every chart registers `meta` (desc / axes / help) — 2-4 sentences
   compressed from docs/METHODOLOGY.md, rendered as hover bubbles.
 - Goldens regenerate deterministically from test/fixtures/payloads/. A

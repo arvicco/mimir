@@ -395,6 +395,68 @@ function buildGroupedCard(env, key, meta, groupId) {
   return g.card;
 }
 
+// Build (or extend) a STACKED group card (owner ruling 2026-08-10:
+// vol_surface + vol_basis are "one card, two half-card charts", not
+// tabs). Same GROUPS registry and grouping meta as the tab style, but
+// every member is always visible: each contributes a section -- its own
+// head row (key + ⓘ + badge) above its half-height chart -- ordered by
+// tab_pos. Each section keeps its own hover bubble and its badge keeps
+// its own envelope's freshness (setBadge stamps data-generated-at, so
+// the page ticker drives every section independently).
+function buildStackedCard(env, key, meta, groupId) {
+  var g = GROUPS[groupId];
+  if (!g) {
+    var card = document.createElement("div");
+    card.className = "card";
+    g = GROUPS[groupId] = { card: card, members: [], active: null, stacked: true };
+  }
+
+  var section = document.createElement("div");
+  section.className = "stacksec";
+  var head = document.createElement("div");
+  head.className = "card-head";
+  var keySpan = document.createElement("span");
+  keySpan.className = "key hover";
+  keySpan.textContent = env.key || key;
+  head.appendChild(keySpan);
+  var info = document.createElement("span");
+  info.className = "info hover";
+  info.textContent = "ⓘ";
+  info.tabIndex = 0;
+  head.appendChild(info);
+  var badge = document.createElement("span");
+  badge.className = "badge";
+  head.appendChild(badge);
+  section.appendChild(head);
+  var bubble = buildBubble(meta);
+  section.appendChild(bubble);
+  function orient() {
+    requestAnimationFrame(function () {
+      if (!bubble.getBoundingClientRect().height) return;
+      bubble.classList.remove("up");
+      if (bubble.getBoundingClientRect().bottom > window.innerHeight) {
+        bubble.classList.add("up");
+      }
+    });
+  }
+  head.addEventListener("mouseover", orient);
+  head.addEventListener("focusin", orient);
+  setBadge(badge, env);
+
+  var inst = buildChartInstance(env, key, meta, null);
+  section.appendChild(inst.div);
+  g.members.push({ pos: meta.tab_pos == null ? 99 : meta.tab_pos,
+                   key: env.key || key, env: env, meta: meta,
+                   div: section, chart: inst.chart });
+
+  // vertical order = tab_pos, whatever order the members loaded in
+  g.members.sort(function (a, b) { return a.pos - b.pos; });
+  g.members.forEach(function (m) { g.card.appendChild(m.div); });
+  g.card.dataset.key = g.members[0].key;
+  requestAnimationFrame(function () { inst.chart.resize(); });
+  return g.card;
+}
+
 // Build a chart card from an already-fetched envelope. Returns the card
 // element; the caller appends it to the document IN THE SAME TASK (the
 // rAF below then sizes the chart once layout exists -- echarts.init ran
@@ -407,7 +469,11 @@ function buildGroupedCard(env, key, meta, groupId) {
 // append accordingly.
 function buildChartCard(env, key) {
   var meta = env.meta || null;
-  if (meta && meta.tab_group) return buildGroupedCard(env, key, meta, meta.tab_group);
+  if (meta && meta.tab_group) {
+    return meta.group_style === "stack" ?
+      buildStackedCard(env, key, meta, meta.tab_group) :
+      buildGroupedCard(env, key, meta, meta.tab_group);
+  }
 
   var card = document.createElement("div");
   card.className = "card";

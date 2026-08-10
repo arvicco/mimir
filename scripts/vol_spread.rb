@@ -10,7 +10,8 @@
 #   ruby vol_spread.rb --json   # machine-readable JSON (frozen contract)
 #
 # SEMANTICS (owner-approved 2026-07-10, nearest-expiry pairing)
-#   BTC leg:  Deribit BTC option book -> BTC::Vol.surface (7/30/90d targets).
+#   BTC leg:  Deribit BTC option book -> BTC::Vol.surface (7/14/21/45/90d
+#             targets -- finer than the surface chart, owner ruling 2026-08-10).
 #   MSTR leg: CBOE delayed-quote MSTR chain -> BTC::Vol.surface (same targets).
 #   For each target tenor: spread_atm = MSTR atm_iv - BTC atm_iv (both
 #   fractions from BTC::Vol; displayed x100 as vol-points in human output).
@@ -49,6 +50,12 @@ require_relative '../lib/btc/vol'
 
 CBOE_BASE = 'https://cdn.cboe.com/api/global/delayed_quotes/options'
 
+# Finer tenor ladder than the surface chart's 7/30/90 (owner ruling
+# 2026-08-10): the MSTR-vs-BTC spread's term structure is the point of
+# this chart, and three points hid its shape. Additive rows only -- the
+# per-tenor field set is unchanged.
+TARGETS = [7, 14, 21, 45, 90].freeze
+
 now = Time.now.utc
 
 # ---- BTC leg: Deribit book -> BTC::Vol.surface ------------------------------
@@ -81,7 +88,7 @@ begin
   if book.empty?
     btc_reason = 'no live BTC instruments parsed'
   else
-    btc_surface = BTC::Vol.surface(book)
+    btc_surface = BTC::Vol.surface(book, targets: TARGETS)
   end
 rescue StandardError => e
   btc_reason = "deribit: #{e.class}: #{e.message}"
@@ -122,7 +129,7 @@ begin
   if mstr_book.empty?
     mstr_reason = 'no live MSTR instruments parsed'
   else
-    mstr_surface = BTC::Vol.surface(mstr_book)
+    mstr_surface = BTC::Vol.surface(mstr_book, targets: TARGETS)
   end
 rescue StandardError => e
   mstr_reason = "cboe_mstr: #{e.class}: #{e.message}"
@@ -136,7 +143,7 @@ if btc_surface.nil? && mstr_surface.nil?
 end
 
 # ---- build spread rows (nearest-expiry pairing per tenor) -------------------
-spread_rows = BTC::Vol::DEFAULT_TARGETS.map do |target_d|
+spread_rows = TARGETS.map do |target_d|
   bt = btc_surface&.find  { |s| s[:tenor_d] == target_d }
   mt = mstr_surface&.find { |s| s[:tenor_d] == target_d }
 

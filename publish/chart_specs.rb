@@ -208,7 +208,11 @@ module Publish
                     '(amber) are vol points on the right. A tenor whose chain was ' \
                     'too thin (reason set) is dropped, not drawn as zero. ' \
                     'Negative RR25 = downside fear; a rising FLY25 = fatter tails.',
-          'tab_group' => 'vol', 'tab_label' => 'SURFACE', 'tab_pos' => 0
+          # stacked card (owner ruling 2026-08-10): surface + basis are
+          # one card, two half-height charts -- group_style 'stack',
+          # tab_pos = vertical order, height = half a card
+          'tab_group' => 'vol', 'group_style' => 'stack', 'tab_pos' => 0,
+          'height' => 235
         }
       },
       'vol_spread' => {
@@ -248,7 +252,9 @@ module Publish
                     '= contango. The title carries the latest perpetual funding ' \
                     '(%/8h) and its 1d/7d/30d means. If the futures leg is down ' \
                     'the line is empty and only funding remains.',
-          'tab_group' => 'vol', 'tab_label' => 'BASIS', 'tab_pos' => 2
+          # stacked card (owner ruling 2026-08-10) -- below vol_surface
+          'tab_group' => 'vol', 'group_style' => 'stack', 'tab_pos' => 2,
+          'height' => 235
         }
       },
       'gex_trend' => {
