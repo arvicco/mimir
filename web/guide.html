@@ -202,7 +202,9 @@
       <span class="lbl">How to read it &mdash;</span> the weighted composite
       (<code>sum(weight&times;score) / 12</code>) is banded
       <span class="mono">FLUSH / LEAN-FLUSH / NEUTRAL / BASE / RECOVERY</span>.
-      No single module is trustworthy alone; the signal is the composite's
+      It is an <span class="term">evidence index</span> &mdash; a bounded
+      weighted vote read by band, not a probability. No single module is
+      trustworthy alone; the signal is the composite's
       <em>drift</em> across successive readings, which is why the main plot
       is the composite path over time.
     </p>
@@ -238,8 +240,8 @@
       decline with log-periodic oscillations &mdash; around a
       genesis-anchored power law. The suite does not try to prove this; it
       runs four independently falsifiable tests daily (out-of-sample trend
-      Bayes factor, damping envelope, anti-bubble LPPLS fit, and
-      oscillation significance) and accumulates evidence either way, any
+      predictive-score differential, damping envelope, anti-bubble LPPLS
+      fit, and oscillation significance) and accumulates evidence either way, any
       one test able to kill the claim. The chart plots that evidence
       <em>ledger</em> over time, not price versus trend.
     </p>
@@ -249,13 +251,17 @@
       <span class="amb">bound</span> (amber, last cycle's trough ratio) and
       <span class="rd">floor</span> (red, the worst historical ratio) &mdash;
       the ratio must hold above the bound for the damping story to survive;
-      (middle) the trailing-1-year log10 Bayes factor of the global power
-      law versus its best rival, with a zero line &mdash; read its sign and
-      drift, not its absolute size; (bottom) the age-adjusted percentile Z.
+      (middle) the trailing-1-year cumulative log predictive-score
+      differential (log10, panel labelled <span class="mono">log10 BF</span>)
+      of the global power law versus its best rival, with a zero line &mdash;
+      read its sign and drift, not its absolute size; (bottom) the
+      age-adjusted percentile Z.
     </p>
     <p>
       <span class="lbl">The title number &mdash;</span>
       <code>LPPL &lt;verdict&gt; &plusmn;&lt;composite&gt;</code>. The
+      composite is an <span class="term">evidence index</span> &mdash; a
+      bounded weighted vote read by band, not a probability. The
       verdict vocabulary is
       <span class="mono">REGIME-INTACT / SUPPORTED / INDETERMINATE /
       STRESSED / FALSIFIED</span>; if either the trend or the envelope test
@@ -269,7 +275,7 @@
     <p>
       <span class="lbl">When it fails &mdash;</span> the first run bootstraps
       its score cache weekly, later runs densify to daily &mdash; so the
-      Bayes-factor magnitude is not comparable across cache densities. Read
+      differential's magnitude is not comparable across cache densities. Read
       the sign and the per-horizon pattern, never the raw number.
     </p>
   </section>

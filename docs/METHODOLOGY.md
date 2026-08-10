@@ -109,6 +109,8 @@ recent difficulty adjustments; realized price vs spot.
 
 `composite = sum(weight * score) / 12`, mapped to:
 `<= -0.40 FLUSH | <= -0.10 LEAN-FLUSH | < +0.10 NEUTRAL | < +0.40 BASE | >= +0.40 RECOVERY`.
+The composite is an **evidence index**, not a probability -- a bounded
+weighted vote over the modules, read by band, never as an "N% chance".
 
 A reading of `LEAN-FLUSH -0.17` with only hash and stables negative is
 a *mild* tilt -- two slow gauges leaning bearish, fast gauges neutral.
@@ -259,7 +261,12 @@ this test carries no verdict weight; its score encodes what
 `composite = (3*trend + 3*envelope + 2*fit + 2*logperiodic) / 10`, then
 `>= +0.50 REGIME-INTACT | >= +0.15 SUPPORTED | > -0.15 INDETERMINATE |
 > -0.50 STRESSED | else FALSIFIED`, with overrides: trend AND envelope
-both -1 -> FALSIFIED outright; either one -1 -> capped at STRESSED.
+both -1 -> FALSIFIED outright; either one -1 -> capped at STRESSED. The
+composite is an **evidence index**, not a probability -- a bounded
+weighted vote read by band, never an "N% chance the regime holds". A
+secondary self-check rides in `--json`: `omega_xcheck` compares the two
+independent oscillation-frequency estimates (fit's LPPLS grid ~8.6 vs
+logperiodic's Lomb-Scargle peak ~8.5); agreement is soft corroboration.
 
 ### Worked example (the run above)
 

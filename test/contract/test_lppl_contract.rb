@@ -137,10 +137,15 @@ class TestLpplContract < Minitest::Test
 
   def test_aggregator_json_contract
     j = run_json('scripts/lppl/lppl.rb', '--json', '--skip-update', env: lppl_env)
-    assert_contract_keys %w[composite status_line tests ts verdict], j, 'lppl.rb'
+    assert_contract_keys %w[composite omega_xcheck status_line tests
+                            trough_stability ts verdict], j, 'lppl.rb'
     assert_kind_of Float, j['composite']
     assert_includes VERDICTS, j['verdict']
     assert_match STATUS_RE, j['status_line']
+    # M9-3: omega cross-check rides along additively -- two independent omega
+    # estimates and their gap; trough_stability is a first-class field.
+    assert_contract_keys %w[delta fit_omega ls_omega], j['omega_xcheck'], 'omega_xcheck'
+    assert j.key?('trough_stability'), 'trough_stability first-class field absent'
 
     assert_equal TESTS.keys.sort, j['tests'].map { |t| t['name'] }.sort
     j['tests'].each do |t|
@@ -163,7 +168,8 @@ class TestLpplContract < Minitest::Test
     j = run_json('scripts/lppl/lppl.rb', '--json', '--skip-update',
                  env: lppl_env(root).merge('FAKE_NOW' => '2026-07-20T00:00:00Z'))
     assert_equal true, j['stale_input']
-    assert_contract_keys %w[composite stale_input status_line tests ts verdict], j,
+    assert_contract_keys %w[composite omega_xcheck stale_input status_line tests
+                            trough_stability ts verdict], j,
                          'lppl.rb --json (stale)'
   ensure
     FileUtils.rm_rf(root) if root
@@ -177,7 +183,8 @@ class TestLpplContract < Minitest::Test
 
     j = run_json('scripts/lppl/lppl.rb', '--json', '--skip-update',
                  '--as-of', '2026-07-03', env: lppl_env)
-    assert_contract_keys %w[as_of composite status_line tests ts verdict], j,
+    assert_contract_keys %w[as_of composite omega_xcheck status_line tests
+                            trough_stability ts verdict], j,
                          'lppl.rb --as-of'
     assert_equal '2026-07-03', j['as_of']
     assert_equal '2026-07-03T00:00:00Z', Time.iso8601(j['ts']).iso8601
