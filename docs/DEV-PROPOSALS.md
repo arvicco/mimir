@@ -145,7 +145,10 @@ interesting number. Effort: M (market discovery/rolling tickers need
 care). Decision: which tenors/strikes, panel design. ToS posture to
 confirm before adoption (public API, no key for reads).
 
-## D. BTCo family
+## D. BTCo family — FROZEN (owner ruling 2026-08-10)
+
+All BTCo development is stopped pending a rethink; nothing below is
+buildable until the owner reopens it. Kept for the record.
 
 **P-14 · MSTR preferred yield strip.** STRC/STRK/STRF trade on Nasdaq;
 stooq (already our equity price source) serves them. Preferred yields

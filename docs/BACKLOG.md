@@ -1132,6 +1132,26 @@ Deferred to phase-8/9 per .docs/lppl-improvements.md (local notes):
       C8 trio; R1-R10 statistics revisions are all Golden-Rule-4
       decision items, none acted on.
 
+## OWNER RULING 2026-08-10 -- BTCo DEVELOPMENT FROZEN
+The owner stopped all BTCo (treasury-company) development, pending a
+serious rethink: "Treasury dashboard is completely broken/unrepairable,
+we stop its development now." Trigger: the 2026-08-10 Gate 7 attempt --
+stale rows (XXI/DJT past 120d, MSTR shares a month behind), a
+heuristic-mode ingest run that dismissed the BTC-count 8-Ks, and a
+wrong CLI hint, on top of the maintenance load the ingest loop demands.
+Effect on plans:
+- No new BTCo packets. M7-15b (AI research layer), D8-h
+  (shares_diluted convention) and D8-e (divergence-alert wiring) are
+  FROZEN, not resolved.
+- Phase-8 family D proposals (P-14 pref yield, P-15 ledger event
+  studies) and any BTCo-card placements in DEV-PROPOSALS.md: FROZEN.
+- Code stays in the tree (scripts/btco/, ledgers, tests keep passing);
+  nothing is deleted. Decommissioning inventory rules apply if any
+  production surface (dashboard card, btco-alert agent, publish keys)
+  is later retired -- owner decides that at Gate 7, see the runbook.
+- Focus shifts to: Gate 7 (reduced scope) -> Gate 8 (vol/GEX family,
+  already built on phase-8) -> Phase 9 (LPPL statistics revision).
+
 ## GATE 7 CHECKLIST -- moved to docs/Gate-7-runbook.md (owner ruling
 2026-07-11: gate instructions always live in a dedicated
 Gate-N-runbook.md, fully specific -- commands, links, EXPECT lines).
@@ -1158,6 +1178,8 @@ Run that file on/after the July 13 soak review.
   written into the universe schema note, metrics.rb header and the
   extraction prompt in one commit, and existing seeds reconciled.
   Until ruled: no code change (Golden Rule 4).
+  FROZEN 2026-08-10 with the BTCo development stop -- moot until the
+  rethink.
 - D8-a Alert token: **RESOLVED 2026-07-06 -- owner: "fine to place
   near general mimir status info"** -- token joins the mimir status
   cluster (second line right section), written only when n > 0

@@ -183,15 +183,16 @@ same commit (`rake health` fails on registry drift).
 
 ## Current phase
 
-Phase 7 (BTCo ingest to real data, branch phase-7; Gate 6 closed
-2026-07-06, PR #7, ledger promoted 275 entries, 13 keys live; Gate 7
-= v1 tag per the standing real-data ruling; week-long soak reviewed
-at the first gate after ~Jul 13). OWNER-INTERACTIVE phase: analysis/
-review/apply happen in owner sessions (D6-a); the loop builds tests,
-the discovery-alert job and the shakedown harness. Stage A tiering
+Phase 7 closing (branch phase-7, soaked since 2026-07-10, CI green).
+**BTCo development is FROZEN (owner ruling 2026-08-10, pending a
+rethink)**: no BTCo packets, no ingest work, no universe edits; the
+code stays in the tree and its tests keep passing. Gate 7 is
+re-scoped to merge + tag v1 without BTCo validation --
+docs/Gate-7-runbook.md is current. After Gate 7: Gate 8 (vol/GEX
+family, already built on branch phase-8 in ~/Dev/mimir-phase8), then
+Phase 9 (LPPL statistics revision from the SBI review; every verdict-
+affecting change is a Golden-Rule-4 decision item). Stage A tiering
 (DEV-LOOP.md section 2): Fable orchestrates/reviews, Opus/Sonnet
-write most code; packets M7-1.. in docs/BACKLOG.md. Visual work
-follows .claude/skills/mimir-design; deploys, launchd installs and
-ingest --apply are HUMAN actions (Golden Rule 3; universe.json only
-via reviewed proposals). Consult ARCHITECTURE.md section 6 for Gate
-7; update this line at each gate.
+write most code in isolated worktrees. Visual work follows
+.claude/skills/mimir-design; deploys and launchd changes are HUMAN
+actions (Golden Rule 3). Update this line at each gate.
