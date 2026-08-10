@@ -274,16 +274,34 @@ test('errCard builds the key/message as text nodes (no innerHTML from data)', ()
   assert.equal(card.querySelector('.msg').textContent, 'boom <script>');
 });
 
-test('a solo card badge is a dot span + a text node (no innerHTML from ttl)', () => {
+test('a solo card badge is a bare dot + a hover/focus bubble (M8-18 R6)', () => {
   const { R } = loadRender();
   const solo = env('chart:lppl_regime', '2026-07-06T12:00:00Z',
     { desc: 'd', axes: { x: 'x', y: 'y' }, help: 'h' }, []);
   const badge = R.buildChartCard(solo, 'chart:lppl_regime').querySelector('.badge');
   assert.equal(badge.innerHTML, '', 'no innerHTML string was assigned');
   assert.ok(badge.querySelector('.dot'), 'a .dot span child');
-  // dot + one text node "<cls> · ttl 1800s"
-  const text = badge.children.filter((c) => c.nodeType === 3).map((c) => c.textContent).join('');
-  assert.match(text, /· ttl 1800s$/);
+  assert.ok(badge.querySelector('.badge-bubble'), 'a .badge-bubble child');
+  // dot-only: no text node lives directly on the badge anymore
+  assert.equal(badge.children.filter((c) => c.nodeType === 3).length, 0);
+  // data attrs stamped so the ticker + the bubble can read freshness
+  assert.equal(badge.getAttribute('data-generated-at'), '2026-07-06T12:00:00Z');
+  assert.equal(badge.getAttribute('data-ttl'), '1800');
+  assert.equal(badge.getAttribute('tabindex'), '0', 'focusable like the header dots');
+  // the bubble text is built ON OPEN from the data attrs: "age .. · ttl .. · HH:MMZ"
+  badge._ev.mouseenter.forEach((f) => f());
+  assert.match(badge.querySelector('.badge-bubble').textContent, /^age .+ · ttl 1800s · 12:00Z$/);
+});
+
+test('refreshBadge repaints the dot from the data attrs (the page ticker)', () => {
+  const { R } = loadRender();
+  const solo = env('chart:lppl_regime', '2026-07-06T12:00:00Z',
+    { desc: 'd', axes: { x: 'x', y: 'y' }, help: 'h' }, []);
+  const badge = R.buildChartCard(solo, 'chart:lppl_regime').querySelector('.badge');
+  // stale it far in the past, tick, and the dot goes red (age >> 3x ttl)
+  badge.setAttribute('data-generated-at', '2000-01-01T00:00:00Z');
+  R.refreshBadge(badge);
+  assert.ok(badge.querySelector('.dot').classList.contains('red'));
 });
 
 test('a non-grouped chart still builds a fresh, tab-less card', () => {

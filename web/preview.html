@@ -171,11 +171,26 @@
   #head:has(#titleinfo:hover) #titlebubble,
   #head:has(#titleinfo:focus) #titlebubble,
   #titlebubble:hover, #titlebubble:focus-within { display: block; }
+  /* M8-18 R6: a card badge is a bare staleness dot (dot-only + hover/focus
+     bubble -- the header-ldot pattern). Focusable; the bubble carries
+     age/ttl/time, right-anchored + flip-up so it never clips. */
   .badge {
-    display: inline-flex; align-items: center; gap: 6px; margin-left: auto;
-    font-size: 11px; padding: 2px 8px; border-radius: 20px;
-    border: 1px solid #2a2f38; color: #b9c0ca;
+    position: relative; display: inline-flex; align-items: center;
+    margin-left: auto; padding: 3px; border-radius: 50%; cursor: help;
   }
+  .badge:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
+  .badge-bubble {
+    display: none; position: absolute; right: 0; top: calc(100% + 6px);
+    z-index: 45; white-space: nowrap;
+    background: #232933; border: 1px solid #3a424e; border-radius: 6px;
+    padding: 4px 9px; font-size: 11px; color: #ccd3dc;
+    box-shadow: 0 6px 24px rgba(0,0,0,.45);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  .badge-bubble.up { top: auto; bottom: calc(100% + 6px); }
+  .badge:hover .badge-bubble, .badge:focus .badge-bubble,
+  .badge:focus-within .badge-bubble { display: block; }
   .chart { width: 100%; height: 500px; }
   /* GEX tab bar (M6-4, owner ruling D7-c): the two GEX charts share one
      card as [BTC][MSTR] tabs. Real <button>s in the card-head, dim until
