@@ -79,25 +79,29 @@ class TestChartSpecs < Minitest::Test
     assert_nil metas['scenario_strip']['tab_group']
     assert_nil metas['lppl_regime']['tab_group']
     assert_nil metas['btco_table']['tab_group']
-    # M8-6 as amended 2026-08-10 (owner rulings, 3x2 grid): vol_surface +
-    # vol_basis share the 'vol' card as ONE CARD, TWO STACKED HALF-HEIGHT
-    # charts (group_style 'stack'; tab_pos = vertical order, surface on
-    # top); vol_spread is a SOLO top-right card, no group. gex_trend
-    # joins the GEX card as TREND at pos 3 (after BTC pos 1, MSTR pos 2).
+    # M8-6 as amended 2026-08-10 (owner rulings): vol_surface + vol_basis
+    # share the 'vol' card as ONE CARD, TWO STACKED HALF-HEIGHT charts
+    # (group_style 'stack'; tab_pos = vertical order, surface on top).
     assert_equal %w[vol stack 0 235],
                  metas['vol_surface'].values_at('tab_group', 'group_style', 'tab_pos', 'height').map(&:to_s)
-    assert_nil metas['vol_spread']['tab_group']
     assert_equal %w[vol stack 2 235],
                  metas['vol_basis'].values_at('tab_group', 'group_style', 'tab_pos', 'height').map(&:to_s)
+    # M8-16 (owner ruling 2026-08-10): vol_spread + vol_spread_trend share
+    # the 'volspread' card the same way -- the current per-tenor bars on top
+    # (tab_pos 0), the daily spread trend below (tab_pos 1), both half-height.
+    assert_equal %w[volspread stack 0 235],
+                 metas['vol_spread'].values_at('tab_group', 'group_style', 'tab_pos', 'height').map(&:to_s)
+    assert_equal %w[volspread stack 1 235],
+                 metas['vol_spread_trend'].values_at('tab_group', 'group_style', 'tab_pos', 'height').map(&:to_s)
     assert_equal %w[gex TREND 3],
                  metas['gex_trend'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
     # the vol charts carry no drawn-legend/tooltip renderer hooks;
-    # the stacked pair DOES carry height (half a card each)
-    %w[vol_surface vol_spread vol_basis gex_trend].each do |n|
+    # the stacked pairs DO carry height (half a card each)
+    %w[vol_surface vol_spread vol_spread_trend vol_basis gex_trend].each do |n|
       assert_nil metas[n]['tooltip_formatter'], n
       assert_nil metas[n]['legend_widget'], n
     end
-    %w[vol_spread gex_trend].each { |n| assert_nil metas[n]['height'], n }
+    assert_nil metas['gex_trend']['height'] # gex_trend is a tab, not a stacked half
   end
 
   # ---- M8-6 vol/gex family structure -----------------------------------
@@ -136,6 +140,30 @@ class TestChartSpecs < Minitest::Test
     d2 = Publish::Charts.vol_spread(sp)
     assert(d2['series'].find { |s| s['name'] == 'MSTR' }['data'].all?(&:nil?))
     assert(d2['series'].find { |s| s['name'] == 'spread' }['data'].all?(&:nil?))
+  end
+
+  def test_vol_spread_trend_lines_per_tenor_scaled_with_gaps
+    opt = build('vol_spread_trend')
+    sp  = JSON.parse(File.read(File.join(PAYLOADS, 'payload_vol_spread.json')))
+    # x axis = the history dates in order; one line series per tenor.
+    assert_equal sp['history'].map { |r| r['date'] }, opt['xAxis']['data']
+    assert_equal %w[7d 14d 21d 45d 90d], opt['series'].map { |s| s['name'] }
+    opt['series'].each do |s|
+      assert_equal 'line', s['type']
+      assert_equal 6, s['symbolSize'] # sparse: a single day reads as a dot
+    end
+    # decimal spread -> vol points at build time (0.402 -> 40.2, 1dp)
+    first7 = opt['series'].find { |s| s['name'] == '7d' }['data'].first
+    assert_in_delta 40.2, first7, 0.001
+    # the synthetic null 45d spread on 2026-06-30 is a GAP (nil), never a zero
+    idx45 = sp['history'].index { |r| r['date'] == '2026-06-30' }
+    assert_nil opt['series'].find { |s| s['name'] == '45d' }['data'][idx45]
+    # empty history still yields a valid option: empty axis + 5 empty series
+    empty = Publish::Charts.vol_spread_trend('history' => [])
+    assert_equal [], empty['xAxis']['data']
+    assert_equal 5, empty['series'].size
+    assert(empty['series'].all? { |s| s['data'].empty? })
+    assert_match(/Spread trend · 0d history/, empty['title']['text'])
   end
 
   def test_vol_basis_omits_sub_day_tenors_and_marks_zero
