@@ -28,19 +28,19 @@
       "left": 60,
       "right": 24,
       "top": 40,
-      "height": "23%"
+      "height": "25%"
     },
     {
       "left": 60,
       "right": 24,
-      "top": "35%",
-      "height": "23%"
+      "top": "34%",
+      "height": "25%"
     },
     {
       "left": 60,
       "right": 24,
-      "top": "62%",
-      "height": "23%"
+      "top": "61%",
+      "height": "25%"
     }
   ],
   "xAxis": [
@@ -49,12 +49,24 @@
       "gridIndex": 0,
       "axisLabel": {
         "show": false
+      },
+      "axisTick": {
+        "show": false
+      },
+      "axisLine": {
+        "show": false
       }
     },
     {
       "type": "time",
       "gridIndex": 1,
       "axisLabel": {
+        "show": false
+      },
+      "axisTick": {
+        "show": false
+      },
+      "axisLine": {
         "show": false
       }
     },

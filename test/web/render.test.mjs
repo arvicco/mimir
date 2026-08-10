@@ -138,7 +138,7 @@ test('both GEX members share ONE card, tabs ordered by tab_pos, BTC default', ()
   assert.ok(!tabs[1].classList.contains('active'));
 
   // title + badge reflect the active (BTC) tab
-  assert.equal(cardA.querySelector('.key').textContent, 'chart:gex_btc');
+  assert.equal(cardA.querySelector('.key').textContent, 'gex_btc');
   assert.equal(cardA.querySelector('.badge').getAttribute('data-generated-at'),
                '2026-07-06T16:00:00Z');
 
@@ -171,14 +171,14 @@ test('clicking MSTR reveals + resizes its chart and swaps title/badge; BTC resto
 
   assert.ok(tabs[1].classList.contains('active'));
   assert.ok(!tabs[0].classList.contains('active'));
-  assert.equal(card.querySelector('.key').textContent, 'chart:gex_mstr');
+  assert.equal(card.querySelector('.key').textContent, 'gex_mstr');
   assert.equal(card.querySelector('.badge').getAttribute('data-generated-at'),
                '2026-07-06T15:00:00Z');
   assert.equal(card.dataset.key, 'chart:gex_mstr');
 
   tabs[0].click(); // back to BTC
   assert.ok(tabs[0].classList.contains('active'));
-  assert.equal(card.querySelector('.key').textContent, 'chart:gex_btc');
+  assert.equal(card.querySelector('.key').textContent, 'gex_btc');
   assert.equal(card.querySelector('.badge').getAttribute('data-generated-at'),
                '2026-07-06T16:00:00Z');
 });
@@ -231,7 +231,7 @@ test('clicking MSTR swaps the surface section key/badge and resizes; basis untou
   // the surface section head reflects the active (BTC) member
   const surfHead = tabbar.parentNode;         // .card-head
   const surfSec = surfHead.parentNode;        // .stacksec
-  assert.equal(surfSec.querySelector('.key').textContent, 'chart:vol_surface');
+  assert.equal(surfSec.querySelector('.key').textContent, 'vol_surface');
   assert.equal(surfSec.querySelector('.badge').getAttribute('data-generated-at'),
                '2026-08-10T16:00:00Z');
 
@@ -240,12 +240,12 @@ test('clicking MSTR swaps the surface section key/badge and resizes; basis untou
   const after = echarts.instances.reduce((s, i) => s + i._resizes, 0);
   assert.ok(after > before, 'revealed MSTR chart is resized (hidden-init is 0x0)');
   assert.ok(tabs[1].classList.contains('active'));
-  assert.equal(surfSec.querySelector('.key').textContent, 'chart:vol_surface_mstr');
+  assert.equal(surfSec.querySelector('.key').textContent, 'vol_surface_mstr');
   assert.equal(surfSec.querySelector('.badge').getAttribute('data-generated-at'),
                '2026-08-10T15:00:00Z');
   // the basis section is a separate .stacksec, unaffected by the tab click
   const basisSec = card.querySelectorAll('.stacksec').filter((s) => s !== surfSec)[0];
-  assert.equal(basisSec.querySelector('.key').textContent, 'chart:vol_basis');
+  assert.equal(basisSec.querySelector('.key').textContent, 'vol_basis');
 });
 
 // ---- M8-13: re-fetch cadence clamp --------------------------------------
@@ -270,7 +270,11 @@ test('errCard builds the key/message as text nodes (no innerHTML from data)', ()
   const card = R.errCard(evil, 'boom <script>');
   assert.equal(card.className, 'card err');
   assert.equal(card.innerHTML, '', 'no innerHTML string was assigned');
-  assert.equal(card.querySelector('.key').textContent, evil, 'key is raw text, not parsed HTML');
+  // dispKey strips the internal chart: prefix for display (owner ruling
+  // 2026-08-10); the payload remains raw TEXT either way -- the security
+  // property under test is unchanged.
+  assert.equal(card.querySelector('.key').textContent,
+               '<img src=x onerror=alert(1)>', 'key is raw text, not parsed HTML');
   assert.equal(card.querySelector('.msg').textContent, 'boom <script>');
 });
 
