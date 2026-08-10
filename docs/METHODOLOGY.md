@@ -176,9 +176,11 @@ differential, not the absolute number.
 
 ### Test 2 · envelope (wt 3) -- is trough damping intact?
 
-The regime claims trough depth ratios (price/trend at cycle lows) damp
-monotonically: ~0.40 (2015) -> ~0.45 (2018) -> ~0.50 (2022), so this
-cycle must bottom ABOVE the 2022 ratio.
+This is a **descriptive cycle heuristic**, not a statistical test: only
+three historical troughs support it, so it describes a pattern rather
+than proving one. The regime claims trough depth ratios (price/trend at
+cycle lows) damp monotonically: ~0.40 (2015) -> ~0.45 (2018) -> ~0.50
+(2022), so this cycle must bottom ABOVE the 2022 ratio.
 
 **Displayed:** `price/trend 0.464 vs bound 0.434 (floor 0.434)` --
 today's ratio, the strong bound (last cycle's trough ratio) and the
@@ -190,7 +192,11 @@ after >= 45 consecutive days below 0.95x bound (strong form broken) or
 >= 30 days below 0.95x floor (claim dead in any form).
 
 **Interpretation:** watch the two day-counters, not the ratio alone; a
-brief poke below the bound is expected texture, persistence is falsification.
+brief poke below the bound is expected texture, persistence is
+falsification. `--json` also carries `freeze_candidate` (report-only):
+the strong bound as it would read if frozen against the trend as of the
+2022 trough, rather than drifting with today's re-estimated trend --
+previewing the D9-g freeze rule without changing the score.
 
 ### Test 3 · fit (wt 2) -- does a qualified anti-bubble LPPLS fit exist?
 

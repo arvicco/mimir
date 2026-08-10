@@ -84,8 +84,8 @@ class TestLpplContract < Minitest::Test
   # or run-dependent), extra argv]
   TESTS = {
     'trend'       => [%w[bf bf_by_horizon per_horizon eval_points_1y], %w[bootstrap], []],
-    'envelope'    => [%w[ratio bound floor trough_ratios trend_today
-                         days_below_strong days_below_floor], [], []],
+    'envelope'    => [%w[ratio bound floor freeze_candidate trough_ratios
+                         trend_today days_below_strong days_below_floor], [], []],
     'fit'         => [%w[omega m tc_date filters],
                       %w[trough_date trough_px rmse_impr_pct trough_std_days], []],
     'logperiodic' => [%w[omega_peak p_value ar1_rho n_resid], [], %w[--sims 5]],

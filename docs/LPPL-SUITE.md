@@ -111,7 +111,9 @@ anti-bubble reading.
 Historically, each cycle's bottom has landed *less* far below the trend
 line than the previous one: roughly 60% below, then 55%, then 50%.
 LPPL-as-regime says this damping continues, so this cycle should bottom
-*above* the last cycle's ratio.
+*above* the last cycle's ratio. Treat this as a **descriptive cycle
+heuristic**, not a statistical test -- with only three troughs it
+describes a pattern rather than proving one.
 
 The test is deliberately simple, because only three historical data
 points support the claim. Each day it computes the price-to-trend ratio
