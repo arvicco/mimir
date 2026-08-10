@@ -1,0 +1,159 @@
+{
+  "timestamp": "2026-07-08T04:18:55.878579+00:00",
+  "companies": {
+    "3350.T": {
+      "processedMetrics": {
+        "ticker": "3350.T",
+        "companyName": "Metaplanet Inc.",
+        "stockPrice": 1.39212384,
+        "sharesOutstanding": 1281230174.0,
+        "btcPrice": 62793.13,
+        "currentMarketCap": 1783631069.7527483,
+        "marketCapBasic": 1783705478.7719963,
+        "navPremiumBasic": 0.6606060688826858,
+        "navPremiumDiluted": 0.8411935018014169,
+        "holdingsValue": 2700104590.0,
+        "treasury_table": [
+          {
+            "Date": "2026-04-30",
+            "BTC Balance": 40177.0,
+            "Change": null,
+            "Market Price": null,
+            "Total Outstanding Shares": 1279913624,
+            "Diluted Shares Outstanding": 1630931625,
+            "Effective Diluted Shares": 1630931625,
+            "Use EV": true,
+            "Cash Balance": 55065711.246,
+            "Debt": 297065700.0,
+            "Purchase Statement URL": "https://contents.xj-storage.jp/xcontents/33500/1758d044/285f/4e65/93c0/04d9b3d9af96/140120260424510122.pdf",
+            "Stored FX Rate": null,
+            "Cost Basis": 4182691159.6672277,
+            "FX Rate on Purchase": 0.006383,
+            "dilutedShareTypes": [
+              {
+                "id": 1095,
+                "name": "Convertible Securities & Options",
+                "share_count": 351018001,
+                "include_in_effective_dilution": true,
+                "notes": "Calculated from fully diluted minus outstanding"
+              }
+            ]
+          },
+          {
+            "Date": "2026-06-30",
+            "BTC Balance": 43000.0,
+            "Change": 2823.0,
+            "Market Price": 79664.4419377,
+            "Total Outstanding Shares": 1281283624,
+            "Diluted Shares Outstanding": 1631543380,
+            "Effective Diluted Shares": 1631543380,
+            "Use EV": true,
+            "Cash Balance": 12000000.0,
+            "Debt": 464065700.0,
+            "Purchase Statement URL": "https://contents.xj-storage.jp/xcontents/33500/ef8f0fb6/d3f6/44c3/aafb/fbe407834e59/140120260702587030.pdf",
+            "Stored FX Rate": 159.57,
+            "Cost Basis": 4407583879.257355,
+            "FX Rate on Purchase": 0.006149,
+            "dilutedShareTypes": [
+              {
+                "id": 1224,
+                "name": "Convertible Securities & Options",
+                "share_count": 350259756,
+                "include_in_effective_dilution": true,
+                "notes": "Calculated from fully diluted minus outstanding"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "MSTR": {
+      "processedMetrics": {
+        "ticker": "MSTR",
+        "companyName": "Strategy Inc",
+        "stockPrice": 97.36,
+        "sharesOutstanding": 297072688.0,
+        "btcPrice": 62793.13,
+        "currentMarketCap": 28922996903.68,
+        "marketCapBasic": 36180339040.0,
+        "navPremiumBasic": 0.6828634172624451,
+        "navPremiumDiluted": 0.737402229643974,
+        "holdingsValue": 52983273265.75,
+        "treasury_table": [
+          {
+            "Date": "2026-07-06",
+            "BTC Balance": 843775.0,
+            "Change": -2225.0,
+            "Market Price": 60773.0,
+            "Total Outstanding Shares": 371614000,
+            "Diluted Shares Outstanding": 401294000,
+            "Effective Diluted Shares": 401294000,
+            "Use EV": false,
+            "Cash Balance": 0,
+            "Debt": 0,
+            "Purchase Statement URL": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt6b18e7bc25a68a8f/6a4b0be1a8ab282d09015d81/form-8-k_07-06-2026.pdf",
+            "Stored FX Rate": null,
+            "Cost Basis": 63833642282.92303,
+            "FX Rate on Purchase": 1.0,
+            "dilutedShareTypes": []
+          }
+        ]
+      }
+    },
+    "ASST": {
+      "processedMetrics": {
+        "ticker": "ASST",
+        "companyName": "Strive, Inc.",
+        "stockPrice": 12.7,
+        "sharesOutstanding": 81567889.0,
+        "btcPrice": 62793.13,
+        "currentMarketCap": 1035912190.3,
+        "marketCapBasic": 1050618053.6999999,
+        "navPremiumBasic": 0.8415359206387641,
+        "navPremiumDiluted": 0.8694259160192012,
+        "holdingsValue": 1248453010.6599998,
+        "treasury_table": [
+          {
+            "Date": "2026-07-02",
+            "BTC Balance": 19882.0,
+            "Change": 17.76,
+            "Market Price": 59850.0,
+            "Total Outstanding Shares": 82725831,
+            "Diluted Shares Outstanding": 112061947,
+            "Effective Diluted Shares": 85467512,
+            "Use EV": true,
+            "Cash Balance": 197779000.0,
+            "Debt": 0.0,
+            "Purchase Statement URL": "https://www.sec.gov/ix?doc=/Archives/edgar/data/0001920406/000162828026047102/asst-20260706.htm",
+            "Stored FX Rate": null,
+            "Cost Basis": 1886662897.3808506,
+            "FX Rate on Purchase": 1.0,
+            "dilutedShareTypes": [
+              {
+                "id": 1244,
+                "name": "Warrants @ 27.00",
+                "share_count": 26594435,
+                "include_in_effective_dilution": false,
+                "notes": ""
+              },
+              {
+                "id": 1245,
+                "name": "Options (Legacy SMLR)",
+                "share_count": 1069015,
+                "include_in_effective_dilution": true,
+                "notes": ""
+              },
+              {
+                "id": 1246,
+                "name": "RSU (Unvested)",
+                "share_count": 1672666,
+                "include_in_effective_dilution": true,
+                "notes": ""
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

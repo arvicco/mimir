@@ -178,6 +178,54 @@ class TestChartSpecs < Minitest::Test
     end
   end
 
+  # ---- M7-8: stale marking (synthetic stale payloads) ------------------
+  # All-fresh goldens are proven byte-identical by the golden harness
+  # above; these pin the STALE path with hand-built payloads (the fixtures
+  # carry no stale markers).
+
+  def test_gex_profile_stale_venue_gets_bang_and_title_lists_it
+    p2 = JSON.parse(JSON.generate(gex_payload))
+    p2['venues'] = active_venues.map { |n| { 'name' => n, 'stale' => n == 'Deribit' } }
+    p2['sources'] = [{ 'name' => 'deribit_index', 'stale' => true },
+                     { 'name' => 'deribit_book', 'stale' => true }]
+    opt = Publish::Charts.gex_profile(p2)
+    names = opt['series'].map { |s| s['name'] }
+    # the stale Deribit venue's series carry the bang; fresh venues do not
+    assert_includes names, 'DERI! C'
+    assert_includes names, 'DERI! P'
+    refute_includes names, 'DERI C'
+    assert_includes names, 'IBIT C' # a fresh venue is untouched
+    # title lists spot (deribit_index stale) and the stale venue label
+    assert_equal 'GEX $M/1% · spot 62.0k · stale: spot, DERI',
+                 opt['title']['text']
+    # the bang rides through render.js's /^(.*) ([CP])$/ into the venue name
+    m = /^(.*) ([CP])$/.match('DERI! C')
+    assert_equal 'DERI!', m[1]
+  end
+
+  def test_gex_profile_all_fresh_has_no_bang_or_stale_suffix
+    p2 = JSON.parse(JSON.generate(gex_payload))
+    p2['venues'] = active_venues.map { |n| { 'name' => n } } # no stale flags
+    opt = Publish::Charts.gex_profile(p2)
+    refute(opt['series'].any? { |s| s['name'].include?('!') })
+    refute_includes opt['title']['text'], 'stale'
+  end
+
+  def test_gex_mstr_title_marks_stale_when_chain_cached
+    p2 = JSON.parse(JSON.generate(mstr_payload))
+    p2['stale'] = true
+    assert_includes Publish::Charts.gex_mstr(p2)['title']['text'], '· stale'
+    # fresh (no key) stays clean -- proven by the byte-identical golden too
+    refute_includes build('gex_mstr')['title']['text'], 'stale'
+  end
+
+  def test_btco_title_marks_spot_stale
+    p2 = JSON.parse(JSON.generate(btco_latest))
+    p2['spot_stale'] = true
+    assert_includes Publish::Charts.btco_table(p2)['title']['text'], '· spot stale'
+    refute_includes build('btco_table')['title']['text'], 'spot stale'
+  end
+
   # ---- gex_mstr structure (M6-3) ---------------------------------------
 
   def mstr_payload

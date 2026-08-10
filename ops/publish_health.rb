@@ -26,11 +26,17 @@
 #   LIVE, n < m                             PUB! n/m H:MM
 #   LIVE, age >= 2*interval                 PUB! n/m H:MM
 #   DRY mode (misconfig on the prod box)    PUB! DRY n/m H:MM
+#   status line carries ` OLD:<key>...`     PUB! n/m H:MM OLD (additive M7-5)
 #   File missing / unreadable / garbled     PUB! ?
 #
 #   `!` = attention; the payload says why (n<m keys missing, age past
-#   2x cadence, DRY, or ? no readable status). Severity reads from the
-#   age itself -- no separate amber/red tiers.
+#   2x cadence, DRY, `OLD` = a published evidence tail stopped moving, or
+#   ? no readable status). Severity reads from the age itself -- no separate
+#   amber/red tiers. `OLD` (M7-5, 2026-07-07 frozen-evidence incident) is
+#   ADDITIVE: the pipeline appends ` OLD:<key>[,...]` to the status line
+#   when a published tail's newest entry is older than 30h; this reader
+#   surfaces the bare `OLD` marker and forces `!`. It composes with the
+#   others (e.g. `PUB! DRY 13/13 5:00 OLD`).
 #
 # H:MM: hours unpadded, minutes zero-padded to 2 digits, age floored to
 # whole minutes.  Examples: 37 min -> 0:37; 65 min -> 1:05; 1563 min -> 26:03.
@@ -71,14 +77,19 @@ module Ops
       mode    = m[1]
       n       = m[2].to_i
       total   = m[3].to_i
+      # ADDITIVE (M7-5): the pipeline appends ` OLD:<key>[,...]` when a
+      # published evidence tail has stopped moving (2026-07-07 incident).
+      # OLD earns the attention flag AND surfaces the `OLD` marker.
+      old     = first_line.include?(' OLD:')
+      suffix  = old ? ' OLD' : ''
       age_s   = now - mtime
       age_min = age_s / 60.0
       age_str = format_age(age_s)
       if mode == 'LIVE'
-        flag = attention?(n, total, age_min, interval_min) ? '!' : ''
-        format('PUB%s %d/%d %s', flag, n, total, age_str)
+        flag = old || attention?(n, total, age_min, interval_min) ? '!' : ''
+        format('PUB%s %d/%d %s%s', flag, n, total, age_str, suffix)
       else
-        format('PUB! %s %d/%d %s', mode, n, total, age_str)
+        format('PUB! %s %d/%d %s%s', mode, n, total, age_str, suffix)
       end
     end
 

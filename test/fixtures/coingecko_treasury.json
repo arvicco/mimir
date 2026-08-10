@@ -1,0 +1,88 @@
+{
+  "total_holdings": 1279882.8797809659,
+  "total_value_usd": 80391807736.35162,
+  "market_cap_dominance": 6.09,
+  "companies": [
+    {
+      "name": "Strategy",
+      "symbol": "MSTR.US",
+      "country": "US",
+      "total_holdings": 843775.0,
+      "total_entry_value_usd": 63684761900.0,
+      "total_current_value_usd": 52999066277.3368,
+      "percentage_of_total_supply": 4.018
+    },
+    {
+      "name": "XXI",
+      "symbol": "XXI.US",
+      "country": "US",
+      "total_holdings": 43514.0,
+      "total_entry_value_usd": 0.0,
+      "total_current_value_usd": 2733194714.221248,
+      "percentage_of_total_supply": 0.207
+    },
+    {
+      "name": "Metaplanet",
+      "symbol": "3350.T",
+      "country": "JP",
+      "total_holdings": 43000.0,
+      "total_entry_value_usd": 3810765023.48,
+      "total_current_value_usd": 2700909424.817614,
+      "percentage_of_total_supply": 0.205
+    },
+    {
+      "name": "Bullish",
+      "symbol": "BLSH.US",
+      "country": "US",
+      "total_holdings": 23300.0,
+      "total_entry_value_usd": 0.0,
+      "total_current_value_usd": 1463516037.1686141,
+      "percentage_of_total_supply": 0.111
+    },
+    {
+      "name": "Strive",
+      "symbol": "ASST.US",
+      "country": "US",
+      "total_holdings": 19000.0,
+      "total_entry_value_usd": 0.0,
+      "total_current_value_usd": 1193425094.6868527,
+      "percentage_of_total_supply": 0.09
+    },
+    {
+      "name": "SpaceX",
+      "symbol": "",
+      "country": "US",
+      "total_holdings": 18712.0,
+      "total_entry_value_usd": 661000000.0,
+      "total_current_value_usd": 1175335282.7252836,
+      "percentage_of_total_supply": 0.089
+    },
+    {
+      "name": "Trump Media & Technology Group Corp.",
+      "symbol": "DJT.US",
+      "country": "US",
+      "total_holdings": 9542.16,
+      "total_entry_value_usd": 1131024300.0,
+      "total_current_value_usd": 599360694.8166894,
+      "percentage_of_total_supply": 0.045
+    },
+    {
+      "name": "American Bitcoin",
+      "symbol": "ABTC.US",
+      "country": "US",
+      "total_holdings": 7500.0,
+      "total_entry_value_usd": 0.0,
+      "total_current_value_usd": 471088853.1658629,
+      "percentage_of_total_supply": 0.036
+    },
+    {
+      "name": "Nakamoto Inc (formerly KindlyMD)",
+      "symbol": "NAKA.US",
+      "country": "US",
+      "total_holdings": 4467.0,
+      "total_entry_value_usd": 0.0,
+      "total_current_value_usd": 280580520.94558793,
+      "percentage_of_total_supply": 0.021
+    }
+  ]
+}

@@ -833,8 +833,9 @@ Goal: README updated for replay + MSTR capabilities (honest about the
 Acceptance: newcomer-readable README; gate checklist is runbook-style
       (numbered steps + EXPECT lines).
 
-## Gate 6 (human) -- checklist (M6-5; rewritten per owner feedback:
-## runbook style, promotion wrapped in an interactive task)
+## Gate 6 (human) -- checklist  [status: CLOSED 2026-07-06 -- PR #7 merged (5227c75); ledger promoted (275 entries); step 3's rake deploy still pending when convenient]
+(M6-5; rewritten per owner feedback: runbook style, promotion wrapped
+in an interactive task)
 All in ~/Dev/mimir on gold. ~5 min.
 
 1. Promote the backfilled LPPL history (interactive; shows the
@@ -867,13 +868,330 @@ Gate 5 soak-week review moves to Gate 7 if this merges before Jul 13;
 `rake lppl:backfill_diff` re-prints the verification diff read-only
 any time.
 
-**Phase 7 -- BTCo ingest to real data** (pushed back: owner-interactive;
-Gate 7 = v1 tag): ingest flow characterization tests; discovery-alert
-mode + status contract + daily launchd agent (D6-a: analysis stays
-interactive); XXI/NAKA CIKs added; interactive shakedown on latest
-filings with owner review/apply until no placeholder:true remains.
-Soak close + KV quota review land at whichever of Gate 6/7 follows the
-soak week; v1 tags at Gate 7 (real BTCo data, per the standing ruling).
+**Phase 7 -- BTCo ingest to real data** (owner-interactive; Gate 7 =
+v1 tag). Elaborated 2026-07-06 at Gate 6 close; packets below.
+Ground truth from the survey: ingest.rb is complete in design
+(discover -> extract [AI w/ heuristic fallback] -> propose ->
+review/dismiss -> apply w/ backup + per-ticker audit ledger) but the
+flow past the text helpers is UNTESTED and it has never been run
+(capstruct/pending/ empty, no state.json). universe.json: all 7
+companies placeholder:true; XXI + NAKA carry cik:null so EDGAR
+discovery skips them (their real CIKs -- XXI 2070457, NAKA 1946573 --
+were verified on EDGAR pre-swap but never written in). ingest.rb
+--dry is already exactly the D6-a alert primitive: discovery listing
+only, no fetch, no AI, and state.json is NOT persisted under --dry.
+
+## M7-1 · ingest flow characterization  [tier: opus vs fable spec] [status: done 2026-07-06, 8285592+f2b6514+fd6e325]
+Review notes: 12 tests, zero production diff from the agent; three
+findings, all resolved same phase by fable: A --file pending-dedup
+never matched (dash mismatch) -- fixed, pins flipped; B backup-stamp
+same-second collision -- fixed with -N uniquify; C the M1-11 contract
+sandbox COPIED lib/, silently defeating the fake transport and
+hitting the real SEC (Golden Rule 6) -- symlink fix, verified offline
+under a broken proxy. Lesson for every future sandbox harness:
+symlink lib/, never copy (reopening BTC::Http resets the injected
+transport).
+Goal: pin the untested 80% of ingest.rb behind tests BEFORE the
+      shakedown relies on it: proposal write -> --review -> --apply
+      round-trip (universe.json updated in place, placeholder flips
+      false, timestamped .bak created, TICKER.jsonl ledger line
+      appended, proposal file deleted); --dismiss; --apply-all-high
+      (incl. the reload-between-applies behavior); --status; state.json
+      round-trip + the seen-cap; dedupe tripod (state seen, ledger
+      accessions, --file content hash); --dry persists nothing.
+      All against tmpdir copies of universe.json + fake EDGAR transport
+      (BTC::Http seam) + a stubbed extraction seam -- if the Claude API
+      call is not already injectable, extract it behind a module
+      function in a behavior-preserving, characterize-first refactor
+      (flag the diff). NO network, NO ANTHROPIC_API_KEY in tests; the
+      prompt/schema contract pins (M1-11) stay untouched.
+Acceptance: every CLI mode covered by at least one test; real
+      capstruct/ and universe.json byte-untouched by the suite
+      (the /tmp-clobber lesson); rake green.
+
+## M7-2 · discovery-alert job + status contract  [tier: opus] [status: done 2026-07-06, d343851] [deps: M7-1]
+Review notes: fable review catch -- the ops:tmux idempotence check
+treated a pre-M7-2 bar (health token, no ingest fragment) as done, so
+an already-installed box (gold!) could never receive the upgrade;
+added the in-place append variant + test. Token contract: ING n! /
+empty-on-quiet / ING ? on broken discovery, always exit 0.
+Integration test proves submissions-endpoint-only + no state.json.
+Goal: the D6-a scheduled piece. (a) additive `--dry --json` surface on
+      ingest.rb: one JSON line {new: n, filings: [{ticker, form, date,
+      accession}...]} -- contract test same commit; (b) ops/btco_alert.rb
+      reading that surface and writing the status token (form per D8-a
+      ruling; proposal: token only when n>0, empty file otherwise so a
+      packed bar stays quiet on quiet days); (c) daily launchd plist +
+      wrapper following the M5-1 conventions (bash -n / rexml scans
+      pick them up automatically -- verify), NO --apply anywhere near
+      it (repo-wide scan already bans it in ops/); (d) rake
+      ops:install/status/uninstall/tmux extended from two agents to
+      three; (e) RUNBOOK section, runbook-style.
+Acceptance: alert job provably does no fetch/AI/state-write (test:
+      fake transport counts requests -- submissions endpoint only;
+      state.json absent after run); ops tasks green on the fake fs
+      suite; rake green.
+
+## M7-5 · daily evidence agent + content-recency guard  [tier: opus vs fable spec] [status: done 2026-07-07, f1134eb]
+Incident response, owner-ruled: the retired cron's --history duty as
+the 4th managed agent (06:45 local) + the PUB! ... OLD token when a
+published tail's newest entry exceeds 30h. Verification discipline
+rules recorded in CLAUDE.md + DEV-LOOP 6b same day (2c3a348).
+
+## M7-6 · pipeline keep-last-good hardening  [tier: fable] [status: done 2026-07-07, 08c709c]
+Incident response: index carries last-good rows for skipped keys
+(vanishing-chart bug); junk-chart guard (charts never built from
+fail-soft payloads -- the NaN gauge). Both proven on the live surface
+during the Deribit outage.
+
+## M7-8 · per-source last-good cache + partial computation  [tier: fable design, opus impl] [status: done 2026-07-07, 4dc617c]
+Owner: one dead provider must never blank a card; suites combine
+cached-stale + fresh sources, stale sources marked (amber/!). Plan:
+(a) lib/btc/source_cache.rb read-through last-good cache over BTC::Http
+(48h hard cap proposed); (b) gex family adoption + additive 'sources'
+payload member + stale venue marking; (c) btco adoption (stale spot
+marks gauge/mNAV, table rows already flag); (d) renderer stale
+indicators, both pages, Playwright + 6b checklist. Scenario modules
+EXPLICITLY out (score-0 vs stale-reuse = Phase 9 research decision).
+Mixing time bases is an owner-ruled semantics change (this ruling).
+
+## M7-9 · third-party sanity refs in --review  [tier: fable] [status: done 2026-07-07, 866eb97+df31a97] [owner request, mid-session]
+BTC::TreasuryRef reads the bitcointreasuries.net table (SourceCache
+name 'treasury_ref', alias 3350->Metaplanet); --review prints a ref
+line per proposal, ⚠ at >2% divergence, silent when the ref is dead
+(advisory only). Coinglass evaluated and REJECTED for cause: our tier
+has ETF flows only, no per-company treasury endpoint.
+
+## M7-11 · CoinGecko second BTC ref in --review  [tier: fable] [status: done 2026-07-08]
+lib/btc/coingecko_ref.rb (keyless snapshot, SourceCache
+'coingecko_treasury', symbol-prefix + name-alias lookup); --review
+prints BOTH aggregator ref lines (two refs disagreeing is itself a
+signal). Soft health entry; fixture recorded. Research basis:
+docs/BTCO-DATA-SOURCES.md. Follow-up decision item D8-e: wire the
+divergence (ref ahead of model) into the daily btco-alert as a
+discovery trigger -- ING token contract change, owner must rule.
+
+## M7-12 · SEC XBRL dei cover-count shares ref  [tier: fable] [status: done 2026-07-08]
+lib/btc/sec_shares.rb: companyconcept dei/EntityCommonStockShares
+Outstanding -> latest cover-page count WITH as-of date + form; --review
+prints a shares ref line when a proposal touches shares_basic (2%
+divergence warning). Multi-class filers (MSTR, ASST) are API-invisible
+(dimensional facts) -> nil, no line; their counts stay manual until
+M7-13. Soft health entry; per-CIK SourceCache. Also fixed: the flow
+harness leaked SourceCache writes into the real data/source_cache/
+(BTC_DATA_DIR now sandboxed in run_ingest).
+
+## M7-13 · deterministic filing-iXBRL parser  [tier: fable design, opus impl] [status: elaborated 2026-07-08, awaiting owner go]
+The research's biggest de-risking win, NOT yet built: parse each
+filing's inline-XBRL instance for (a) per-class dei cover counts
+(multi-class filers -- closes the M7-12 gap for MSTR/ASST) and (b)
+dimensional per-tranche convert facts (us-gaap DebtInstrumentFaceAmount
+/ DebtInstrumentConvertibleConversionPrice1 with axis/member contexts)
+-- replacing the AI-extraction error class that produced the DJT
+conv_price 1000x bug and the double-counted note. stdlib-only XML-ish
+parsing of ix: tags; proposals flow through the normal review/apply
+pipeline with mode 'xbrl'. Caveat pinned in the research: 8-K-exhibit
+-only terms never carry iXBRL -- those stay on the AI path.
+
+## M7-14 · tracker-sourced proposals (3350)  [tier: fable] [status: done 2026-07-08]
+ingest --tracker <T>: StrategyTracker's open feed (the engine behind
+Metaplanet's official analytics page) -> ONE reviewed proposal from the
+latest treasury_table row (btc/btc_as_of/shares_basic only -- diluted
+is tracker-computed, debt currency-ambiguous, both omitted per the
+schema honesty rule; url = the linked TDnet disclosure PDF). Same
+pending/review/apply pipeline + ledger; dedup by row hash; as-of guard
+applies. ToS caveat recorded in docs/BTCO-DATA-SOURCES.md.
+
+## M7-15 · per-ticker objective validation (validate.rb)  [tier: fable] [status: core done 2026-07-09; AI research layer = M7-15b todo]
+Owner ruling: "NONE of the ratios on file are close to what other
+researchers report... we need an objective source of truth; the
+universe filling process seems not grounded in reality." Built:
+scripts/btco/validate.rb (+validate_core.rb, 13 unit tests) -- per
+ticker prints OURS (the served row), EXTERNAL (StrategyTracker's
+published mNAV + inputs, bitcointreasuries/coingecko btc counts, SEC
+dei cover shares), RECONCILE (our-vs-tracker mNAV decomposed into the
+four input factors; dominant factor NAMES the divergent input;
+residual ~1 proves definitions agree), NEEDS (plain-words to-dos with
+exact commands). First live run: engine + definitions CONFIRMED
+against externals (ASST matches exactly; MSTR -6.4% fully explained,
+dominant = share count 350.4M Apr cover vs tracker 371.6M Jul-6 --
+ATMs outrun quarterly covers); every remaining oddity now has a named
+cause. M7-15b (todo): AI research layer -- dossier + web research per
+ticker for the fields no structured source covers (cash!, non-BTC
+business value, pref/convert terms); expected to formalize the "add
+cash to the model" decision.
+
+## D8-f · 3350 price source  [RESOLVED 2026-07-10 -- owner: "3350.T is literally on Yahoo"]
+stooq's quote API is dead upstream (F-17); the recomposed 3350 entry
+carries no manual_px -> Metaplanet has NO dashboard row despite real
+data. Options: (a) manual_px + an owner refresh routine; (b) small
+packet: btco.rb prices 3350 from the StrategyTracker feed's USD
+stockPrice (source already registered; adds a btco runtime dependency
+on a third-party tracker). Owner picks.
+
+## M7-16 · baseline-reset + per-field freshness gate  [tier: fable] [status: applied 6/8 2026-07-10 -- MSTR/XXI/DJT/ASST/BLSH/ABTC grounded; NAKA + 3350 remain] [owner-ruled]
+THE PROCESS (owner ruling 2026-07-10, verbatim intent): "We need a
+separate regime to establish ground truth on shares/BTC counts AS OF
+CURRENT MOMENT, and then run our universe through it. THEN any
+ingestion should be tested against LATEST KNOWN GOOD ticker state, to
+check if it's adding fresh info OR just trying to apply stale data."
+(a) Per-field freshness gate: universe entries gain an additive
+    as_of map (field -> date of the latest known-good statement);
+    propose-time strips any field whose provenance date does not beat
+    the model's (generalizing the btc as-of guard to EVERYTHING);
+    apply stamps the dates. Supersedes M7-10's motivation.
+(b) Baseline mode (ingest --baseline TICKER): AI + web-search research
+    session takes the full dossier (our entry, ledger, all structured
+    refs, latest filings) and produces ONE ground-truth-as-of-today
+    proposal with per-field value/as_of/source; owner reviews; apply
+    REPLACES the entry and stamps every as_of. Pilot: XXI + ABTC (the
+    two broken entries), then the whole universe.
+Prior failures this answers: XXI 4x-duplicated convert + btc regressed
+below aggregate reality; ABTC invisible reverse split; MSTR ATM-delta
+share drift. D8-f (3350 price) stays open.
+
+## M7-10 · catch-up composite mode  [tier: fable design] [status: SUPERSEDED by M7-16 2026-07-10]
+Walk filings newest->older until every field has been stated once;
+emit ONE composite proposal per company with per-field provenance
+(filing + date per field). Solves both field completeness on sparse
+filers and the current no-per-field-date limitation that forces the
+"apply newest last" discipline. NOTE 2026-07-08: scope against the
+data-source research findings first -- structured sources (SEC
+companyfacts dei counts, CoinGecko treasury list) may shrink what
+extraction still has to do.
+
+## M7-3 · CIK enablement + owner shakedown  [tier: fable prep, OWNER sessions] [status: sessions complete 2026-07-08, 9354ceb..dc0c8df -- 6/8 real, residuals below] [deps: M7-1]
+RESIDUALS (2026-07-08): XXI + 3350 remain placeholder seeds @2025-06-30
+(XXI's count 43,514 matches CoinGecko's current figure, so the seed is
+right but unledgered; 3350 is BADLY stale -- CoinGecko shows Metaplanet
+at 43,000 vs our 15,555 -- and its TDnet --file path was never run;
+3350 also returned "no price, skipped" in the 07-08 smoke). BLSH
+placeholder:false but shares_basic null (the 6-K stated no outstanding
+count; renders dim -- by design). NAKA shares one filing behind (SEC
+companyfacts dei: 696,085,586 @2026-05-11 10-Q vs applied 690,018,254
+@10-K) and its pending 10-K btc (5,342 @2025-12-31) is newer than the
+model's 5,765 @2025-08-31 -- CoinGecko shows 4,467 today, so a fresher
+filing likely exists. MSTR 2029 convert face edit ($3.0B -> $1.5B per
+the May-15 8-K) still awaiting owner yes/no. 3 DJT pendings recommended
+for dismiss. ops:install DONE 2026-07-08 (owner ran it; all 4 agents
+PASS -- suite-history + btco-alert now scheduled; the ING 128! count
+is the recomposed universe's old discovery floors, shrinks as newest
+filings are analysed/dismissed). Remaining finish line: 3350 tracker
+proposal apply (pending, both refs match), XXI ledgering, BLSH
+shares, 2029 convert yes/no, ops:tmux (optional ING token).
+Goal: (a) write XXI cik 2070457 + NAKA cik 1946573 into universe.json
+      -- a deliberate human-approved edit (Golden Rule: universe.json
+      changes only via reviewed proposals or deliberate human edit;
+      this is plumbing, not fundamentals -- flagged for owner approval
+      in the phase plan); (b) owner-session runbook (numbered + EXPECT):
+      env presence checks (EDGAR_UA, ANTHROPIC_API_KEY -- names only),
+      then per US-listed company: discover latest 10-Q/8-K, review the
+      AI proposal, apply or dismiss; 3350 (Metaplanet) via --file with
+      an owner-supplied TDnet document; XXI/NAKA via EDGAR once (a)
+      lands, --file fallback if their filings predate coverage;
+      (c) shakedown continues until no placeholder:true remains
+      (extraction schema reports ABSOLUTE numbers -- latest filing per
+      company suffices, no backlog replay).
+      SESSION RUNBOOK (prepared 2026-07-06, present fresh at session):
+      0. owner approves the CIK patch (one word); loop edits + commits.
+      1. env presence: grep -cE '^(export +)?(EDGAR_UA|ANTHROPIC_API_KEY)=.'
+         ~/.config/mimir/env  -> EXPECT 2.
+      2-4. per US company (MSTR SMLR GME DJT XXI NAKA):
+         ingest.rb --ticker T --limit 3  -> proposals;
+         --review  -> diffs; --apply <acc> or --dismiss <acc>.
+      5. Metaplanet 3350 via --file <TDnet doc> --ticker 3350.
+      6. --status + grep placeholder count -> EXPECT 0.
+      7. rake ops:install (adds the alert agent, idempotent for the
+         other two) + rake ops:tmux (offers the ING append).
+      8. optional immediate publish, else the bi-hourly agent carries
+         the real data to the dashboard within 2 h.
+Acceptance: universe.json fully real (7/7 placeholder:false), every
+      change carried by a ledger line + backup; next publish shows
+      real BTCo data on the dashboard; the session runbook survived
+      contact with the owner.
+
+## M7-4 · README + Gate 7 checklist + v1 prep  [tier: fable] [status: done 2026-07-10]
+README rewritten: btco section describes the two-regime process
+(baseline + gated increments), validate.rb, real 8/8 universe; ops
+section reflects the 4 installed agents; not-implemented list refreshed
+(3350 price, refetch, cash-model, Phase 8 candidates).
+
+## M7-17 · SBI review triage: C1 KEYRE fix + blast-radius check + CI parity  [tier: fable] [status: done 2026-08-09]
+Goal: the SBI consolidated review (2026-07-31, vs phase-6 5227c75)
+      confirmed three code bugs; the two that touch phase-7's active
+      surface land before Gate 7. C1: KEYRE /x free-spacing killed 6
+      of 10 keyword phrases -> excerpts blind to preferred/notes/share
+      sections; fixed (\s+ gaps), phrase tests added, contract pin
+      updated, outcome-checked on the real MSTR 8-K fixture. Blast
+      radius: all at-risk ai-mode applies (07-07..09) superseded by
+      the externally-reconciled M7-16 baseline sweep; residual = false
+      negatives only, fixed forward. C7: CI gained rake health +
+      fixtures:verify (gate parity). C2 -> decision item D8-h.
+Deferred to phase-8/9 per .docs/lppl-improvements.md (local notes):
+      C4 web hardening, C5 atomic prices.csv, C6 as-of write guard,
+      C8 trio; R1-R10 statistics revisions are all Golden-Rule-4
+      decision items, none acted on.
+
+## OWNER RULING 2026-08-10 -- BTCo DEVELOPMENT FROZEN
+The owner stopped all BTCo (treasury-company) development, pending a
+serious rethink: "Treasury dashboard is completely broken/unrepairable,
+we stop its development now." Trigger: the 2026-08-10 Gate 7 attempt --
+stale rows (XXI/DJT past 120d, MSTR shares a month behind), a
+heuristic-mode ingest run that dismissed the BTC-count 8-Ks, and a
+wrong CLI hint, on top of the maintenance load the ingest loop demands.
+Effect on plans:
+- No new BTCo packets. M7-15b (AI research layer), D8-h
+  (shares_diluted convention) and D8-e (divergence-alert wiring) are
+  FROZEN, not resolved.
+- Phase-8 family D proposals (P-14 pref yield, P-15 ledger event
+  studies) and any BTCo-card placements in DEV-PROPOSALS.md: FROZEN.
+- Code stays in the tree (scripts/btco/, ledgers, tests keep passing);
+  nothing is deleted. Decommissioning inventory rules apply if any
+  production surface (dashboard card, btco-alert agent, publish keys)
+  is later retired -- owner decides that at Gate 7, see the runbook.
+- Focus shifts to: Gate 7 (reduced scope) -> Gate 8 (vol/GEX family,
+  already built on phase-8) -> Phase 9 (LPPL statistics revision).
+
+## GATE 7 CHECKLIST -- moved to docs/Gate-7-runbook.md (owner ruling
+2026-07-11: gate instructions always live in a dedicated
+Gate-N-runbook.md, fully specific -- commands, links, EXPECT lines).
+Run that file on/after the July 13 soak review.
+
+## Decision items -- Phase 7
+- D8-g Blind-zero history rows (filed 2026-07-13 after the overnight
+  outage): when EVERY scenario module is fail-soft-unavailable, the
+  daily suite-history append still writes composite 0.0/NEUTRAL with
+  no marker -- indistinguishable from a real neutral day in the
+  published 90d strip. Options: (a) skip the append when all modules
+  are unavailable (gap in the series, honest); (b) append with an
+  additive `blind: true` field the chart can grey out (contract
+  change, additive); (c) leave as-is and rely on the worklog. Owner
+  picks; touches append semantics, so loop will not act alone.
+- D8-h shares_diluted convention (filed 2026-08-09; SBI review finding
+  C2): universe.json / metrics.rb / the extraction prompt never define
+  whether shares_diluted is converts-inclusive "assumed diluted" or
+  outstanding-plus-ITM-only. metrics.rb takes max(diluted, basic) for
+  per-share entitlements, so a converts-inclusive seed double-counts
+  ITM convert shares in CEBE and double-penalizes OTM tranches (the
+  MSTR seed is suspected converts-inclusive); the prompt says only
+  "shares OUTSTANDING". Owner picks the convention; then it gets
+  written into the universe schema note, metrics.rb header and the
+  extraction prompt in one commit, and existing seeds reconciled.
+  Until ruled: no code change (Golden Rule 4).
+  FROZEN 2026-08-10 with the BTCo development stop -- moot until the
+  rethink.
+- D8-a Alert token: **RESOLVED 2026-07-06 -- owner: "fine to place
+  near general mimir status info"** -- token joins the mimir status
+  cluster (second line right section), written only when n > 0
+  (quiet bar on quiet days).
+- D8-b EDGAR_UA: **RESOLVED 2026-07-06 -- owner set it** (presence
+  verified at session start, never printed).
+- D8-c Shakedown scheduling: **RESOLVED 2026-07-06 -- ~8 h out**
+  (owner, evening ruling -> session ~2026-07-07 morning). Session
+  runbook + the XXI/NAKA CIK edit approval open the session.
+
+Soak close + KV quota review land at whichever gate follows the soak
+week; v1 tags at Gate 7 (real BTCo data, per the standing ruling).
 
 **Phase 8 -- Coinglass groundwork + module upgrades** (improvements.md
 steps 1-5): lib/btc/coinglass.rb + TTL cache + tier probe; A1 etf_flows

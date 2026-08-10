@@ -42,7 +42,11 @@ class TestIngestContract < Minitest::Test
     unless Dir.exist?(SANDBOX)
       FileUtils.mkdir_p(File.join(SANDBOX, 'scripts'))
       FileUtils.cp_r(File.join(ROOT, 'scripts/btco'), File.join(SANDBOX, 'scripts/btco'))
-      FileUtils.cp_r(File.join(ROOT, 'lib'), File.join(SANDBOX, 'lib'))
+      # SYMLINK lib/, never copy it: ingest.rb's require_relative must
+      # resolve to the SAME realpath the fake-transport preload loaded.
+      # A copy re-executes BTC::Http and resets the injected transport,
+      # silently letting discovery reach the real SEC (M7-1 finding C).
+      File.symlink(File.join(ROOT, 'lib'), File.join(SANDBOX, 'lib'))
       FileUtils.rm_rf(File.join(SANDBOX, 'scripts/btco/capstruct'))
       File.write(File.join(SANDBOX, 'scripts/btco/universe.json'),
                  JSON.generate(UNIVERSE))
@@ -88,7 +92,44 @@ class TestIngestContract < Minitest::Test
     assert st.success?, "ingest --dry exit #{st.exitstatus}: #{err}"
     assert_match(/TST\s+\d+ new filing\(s\)/, out)
     assert_match(%r{https://www\.sec\.gov/Archives/edgar/data/}, out)
+    # NEWEST first (2026-07-07 owner session: oldest-first + --limit made a
+    # year-long catch-up apply stale data; absolute-number schema means the
+    # latest filing supersedes older ones)
+    dates = out.scan(/\b(\d{4}-\d{2}-\d{2})\b/).flatten
+    assert_operator dates.size, :>=, 2, 'fixture should list several filings'
+    assert_equal dates.sort.reverse, dates, 'discovery must analyse newest first'
     # --dry must not write state or proposals for the discovered filings
+    refute File.exist?(File.join(SANDBOX, 'scripts/btco/capstruct/state.json'))
+  end
+
+  # ---- --dry --json alert surface (M7-2, additive contract) ------------
+
+  DRY_JSON_KEYS = %w[filings new].freeze
+  FILING_KEYS   = %w[accession date form ticker].freeze
+
+  def test_dry_json_surface_one_line_field_sets_and_no_state
+    out, err, st = run_script(sandbox_ingest, '--dry', '--json', env: NO_AI)
+    assert st.success?, "ingest --dry --json exit #{st.exitstatus}: #{err}"
+
+    # exactly ONE line of stdout, and it is the JSON document (no human lines).
+    lines = out.strip.lines
+    assert_equal 1, lines.size, "expected one JSON line, got:\n#{out}"
+    doc = JSON.parse(lines.first)
+
+    assert_contract_keys DRY_JSON_KEYS, doc, 'dry-json'
+    assert_kind_of Integer, doc['new']
+    assert_kind_of Array, doc['filings']
+    assert_equal doc['new'], doc['filings'].size
+    assert_operator doc['new'], :>, 0, 'the recorded submissions carry new filings'
+
+    doc['filings'].each do |f|
+      assert_contract_keys FILING_KEYS, f, 'filing'
+      assert_match(/\A\d{10}-\d{2}-\d{6}\z/, f['accession']) # dashed EDGAR accession
+    end
+    # stable sort: ticker then date.
+    assert_equal doc['filings'].sort_by { |f| [f['ticker'], f['date']] }, doc['filings']
+
+    # --dry --json must persist NO state (load-bearing for the alert job).
     refute File.exist?(File.join(SANDBOX, 'scripts/btco/capstruct/state.json'))
   end
 
@@ -109,6 +150,10 @@ class TestIngestContract < Minitest::Test
       Respond with ONLY a JSON object (no markdown fences, no prose) with this
       exact schema. Use null for anything the document does not state. Numbers
       are absolute (not deltas), in units of coins / shares / USD face value.
+      shares_basic/shares_diluted are shares OUTSTANDING as of the latest
+      stated date (e.g. the 10-Q cover page count) -- NEVER weighted-average
+      share counts from the income statement; if only weighted averages are
+      stated, use null.
       {"no_material_change": bool,
        "btc": number|null, "btc_as_of": "YYYY-MM-DD"|null,
        "shares_basic": number|null, "shares_diluted": number|null,
@@ -129,6 +174,29 @@ class TestIngestContract < Minitest::Test
     'no_material_change true.'
   ].freeze
 
+  # M7-16: the --baseline research prompt + schema, pinned like the
+  # extraction prompt (editing either without updating this test in the
+  # same commit goes red).
+  BASELINE_FRAGMENTS = [
+    'You are establishing the GROUND-TRUTH capital structure of a ',
+    'Bitcoin treasury company AS OF TODAY',
+    'Use web search ',
+    'converts is the COMPLETE',
+    'current tranche list (it replaces the model\'s, so an omitted tranche',
+    '"corporate_actions": ["splits/mergers/renames affecting the model\'s numbers"]',
+    '"cash": {"value": number|null, "as_of": "YYYY-MM-DD"|null, "source": "str"|null}',
+    'OUTSTANDING cover/registry counts adjusted for any split -- NEVER',
+    'debt_face is STRAIGHT debt ONLY, EXCLUDING',
+    'putting a note in both double-counts it'
+  ].freeze
+
+  def test_baseline_prompt_and_schema_pinned
+    src = File.read(File.join(ROOT, 'scripts/btco/ingest.rb'))
+    BASELINE_FRAGMENTS.each do |frag|
+      assert_includes src, frag, "ingest.rb baseline prompt/schema drifted at: #{frag.inspect}"
+    end
+  end
+
   def test_extraction_prompt_and_schema_pinned_verbatim
     src = File.read(File.join(ROOT, 'scripts/btco/ingest.rb'))
     assert_includes src, SCHEMA_SOURCE,
@@ -144,7 +212,9 @@ class TestIngestContract < Minitest::Test
   def test_excerpt_parameters_pinned
     src = File.read(File.join(ROOT, 'scripts/btco/ingest_text.rb'))
     assert_includes src, "NUMKEYS = %w[btc shares_basic shares_diluted debt_face pref_liq].freeze"
-    assert_includes src, 'KEYRE = /bitcoin|\bbtc\b|shares? of (?:class [ab] )?common|issued and outstanding|'
+    # C1 fix (SBI review): inter-word gaps are \s+ because /x strips
+    # literal spaces; the old pin blessed six dead phrases.
+    assert_includes src, 'KEYRE = /bitcoin|\bbtc\b|shares?\s+of\s+(?:class\s+[ab]\s+)?common|'
     assert_includes src, 'def excerpt(text, cap = 40_000)'
     assert_includes src, 'spans << [[i - 1500, 0].max, [i + 1500, text.size].min]'
   end
