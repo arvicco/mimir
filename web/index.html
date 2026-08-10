@@ -175,15 +175,18 @@
   }
   .tabbtn.active { color: #d7dce3; border-color: #3a424e; background: #20252d; }
   .tabbtn:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
-  /* Grouped (p) VENUE (c) legend widget (meta.legend_widget hook) --
-     one line per venue over the chart's right margin. Bright = shown,
-     dim = hidden; sides keep their series colors. */
+  /* Grouped (p) VENUE (c) legend widget (meta.legend_widget hook). Owner
+     ruling M8-18 R3 (2026-08-10): a FIXED 2x3 grid at the TOP-RIGHT of the
+     BTC GEX chart (an owner-ruled EXCEPTION to "side panels go right"), so
+     the plot reclaims the old right-margin column. Bright = shown, dim =
+     hidden; sides keep their series colors. */
   .cp-legend {
-    position: absolute; right: 16px; top: 68px; z-index: 30;
-    display: flex; flex-direction: column; gap: 4px;
-    font-size: 11px; line-height: 1.3; user-select: none; text-align: center;
+    position: absolute; right: 12px; top: 4px; z-index: 30;
+    display: flex; flex-direction: column; gap: 2px; align-items: flex-end;
+    font-size: 11px; line-height: 1.25; user-select: none;
   }
-  .cp-row { white-space: nowrap; }
+  .cp-row { display: flex; justify-content: flex-end; gap: 10px; white-space: nowrap; }
+  .cp-cell { white-space: nowrap; }
   /* Reset the real <button> (render.js) back to inline text -- keyboard
      operable but identical to the old <span>. */
   .cp {

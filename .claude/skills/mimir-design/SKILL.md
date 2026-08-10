@@ -57,7 +57,14 @@ scrolling legends. Whitespace is not a feature here — density is.
 
 **Side panels go right, not below.** Legends, scoreboards, module
 strips: vertical columns to the right of the plot, so rows stack
-line-by-line and the plot keeps its height.
+line-by-line and the plot keeps its height. EXCEPTION (owner ruling
+2026-08-10, M8-18 R3): the BTC GEX card's `(p) VENUE (c)` toggle
+widget (`gex_cp`) sits at the TOP-RIGHT of the plot as a fixed 2x3
+grid (row 1 IBIT FBTC BITB, row 2 DERI ARKB GBTC; absent venues
+collapse their slot), NOT a right-hand column -- so the profile plot
+reclaims the full right margin and reads visibly wider. This is the
+one sanctioned top-anchored side panel; everything else still goes
+right.
 
 **An entity's views share its quadrant.** A chart's companion views
 (the BTCo literal table) live INSIDE that chart's card -- shrink the
