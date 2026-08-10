@@ -144,6 +144,14 @@ if !Lppl.as_of && !new_rows.empty?
 end
 
 # ---- aggregate ---------------------------------------------------------------
+# delta_ln_age (M9-10, additive): how far the model's NATURAL clock -- ln(age),
+# age = days since genesis -- advances across the trailing-1y aggregation
+# window. At age ~17.5y a full calendar year spans only ~0.057 in ln-age, so
+# the "trailing year" is a sliver of log-time (context for the eval-schedule
+# discussion; the schedule change itself is out of scope). Report-only.
+age_end_days = (Lppl.now_utc - Lppl::GENESIS) / 86_400.0
+delta_ln_age = (Math.log(age_end_days) - Math.log(age_end_days - 365)).round(4)
+
 cut = (Lppl.now_utc - 365 * 86_400).strftime('%Y-%m-%d')
 sums  = Hash.new(0.0) # "window|h|model" => sum
 count = Hash.new(0)
@@ -191,5 +199,6 @@ Lppl.report(NAME, score,
               'bf' => bf_yr, # deprecated name; the value is the cumulative differential
               'bf_by_horizon' => per_h.inspect, # deprecated name; see per_horizon
               'per_horizon' => per_horizon,
+              'delta_ln_age' => delta_ln_age,
               'eval_points_1y' => count["yr|90|pl_full"],
               'bootstrap' => (bootstrap ? 'first run: weekly stride history built' : nil))

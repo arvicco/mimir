@@ -83,7 +83,8 @@ class TestLpplContract < Minitest::Test
   # test file -> [required detail keys, optional detail keys (nil-dropped
   # or run-dependent), extra argv]
   TESTS = {
-    'trend'       => [%w[bf bf_by_horizon per_horizon eval_points_1y], %w[bootstrap], []],
+    'trend'       => [%w[bf bf_by_horizon per_horizon delta_ln_age eval_points_1y],
+                      %w[bootstrap], []],
     'envelope'    => [%w[ratio bound floor freeze_candidate trough_ratios
                          trend_today days_below_strong days_below_floor], [], []],
     'fit'         => [%w[omega m tc_date filters],
