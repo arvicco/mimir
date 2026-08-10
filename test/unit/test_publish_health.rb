@@ -83,6 +83,46 @@ class TestPublishHealth < Minitest::Test
     end
   end
 
+  # ---- OLD content-recency marker (additive M7-5) ------------------------
+
+  # A fresh, complete LIVE line WITHOUT the marker is byte-identical to the
+  # pre-M7-5 output -- proving the change is additive (fresh cases unchanged).
+  def test_fresh_complete_without_marker_is_byte_identical
+    Dir.mktmpdir do |dir|
+      path = write_status(dir, "PUB LIVE 13/13 keys 12:00 UTC\n", 37 * 60)
+      assert_equal 'PUB 13/13 0:37',
+                   Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
+    end
+  end
+
+  # A fresh, complete LIVE line that carries ` OLD:...` earns the `!` flag
+  # AND the bare `OLD` marker, even though age and n/m are healthy.
+  def test_old_marker_flags_and_surfaces_on_otherwise_healthy_line
+    Dir.mktmpdir do |dir|
+      path = write_status(dir, "PUB LIVE 13/13 keys 12:00 UTC OLD:lppl:ledger\n", 37 * 60)
+      assert_equal 'PUB! 13/13 0:37 OLD',
+                   Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
+    end
+  end
+
+  # Multiple stale keys still collapse to one bare `OLD` marker in the token.
+  def test_old_marker_with_multiple_keys_shows_single_old
+    Dir.mktmpdir do |dir|
+      path = write_status(dir, "PUB LIVE 13/13 keys 12:00 UTC OLD:scenario:history,lppl:ledger\n", 37 * 60)
+      assert_equal 'PUB! 13/13 0:37 OLD',
+                   Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
+    end
+  end
+
+  # OLD composes with the other attention conditions (DRY here).
+  def test_old_marker_composes_with_dry
+    Dir.mktmpdir do |dir|
+      path = write_status(dir, "PUB DRY 13/13 keys 07:00 UTC OLD:lppl:ledger\n", 5 * 3600)
+      assert_equal 'PUB! DRY 13/13 5:00 OLD',
+                   Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
+    end
+  end
+
   # ---- Error paths --------------------------------------------------------
 
   def test_missing_file_returns_error_line

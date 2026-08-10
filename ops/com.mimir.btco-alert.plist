@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  com.mimir.btco-alert : launchd user agent for the daily BTCo discovery alert.
+  (XML comments forbid a double hyphen, so this block uses colons/parens.)
+
+  INSTALL (HUMAN action, Golden Rule 3; full steps in docs/RUNBOOK.md):
+    Substitute the __REPO__ placeholder with the absolute repo path, e.g.
+      sed "s#__REPO__#$HOME/Dev/mimir#g" ops/com.mimir.btco-alert.plist \
+        > ~/Library/LaunchAgents/com.mimir.btco-alert.plist
+    then:
+      launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mimir.btco-alert.plist
+
+  StartCalendarInterval Hour=7 Minute=45 fires once per calendar day at
+  07:45 local time (before the owner's morning). The job is cheap and
+  idempotent: it lists new filings and writes a status token, nothing else
+  (no document fetch, no AI, no state write, no API spend). If the machine
+  is asleep at 07:45, launchd runs it at the next wake per calendar
+  semantics.
+
+  RunAtLoad false: do not run immediately on agent load. No KeepAlive:
+  this is a one-shot daily job, not a service to respawn.
+-->
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.mimir.btco-alert</string>
+    <key>ProgramArguments</key>
+    <array>
+      <string>__REPO__/ops/run_btco_alert.sh</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+      <key>Hour</key>
+      <integer>7</integer>
+      <key>Minute</key>
+      <integer>45</integer>
+    </dict>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>ProcessType</key>
+    <string>Background</string>
+  </dict>
+</plist>

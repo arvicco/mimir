@@ -18,7 +18,12 @@
 #   exits nonzero, or emits unparseable JSON is SKIPPED (warn to stderr,
 #   key absent) -- a nonzero gex/btco means keep-last-good, never publish
 #   garbage. A fail-soft producer (valid JSON carrying 'unavailable') is
-#   published AS-IS: "unavailable" is a real, honest state.
+#   published AS-IS: "unavailable" is a real, honest state -- but NO
+#   CHART is built from it (junk-chart guard, 2026-07-07 incident), and
+#   keep-last-good extends to INDEX MEMBERSHIP: every expected-but-
+#   skipped key keeps its previous index row (old generated_at from the
+#   prior index -- KV in live mode, out_dir in dry), so a transient
+#   upstream outage AGES keys on the dashboard instead of vanishing them.
 # - TAILS read a jsonl history file and publish only the trailing window
 #   (90d scenario, 365d lppl) of lines whose 'ts' is >= now - window.
 #   Absent/unreadable file or zero surviving lines -> key SKIPPED.
@@ -36,6 +41,12 @@
 #   `PUB DRY|LIVE <published>/<expected> keys HH:MM UTC` where
 #   expected = producers + tails + charts + 1 (the index) = n/13
 #   (5 producers + 2 tails + 5 charts + index). Pinned in the tests.
+#   ADDITIVE (M7-5, 2026-07-07 frozen-evidence incident): when a PUBLISHED
+#   tail's newest entry is older than STALE_EVIDENCE_H (30h), the line gains
+#   a trailing ` OLD:<key>[,<key>...]` marker (TAILS order), e.g.
+#   `PUB LIVE 13/13 keys 09:34 UTC OLD:lppl:ledger`. The marker is present
+#   ONLY when stale; a SKIPPED tail (no file) gets no marker -- the n/m
+#   shortfall already flags it. ops/publish_health.rb reads the marker.
 #
 # DATA SOURCES: the four scripts/ suites (subprocess), plus the scenario
 # history + lppl ledger jsonl under BTC::Env.data_dir(<suite>). No direct
@@ -75,6 +86,15 @@ module Publish
 
     DAY = 86_400
 
+    # Content-recency guard (2026-07-07 frozen-evidence incident). A tail
+    # whose NEWEST published entry is older than this many hours has stopped
+    # moving -- the daily evidence agent (ops/suite_history.rb) either did
+    # not run or its --history append failed, and the bi-hourly publisher is
+    # re-stamping frozen content. 30h = the daily cadence plus slack (a
+    # missed run + a late catch-up must not trip it). A code constant on
+    # purpose: this is a research/ops invariant, NOT ENV-configurable.
+    STALE_EVIDENCE_H = 30
+
     # Default runner: run argv under a timeout, return the child's FULL
     # stdout as a String; raise on timeout or nonzero exit (-> SKIP).
     DEFAULT_RUNNER = lambda do |argv, timeout_s|
@@ -112,14 +132,22 @@ module Publish
       end
 
       records = envelopes.to_a
-      records << ['index', Publish.build_index(envelopes.values, now: now, source: source)] unless envelopes.empty?
+      unless envelopes.empty?
+        all_keys = PRODUCERS.map(&:first) + TAILS.map(&:first) +
+                   Publish::Charts::CHARTS.keys.map { |n| 'chart:' + n }
+        carry = index_carry(all_keys - envelopes.keys, dry_run, out_dir, env)
+        records << ['index', Publish.build_index(envelopes.values, now: now,
+                                                 source: source, carry: carry)]
+      end
 
       published = dry_run ? write_preview(records, out_dir) : write_kv(records, env)
 
       expected = PRODUCERS.size + TAILS.size + Publish::Charts::CHARTS.size + 1
+      old = stale_tails(envelopes, now)
+      old_suffix = old.empty? ? '' : format(' OLD:%s', old.join(','))
       BTC::Report.status('publish',
-                         format('PUB %s %d/%d keys %s', dry_run ? 'DRY' : 'LIVE',
-                                published, expected, now.utc.strftime('%H:%M UTC')),
+                         format('PUB %s %d/%d keys %s%s', dry_run ? 'DRY' : 'LIVE',
+                                published, expected, now.utc.strftime('%H:%M UTC'), old_suffix),
                          dir: status_dir)
 
       { keys: records.map(&:first), skipped: skipped,
@@ -175,6 +203,36 @@ module Publish
       nil
     end
 
+    # Content-recency guard: of the PUBLISHED tails (skipped tails are not
+    # in +envelopes+, and the n/m shortfall already flags them), the TAILS
+    # keys whose newest entry is older than STALE_EVIDENCE_H. Returned in
+    # TAILS order so the ` OLD:<key>[,<key>]` suffix is deterministic.
+    def stale_tails(envelopes, now)
+      cutoff = now - STALE_EVIDENCE_H * 3600
+      TAILS.map(&:first).select do |key|
+        env = envelopes[key]
+        next false unless env
+
+        newest = newest_entry_ts(env['payload'])
+        newest && newest < cutoff
+      end
+    end
+
+    # Newest parseable 'ts' among a tail payload's entries, or nil when the
+    # payload has no dated entry (never raises -- a bad ts is skipped).
+    def newest_entry_ts(payload)
+      return nil unless payload.is_a?(Hash)
+
+      entries = payload['entries']
+      return nil unless entries.is_a?(Array)
+
+      entries.map do |e|
+        Time.parse(e['ts'].to_s)
+      rescue ArgumentError, TypeError
+        nil
+      end.compact.max
+    end
+
     # Build one registered chart from THIS run's collected payloads and
     # insert it as 'chart:<name>' (ttl = MIN of its inputs' ttls). Returns
     # the wrapped envelope on success, nil (with a redacted warn) if any
@@ -186,6 +244,12 @@ module Publish
       unless inputs.all? { |k| envelopes.key?(k) }
         return skip_chart(key, 'inputs not published')
       end
+      # A fail-soft payload ('unavailable': true, F-12) is an honest suite
+      # status, not chartable data -- building from one published a NaN
+      # gauge / empty table (2026-07-07 incident). Skip instead;
+      # keep-last-good + the index carry keep the previous chart visible.
+      bad = inputs.find { |k| envelopes[k]['payload'].is_a?(Hash) && envelopes[k]['payload']['unavailable'] }
+      return skip_chart(key, "input #{bad} unavailable") if bad
 
       option = Publish::Charts.public_send(spec[:fn], *inputs.map { |k| envelopes[k]['payload'] })
       ttl = inputs.map { |k| envelopes[k]['ttl_hint_s'] }.min
@@ -205,6 +269,37 @@ module Publish
     def skip_chart(key, reason)
       warn BTC::Env.redact("publish: SKIP #{key} (#{reason})")
       nil
+    end
+
+    # Keep-last-good extends to INDEX MEMBERSHIP (2026-07-07 incident:
+    # a Deribit outage skipped gex:combined and the key VANISHED from the
+    # index-driven dashboard even though KV kept its value). For every
+    # expected-but-skipped key, carry the row from the PREVIOUS index --
+    # old generated_at, so the dashboard shows an honestly aging key.
+    # Keys removed from the expected set stop being carried naturally.
+    # Any failure here degrades to no carry, never a crashed publish.
+    def index_carry(missing, dry_run, out_dir, env)
+      return [] if missing.empty?
+
+      keep = previous_index_rows(dry_run, out_dir, env)
+             .select { |r| missing.include?(r['key']) }
+      keep.each { |r| warn "publish: index carries last-good #{r['key']}@#{r['generated_at']}" }
+      keep
+    rescue StandardError => e
+      warn BTC::Env.redact("publish: no index carry (#{e.class}: #{e.message.to_s[0, 80]})")
+      []
+    end
+
+    def previous_index_rows(dry_run, out_dir, env)
+      raw = if dry_run
+              path = File.join(out_dir, 'index.json')
+              return [] unless File.file?(path)
+
+              File.read(path)
+            else
+              Publish::KV.get('v1:index', env: env)
+            end
+      JSON.parse(raw).dig('payload', 'keys') || []
     end
 
     # DRY: pretty-JSON each envelope to <key with ':' -> '_'>.json.

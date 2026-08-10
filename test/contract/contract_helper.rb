@@ -15,6 +15,8 @@
 require_relative '../test_helper'
 require 'open3'
 require 'time'
+require 'tmpdir'
+require 'fileutils'
 
 module ContractHelpers
   ROOT    = File.expand_path('../..', __dir__)
@@ -31,8 +33,21 @@ module ContractHelpers
   def run_script(script, *argv, env: {})
     base = { 'RUBYOPT' => "-I#{SUPPORT} -rfake_transport",
              'FAKE_NOW' => RECORDED_NOW }
+    final = base.merge(env)
     path = script.start_with?('/') ? script : File.join(ROOT, script)
-    Open3.capture3(base.merge(env), RbConfig.ruby, path, *argv, chdir: ROOT)
+    # M7-8: SourceCache writes under BTC_DATA_DIR. Give each invocation a
+    # FRESH throwaway cache dir (unless the caller pins one, e.g. lppl's
+    # seeded price cache) so the real data/source_cache is never touched
+    # AND a fresh-fetch run never seeds a cache that a later "source down,
+    # no cache -> abort" run would then wrongly serve as stale.
+    scratch = nil
+    unless final.key?('BTC_DATA_DIR')
+      scratch = Dir.mktmpdir('mimir-contract-cache')
+      final['BTC_DATA_DIR'] = scratch
+    end
+    Open3.capture3(final, RbConfig.ruby, path, *argv, chdir: ROOT)
+  ensure
+    FileUtils.remove_entry(scratch) if scratch
   end
 
   # Run expecting success; parse stdout as one JSON document.

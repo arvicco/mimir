@@ -16,6 +16,9 @@ scripts/btco/universe.json.bak-*
 .env
 *.token
 
+# local working notes -- never commit
+.docs/
+
 # OS noise
 .DS_Store
 

@@ -12,11 +12,17 @@ require_relative '../../lib/btc/options'
 class TestGexContract < Minitest::Test
   GEX_KEYS = %w[ccy spot ts net_gex_usd_per_1pct regime gamma_flip
                 call_wall put_wall put_call_oi instruments profile].freeze
+  # gex_us: 'sources' additive (M7-8), always present; top-level 'stale'
+  # is present ONLY when the chain came from cache (absent on the all-fresh
+  # fixtures, so it is NOT in this frozen set).
   GEX_US_KEYS = %w[ticker spot ts net_gex_usd_per_1pct regime gamma_flip
                    gamma_flip_btc call_wall put_wall put_call_oi
-                   instruments profile].freeze
-  COMBINED_KEYS = %w[ts btc_spot bin venues combined profile profiles].freeze
+                   instruments sources profile].freeze
+  # 'sources' additive (M7-8), always present. VENUE_KEYS unchanged: a
+  # venue's 'stale' flag appears only when cache-sourced (never on fresh).
+  COMBINED_KEYS = %w[ts btc_spot bin sources venues combined profile profiles].freeze
   VENUE_KEYS    = %w[name net_gex_usd_per_1pct instruments put_call_oi_btc].freeze
+  SOURCE_KEYS   = %w[name as_of stale].freeze
   COMBINED_SUB  = %w[net_gex_usd_per_1pct regime gamma_flip call_wall
                      put_wall put_call_oi_btc instruments].freeze
 
@@ -42,6 +48,19 @@ class TestGexContract < Minitest::Test
 
     assert_kind_of Integer, wall[level_key]
     assert_kind_of Integer, wall['gex']
+  end
+
+  # M7-8: 'sources' is always present and non-empty (every run consults a
+  # source); each entry is {name, as_of, stale} with all fixtures FRESH.
+  def assert_sources(sources)
+    assert_kind_of Array, sources
+    refute_empty sources
+    sources.each do |s|
+      assert_contract_keys SOURCE_KEYS, s, 'sources[]'
+      assert_kind_of String, s['name']
+      assert Time.iso8601(s['as_of']) # parseable instant
+      assert_equal false, s['stale'], 'contract fixtures are all fresh'
+    end
   end
 
   # ---- gex.rb (Deribit) ------------------------------------------------
@@ -96,6 +115,10 @@ class TestGexContract < Minitest::Test
     end
     assert_kind_of Float, j['put_call_oi']
     assert_operator j['instruments'], :>, 0
+    # IBIT is a BTC ETF: sources = deribit_index + its CBOE chain
+    assert_sources j['sources']
+    assert_equal %w[cboe_ibit deribit_index], j['sources'].map { |s| s['name'] }.sort
+    refute j.key?('stale'), 'fresh chain: top-level stale absent'
   end
 
   def test_gex_us_multi_ticker_is_array
@@ -103,7 +126,10 @@ class TestGexContract < Minitest::Test
     j = run_json('scripts/gex_us.rb', 'IBIT', 'IBIT', '--json')
     assert_kind_of Array, j # F-10: multiple tickers -> ARRAY
     assert_equal 2, j.size
-    j.each { |o| assert_contract_keys GEX_US_KEYS, o, 'gex_us.rb[]' }
+    j.each do |o|
+      assert_contract_keys GEX_US_KEYS, o, 'gex_us.rb[]'
+      assert_sources o['sources']
+    end
   end
 
   def test_gex_us_tmux_contract
@@ -133,7 +159,16 @@ class TestGexContract < Minitest::Test
     names = j['venues'].map { |v| v['name'] }
     assert_includes names, 'Deribit'
     assert_includes names, 'IBIT' if cboe_fixture_live?
-    j['venues'].each { |v| assert_contract_keys VENUE_KEYS, v, 'venues[]' }
+    j['venues'].each do |v|
+      assert_contract_keys VENUE_KEYS, v, 'venues[]' # fresh: no 'stale' key
+      refute v.key?('stale'), 'fresh venue omits the stale flag'
+    end
+
+    # M7-8: every consulted source listed; index + book + the live CBOE legs
+    assert_sources j['sources']
+    assert_includes j['sources'].map { |s| s['name'] }, 'deribit_index'
+    assert_includes j['sources'].map { |s| s['name'] }, 'deribit_book'
+    assert_includes j['sources'].map { |s| s['name'] }, 'cboe_ibit' if cboe_fixture_live?
 
     c = j['combined']
     assert_contract_keys COMBINED_SUB, c, 'combined{}'

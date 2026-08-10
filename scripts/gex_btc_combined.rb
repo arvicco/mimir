@@ -30,6 +30,12 @@
 # Failure mode: individual venues fail soft (skipped with a stderr
 # warning), but the Deribit index call or all venues failing aborts with
 # exit != 0 -- downstream consumers must treat that as keep-last-good.
+# Last-good cache (M7-8): the Deribit spot/book and each CBOE chain read
+# through BTC::SourceCache, so a source outage still computes off its
+# cached copy (within a 48h cap) rather than dropping the venue. --json
+# gains a top-level 'sources' list ({name,as_of,stale}) and marks any
+# venue whose book came from cache with 'stale' => true; the combined
+# profile/walls/flip mix cached and fresh books exactly as if all fresh.
 #
 # Ruby >= 2.5, stdlib only.
 
@@ -39,6 +45,7 @@ require_relative '../lib/btc/options'
 require_relative '../lib/btc/util'
 require_relative '../lib/btc/http'
 require_relative '../lib/btc/deribit'
+require_relative '../lib/btc/source_cache'
 require_relative '../lib/btc/report'
 require_relative '../lib/btc/format'
 
@@ -47,10 +54,6 @@ CBOE = 'https://cdn.cboe.com/api/global/delayed_quotes/options'
 # under CoinShares and CBOE 403s the old ticker on every sweep.
 ETFS    = %w[IBIT FBTC BITB ARKB GBTC HODL BTCO EZBC].freeze
 MULT    = 100.0 # shares per US option contract
-
-def get_json(url)
-  JSON.parse(BTC::Http.get(url, { 'User-Agent' => 'gex_btc_combined.rb' }))
-end
 
 # USD gamma per 1% BTC move for one instrument, with BTC at hypothetical
 # level x (its underlying scaled proportionally from spot).
@@ -63,28 +66,39 @@ def oi_btc(o, btc_spot)
   o[:oi] * o[:cm] * o[:u] / btc_spot
 end
 
+# Deribit BTC option board via the shared last-good cache ('deribit_book',
+# M7-8). Returns [book, as_of, stale] -- a 503 still computes off the cached
+# board (marked stale); no cache within cap re-raises (caller skips Deribit).
 def load_deribit(max_days, now, btc_spot)
-  rows = BTC::Deribit.book_summary('BTC', 'option')
-  rows.map do |r|
-    oi = r['open_interest'].to_f
+  r = BTC::SourceCache.fetch_json(
+    'deribit_book',
+    "#{BTC::Deribit::BASE}/get_book_summary_by_currency?currency=BTC&kind=option", now: now
+  )
+  book = r['data'].fetch('result').map do |row|
+    oi = row['open_interest'].to_f
     next if oi <= 0
 
-    _, exp, strike, cp = r['instrument_name'].split('-')
+    _, exp, strike, cp = row['instrument_name'].split('-')
     ex = BTC::Options.deribit_expiry(exp) or next
     t  = (ex - now) / BTC::Options::YEAR_S
     next if t <= 0 || (max_days && t * 365.25 > max_days)
 
-    iv = r['mark_iv'].to_f / 100.0
+    iv = row['mark_iv'].to_f / 100.0
     next if iv <= 0
 
     k = strike.to_f
     { k: k, k_btc: k, cp: cp, t: t, iv: iv, oi: oi,
-      u: (r['underlying_price'] || btc_spot).to_f, cm: 1.0, gp: 0.0 }
+      u: (row['underlying_price'] || btc_spot).to_f, cm: 1.0, gp: 0.0 }
   end.compact
+  [book, r['as_of'], r['stale']]
 end
 
+# One CBOE ETF chain via the shared last-good cache ('cboe_<ticker>', M7-8).
+# Returns [book, as_of, stale], or nil when the chain has no usable data.
 def load_cboe(ticker, max_days, now, btc_spot)
-  data = get_json("#{CBOE}/#{ticker}.json")['data']
+  r = BTC::SourceCache.fetch_json("cboe_#{ticker.downcase}", "#{CBOE}/#{ticker}.json",
+                                  { 'User-Agent' => 'gex_btc_combined.rb' }, now: now)
+  data = r['data']['data']
   return nil unless data
 
   spot = (data['current_price'] || data['close']).to_f
@@ -108,7 +122,7 @@ def load_cboe(ticker, max_days, now, btc_spot)
     { k: k, k_btc: k / ratio, cp: cp, t: t, iv: iv, oi: oi,
       u: spot, cm: MULT, gp: gp }
   end.compact
-  book.empty? ? nil : book
+  book.empty? ? nil : [book, r['as_of'], r['stale']]
 end
 
 # ---- main -------------------------------------------------------------------
@@ -116,22 +130,37 @@ max_days = BTC::Util.arg('--max-days')&.to_f
 bin      = (BTC::Util.arg('--bin') || 1000).to_f
 now      = Time.now.utc
 
+# sources: every upstream that returned data this run (fresh or stale),
+# each { name:, as_of:, stale: } -- surfaced additively in --json so the
+# card can mark stale sources. venue_stale: name -> true when that venue's
+# book came from cache (its profile still mixes into the combined picture).
+sources     = []
+venue_stale = {}
+
 begin
-  btc_spot = BTC::Deribit.index_price('btc_usd')
+  di = BTC::Deribit.index('btc_usd', now: now)
 rescue StandardError => e
   abort "deribit index: #{e.class}: #{e.message}"
 end
+btc_spot = di[:price]
+sources << { name: 'deribit_index', as_of: di[:as_of], stale: di[:stale] }
 
 venues = {}
 begin
-  venues['Deribit'] = load_deribit(max_days, now, btc_spot)
+  book, as_of, stale = load_deribit(max_days, now, btc_spot)
+  venues['Deribit']       = book
+  venue_stale['Deribit']  = stale
+  sources << { name: 'deribit_book', as_of: as_of, stale: stale }
 rescue StandardError => e
   warn "Deribit: skipped (#{e.class}: #{e.message})"
 end
 ETFS.each do |tk|
   begin
-    b = load_cboe(tk, max_days, now, btc_spot)
-    venues[tk] = b if b
+    res = load_cboe(tk, max_days, now, btc_spot) or next
+    book, as_of, stale = res
+    venues[tk]      = book
+    venue_stale[tk] = stale
+    sources << { name: "cboe_#{tk.downcase}", as_of: as_of, stale: stale }
   rescue StandardError => e
     warn "#{tk}: skipped (#{e.class}: #{e.message})"
   end
@@ -177,9 +206,15 @@ fmt_k = ->(v) { v ? format('%gk', (v / 1000.0).round(2)) : '--' }
 if ARGV.include?('--json')
   puts JSON.pretty_generate(
     ts: now.iso8601, btc_spot: btc_spot.round(1), bin: bin.round,
+    # additive (M7-8): every source consulted this run; a venue entry
+    # carries 'stale' => true ONLY when its book came from cache (absent =
+    # fresh), so the all-fresh contract fixtures stay field-set valid.
+    sources: sources.map { |s| { name: s[:name], as_of: s[:as_of], stale: s[:stale] } },
     venues: per_venue.map { |v|
-      { name: v[:name], net_gex_usd_per_1pct: v[:net].round,
-        instruments: v[:n], put_call_oi_btc: v[:pc].round(3) }
+      h = { name: v[:name], net_gex_usd_per_1pct: v[:net].round,
+            instruments: v[:n], put_call_oi_btc: v[:pc].round(3) }
+      h[:stale] = true if venue_stale[v[:name]]
+      h
     },
     combined: {
       net_gex_usd_per_1pct: total.round,

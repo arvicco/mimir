@@ -56,12 +56,17 @@ module Publish
 
   # Build the v1:index envelope from already-wrapped entries: one row per
   # key (sorted), ttl_hint_s = MIN across entries. Raises ArgumentError on
-  # empty entries.
-  def build_index(entries, now:, source:)
+  # empty entries. +carry+ (2026-07-07 incident fix): last-good rows
+  # ({key, generated_at}) for keys SKIPPED this run -- keep-last-good
+  # extends to index membership, so a transient upstream outage AGES a
+  # key on the dashboard instead of vanishing it. ttl derives from the
+  # live entries only.
+  def build_index(entries, now:, source:, carry: [])
     raise ArgumentError, 'entries must not be empty' if entries.nil? || entries.empty?
 
     keys = entries
            .map { |e| { 'key' => e['key'], 'generated_at' => e['generated_at'] } }
+           .concat(carry.map { |r| { 'key' => r['key'], 'generated_at' => r['generated_at'] } })
            .sort_by { |row| row['key'] }
     ttl = entries.map { |e| e['ttl_hint_s'] }.min
     wrap('index', { 'keys' => keys }, ttl, now: now, source: source)

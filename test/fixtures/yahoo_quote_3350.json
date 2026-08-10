@@ -1,0 +1,17 @@
+{
+  "chart": {
+    "result": [
+      {
+        "meta": {
+          "currency": "JPY",
+          "symbol": "3350.T",
+          "exchangeName": "JPX",
+          "fullExchangeName": "Tokyo",
+          "regularMarketPrice": 248.0,
+          "regularMarketTime": 1783665000
+        }
+      }
+    ],
+    "error": null
+  }
+}

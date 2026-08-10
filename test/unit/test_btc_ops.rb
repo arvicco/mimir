@@ -48,7 +48,12 @@ class TestBtcOps < Minitest::Test
     private
 
     def wrapper_for(label)
-      label == 'com.mimir.publish' ? 'run_publish.sh' : 'run_gex_snapshot.sh'
+      case label
+      when 'com.mimir.publish'       then 'run_publish.sh'
+      when 'com.mimir.gex-snapshot'  then 'run_gex_snapshot.sh'
+      when 'com.mimir.suite-history' then 'run_suite_history.sh'
+      else 'run_btco_alert.sh'
+      end
     end
 
     def print_result(label)
@@ -183,7 +188,7 @@ class TestBtcOps < Minitest::Test
   def test_install_renders_plist_without_placeholder_into_launchagents
     write_env
     fake = FakeLaunchctl.new(repo: @repo)
-    code = install(fake, input: StringIO.new("n\nn\n")) # decline both kickstarts
+    code = install(fake, input: StringIO.new("n\nn\nn\nn\n")) # decline all kickstarts
     assert_equal 0, code
 
     installed = File.join(@home, 'Library', 'LaunchAgents', 'com.mimir.publish.plist')
@@ -207,7 +212,7 @@ class TestBtcOps < Minitest::Test
     write_env
     fake = FakeLaunchctl.new(repo: @repo,
                              loaded: { 'com.mimir.publish' => true, 'com.mimir.gex-snapshot' => true })
-    code = install(fake, input: StringIO.new("n\nn\n"))
+    code = install(fake, input: StringIO.new("n\nn\nn\nn\n"))
     assert_equal 0, code
 
     bootout_i = fake.calls.index do |c|
@@ -224,7 +229,7 @@ class TestBtcOps < Minitest::Test
   def test_fresh_install_does_not_bootout
     write_env
     fake = FakeLaunchctl.new(repo: @repo) # nothing loaded
-    install(fake, input: StringIO.new("n\nn\n"))
+    install(fake, input: StringIO.new("n\nn\nn\nn\n"))
     refute(fake.calls.any? { |c| c[0, 2] == %w[launchctl bootout] },
            'a fresh install must not bootout')
   end
@@ -235,7 +240,7 @@ class TestBtcOps < Minitest::Test
     write_env
     fake = FakeLaunchctl.new(repo: @repo)
     io = StringIO.new
-    code = install(fake, input: StringIO.new("n\nn\n"), io: io)
+    code = install(fake, input: StringIO.new("n\nn\nn\nn\n"), io: io)
     assert_equal 0, code
     refute(fake.calls.any? { |c| c[0, 2] == %w[launchctl kickstart] },
            'declined kickstart must not run launchctl kickstart')
@@ -249,24 +254,35 @@ class TestBtcOps < Minitest::Test
     write_env
     gdir = gex_dir
     on_kick = lambda do |label|
-      if label == 'com.mimir.publish'
+      case label
+      when 'com.mimir.publish'
         append_log('publish.log', "=== run_publish 2026-07-06T12:00:00Z\n" \
                                   "publish LIVE: 11 written, 0 skipped -> KV\n")
         write_status('PUB LIVE 11/11 keys 12:00 UTC', @now)
-      else
+      when 'com.mimir.gex-snapshot'
         append_log('gex_snapshot.log', "=== run_gex_snapshot 2026-07-06T12:00:00Z\n" \
                                        "written: #{gdir}/2026-07-06.json\n")
         FileUtils.mkdir_p(gdir)
         File.write(File.join(gdir, '2026-07-06.json'), '{}')
+      when 'com.mimir.btco-alert'
+        append_log('btco_alert.log', "=== run_btco_alert 2026-07-06T12:00:00Z\n" \
+                                     "alert: no new filings -> quiet\n")
+      else # com.mimir.suite-history
+        append_log('suite_history.log', "=== run_suite_history 2026-07-06T12:00:00Z\n" \
+                                        "suite-history: lppl updated -- LPPL SUPPORTED +0.55\n" \
+                                        "suite-history: scenario updated -- COMPOSITE +0.20\n" \
+                                        "suite-history OK: 2/2 suites updated (lppl, scenario)\n")
       end
     end
     fake = FakeLaunchctl.new(repo: @repo, on_kickstart: on_kick)
     io = StringIO.new
-    code = install(fake, input: StringIO.new("y\ny\n"), io: io, clock: fixed_clock)
+    code = install(fake, input: StringIO.new("y\ny\ny\ny\n"), io: io, clock: fixed_clock)
 
     assert_equal 0, code, io.string
     assert_includes io.string, 'publish LIVE: 11 written'
     assert_includes io.string, "written: #{gdir}/2026-07-06.json"
+    assert_includes io.string, 'alert: no new filings -> quiet'
+    assert_includes io.string, 'suite-history OK: 2/2 suites updated'
     # every verification row PASSed, none FAILed
     refute_includes io.string.split('verification:').last, '[FAIL]'
     assert(fake.calls.any? { |c| c[0, 3] == %w[launchctl kickstart -k] })
@@ -280,7 +296,7 @@ class TestBtcOps < Minitest::Test
     fake = FakeLaunchctl.new(repo: @repo, on_kickstart: ->(_l) {}) # log never grows
     io = StringIO.new
     # advancing clock: 100s per call, publish timeout 240s -> times out
-    code = install(fake, input: StringIO.new("y\nn\n"), io: io,
+    code = install(fake, input: StringIO.new("y\nn\nn\nn\n"), io: io,
                    clock: advancing_clock(100), sleeper: ->(s) { sleeps << s })
     assert_equal 1, code
     assert_includes io.string, 'TIMEOUT'
@@ -297,7 +313,7 @@ class TestBtcOps < Minitest::Test
     end
     fake = FakeLaunchctl.new(repo: @repo, on_kickstart: on_kick)
     io = StringIO.new
-    code = install(fake, input: StringIO.new("y\nn\n"), io: io, clock: fixed_clock)
+    code = install(fake, input: StringIO.new("y\nn\nn\nn\n"), io: io, clock: fixed_clock)
     assert_equal 1, code
     assert_includes io.string, 'FAIL'
     assert_includes io.string, 'ABORT'
@@ -338,19 +354,23 @@ class TestBtcOps < Minitest::Test
   def test_uninstall_accepted_bootouts_and_deletes
     la = File.join(@home, 'Library', 'LaunchAgents')
     FileUtils.mkdir_p(la)
-    %w[com.mimir.publish com.mimir.gex-snapshot].each do |l|
-      File.write(File.join(la, "#{l}.plist"), 'x')
-    end
-    fake = FakeLaunchctl.new(repo: @repo,
-                             loaded: { 'com.mimir.publish' => true, 'com.mimir.gex-snapshot' => true })
+    labels = %w[com.mimir.publish com.mimir.gex-snapshot com.mimir.btco-alert com.mimir.suite-history]
+    labels.each { |l| File.write(File.join(la, "#{l}.plist"), 'x') }
+    fake = FakeLaunchctl.new(repo: @repo, loaded: labels.to_h { |l| [l, true] })
     code = BTC::Ops.uninstall(home: @home, runner: fake.method(:call), io: StringIO.new,
                               input: StringIO.new("y\n"), uid: UID)
     assert_equal 0, code
-    %w[com.mimir.publish com.mimir.gex-snapshot].each do |l|
+    labels.each do |l|
       assert(fake.calls.any? { |c| c[0, 2] == %w[launchctl bootout] && c[2].end_with?(l) },
              "expected bootout of #{l}")
       refute File.exist?(File.join(la, "#{l}.plist")), "#{l}.plist must be deleted"
     end
+  end
+
+  def test_agents_list_covers_four_agents_including_suite_history
+    labels = BTC::Ops::AGENTS.map(&:first)
+    assert_equal %w[com.mimir.publish com.mimir.gex-snapshot com.mimir.btco-alert
+                    com.mimir.suite-history], labels
   end
 
   # ---- tmux health line ----------------------------------------------
@@ -402,7 +422,7 @@ class TestBtcOps < Minitest::Test
   end
 
   def dedicated_value
-    "#[align=right]#(ruby #{@repo}/ops/publish_health.rb)"
+    "#[align=right]#(ruby #{@repo}/ops/publish_health.rb)#(cat /tmp/ingest.status 2>/dev/null)"
   end
 
   def run_tmux(fake, input: "n\n", home: @home)
@@ -443,6 +463,23 @@ class TestBtcOps < Minitest::Test
     assert_includes io.string, 'set -g status-format[1]' # persistence reference still printed
   end
 
+  # A bar installed BEFORE M7-2 carries the health token without the
+  # ingest fragment: ops:tmux must offer the in-place append, not claim
+  # "nothing to do" (review catch on the M7-2 packet -- the gold bar).
+  def test_tmux_health_only_line_offers_ingest_append
+    old_line = "#[bold]#S#[align=right]#(ruby #{@repo}/ops/publish_health.rb)"
+    fake = FakeTmux.new(status: '2', formats: { 1 => old_line })
+    code, io = run_tmux(fake, input: "y\n")
+    assert_equal 0, code
+    refute_includes io.string, 'nothing to do'
+    assert_includes io.string, 'append ingest token to the existing line'
+    upgraded = "#{old_line}#(cat /tmp/ingest.status 2>/dev/null)"
+    assert_includes io.string, "status-format[1] = '#{upgraded}'"
+    set = set_calls(fake).find { |c| c[3] == 'status-format[1]' }
+    refute_nil set, 'apply must set the upgraded format'
+    assert_equal upgraded, set[4]
+  end
+
   def test_tmux_free_line_proposes_dedicated_form_at_index_1
     fake = FakeTmux.new(status: '2', formats: { 0 => 'main line', 1 => '' })
     code, io = run_tmux(fake) # decline the apply prompt
@@ -458,6 +495,17 @@ class TestBtcOps < Minitest::Test
     assert_equal 0, code
     assert_includes io.string, "status-format[1] = '#{user_fmt}#{dedicated_value}'"
     assert_includes io.string, 'merge onto last line'
+  end
+
+  # The proposed fragment carries the BTCo discovery-alert token in the
+  # SAME right-align run as the publish health command (D8-a).
+  def test_tmux_fragment_carries_the_ingest_token
+    fake = FakeTmux.new(status: '2', formats: { 0 => 'main line', 1 => '' })
+    code, io = run_tmux(fake)
+    assert_equal 0, code
+    assert_includes io.string, '#(cat /tmp/ingest.status 2>/dev/null)'
+    assert_includes io.string,
+                    "#[align=right]#(ruby #{@repo}/ops/publish_health.rb)#(cat /tmp/ingest.status 2>/dev/null)"
   end
 
   def test_tmux_declined_prompt_makes_no_set_but_prints_persistence

@@ -39,6 +39,13 @@ module FakeTransport
     ['farside',                     'farside_flows.html'], # also matches the archive-proxy URL
     ['flow-history',                'coinglass_flows.json'],
     ['frankfurter',                 'frankfurter_fx.json'],
+    ['bitcointreasuries',           'bitcointreasuries_table.html'],
+    ['companies/public_treasury',   'coingecko_treasury.json'],
+    ['api/xbrl/companyconcept',     'sec_dei_shares.json'],
+    ['strategytracker.com/latest',  'strategytracker_latest.json'],
+    ['strategytracker.com/all.',    'strategytracker_treasury.json'],
+    ['api.anthropic.com',           'anthropic_baseline.json'],
+    ['query1.finance.yahoo.com',    'yahoo_quote_3350.json'],
     ['submissions/CIK',             'edgar_submissions.json'],
     ['Archives/edgar',              'edgar_filing.html']
   ].freeze
@@ -46,6 +53,13 @@ module FakeTransport
   Res = Struct.new(:code, :body)
 
   def self.respond(url)
+    # FAKE_HTTP_LOG: append every requested URL, one per line, so a test can
+    # PROVE which endpoints a subprocess hit (M7-2: the alert must request
+    # ONLY the EDGAR submissions endpoint -- no document fetch, no AI).
+    if (log = ENV['FAKE_HTTP_LOG']) && !log.empty?
+      File.open(log, 'a') { |f| f.puts(url) }
+    end
+
     deny = ENV['FAKE_HTTP_DENY'].to_s.split(',').reject(&:empty?)
     return Res.new('500', 'denied by test') if deny.any? { |f| url.include?(f) }
 

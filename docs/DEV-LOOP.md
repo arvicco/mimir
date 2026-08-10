@@ -128,6 +128,33 @@ Each iteration, regardless of execution vehicle (section 5):
    never discovers invisible text, clipped series or label collisions
    the loop could have seen itself. Lean on established design systems
    (e.g. the ECharts dark theme) over hand-picked colors.
+
+   **Surface review checklist** (owner-ruled 2026-07-07; run it against
+   the SERVED page -- production after deploys, preview before -- not a
+   standalone repro; liveness markers alone are never sufficient):
+   - [ ] every expected element present AND filled (no empty tables,
+         blank panels, missing cards -- count cards against the index)
+   - [ ] elements in the correct order and place (grid layout intact)
+   - [ ] the latest data points are visible and RECENT for each
+         product's own cadence (daily ledger -> today/yesterday's
+         point; bi-hourly gex -> last cycle) -- read the data on the
+         axis, not the badge
+   - [ ] no NaN / null / undefined / Infinity rendered anywhere
+   - [ ] cross-element consistency: the same fact shown twice agrees
+         (verdict in title vs status line; spot in title vs bars;
+         header n/m vs index size; table row count vs payload)
+   - [ ] failure states are the DESIGNED ones (err card naming key +
+         producer, red dot, stale flag) -- never blank space or a
+         silently missing element
+   - [ ] every interactive element responds (hover bubbles open AND
+         close, tabs swap, sort re-orders, zoom pans; one pass each)
+   - [ ] browser console clean (no JS errors, no failed fetches -- a
+         404 in the console is a missing key even if the layout looks
+         fine)
+   - [ ] real rendered geometry + the mobile single-column breakpoint
+   - [ ] keyboard floor: interactive elements reachable and operable
+   - [ ] day-over-day: compared with the previous screenshot, the data
+         moved (the frozen-content catch-all)
 7. **Pre-gate: update `README.md`** -- the user-facing document
    describing the capabilities and commands implemented up to this
    point, honest about what does not work yet. A newcomer reading only

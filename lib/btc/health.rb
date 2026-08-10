@@ -18,6 +18,7 @@ require 'json'
 require 'rexml/document'
 require_relative 'http'
 require_relative 'flows'
+require_relative 'treasury_ref'
 
 module BTC
   module Health
@@ -25,6 +26,7 @@ module BTC
     ALLOWED_ENV = {
       'scripts/btco/btco.rb'          => %w[EDGAR_UA],
       'scripts/btco/ingest.rb'        => %w[EDGAR_UA ANTHROPIC_API_KEY BTCO_MODEL],
+      'scripts/btco/validate.rb'      => %w[EDGAR_UA],
       'scripts/scenario/macro.rb'     => %w[FRED_API_KEY],
       'scripts/scenario/etf_flows.rb' => %w[COINGLASS_API_KEY],
       'scripts/scenario/scenario.rb'  => %w[HOME],
@@ -90,6 +92,35 @@ module BTC
         url: 'https://open-api-v4.coinglass.com/api/etf/bitcoin/flow-history',
         headers: -> { { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] } },
         check: ->(b) { j = JSON.parse(b); j['code'].to_s == '0' && !j['data'].to_a.empty? } },
+      # soft: an advisory ingest sanity reference (M7-9) -- if the
+      # aggregator is down or reshapes, --review just omits the ref line,
+      # so degradation WARNs rather than failing the probe run.
+      { name: 'bitcointreasuries ref', src: 'lib/btc/treasury_ref.rb',
+        marker: 'bitcointreasuries.net', soft: true,
+        url: 'https://bitcointreasuries.net/',
+        check: ->(b) { TreasuryRef.parse_table(b).size >= 10 } },
+      # soft: the M7-11/M7-12 advisory review refs + the M7-14 tracker
+      # proposal source (docs/BTCO-DATA-SOURCES.md) -- --review omits the
+      # line / --tracker aborts with a message, so degradation WARNs.
+      { name: 'coingecko treasury ref', src: 'lib/btc/coingecko_ref.rb',
+        marker: 'api.coingecko.com/api/v3/companies/public_treasury', soft: true,
+        url: 'https://api.coingecko.com/api/v3/companies/public_treasury/bitcoin',
+        check: ->(b) { JSON.parse(b).fetch('companies').size >= 50 } },
+      { name: 'sec xbrl dei shares', src: 'lib/btc/sec_shares.rb',
+        marker: 'data.sec.gov/api/xbrl/companyconcept', soft: true,
+        url: 'https://data.sec.gov/api/xbrl/companyconcept/CIK0001849635/dei/EntityCommonStockSharesOutstanding.json',
+        headers: -> { { 'User-Agent' => ENV['EDGAR_UA'] || 'mimir health (set EDGAR_UA=name email)' } },
+        check: ->(b) { !JSON.parse(b).fetch('units').fetch('shares').to_a.empty? } },
+      { name: 'strategytracker feed', src: 'scripts/btco/ingest.rb',
+        marker: 'data.strategytracker.com', soft: true,
+        url: 'https://data.strategytracker.com/latest.json',
+        check: ->(b) { JSON.parse(b).fetch('files').key?('full') } },
+      # soft: non-US quote source (D8-f) -- a dead quote drops the row
+      # (fail-soft by design), never blanks the card.
+      { name: 'yahoo quote (non-US)', src: 'scripts/btco/btco.rb',
+        marker: 'query1.finance.yahoo.com/v8/finance/chart', soft: true,
+        url: 'https://query1.finance.yahoo.com/v8/finance/chart/3350.T?interval=1d&range=1d',
+        check: ->(b) { JSON.parse(b).dig('chart', 'result', 0, 'meta', 'regularMarketPrice').to_f.positive? } },
       { name: 'frankfurter fx', src: 'scripts/btco/btco.rb',
         marker: 'api.frankfurter.dev/v1/latest',
         url: 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=JPY',

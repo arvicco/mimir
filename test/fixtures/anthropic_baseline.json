@@ -1,0 +1,8 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"btc\":{\"value\":55000,\"as_of\":\"2026-06-28\",\"source\":\"https://example.test/8k\"},\"shares_basic\":{\"value\":2000000,\"as_of\":\"2026-06-27\",\"source\":\"https://example.test/cover\"},\"shares_diluted\":{\"value\":null,\"as_of\":null,\"source\":null},\"debt_face\":{\"value\":0,\"as_of\":\"2026-06-27\",\"source\":\"https://example.test/10q\"},\"pref_liq\":{\"value\":0,\"as_of\":\"2026-06-27\",\"source\":\"https://example.test/10q\"},\"converts\":[{\"face\":500,\"conv_price\":10.0,\"label\":\"1% Notes due 2031\",\"source\":\"https://example.test/note\"}],\"cash\":{\"value\":123,\"as_of\":\"2026-06-27\",\"source\":\"https://example.test/10q\"},\"corporate_actions\":[\"1-for-2 reverse split 2026-06-20 (already reflected in counts)\"],\"confidence\":\"high\",\"summary\":\"canned baseline research fixture for the flow tests\"}"
+    }
+  ]
+}
