@@ -22,9 +22,12 @@ class TestVolSpreadContract < Minitest::Test
   # See file header for clock-choice rationale.
   FAKE_NOW_STR = '2026-07-04T19:00:00Z'.freeze
 
-  TOP_KEYS   = %w[ts mstr_spot btc_spot tenors].freeze
+  TOP_KEYS   = %w[ts mstr_spot btc_spot tenors history].freeze
   TENOR_KEYS = %w[tenor_d mstr btc spread_atm].freeze
   LEG_KEYS   = %w[expiry_d atm_iv reason].freeze
+  # emitted history rows are trimmed to date + tenors[{tenor_d, spread_atm}]
+  HIST_KEYS  = %w[date tenors].freeze
+  HIST_TENOR_KEYS = %w[tenor_d spread_atm].freeze
 
   # Base env for all vol_spread tests: freeze the clock to FAKE_NOW_STR.
   # Callers may merge additional knobs (e.g. FAKE_HTTP_DENY).
@@ -58,6 +61,49 @@ class TestVolSpreadContract < Minitest::Test
         assert t[leg]['expiry_d'].nil? || t[leg]['expiry_d'].is_a?(Numeric)
         assert t[leg]['atm_iv'].nil?   || t[leg]['atm_iv'].is_a?(Numeric)
         assert t[leg]['reason'].nil?   || t[leg]['reason'].is_a?(String)
+      end
+    end
+
+    # additive M8-16 "history" field: the trailing daily rows. This run
+    # appends today's row into the throwaway BTC_DATA_DIR, so exactly one
+    # row is emitted, trimmed to date + tenors[{tenor_d, spread_atm}].
+    assert_kind_of Array, j['history']
+    j['history'].each_with_index do |row, i|
+      assert_contract_keys HIST_KEYS, row, "vol_spread.rb history[#{i}]"
+      assert_kind_of String, row['date']
+      assert_kind_of Array, row['tenors']
+      row['tenors'].each_with_index do |ht, k|
+        assert_contract_keys HIST_TENOR_KEYS, ht,
+                             "vol_spread.rb history[#{i}].tenors[#{k}]"
+        assert_kind_of Integer, ht['tenor_d']
+        assert ht['spread_atm'].nil? || ht['spread_atm'].is_a?(Numeric)
+      end
+    end
+  end
+
+  # ---- daily history: append + date guard (M8-16) --------------------------
+  #
+  # A pinned BTC_DATA_DIR (not the per-run throwaway) lets two runs share the
+  # history file: run 1 appends today's row, run 2 sees the date guard and
+  # skips -> exactly ONE row for the frozen day.
+  def test_history_append_is_date_guarded
+    Dir.mktmpdir('mimir-vol-spread-hist') do |dir|
+      env = spread_env('BTC_DATA_DIR' => dir)
+      2.times { run_json('scripts/vol_spread.rb', '--json', env: env) }
+
+      file  = File.join(dir, 'vol_spread', 'history.jsonl')
+      assert File.file?(file), 'history.jsonl should be written under BTC_DATA_DIR'
+      rows  = File.readlines(file).map(&:strip).reject(&:empty?)
+      assert_equal 1, rows.size, 'date guard must collapse same-day re-runs to one row'
+
+      row = JSON.parse(rows.first)
+      assert_equal FAKE_NOW_STR[0, 10], row['date'] # 'YYYY-MM-DD' of the frozen clock
+      assert_kind_of String, row['ts']
+      # the ON-DISK row keeps the full leg detail (mstr_atm/btc_atm), which the
+      # emitted --json history trims away.
+      assert_equal [7, 14, 21, 45, 90], row['tenors'].map { |t| t['tenor_d'] }
+      row['tenors'].each do |t|
+        assert_equal %w[tenor_d spread_atm mstr_atm btc_atm].sort, t.keys.sort
       end
     end
   end
