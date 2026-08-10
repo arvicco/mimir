@@ -689,8 +689,9 @@ module Publish
         # transparent bg lets the card surface show through
         'backgroundColor' => 'transparent',
         'title' => {
-          'text' => format('Scenario %s %+.2f', latest['regime'].to_s,
-                           latest['composite'].to_f),
+          'text' => format('Scenario %s %+.2f%s', latest['regime'].to_s,
+                           latest['composite'].to_f,
+                           scenario_drift_suffix(latest, history)),
           'textStyle' => { 'fontSize' => 13 }
         },
         'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 } },
@@ -735,6 +736,23 @@ module Publish
             'label' => { 'show' => true, 'formatter' => '{@[2]}' } }
         ]
       }
+    end
+
+    # M8-18 R5 (owner ruling 2026-08-10): a trailing drift arrow on the title,
+    # ' ↗' / ' ↘' / ' →'. drift = the latest composite (the number the title
+    # already shows) minus the composite 7 readings earlier in the history
+    # (or the earliest available when the history is shorter). > +0.02 rises
+    # (↗), < -0.02 falls (↘), else flat (→). No arrow (empty suffix) when the
+    # history has fewer than 2 readings -- there is no direction to draw. The
+    # drift is the signal, not any single print (METHODOLOGY.md).
+    def scenario_drift_suffix(latest, history)
+      comps = (history['entries'] || []).map { |e| e['composite'].to_f }
+      return '' if comps.size < 2
+
+      ref = comps[[comps.size - 8, 0].max] # 7 readings before the latest, or earliest
+      drift = latest['composite'].to_f - ref
+      arrow = drift > 0.02 ? '↗' : (drift < -0.02 ? '↘' : '→')
+      " #{arrow}"
     end
 
     # Four dashed boundary lines (numeric label on the left) plus five

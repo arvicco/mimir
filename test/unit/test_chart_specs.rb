@@ -510,7 +510,33 @@ class TestChartSpecs < Minitest::Test
     opt = build('scenario_strip')
     refute opt['title'].key?('subtext')
     assert_equal 13, opt['title']['textStyle']['fontSize']
-    assert_equal 'Scenario NEUTRAL +0.08', opt['title']['text']
+    # M8-18 R5: the drift arrow rides the title. The fixture rises
+    # (latest +0.083 vs -0.333 four readings back) -> ↗.
+    assert_equal 'Scenario NEUTRAL +0.08 ↗', opt['title']['text']
+  end
+
+  # M8-18 R5 (owner ruling 2026-08-10): the composite-drift arrow. drift =
+  # latest composite minus the composite 7 readings earlier (or earliest when
+  # shorter); > +0.02 ↗, < -0.02 ↘, else →; no arrow under 2 readings.
+  def scn_title(latest_comp, comps, regime: 'NEUTRAL')
+    latest = { 'regime' => regime, 'composite' => latest_comp, 'modules' => [] }
+    history = { 'entries' => comps.map { |c| { 'ts' => '2026-08-01T00:00:00Z', 'composite' => c } } }
+    Publish::Charts.scenario_strip(latest, history)['title']['text']
+  end
+
+  def test_scenario_title_drift_arrow_rising_falling_flat_and_short_history
+    assert_equal 'Scenario NEUTRAL +0.30 ↗', scn_title(0.30, [0.0, 0.1, 0.30])
+    assert_equal 'Scenario NEUTRAL -0.30 ↘', scn_title(-0.30, [0.2, 0.0, -0.30])
+    # |drift| within the 0.02 dead-band reads flat (→); +0.02 exactly is flat
+    assert_equal 'Scenario NEUTRAL +0.10 →', scn_title(0.10, [0.09, 0.10])
+    assert_equal 'Scenario NEUTRAL +0.30 →', scn_title(0.30, [0.28, 0.30])
+    # fewer than 2 readings -> NO arrow at all
+    assert_equal 'Scenario NEUTRAL +0.10', scn_title(0.10, [0.10])
+    assert_equal 'Scenario NEUTRAL +0.10', scn_title(0.10, [])
+    # exactly "7 readings earlier": with 9 entries the reference is the
+    # 8th-from-last (index 1), so a spike 8 readings back (index 0) is ignored
+    comps = [0.9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.05]
+    assert_equal 'Scenario NEUTRAL +0.05 ↗', scn_title(0.05, comps)
   end
 
   def test_scenario_visual_map_hidden_and_scoped_to_heatmap
