@@ -29,7 +29,15 @@ word.
 
 ```
 cd ~/Dev/mimir-phase8
-PUBLISH_DRY_RUN=1 ruby publish/publish.rb
+# one-time: the worktree has none of the gitignored runtime data, so
+# the LPPL/scenario history producers SKIP and their cards vanish
+# (bit us 2026-08-10 -- 18/22 keys, 3 cards). Copy it from the main
+# tree first:
+rsync -a ~/Dev/mimir/scripts/lppl/data/ scripts/lppl/data/
+rsync -a ~/Dev/mimir/scripts/scenario/data/ scripts/scenario/data/
+rsync -a ~/Dev/mimir/data/gex_history/ data/gex_history/
+rsync -a ~/Dev/mimir/data/vol_history/ data/vol_history/ 2>/dev/null || true
+PUBLISH_DRY_RUN=1 ruby publish/publish.rb   # EXPECT: no SKIP lines, 22 keys + index
 rake preview
 ```
 
