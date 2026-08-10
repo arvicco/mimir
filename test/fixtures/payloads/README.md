@@ -19,6 +19,15 @@ into `payload_<key>.json` here.
   recorded 2026-07-06 run had no outage, so no real blind row existed to
   capture. Keep this row on any refresh (re-append it).
 
+- `payload_vol_mstr.json` (M8-17) is the REAL `scripts/vol_mstr.rb --json`
+  output, generated OFFLINE through the contract harness (fake transport +
+  the recorded `cboe_options_mstr.json` fixture) under the vol_spread clock
+  `FAKE_NOW=2026-07-04T19:00:00Z` (keeps the fixture's expiries in the
+  future). Regenerate with:
+  `RUBYOPT="-Itest/support -rfake_transport" FAKE_NOW=2026-07-04T19:00:00Z
+  BTC_DATA_DIR=$(mktemp -d) ruby scripts/vol_mstr.rb --json`. Already minimal
+  (3 tenors); drives the `vol_surface_mstr` golden.
+
 - `payload_vol_spread.json` carries a **synthetic `history` block** (M8-16):
   10 days (`2026-06-25`..`2026-07-04`), 5 tenors each (7/14/21/45/90d),
   spreads drifting ~0.40-0.47, with a deliberate **null 45d spread on

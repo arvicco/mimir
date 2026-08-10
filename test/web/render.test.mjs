@@ -183,6 +183,71 @@ test('clicking MSTR reveals + resizes its chart and swaps title/badge; BTC resto
                '2026-07-06T16:00:00Z');
 });
 
+// ---- M8-17: stacked card with a tabbed section (shared tab_pos) ----------
+// Owner ruling 2026-08-10: the vol card's SURFACE half is a [BTC][MSTR] tab
+// pair -- members sharing a tab_pos collapse into ONE tabbed section; a
+// unique tab_pos stays a plain section. vol_surface (pos 0, BTC) +
+// vol_surface_mstr (pos 0, MSTR) tab together above vol_basis (pos 2).
+function stackEnv(key, gen, tab_pos, tab_label) {
+  return env(key, gen,
+    { desc: key + ' d', axes: { x: 'x', y: 'y' }, help: 'h',
+      tab_group: 'vol', group_style: 'stack', tab_pos: tab_pos,
+      tab_label: tab_label, height: 235 }, []);
+}
+const VSURF = () => stackEnv('chart:vol_surface', '2026-08-10T16:00:00Z', 0, 'BTC');
+const VMSTR = () => stackEnv('chart:vol_surface_mstr', '2026-08-10T15:00:00Z', 0, 'MSTR');
+const VBASIS = () => stackEnv('chart:vol_basis', '2026-08-10T14:00:00Z', 2, null);
+
+test('shared tab_pos collapses into ONE tabbed section; unique pos stays plain', () => {
+  const { R } = loadRender();
+  // index sorts alphabetically -> vol_basis, then vol_surface, then _mstr
+  const c1 = R.buildChartCard(VBASIS(), 'chart:vol_basis');
+  const c2 = R.buildChartCard(VSURF(), 'chart:vol_surface');
+  const c3 = R.buildChartCard(VMSTR(), 'chart:vol_surface_mstr');
+  assert.equal(c1, c2, 'all members share ONE stacked card');
+  assert.equal(c2, c3);
+
+  const secs = c1.querySelectorAll('.stacksec');
+  assert.equal(secs.length, 2, 'two sections: the tabbed surface + plain basis');
+  // section order = tab_pos: surface (pos 0) on top, basis (pos 2) below
+  const bars = c1.querySelectorAll('.tabbar');
+  assert.equal(bars.length, 1, 'exactly one section carries a tab bar');
+  const tabs = bars[0].children;
+  assert.deepEqual(tabs.map((b) => b.textContent), ['BTC', 'MSTR'], 'BTC leads by CARD_ORDER');
+  assert.ok(tabs[0].classList.contains('active'), 'BTC active by default');
+  // the surface section shows ONE chart; the basis section its own
+  assert.equal(c1.querySelectorAll('.chart').length, 3);
+  assert.equal(c1.querySelectorAll('.chart').filter((d) => d.style.display !== 'none').length,
+               2, 'one visible surface chart + the always-visible basis chart');
+});
+
+test('clicking MSTR swaps the surface section key/badge and resizes; basis untouched', () => {
+  const { R, echarts } = loadRender();
+  const card = R.buildChartCard(VBASIS(), 'chart:vol_basis');
+  R.buildChartCard(VSURF(), 'chart:vol_surface');
+  R.buildChartCard(VMSTR(), 'chart:vol_surface_mstr');
+  const tabbar = card.querySelector('.tabbar');
+  const tabs = tabbar.children; // [BTC, MSTR]
+  // the surface section head reflects the active (BTC) member
+  const surfHead = tabbar.parentNode;         // .card-head
+  const surfSec = surfHead.parentNode;        // .stacksec
+  assert.equal(surfSec.querySelector('.key').textContent, 'chart:vol_surface');
+  assert.equal(surfSec.querySelector('.badge').getAttribute('data-generated-at'),
+               '2026-08-10T16:00:00Z');
+
+  const before = echarts.instances.reduce((s, i) => s + i._resizes, 0);
+  tabs[1].click(); // -> MSTR
+  const after = echarts.instances.reduce((s, i) => s + i._resizes, 0);
+  assert.ok(after > before, 'revealed MSTR chart is resized (hidden-init is 0x0)');
+  assert.ok(tabs[1].classList.contains('active'));
+  assert.equal(surfSec.querySelector('.key').textContent, 'chart:vol_surface_mstr');
+  assert.equal(surfSec.querySelector('.badge').getAttribute('data-generated-at'),
+               '2026-08-10T15:00:00Z');
+  // the basis section is a separate .stacksec, unaffected by the tab click
+  const basisSec = card.querySelectorAll('.stacksec').filter((s) => s !== surfSec)[0];
+  assert.equal(basisSec.querySelector('.key').textContent, 'chart:vol_basis');
+});
+
 // ---- M8-13: re-fetch cadence clamp --------------------------------------
 
 test('nextDelay honours ttl_hint_s but never polls faster than the 60s floor', () => {

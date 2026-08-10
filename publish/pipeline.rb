@@ -39,8 +39,8 @@
 #   is attempted. Error text stays redacted (kv_client's pattern).
 # - STATUS (frozen --tmux contract): /tmp/publish.status carries
 #   `PUB DRY|LIVE <published>/<expected> keys HH:MM UTC` where
-#   expected = producers + tails + charts + 1 (the index) = n/23
-#   (10 producers + 2 tails + 10 charts + index). Pinned in the tests.
+#   expected = producers + tails + charts + 1 (the index) = n/25
+#   (11 producers + 2 tails + 11 charts + index). Pinned in the tests.
 #   ADDITIVE (M7-5, 2026-07-07 frozen-evidence incident): when a PUBLISHED
 #   tail's newest entry is older than STALE_EVIDENCE_H (30h), the line gains
 #   a trailing ` OLD:<key>[,<key>...]` marker (TAILS order), e.g.
@@ -85,6 +85,7 @@ module Publish
       # (valid JSON, never 'unavailable') so they publish honestly even when
       # an upstream leg is down; their charts read from these keys.
       ['vol:latest',      ['ruby', 'scripts/vol.rb', '--json'],                        60,  1_800],
+      ['vol:mstr',        ['ruby', 'scripts/vol_mstr.rb', '--json'],                   90,  1_800],
       ['vol:spread',      ['ruby', 'scripts/vol_spread.rb', '--json'],                 90,  1_800],
       ['basis:latest',    ['ruby', 'scripts/basis.rb', '--json'],                      60,  1_800],
       ['gex:trend',       ['ruby', 'scripts/gex_trend.rb', '--json'],                  30,  86_400],
