@@ -372,6 +372,7 @@ async function loadChart(key) {
       grid.appendChild(card);
       initBadge(card, env);
     }
+    registerCard(key, env, card); // M8-13: remember it for auto-refresh
   } catch (e) {
     grid.appendChild(R.errCard(key, "render failed: " + apiUrl(key) + "\n" + e.message));
   }
@@ -420,16 +421,204 @@ async function loadBtco() {
     return;
   }
   try {
+    BTCO.env = env; // M8-13: remember the last good universe for auto-refresh
     // In-quadrant attach is shared renderer behavior (round 5 ruling).
     if (!R.attachBtcoTable(grid, env)) {
       // no chart card (pre-chart publish) -- fall back to its own strip
       var card = buildBtcoCard(env);
       grid.appendChild(card);
       initBadge(card, env);
+      BTCO.el = card; // fallback strip -- refresh replaces this node wholesale
+    } else {
+      BTCO.el = null; // table lives inside the chart:btco_table card
     }
   } catch (e) {
     grid.appendChild(R.errCard("btco:latest", "render failed: " + apiUrl("btco:latest") + "\n" + e.message));
   }
+}
+
+// ---- M8-13 auto-refresh -----------------------------------------------
+// Every published key is re-pulled on its own timer so an OPEN tab
+// converges to the latest publish with no reload (the gap that twice
+// confused us). Cadence per key = the payload's ttl_hint_s, floored at
+// 60s by R.nextDelay -- a "good for 30 min" payload is re-pulled every
+// 30 min, and nothing ever polls faster than 60s (no request storm).
+// generated_at is the change signal: an unchanged value rebuilds nothing.
+// A failed fetch keeps the last good card silently -- the page's designed
+// error cards are for the FIRST load only. Polling pauses while the tab is
+// hidden (visibilitychange) and catches up on return. Display behavior
+// only: no ttl_hint_s VALUE, chart spec, or publish path changes here.
+var CARDS = {};        // chart key -> { env, el, group }
+var GROUP_KEYS = {};   // tab_group id -> [member keys] in initial-load order
+var BTCO = { env: null, el: null }; // universe table's last good env + fallback node
+var HEADER = { idx: null, cadence: 60000, last: 0, timer: null };
+var UNITS = [];        // one poll unit per solo card / tab-group / the table
+
+function hidden() { return document.visibilityState === "hidden"; }
+function tabPos(env) { var m = env.meta || {}; return m.tab_pos == null ? 99 : m.tab_pos; }
+
+// Called for every chart key as it first renders (loadChart).
+function registerCard(key, env, card) {
+  var group = (env.meta && env.meta.tab_group) || null;
+  CARDS[key] = { env: env, el: card, group: group };
+  if (group) (GROUP_KEYS[group] || (GROUP_KEYS[group] = [])).push(key);
+}
+
+// Re-drop the universe table into (a rebuilt) chart:btco_table card from
+// the last good BTCO.env: remove any existing table first so a refresh
+// never duplicates it. Falls back to replacing a standalone strip node.
+function reattachBtco() {
+  if (!BTCO.env) return;
+  var grid = document.getElementById("grid");
+  var host = grid.querySelector('[data-key="chart:btco_table"]');
+  if (host) {
+    var old = host.querySelector("table.btco");
+    if (old) old.parentNode.removeChild(old);
+    R.attachBtcoTable(grid, BTCO.env);
+    return;
+  }
+  if (BTCO.el && BTCO.el.parentNode) {
+    var card = buildBtcoCard(BTCO.env);
+    BTCO.el.parentNode.replaceChild(card, BTCO.el);
+    initBadge(card, BTCO.env);
+    BTCO.el = card;
+  }
+}
+
+// ---- unit factories: solo chart, tab-group, universe table -------------
+function soloUnit(key) {
+  return {
+    cadenceFn: function () { return R.nextDelay(CARDS[key].env.ttl_hint_s); },
+    refresh: async function () {
+      var env = await getJSON(apiUrl(key));
+      if (env.generated_at === CARDS[key].env.generated_at) return; // unchanged
+      var oldCard = CARDS[key].el, parent = oldCard.parentNode;
+      R.releaseCard(oldCard);
+      var newCard = R.buildChartCard(env, key);
+      parent.replaceChild(newCard, oldCard);
+      initBadge(newCard, env);
+      CARDS[key] = { env: env, el: newCard, group: null };
+      if (key === "chart:btco_table") reattachBtco(); // gauge rebuilt -> re-add table
+    }
+  };
+}
+
+function groupUnit(groupId) {
+  var keys = GROUP_KEYS[groupId];
+  return {
+    cadenceFn: function () {
+      return Math.min.apply(null, keys.map(function (k) {
+        return R.nextDelay(CARDS[k].env.ttl_hint_s);
+      }));
+    },
+    refresh: async function () {
+      var envs = await Promise.all(keys.map(function (k) { return getJSON(apiUrl(k)); }));
+      var changed = keys.some(function (k, i) {
+        return envs[i].generated_at !== CARDS[k].env.generated_at;
+      });
+      if (!changed) return;
+      var oldCard = CARDS[keys[0]].el, parent = oldCard.parentNode;
+      R.releaseCard(oldCard);
+      R.forgetGroup(groupId); // rebuild the shared card from scratch
+      var newCard = null;
+      keys.forEach(function (k, i) {
+        newCard = R.buildChartCard(envs[i], k); // both members return the same card
+        CARDS[k] = { env: envs[i], el: newCard, group: groupId };
+      });
+      parent.replaceChild(newCard, oldCard);
+      // The default-active member (lowest tab_pos) owns the ticking badge,
+      // exactly as on first load; tab clicks re-point it via the renderer.
+      var active = keys.slice().sort(function (a, b) {
+        return tabPos(CARDS[a].env) - tabPos(CARDS[b].env);
+      })[0];
+      initBadge(newCard, CARDS[active].env);
+    }
+  };
+}
+
+function btcoUnit() {
+  return {
+    cadenceFn: function () { return R.nextDelay(BTCO.env && BTCO.env.ttl_hint_s); },
+    refresh: async function () {
+      var env = await getJSON(apiUrl("btco:latest"));
+      if (BTCO.env && env.generated_at === BTCO.env.generated_at) return;
+      BTCO.env = env;
+      reattachBtco();
+    }
+  };
+}
+
+// ---- scheduler: pause on hidden, catch up on return --------------------
+function pollUnit(u) {
+  if (hidden()) return; // resumeAll() reschedules when the tab returns
+  Promise.resolve()
+    .then(function () { return u.refresh(); })
+    .catch(function () { /* silent: the last good card stays put */ })
+    .then(function () {
+      u.last = Date.now();
+      u.cadence = u.cadenceFn();
+      u.timer = setTimeout(function () { pollUnit(u); }, u.cadence);
+    });
+}
+
+function pollHeader() {
+  if (hidden()) return;
+  Promise.resolve()
+    .then(function () { return getJSON(apiUrl("index")); })
+    .then(function (idx) {
+      HEADER.idx = idx;
+      var chips = document.getElementById("chips");
+      while (chips.firstChild) chips.removeChild(chips.firstChild); // clear old dots
+      buildHeader(idx); // repaint dot cluster + pub/fresh from the fresh index
+    })
+    .catch(function () { /* silent: last good header stays */ })
+    .then(function () {
+      HEADER.last = Date.now();
+      HEADER.cadence = R.nextDelay(HEADER.idx ? HEADER.idx.ttl_hint_s : 60);
+      HEADER.timer = setTimeout(pollHeader, HEADER.cadence);
+    });
+}
+
+function addUnit(u) {
+  u.last = Date.now();
+  u.cadence = u.cadenceFn();
+  u.timer = setTimeout(function () { pollUnit(u); }, u.cadence);
+  UNITS.push(u);
+}
+
+function pauseAll() {
+  UNITS.forEach(function (u) { clearTimeout(u.timer); });
+  clearTimeout(HEADER.timer);
+}
+
+function resumeAll() {
+  pauseAll(); // drop any pending timer so we never double-schedule
+  var now = Date.now();
+  UNITS.forEach(function (u) {
+    var due = u.cadence - (now - u.last);
+    if (due <= 0) pollUnit(u);                 // stale -> refresh immediately
+    else u.timer = setTimeout(function () { pollUnit(u); }, due);
+  });
+  var hdue = HEADER.cadence - (now - HEADER.last);
+  if (hdue <= 0) pollHeader();
+  else HEADER.timer = setTimeout(pollHeader, hdue);
+}
+
+// Build one poll unit per solo card, per tab-group, and for the table,
+// plus the header poller, then arm the visibility pause/resume.
+function startAutoRefresh() {
+  Object.keys(CARDS).forEach(function (key) {
+    var c = CARDS[key];
+    if (c.group) { if (GROUP_KEYS[c.group][0] === key) addUnit(groupUnit(c.group)); }
+    else addUnit(soloUnit(key));
+  });
+  if (BTCO.env || BTCO.el) addUnit(btcoUnit());
+  HEADER.last = Date.now();
+  HEADER.cadence = R.nextDelay(HEADER.idx ? HEADER.idx.ttl_hint_s : 60);
+  HEADER.timer = setTimeout(pollHeader, HEADER.cadence);
+  document.addEventListener("visibilitychange", function () {
+    if (hidden()) pauseAll(); else resumeAll();
+  });
 }
 
 // ---- boot -------------------------------------------------------------
@@ -448,6 +637,7 @@ async function loadBtco() {
     showBanner();
     return;
   }
+  HEADER.idx = idx; // seed the header poller with the first index
   var chartKeys = buildHeader(idx);
   // An index without chart:* keys is a publish older than the chart
   // pipeline -- render the reason, not a bare page (Gate 4 lesson).
@@ -464,6 +654,7 @@ async function loadBtco() {
   await loadBtco(); // the literal universe table, INSIDE the btco quadrant
   if (!healthzOk) showBanner(); // index served (maybe cached) but worker probe failed
   setInterval(tickAll, 1000);   // the signature -- ONE interval for the page
+  startAutoRefresh();           // M8-13: per-key re-fetch so the tab converges live
   window.addEventListener("resize", function () {
     R.charts.forEach(function (c) { c.resize(); });
   });
