@@ -183,16 +183,18 @@ same commit (`rake health` fails on registry drift).
 
 ## Current phase
 
-Phase 7 closing (branch phase-7, soaked since 2026-07-10, CI green).
-**BTCo development is FROZEN (owner ruling 2026-08-10, pending a
-rethink)**: no BTCo packets, no ingest work, no universe edits; the
-code stays in the tree and its tests keep passing. Gate 7 is
-re-scoped to merge + tag v1 without BTCo validation --
-docs/Gate-7-runbook.md is current. After Gate 7: Gate 8 (vol/GEX
-family, already built on branch phase-8 in ~/Dev/mimir-phase8), then
-Phase 9 (LPPL statistics revision from the SBI review; every verdict-
-affecting change is a Golden-Rule-4 decision item). Stage A tiering
-(DEV-LOOP.md section 2): Fable orchestrates/reviews, Opus/Sonnet
-write most code in isolated worktrees. Visual work follows
-.claude/skills/mimir-design; deploys and launchd changes are HUMAN
-actions (Golden Rule 3). Update this line at each gate.
+Phase 8 (branch phase-8; Gate 7 closed 2026-08-10 -- PR #8 merged,
+v1 tagged at 03cac84, deployed and live-verified). **BTCo
+development is FROZEN (owner ruling 2026-08-10, pending a rethink)**:
+no BTCo packets, no ingest work, no universe edits; code and tests
+stay. Owner rulings 2026-08-10: BTCo table stays VISIBLE (as a
+rethink reminder), the daily btco-alert agent STOPS, dashboard
+auto-refresh gets BUILT (pre-Gate-8 packet). Gate 8 = vol/GEX family
+(M8-1..M8-10 built) + pre-gate hardening; runbook
+docs/Gate-8-runbook.md. After Gate 8: Phase 9 (LPPL statistics
+revision from the SBI review; every verdict-affecting change is a
+Golden-Rule-4 decision item). Stage A tiering (DEV-LOOP.md section
+2): Fable orchestrates/reviews, Opus/Sonnet write most code in
+isolated worktrees. Visual work follows .claude/skills/mimir-design;
+deploys and launchd changes are HUMAN actions (Golden Rule 3).
+Update this line at each gate.

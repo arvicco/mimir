@@ -116,6 +116,48 @@ class TestLpplAsOf < Minitest::Test
     end
   end
 
+  def test_trend_heals_a_torn_append_without_duplicates
+    # C8 (SBI review): the dedup key was pl_full-only, so a crash between the
+    # pl_full line and its group's rw line left the cache permanently
+    # unbalanced -- pl_full present, rw missing, never recomputed. A rerun
+    # must restore the missing rows and must NOT duplicate the survivors.
+    Dir.mktmpdir do |base|
+      root = File.join(base, 'data')
+      dir  = File.join(root, 'lppl')
+      write_prices(dir, Time.utc(2019, 1, 1), Time.utc(2024, 6, 30))
+      cache = File.join(dir, 'trend_scores.csv')
+
+      _, err, st = run_module(root, 'trend')
+      assert st.success?, err
+
+      lines = File.readlines(cache)
+      torn = lines.reverse.find { |l| l.split(',')[2] == 'pl_full' }
+      dkey, h, = torn.split(',')
+      group = ->(l) { p = l.split(','); p[0] == dkey && p[1] == h }
+      File.write(cache, lines.reject { |l| group.call(l) && !l.include?('pl_full') }.join)
+
+      _, err2, st2 = run_module(root, 'trend')
+      assert st2.success?, err2
+      after = File.readlines(cache).select { |l| group.call(l) }
+      counts = after.group_by { |l| l.split(',')[2] }.transform_values(&:size)
+      assert_equal 1, counts['pl_full'], "pl_full duplicated: #{after.inspect}"
+      assert_equal 1, counts['rw'], "rw not restored exactly once: #{after.inspect}"
+    end
+  end
+
+  def test_history_as_of_refuses_without_data_dir_override
+    # C6 (SBI review): --history --as-of against the LIVE data dir would
+    # write backdated ledger entries despite the header's read-only claim.
+    # Without BTC_DATA_DIR the combination must abort before any module runs.
+    out, err, st = Open3.capture3(
+      { 'BTC_DATA_DIR' => nil }, RbConfig.ruby,
+      File.join(ROOT, 'scripts/lppl/lppl.rb'),
+      '--as-of', '2024-06-15', '--history', '--skip-update'
+    )
+    refute st.success?, "must refuse: out=#{out} err=#{err}"
+    assert_match(/BTC_DATA_DIR/, err + out)
+  end
+
   def test_trend_live_run_does_append_the_cache
     # Control: without --as-of the same setup DOES grow the cache, proving the
     # suppression above is load-bearing and not a no-op.

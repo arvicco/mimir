@@ -1,0 +1,145 @@
+{
+  "backgroundColor": "transparent",
+  "title": {
+    "text": "Spread trend · 10d history",
+    "textStyle": {
+      "fontSize": 13
+    }
+  },
+  "tooltip": {
+    "trigger": "axis",
+    "confine": true,
+    "textStyle": {
+      "fontSize": 11
+    }
+  },
+  "legend": {
+    "top": 24,
+    "data": [
+      "7d",
+      "14d",
+      "21d",
+      "45d",
+      "90d"
+    ]
+  },
+  "grid": {
+    "left": 56,
+    "right": 24,
+    "top": 52,
+    "bottom": 28
+  },
+  "xAxis": {
+    "type": "category",
+    "data": [
+      "2026-06-25",
+      "2026-06-26",
+      "2026-06-27",
+      "2026-06-28",
+      "2026-06-29",
+      "2026-06-30",
+      "2026-07-01",
+      "2026-07-02",
+      "2026-07-03",
+      "2026-07-04"
+    ]
+  },
+  "yAxis": {
+    "type": "value",
+    "name": "spread vol pts",
+    "nameLocation": "middle",
+    "nameGap": 44
+  },
+  "series": [
+    {
+      "name": "7d",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 6,
+      "data": [
+        40.2,
+        41.5,
+        43.0,
+        44.5,
+        45.2,
+        46.1,
+        45.8,
+        44.9,
+        44.1,
+        46.3
+      ]
+    },
+    {
+      "name": "14d",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 6,
+      "data": [
+        41.0,
+        41.8,
+        42.8,
+        44.0,
+        44.8,
+        45.5,
+        45.3,
+        44.6,
+        43.9,
+        45.1
+      ]
+    },
+    {
+      "name": "21d",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 6,
+      "data": [
+        41.5,
+        42.1,
+        42.7,
+        43.8,
+        44.4,
+        45.0,
+        44.9,
+        44.3,
+        43.7,
+        44.4
+      ]
+    },
+    {
+      "name": "45d",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 6,
+      "data": [
+        42.0,
+        42.5,
+        43.1,
+        43.6,
+        44.1,
+        null,
+        44.6,
+        44.0,
+        43.5,
+        43.7
+      ]
+    },
+    {
+      "name": "90d",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 6,
+      "data": [
+        41.8,
+        42.2,
+        42.9,
+        43.3,
+        43.7,
+        44.2,
+        44.0,
+        43.6,
+        43.2,
+        43.1
+      ]
+    }
+  ]
+}

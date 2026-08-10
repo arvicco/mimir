@@ -107,24 +107,42 @@ var FORMATTERS = {
 // ECharts still owns selection state and the widget drives it via legend
 // actions). Unknown names simply render no widget.
 var WIDGETS = {
-  // gex_cp: one compact line per venue -- "(p) DERI (c)". Clicking (p) or
+  // gex_cp: one compact toggle per venue -- "(p) DERI (c)". Clicking (p) or
   // (c) toggles that side's series alone; clicking the venue name toggles
   // both together (both shown -> both hidden, anything else -> both shown).
+  //
+  // M8-18 R3 (owner ruling 2026-08-10): the widget sits at the TOP-RIGHT of
+  // the BTC GEX chart (an owner-ruled EXCEPTION to "side panels go right"),
+  // laid out as a FIXED 2x3 grid -- row 1 IBIT FBTC BITB, row 2 DERI ARKB GBTC.
+  // A venue absent from the payload (filtered as insignificant) leaves its
+  // slot collapsed; rows stay in order. The venue universe is exactly these
+  // six (Deribit + the five US spot-ETF chains), so nothing is ever dropped.
   gex_cp: function (card, chart, option) {
-    var venues = [], sides = {};
+    var ORDER = [["IBIT", "FBTC", "BITB"], ["DERI", "ARKB", "GBTC"]];
+    var sides = {}; // venue LABEL (may carry a stale '!') -> {C, P} series names
     (option.series || []).forEach(function (s) {
       var m = /^(.*) ([CP])$/.exec(s.name || "");
       if (!m) return;
-      if (!sides[m[1]]) { sides[m[1]] = {}; venues.push(m[1]); }
+      if (!sides[m[1]]) sides[m[1]] = {};
       sides[m[1]][m[2]] = s.name;
     });
-    if (!venues.length) return;
+    var labels = Object.keys(sides);
+    if (!labels.length) return;
+    // resolve a fixed slot to the actual present label -- a stale 'DERI!'
+    // still fills the DERI slot (base match); absent venues resolve to null.
+    function resolve(slot) {
+      if (sides[slot]) return slot;
+      for (var i = 0; i < labels.length; i += 1) {
+        if (labels[i].replace(/!$/, "") === slot) return labels[i];
+      }
+      return null;
+    }
 
     var sel = {}; // series start selected; tracked via legendselectchanged
-    venues.forEach(function (v) { sel[sides[v].C] = true; sel[sides[v].P] = true; });
-    var rows = [];
+    labels.forEach(function (v) { sel[sides[v].C] = true; sel[sides[v].P] = true; });
+    var cells = [];
     function paint() {
-      rows.forEach(function (r) {
+      cells.forEach(function (r) {
         r.p.classList.toggle("off", !sel[sides[r.v].P]);
         r.c.classList.toggle("off", !sel[sides[r.v].C]);
         r.name.classList.toggle("off", !sel[sides[r.v].P] && !sel[sides[r.v].C]);
@@ -139,29 +157,36 @@ var WIDGETS = {
 
     var box = document.createElement("div");
     box.className = "cp-legend";
-    venues.forEach(function (v) {
-      var row = document.createElement("div");
-      row.className = "cp-row";
-      function piece(txt, cls, onclick) {
-        // Real <button> (reset via .cp CSS in both host pages) so the toggle
-        // is keyboard-operable with a :focus-visible ring; behavior unchanged.
-        var el = document.createElement("button");
-        el.type = "button";
-        el.className = "cp " + cls;
-        el.textContent = txt;
-        el.onclick = onclick;
-        row.appendChild(el);
-        return el;
-      }
-      var p = piece("(p)", "cp-p", function () { setTo([sides[v].P], !sel[sides[v].P]); });
-      row.appendChild(document.createTextNode(" "));
-      var name = piece(v, "cp-v", function () {
-        setTo([sides[v].P, sides[v].C], !(sel[sides[v].P] && sel[sides[v].C]));
+    ORDER.forEach(function (row) {
+      var rowEl = document.createElement("div");
+      rowEl.className = "cp-row";
+      row.forEach(function (slot) {
+        var v = resolve(slot);
+        if (!v) return; // absent venue -- slot collapses, row keeps its order
+        var cell = document.createElement("span");
+        cell.className = "cp-cell";
+        function piece(txt, cls, onclick) {
+          // Real <button> (reset via .cp CSS in both host pages) so the toggle
+          // is keyboard-operable with a :focus-visible ring; behavior unchanged.
+          var el = document.createElement("button");
+          el.type = "button";
+          el.className = "cp " + cls;
+          el.textContent = txt;
+          el.onclick = onclick;
+          cell.appendChild(el);
+          return el;
+        }
+        var p = piece("(p)", "cp-p", function () { setTo([sides[v].P], !sel[sides[v].P]); });
+        cell.appendChild(document.createTextNode(" "));
+        var name = piece(v, "cp-v", function () {
+          setTo([sides[v].P, sides[v].C], !(sel[sides[v].P] && sel[sides[v].C]));
+        });
+        cell.appendChild(document.createTextNode(" "));
+        var c = piece("(c)", "cp-c", function () { setTo([sides[v].C], !sel[sides[v].C]); });
+        cells.push({ v: v, p: p, c: c, name: name });
+        rowEl.appendChild(cell);
       });
-      row.appendChild(document.createTextNode(" "));
-      var c = piece("(c)", "cp-c", function () { setTo([sides[v].C], !sel[sides[v].C]); });
-      rows.push({ v: v, p: p, c: c, name: name });
-      box.appendChild(row);
+      box.appendChild(rowEl);
     });
     card.appendChild(box);
   }
@@ -194,13 +219,95 @@ function tooltipPosition(container) {
   };
 }
 
+// Display rule (owner ruling 2026-08-10): the chart: prefix is internal
+// namespacing -- every user-visible key label drops it.
+function dispKey(key) { return String(key).replace(/^chart:/, ""); }
+
 function errCard(key, msg) {
   var card = document.createElement("div");
   card.className = "card err";
-  card.innerHTML = '<div class="card-head"><span class="key">' + key + '</span></div>' +
-                   '<div class="msg"></div>';
-  card.querySelector(".msg").textContent = msg;
+  // Node-built, not innerHTML: `key` is a KV-sourced string (M8-12 / SBI
+  // C4). Same DOM as before -- .card-head > .key, then .msg.
+  var head = document.createElement("div");
+  head.className = "card-head";
+  var keySpan = document.createElement("span");
+  keySpan.className = "key";
+  keySpan.textContent = dispKey(key);
+  head.appendChild(keySpan);
+  card.appendChild(head);
+  var msgEl = document.createElement("div");
+  msgEl.className = "msg";
+  msgEl.textContent = msg;
+  card.appendChild(msgEl);
   return card;
+}
+
+// M8-18 R6 (owner ruling 2026-08-10): a card badge is now JUST a staleness
+// dot -- the '● green · ttl 1800s' text (and the ticking 'age' on index.html)
+// was too much. Everything moved to an instant hover/focus bubble (the header
+// ldot pattern: dot-only + bubble, owner ruling 2026-07-06). The badge is a
+// focusable element carrying data-generated-at/data-ttl; its bubble text is
+// built from those attrs ON OPEN so it is always current, right-anchored and
+// flip-up so it never clips at the viewport.
+//
+// makeBadge builds the DOM + wires the on-open text fill ONCE; setBadge points
+// it at an envelope (dot class + data attrs); refreshBadge re-evaluates the dot
+// from the data attrs alone (the page ticker, which has no envelope).
+function makeBadge() {
+  var badge = document.createElement("span");
+  badge.className = "badge";
+  badge.setAttribute("tabindex", "0");      // focusable like the header ldots
+  badge.setAttribute("role", "img");
+  var dot = document.createElement("span");
+  dot.className = "dot";
+  badge.appendChild(dot);
+  var bubble = document.createElement("span");
+  bubble.className = "badge-bubble";
+  badge.appendChild(bubble);
+  function fill() {
+    bubble.textContent = badgeBubbleText(badge); // current at open time
+    // flip up when the default below-the-badge position would clip at the
+    // viewport bottom (bottom-row cards) -- the orient() pattern.
+    requestAnimationFrame(function () {
+      bubble.classList.remove("up");
+      var r = bubble.getBoundingClientRect();
+      if (r.height && r.bottom > window.innerHeight) bubble.classList.add("up");
+    });
+  }
+  badge.addEventListener("mouseenter", fill);
+  badge.addEventListener("focus", fill);
+  return badge;
+}
+
+// "age 3m12s · ttl 1800s · 14:18Z" from a badge's data attrs (built on open).
+function badgeBubbleText(badge) {
+  var gen = badge.getAttribute("data-generated-at");
+  var ttl = Number(badge.getAttribute("data-ttl"));
+  var age = (Date.now() - new Date(gen).getTime()) / 1000;
+  return "age " + fmtBadgeAge(age) + " · ttl " + ttl + "s · " + hhmm(gen) + "Z";
+}
+
+// Compact age: "3m12s" under an hour, "2h 05m" under a day, else "1d 03h".
+function fmtBadgeAge(sec) {
+  var s = Math.floor(sec < 0 ? 0 : sec);
+  function p2(n) { return (n < 10 ? "0" : "") + n; }
+  if (s < 3600)  return Math.floor(s / 60) + "m" + p2(s % 60) + "s";
+  if (s < 86400) return Math.floor(s / 3600) + "h " + p2(Math.floor((s % 3600) / 60)) + "m";
+  return Math.floor(s / 86400) + "d " + p2(Math.floor((s % 86400) / 3600)) + "h";
+}
+
+// Re-evaluate a badge's dot class + aria from its own data attrs, and refresh
+// an already-populated bubble's text (the page ticker calls this each second;
+// it has no envelope). No-op on a badge the renderer has not stamped yet.
+function refreshBadge(badge) {
+  var gen = badge.getAttribute("data-generated-at");
+  if (!gen) return;
+  var cls = staleClass(gen, Number(badge.getAttribute("data-ttl")));
+  var dot = badge.querySelector(".dot");
+  if (dot) dot.className = "dot " + cls;
+  badge.setAttribute("aria-label", "data freshness " + cls);
+  var bubble = badge.querySelector(".badge-bubble");
+  if (bubble && bubble.textContent) bubble.textContent = badgeBubbleText(badge);
 }
 
 // Instantiate ONE chart div+echarts from an envelope, applying the
@@ -240,26 +347,15 @@ function buildChartInstance(env, key, meta, legendHost) {
   return { div: div, chart: chart };
 }
 
-// Point a badge at an envelope's staleness, compatible with BOTH host
-// pages (M6-4 tab swap): index.html rewrites the badge to a ticking
-// dot+age keyed off data-generated-at/data-ttl, preview.html keeps the
-// static "green · ttl Ns" text. Detect which shape is present: if a
-// .age span exists (index's ticker structure) only refresh the dot +
-// data attributes (the page's 1 s ticker owns the age text); otherwise
-// rewrite the static text. Always sets the data attributes so the
-// ticker follows whichever tab is visible.
+// Point a badge (from makeBadge) at an envelope's staleness -- stamps
+// data-generated-at/data-ttl (so the page ticker and the on-open bubble read
+// them) and repaints the dot. Shared by BOTH host pages and every tab/stack
+// swap; refreshes an already-open bubble so a swap under the pointer stays
+// current. Dot-only since M8-18 R6.
 function setBadge(badge, env) {
-  var cls = staleClass(env.generated_at, env.ttl_hint_s);
   badge.setAttribute("data-generated-at", env.generated_at);
   badge.setAttribute("data-ttl", env.ttl_hint_s);
-  var age = badge.querySelector(".age");
-  if (age) {
-    var dot = badge.querySelector(".dot");
-    if (dot) dot.className = "dot " + cls; // instant; age caught up by the ticker
-  } else {
-    badge.innerHTML = '<span class="dot ' + cls + '"></span>' +
-      cls + ' &middot; ttl ' + env.ttl_hint_s + 's';
-  }
+  refreshBadge(badge);
 }
 
 // Live tab-groups, keyed by meta.tab_group (M6-4). One entry per shared
@@ -285,7 +381,7 @@ function activateGroup(g, member) {
     // have, leaving the inactive tab keyboard-unreachable
   });
   g.card.dataset.key = member.key;   // reflect the visible key
-  g.keySpan.textContent = member.key; // owner always sees which key this is
+  g.keySpan.textContent = dispKey(member.key); // owner always sees which key this is
   var nb = buildBubble(member.meta);  // swap the hover help to this tab
   while (g.bubble.firstChild) g.bubble.removeChild(g.bubble.firstChild);
   while (nb.firstChild) g.bubble.appendChild(nb.firstChild);
@@ -320,8 +416,7 @@ function buildGroupedCard(env, key, meta, groupId) {
     tabbar.setAttribute("role", "tablist");
     tabbar.setAttribute("aria-label", "chart variant");
     head.appendChild(tabbar);
-    var badge = document.createElement("span");
-    badge.className = "badge";
+    var badge = makeBadge();
     head.appendChild(badge);
     card.appendChild(head);
     var bubble = document.createElement("div");
@@ -373,6 +468,157 @@ function buildGroupedCard(env, key, meta, groupId) {
   return g.card;
 }
 
+// Build (or extend) a STACKED group card (owner ruling 2026-08-10:
+// vol_surface + vol_basis are "one card, two half-card charts", not
+// tabs). Same GROUPS registry and grouping meta as the tab style, but
+// members are stacked vertically by tab_pos, each a section with its own
+// head (key + ⓘ + badge) above its half-height chart, its own hover
+// bubble, and its own envelope's freshness (setBadge stamps
+// data-generated-at, so the page ticker drives every section).
+//
+// M8-17 (owner ruling 2026-08-10): members that SHARE a tab_pos collapse
+// into ONE tabbed section -- the vol card's SURFACE half is a [BTC][MSTR]
+// tab pair on top, BASIS a plain section below. Each member owns a stable
+// chart div + instance; the section chrome around them is rebuilt on every
+// add (buildGroupedCard's rebuild idiom), so a late-loading sibling can
+// re-form the tab bar. The whole card is rebuilt from all member envelopes
+// on refresh (index.html groupUnit + forgetGroup).
+function buildStackedCard(env, key, meta, groupId) {
+  var g = GROUPS[groupId];
+  if (!g) {
+    var card = document.createElement("div");
+    card.className = "card";
+    g = GROUPS[groupId] = { card: card, members: [], active: null, stacked: true };
+  }
+
+  var inst = buildChartInstance(env, key, meta, null);
+  g.members.push({ pos: meta.tab_pos == null ? 99 : meta.tab_pos,
+                   key: env.key || key, env: env, meta: meta,
+                   chartDiv: inst.div, chart: inst.chart });
+  rebuildStack(g);
+  return g.card;
+}
+
+// (Re)build a stacked card's sections from its members: bucket by tab_pos
+// (ascending vertical order), each bucket becoming ONE section. A bucket
+// with a single member is a plain section; a bucket with several (a shared
+// tab_pos, M8-17) is a tabbed section, its members ordered by CARD_ORDER
+// rank so BTC (lower rank) leads. Chart divs/instances are reused (moved,
+// not recreated) so echarts survives; a rAF resize re-fits them once placed.
+function rebuildStack(g) {
+  var byPos = {}, order = [];
+  g.members.forEach(function (m) {
+    if (!byPos[m.pos]) { byPos[m.pos] = []; order.push(m.pos); }
+    byPos[m.pos].push(m);
+  });
+  order.sort(function (a, b) { return a - b; });
+
+  while (g.card.firstChild) g.card.removeChild(g.card.firstChild);
+  var firstKey = null;
+  order.forEach(function (pos, i) {
+    var ms = byPos[pos].slice().sort(function (a, b) { return cardRank(a.key) - cardRank(b.key); });
+    if (i === 0) firstKey = ms[0].key;
+    g.card.appendChild(ms.length > 1 ? tabbedStackSection(ms) : plainStackSection(ms[0]));
+  });
+  g.card.dataset.key = firstKey;
+  g.members.forEach(function (m) { requestAnimationFrame(function () { m.chart.resize(); }); });
+}
+
+// One stacked-section shell: a head (key.hover + ⓘ [+ tab bar] + badge)
+// over a hover bubble, with the viewport-flip orient wiring. The caller
+// fills the key/bubble/badge and appends the chart div(s).
+function stackShell(withTabbar) {
+  var section = document.createElement("div");
+  section.className = "stacksec";
+  var head = document.createElement("div");
+  head.className = "card-head";
+  var keySpan = document.createElement("span");
+  keySpan.className = "key hover";
+  head.appendChild(keySpan);
+  var info = document.createElement("span");
+  info.className = "info hover";
+  info.textContent = "ⓘ";
+  info.tabIndex = 0;
+  head.appendChild(info);
+  var tabbar = null;
+  if (withTabbar) {
+    tabbar = document.createElement("span");
+    tabbar.className = "tabbar";
+    tabbar.setAttribute("role", "tablist");
+    tabbar.setAttribute("aria-label", "surface underlying");
+    head.appendChild(tabbar);
+  }
+  var badge = makeBadge();
+  head.appendChild(badge);
+  section.appendChild(head);
+  var bubble = document.createElement("div");
+  bubble.className = "bubble";
+  section.appendChild(bubble);
+  function orient() {
+    requestAnimationFrame(function () {
+      if (!bubble.getBoundingClientRect().height) return;
+      bubble.classList.remove("up");
+      if (bubble.getBoundingClientRect().bottom > window.innerHeight) bubble.classList.add("up");
+    });
+  }
+  head.addEventListener("mouseover", orient);
+  head.addEventListener("focusin", orient);
+  return { section: section, keySpan: keySpan, tabbar: tabbar, badge: badge, bubble: bubble };
+}
+
+// Replace a bubble element's contents with the structured help for `meta`.
+function fillBubble(target, meta) {
+  var nb = buildBubble(meta);
+  while (target.firstChild) target.removeChild(target.firstChild);
+  while (nb.firstChild) target.appendChild(nb.firstChild);
+}
+
+// A single-member stacked section: exactly the pre-M8-17 layout.
+function plainStackSection(m) {
+  var s = stackShell(false);
+  s.keySpan.textContent = dispKey(m.key);
+  fillBubble(s.bubble, m.meta);
+  setBadge(s.badge, m.env);
+  m.chartDiv.style.display = "";
+  s.section.appendChild(m.chartDiv);
+  return s.section;
+}
+
+// A tabbed stacked section (M8-17): one head with a mini [BTC][MSTR] tab
+// bar, ONE chart visible at a time. Clicking a tab swaps the visible chart
+// (resizing it -- a display:none div renders 0x0), and the section's key
+// text, hover bubble and staleness badge to that member's envelope (the
+// activateGroup idiom, scoped to this section). Default = ms[0] (lowest
+// CARD_ORDER rank, i.e. BTC).
+function tabbedStackSection(ms) {
+  var s = stackShell(true);
+  function activate(m) {
+    ms.forEach(function (x) {
+      var on = x === m;
+      x.chartDiv.style.display = on ? "" : "none";
+      x.btn.classList.toggle("active", on);
+      x.btn.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    s.keySpan.textContent = dispKey(m.key);
+    fillBubble(s.bubble, m.meta);
+    setBadge(s.badge, m.env);
+    requestAnimationFrame(function () { m.chart.resize(); });
+  }
+  ms.forEach(function (m) {
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tabbtn";
+    btn.setAttribute("role", "tab");
+    btn.textContent = m.meta.tab_label || m.key;
+    btn.addEventListener("click", function () { activate(m); });
+    m.btn = btn;
+    s.tabbar.appendChild(btn);
+    s.section.appendChild(m.chartDiv);
+  });
+  activate(ms[0]);
+  return s.section;
+}
+
 // Build a chart card from an already-fetched envelope. Returns the card
 // element; the caller appends it to the document IN THE SAME TASK (the
 // rAF below then sizes the chart once layout exists -- echarts.init ran
@@ -385,12 +631,15 @@ function buildGroupedCard(env, key, meta, groupId) {
 // append accordingly.
 function buildChartCard(env, key) {
   var meta = env.meta || null;
-  if (meta && meta.tab_group) return buildGroupedCard(env, key, meta, meta.tab_group);
+  if (meta && meta.tab_group) {
+    return meta.group_style === "stack" ?
+      buildStackedCard(env, key, meta, meta.tab_group) :
+      buildGroupedCard(env, key, meta, meta.tab_group);
+  }
 
   var card = document.createElement("div");
   card.className = "card";
   card.dataset.key = env.key || key; // pages locate specific cards by key
-  var badgeCls = staleClass(env.generated_at, env.ttl_hint_s);
   var head = document.createElement("div");
   head.className = "card-head";
 
@@ -398,7 +647,7 @@ function buildChartCard(env, key) {
   // meta); no meta means no bubble and no hover affordance.
   var keySpan = document.createElement("span");
   keySpan.className = "key" + (meta ? " hover" : "");
-  keySpan.textContent = env.key || key;
+  keySpan.textContent = dispKey(env.key || key);
   head.appendChild(keySpan);
   if (meta) {
     var info = document.createElement("span");
@@ -407,10 +656,8 @@ function buildChartCard(env, key) {
     info.tabIndex = 0; // keyboard-reachable: focus opens the bubble (.hover:focus rule)
     head.appendChild(info);
   }
-  var badge = document.createElement("span");
-  badge.className = "badge";
-  badge.innerHTML = '<span class="dot ' + badgeCls + '"></span>' +
-    badgeCls + ' &middot; ttl ' + env.ttl_hint_s + 's';
+  var badge = makeBadge();
+  setBadge(badge, env);
   head.appendChild(badge);
 
   card.appendChild(head);
@@ -462,7 +709,7 @@ function liveHeader(o) {
   function hide() { o.bubbleEl.style.display = "none"; }
   rows.forEach(function (row) {
     tally(row.generated_at);
-    var label = row.key + "@" + hhmm(row.generated_at);
+    var label = dispKey(row.key) + "@" + hhmm(row.generated_at);
     var dot = document.createElement("button");
     dot.type = "button";
     dot.className = "ldot " + staleClass(row.generated_at, idxTtl);
@@ -476,8 +723,25 @@ function liveHeader(o) {
   tally(o.idx.generated_at); // the index envelope itself is the last key
   var when = newestMs ? hhmm(new Date(newestMs).toISOString()) : "--:--";
   o.pubEl.textContent = "pub " + when + "Z · " + green + "/" + (rows.length + 1) + " fresh";
-  return rows.filter(function (r) { return r.key.indexOf("chart:") === 0; })
-             .map(function (r) { return r.key; });
+  var keys = rows.filter(function (r) { return r.key.indexOf("chart:") === 0; })
+                 .map(function (r) { return r.key; });
+  return keys.slice().sort(function (a, b) { return cardRank(a) - cardRank(b); });
+}
+
+// Card placement (owner ruling 2026-08-10): 3x2 grid, row 1 GEX ·
+// Volatility · Vol-Spread (top-right, by the GEX profile), row 2
+// Scenario · LPPL · BTCo. A tab-group's card is created by its FIRST
+// key in iteration order, so every group member ranks with its group.
+// Unknown keys keep index order after the known ones (fail-open for
+// future charts).
+var CARD_ORDER = ["chart:gex_btc", "chart:gex_mstr", "chart:gex_btc_trend",
+                  "chart:gex_mstr_trend",
+                  "chart:vol_surface", "chart:vol_surface_mstr", "chart:vol_basis",
+                  "chart:vol_spread", "chart:vol_spread_trend",
+                  "chart:scenario_strip", "chart:lppl_regime", "chart:btco_table"];
+function cardRank(key) {
+  var i = CARD_ORDER.indexOf(key);
+  return i === -1 ? CARD_ORDER.length : i;
 }
 
 // ---- BTCo universe table (M4-7; shared 2026-07-06, unified view) ------
@@ -587,11 +851,41 @@ function attachBtcoTable(gridEl, env) {
   return true;
 }
 
+// ---- M8-13 auto-refresh seams -------------------------------------------
+// Re-fetch cadence for a key: the payload's own ttl_hint_s, clamped to a
+// hard 60s floor so no key can ever storm the Worker. A missing/NaN/short
+// ttl also floors to 60s. Returns MILLISECONDS for setTimeout. Pure -- the
+// only unit-tested piece of the refresh loop (page.html owns the DOM timer,
+// exercised in preview).
+function nextDelay(ttlSec) {
+  var t = Number(ttlSec);
+  if (!isFinite(t) || t < 60) t = 60;
+  return t * 1000;
+}
+
+// Dispose every echarts instance rendered inside `card` and drop it from
+// the resize registry (mutated in place so MimirRender.charts stays the
+// same array). Called before a refresh swaps a card out, so stale
+// instances neither leak nor keep answering window-resize.
+function releaseCard(card) {
+  for (var i = charts.length - 1; i >= 0; i -= 1) {
+    var dom = charts[i].getDom && charts[i].getDom();
+    if (dom && card.contains(dom)) { charts[i].dispose(); charts.splice(i, 1); }
+  }
+}
+
+// Forget a tab-group so its shared card can be rebuilt from scratch on
+// refresh (GROUPS state is otherwise per-page-load and would accrue
+// duplicate members). Pair with releaseCard on the old card element.
+function forgetGroup(groupId) {
+  if (GROUPS[groupId]) delete GROUPS[groupId];
+}
+
 // ONE global -- shared by preview.html and index.html.
 // rev: bump on EVERY render.js change; `MimirRender.rev` in the console
 // answers "which renderer is this tab actually running?" after deploys.
 window.MimirRender = {
-  rev: "m6-tab1",
+  rev: "m8-18-dot-badges",
   staleClass: staleClass,
   hhmm: hhmm,
   liveHeader: liveHeader,
@@ -600,6 +894,12 @@ window.MimirRender = {
   buildBubble: buildBubble,
   errCard: errCard,
   buildChartCard: buildChartCard,
+  makeBadge: makeBadge,
+  setBadge: setBadge,
+  refreshBadge: refreshBadge,
+  nextDelay: nextDelay,
+  releaseCard: releaseCard,
+  forgetGroup: forgetGroup,
   charts: charts,
   FORMATTERS: FORMATTERS,
   WIDGETS: WIDGETS

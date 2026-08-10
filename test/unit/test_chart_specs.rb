@@ -54,9 +54,9 @@ class TestChartSpecs < Minitest::Test
 
   def test_renderer_hooks_declared_in_meta
     metas = Publish::Charts::CHARTS.transform_values { |s| s[:meta] }
-    assert_equal 'gex_levels', metas['gex_profile']['tooltip_formatter']
+    assert_equal 'gex_levels', metas['gex_btc']['tooltip_formatter']
     assert_equal 250, metas['scenario_strip']['height'] # half-quadrant card
-    assert_equal 'gex_cp', metas['gex_profile']['legend_widget'] # (p) DERI (c)
+    assert_equal 'gex_cp', metas['gex_btc']['legend_widget'] # (p) DERI (c)
     # hooks are opt-in: nobody else declares them
     assert_nil metas['lppl_regime']['tooltip_formatter']
     assert_nil metas['btco_table']['height']
@@ -69,16 +69,190 @@ class TestChartSpecs < Minitest::Test
     # dashboard card as [BTC][MSTR] tabs. tab_group pairs them; tab_pos
     # fixes BTC first (the index sorts keys alphabetically, so gex_mstr
     # would otherwise lead). tab_label is the button text.
-    assert_equal 'gex', metas['gex_profile']['tab_group']
-    assert_equal 'BTC', metas['gex_profile']['tab_label']
-    assert_equal 1, metas['gex_profile']['tab_pos']
+    assert_equal 'gex', metas['gex_btc']['tab_group']
+    assert_equal 'BTC', metas['gex_btc']['tab_label']
+    assert_equal 1, metas['gex_btc']['tab_pos']
     assert_equal 'gex', metas['gex_mstr']['tab_group']
     assert_equal 'MSTR', metas['gex_mstr']['tab_label']
     assert_equal 2, metas['gex_mstr']['tab_pos']
-    # the other three charts are not part of any tab group
+    # scenario/lppl/btco stay solo cards
     assert_nil metas['scenario_strip']['tab_group']
     assert_nil metas['lppl_regime']['tab_group']
     assert_nil metas['btco_table']['tab_group']
+    # M8-6 as amended 2026-08-10 (owner rulings): vol_surface + vol_basis
+    # share the 'vol' card as ONE CARD, TWO STACKED HALF-HEIGHT charts
+    # (group_style 'stack'; tab_pos = vertical order, surface on top).
+    assert_equal %w[vol stack 0 235],
+                 metas['vol_surface'].values_at('tab_group', 'group_style', 'tab_pos', 'height').map(&:to_s)
+    assert_equal %w[vol stack 2 235],
+                 metas['vol_basis'].values_at('tab_group', 'group_style', 'tab_pos', 'height').map(&:to_s)
+    # M8-17 (owner ruling 2026-08-10): the SURFACE section is itself a
+    # [BTC][MSTR] tab pair -- vol_surface + vol_surface_mstr share tab_pos 0
+    # so the renderer collapses them into ONE tabbed section; tab_label names
+    # the button (BTC leads by CARD_ORDER, MSTR second).
+    assert_equal 'BTC', metas['vol_surface']['tab_label']
+    assert_equal %w[vol stack 0 235 MSTR],
+                 metas['vol_surface_mstr'].values_at('tab_group', 'group_style',
+                                                     'tab_pos', 'height', 'tab_label').map(&:to_s)
+    # M8-16 (owner ruling 2026-08-10): vol_spread + vol_spread_trend share
+    # the 'volspread' card the same way -- the current per-tenor bars on top
+    # (tab_pos 0), the daily spread trend below (tab_pos 1), both half-height.
+    assert_equal %w[volspread stack 0 235],
+                 metas['vol_spread'].values_at('tab_group', 'group_style', 'tab_pos', 'height').map(&:to_s)
+    assert_equal %w[volspread stack 1 235],
+                 metas['vol_spread_trend'].values_at('tab_group', 'group_style', 'tab_pos', 'height').map(&:to_s)
+    # M8-18 (owner ruling 2026-08-10): the GEX card is now four tabs --
+    # [BTC][MSTR][BTC TREND][MSTR TREND]. gex_btc_trend keeps pos 3 (relabelled
+    # 'BTC TREND'); gex_mstr_trend is the new pos-4 tab, reading gex:trend's
+    # additive 'mstr' block.
+    assert_equal ['gex', 'BTC TREND', '3'],
+                 metas['gex_btc_trend'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
+    assert_equal ['gex', 'MSTR TREND', '4'],
+                 metas['gex_mstr_trend'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
+    # the vol charts carry no drawn-legend/tooltip renderer hooks;
+    # the stacked pairs DO carry height (half a card each)
+    %w[vol_surface vol_surface_mstr vol_spread vol_spread_trend vol_basis
+       gex_btc_trend gex_mstr_trend].each do |n|
+      assert_nil metas[n]['tooltip_formatter'], n
+      assert_nil metas[n]['legend_widget'], n
+    end
+    assert_nil metas['gex_btc_trend']['height'] # a tab, not a stacked half
+    assert_nil metas['gex_mstr_trend']['height']
+  end
+
+  # ---- M8-6 vol/gex family structure -----------------------------------
+
+  def test_vol_surface_scales_to_percent_and_omits_null_tenors
+    opt = build('vol_surface')
+    vol = JSON.parse(File.read(File.join(PAYLOADS, 'payload_vol_latest.json')))
+    assert_equal vol['tenors'].map { |t| "#{t['tenor_d']}d" }, opt['xAxis']['data']
+    atm = opt['series'].find { |s| s['name'] == 'ATM IV' }
+    # decimal fraction -> percent at build time (0.4388 -> 43.88)
+    assert_in_delta vol['tenors'].first['atm_iv'] * 100, atm['data'].first, 0.01
+    assert_equal 7, atm['symbolSize'] # sparse: a filled dot must read
+    # a null-reason tenor is an omitted point, never a zero
+    p2 = JSON.parse(JSON.generate(vol))
+    p2['tenors'][1].merge!('atm_iv' => nil, 'rr25' => nil, 'fly25' => nil, 'reason' => 'thin')
+    a2 = Publish::Charts.vol_surface(p2)['series'].find { |s| s['name'] == 'ATM IV' }
+    assert_nil a2['data'][1]
+    # the expiry carrier is invisible and out of the legend
+    exp = Publish::Charts.vol_surface(p2)['series'].find { |s| s['name'] == 'exp(d)' }
+    assert_equal 0, exp['lineStyle']['opacity']
+    refute_includes Publish::Charts.vol_surface(p2)['legend']['data'], 'exp(d)'
+  end
+
+  # M8-17: vol_surface_mstr shares vol_surface's option body (they tab into
+  # one SURFACE section) -- byte-identical for the SAME payload except the
+  # title prefix, so the MSTR tab is a true "same set-up" surface.
+  def test_vol_surface_mstr_is_the_btc_body_with_an_mstr_title
+    mstr = JSON.parse(File.read(File.join(PAYLOADS, 'payload_vol_mstr.json')))
+    as_btc  = Publish::Charts.vol_surface(mstr)      # same payload, BTC title
+    as_mstr = Publish::Charts.vol_surface_mstr(mstr) # same payload, MSTR title
+    assert_match(/\AMSTR vol surface · ATM /, as_mstr['title']['text'])
+    assert_match(/\AVol surface · ATM /, as_btc['title']['text'])
+    # everything but the title text is identical -> one set-up, two labels
+    assert_equal as_btc.reject { |k, _| k == 'title' },
+                 as_mstr.reject { |k, _| k == 'title' }
+    assert_equal as_btc['title'].reject { |k, _| k == 'text' },
+                 as_mstr['title'].reject { |k, _| k == 'text' }
+    # the real MSTR fixture drives real curves (30d ATM ~86%)
+    atm = as_mstr['series'].find { |s| s['name'] == 'ATM IV' }['data']
+    assert(atm.compact.all? { |v| v > 0 }, 'MSTR ATM IV points are live percentages')
+  end
+
+  def test_vol_spread_bars_coloured_by_sign_legs_as_lines
+    opt = build('vol_spread')
+    bar = opt['series'].find { |s| s['name'] == 'spread' }
+    assert_equal 'bar', bar['type']
+    bar['data'].compact.each do |d|
+      want = d['value'].negative? ? '#c63939' : '#0f7a5c'
+      assert_equal want, d['itemStyle']['color']
+    end
+    assert_equal %w[MSTR BTC], opt['series'].select { |s| s['type'] == 'line' }.map { |s| s['name'] }
+    # a dead leg drops its line points and that tenor's bar (nil, not zero)
+    sp = JSON.parse(File.read(File.join(PAYLOADS, 'payload_vol_spread.json')))
+    sp['tenors'].each { |t| t['mstr'] = { 'expiry_d' => nil, 'atm_iv' => nil, 'reason' => 'down' }; t['spread_atm'] = nil }
+    d2 = Publish::Charts.vol_spread(sp)
+    assert(d2['series'].find { |s| s['name'] == 'MSTR' }['data'].all?(&:nil?))
+    assert(d2['series'].find { |s| s['name'] == 'spread' }['data'].all?(&:nil?))
+  end
+
+  def test_vol_spread_trend_lines_per_tenor_scaled_with_gaps
+    opt = build('vol_spread_trend')
+    sp  = JSON.parse(File.read(File.join(PAYLOADS, 'payload_vol_spread.json')))
+    # x axis = the history dates in order; one line series per tenor.
+    assert_equal sp['history'].map { |r| r['date'] }, opt['xAxis']['data']
+    assert_equal %w[7d 14d 21d 45d 90d], opt['series'].map { |s| s['name'] }
+    opt['series'].each do |s|
+      assert_equal 'line', s['type']
+      assert_equal 6, s['symbolSize'] # sparse: a single day reads as a dot
+    end
+    # decimal spread -> vol points at build time (0.402 -> 40.2, 1dp)
+    first7 = opt['series'].find { |s| s['name'] == '7d' }['data'].first
+    assert_in_delta 40.2, first7, 0.001
+    # the synthetic null 45d spread on 2026-06-30 is a GAP (nil), never a zero
+    idx45 = sp['history'].index { |r| r['date'] == '2026-06-30' }
+    assert_nil opt['series'].find { |s| s['name'] == '45d' }['data'][idx45]
+    # empty history still yields a valid option: empty axis + 5 empty series
+    empty = Publish::Charts.vol_spread_trend('history' => [])
+    assert_equal [], empty['xAxis']['data']
+    assert_equal 5, empty['series'].size
+    assert(empty['series'].all? { |s| s['data'].empty? })
+    assert_match(/Spread trend · 0d history/, empty['title']['text'])
+  end
+
+  def test_vol_basis_omits_sub_day_tenors_and_marks_zero
+    opt = build('vol_basis')
+    line = opt['series'].first
+    assert_equal 0, line['markLine']['data'].first['yAxis'] # fair-value line
+    # a synthetic sub-1-day tenor is dropped as microstructure noise
+    p2 = JSON.parse(File.read(File.join(PAYLOADS, 'payload_basis_latest.json')))
+    p2['basis']['tenors'].unshift('instrument' => 'BTC-PERP-ish', 'days' => 0.4,
+                                  'mark' => 1.0, 'basis_ann_pct' => 999.0)
+    x2 = Publish::Charts.vol_basis(p2)['xAxis']['data']
+    refute_includes x2, '0d'
+    refute(Publish::Charts.vol_basis(p2)['series'].first['data'].include?(999.0))
+  end
+
+  def test_gex_trend_title_suffix_only_with_cross_check
+    trend = JSON.parse(File.read(File.join(PAYLOADS, 'payload_gex_trend.json')))
+    check = JSON.parse(File.read(File.join(PAYLOADS, 'payload_gex_check.json')))
+    withc = Publish::Charts.gex_trend(trend, check)['title']['text']
+    assert_match(/GEX trend · flip dist \+3\.67% · 5d long_gamma · MP Δ/, withc)
+    # gex_check absent => suffix gracefully omitted, chart still renders
+    without = Publish::Charts.gex_trend(trend)['title']['text']
+    assert_equal 'GEX trend · flip dist +3.67% · 5d long_gamma', without
+    # price levels scaled to $k with filled dots (sparse-data rule)
+    spot = Publish::Charts.gex_trend(trend)['series'].find { |s| s['name'] == 'spot' }
+    assert_equal 62.0, spot['data'].first
+    assert_equal 7, spot['symbolSize']
+  end
+
+  # ---- gex_mstr_trend structure (M8-18) --------------------------------
+
+  def test_gex_mstr_trend_reads_the_mstr_block_in_raw_dollars
+    opt = build('gex_mstr_trend')
+    # title from the mstr stats block (no MP cross-check tail -- BTC-only)
+    assert_equal 'MSTR GEX trend · flip dist +8.91% · 5d long_gamma',
+                 opt['title']['text']
+    refute_includes opt['title']['text'], 'MP'
+    # four price lines, filled dots, MSTR's own axis in raw dollars ($)
+    assert_equal %w[spot flip CW PW], opt['series'].map { |s| s['name'] }
+    assert_equal 'price ($)', opt['yAxis']['name']
+    spot = opt['series'].find { |s| s['name'] == 'spot' }
+    assert_equal 95.0, spot['data'].first # raw dollars, NOT /1000 like BTC
+    assert_equal 7, spot['symbolSize']
+    # x axis = the mstr history dates, compacted to MM-DD
+    trend = JSON.parse(File.read(File.join(PAYLOADS, 'payload_gex_trend.json')))
+    assert_equal trend['mstr']['series'].map { |r| r['date'][5..] }, opt['xAxis']['data']
+  end
+
+  def test_gex_mstr_trend_degrades_on_absent_mstr_block
+    # no 'mstr' key at all -> a valid, empty option (honest pre-accumulation)
+    opt = Publish::Charts.gex_mstr_trend({})
+    assert_equal [], opt['xAxis']['data']
+    assert(opt['series'].all? { |s| s['data'].empty? })
+    assert_equal 'MSTR GEX trend · flip dist n/a · 0d ', opt['title']['text']
   end
 
   # ---- gex_profile structure -------------------------------------------
@@ -98,7 +272,7 @@ class TestChartSpecs < Minitest::Test
   end
 
   def test_gex_profile_two_series_per_active_venue_plus_aggregates
-    opt = build('gex_profile')
+    opt = build('gex_btc')
     assert_equal 2 + active_venues.size * 2, opt['series'].size
     # aggregates FIRST so the hover bubble leads with them, side colors
     assert_equal %w[C P], opt['series'].first(2).map { |s| s['name'] }
@@ -116,7 +290,7 @@ class TestChartSpecs < Minitest::Test
   def test_gex_profile_call_and_put_columns_overlay_exactly
     # round 4: the calls stack sits exactly on the puts stack at each
     # level (barGap -100%), not side by side
-    build('gex_profile')['series'].each do |s|
+    build('gex_btc')['series'].each do |s|
       assert_equal '-100%', s['barGap'], "#{s['name']}" if s['type'] == 'bar'
     end
   end
@@ -142,7 +316,7 @@ class TestChartSpecs < Minitest::Test
   end
 
   def test_gex_profile_values_scaled_to_millions
-    opt = build('gex_profile')
+    opt = build('gex_btc')
     level = gex_payload['profiles']['Deribit'].keys.max_by { |l|
       gex_payload['profiles']['Deribit'][l]['call'].to_i.abs
     }
@@ -154,7 +328,7 @@ class TestChartSpecs < Minitest::Test
   end
 
   def test_gex_profile_marklines_flip_and_walls
-    marks = first_bar(build('gex_profile'))['markLine']['data']
+    marks = first_bar(build('gex_btc'))['markLine']['data']
     labels = marks.map { |m| m['label']['formatter'] }
     assert_equal %w[flip CW PW], labels # the fixture payload has all three
     marks.each { |m| assert_match(/\A\d+(\.\d)?k\z/, m['xAxis']) } # snapped to category
@@ -168,7 +342,7 @@ class TestChartSpecs < Minitest::Test
   end
 
   def test_gex_profile_levels_ascend_and_data_aligns
-    opt = build('gex_profile')
+    opt = build('gex_btc')
     labels = opt['xAxis']['data']
     assert_equal labels, labels.sort_by { |l| l.to_f } # ascending BTC axis
     opt['series'].each do |s|
@@ -272,7 +446,7 @@ class TestChartSpecs < Minitest::Test
   end
 
   def test_gex_profile_wall_labels_raised_and_label_zone
-    opt = build('gex_profile')
+    opt = build('gex_btc')
     marks = opt['series'].map { |s| s['markLine'] }.compact.first['data']
     %w[CW PW].each do |w|
       m = marks.find { |x| x['label']['formatter'] == w }
@@ -280,7 +454,12 @@ class TestChartSpecs < Minitest::Test
     end
     flip = marks.find { |x| x['label']['formatter'] == 'flip' }
     refute flip['label'].key?('offset')
-    assert_equal 56, opt['grid']['top']
+    # M8-18 R4: top 66 clears the 2-row top-right toggle widget above the
+    # raised wall labels (the (p) VENUE (c) grid moved off the right margin).
+    assert_equal 66, opt['grid']['top']
+    # the widened plot: right margin freed for the plot (widget is top now)
+    assert_equal 12, opt['grid']['right']
+    assert_equal 42, opt['grid']['left']
   end
 
   def test_gex_mstr_default_zoom_is_spot_plus_minus_30pct
@@ -331,7 +510,33 @@ class TestChartSpecs < Minitest::Test
     opt = build('scenario_strip')
     refute opt['title'].key?('subtext')
     assert_equal 13, opt['title']['textStyle']['fontSize']
-    assert_equal 'Scenario NEUTRAL +0.08', opt['title']['text']
+    # M8-18 R5: the drift arrow rides the title. The fixture rises
+    # (latest +0.083 vs -0.333 four readings back) -> ↗.
+    assert_equal 'Scenario NEUTRAL +0.08 ↗', opt['title']['text']
+  end
+
+  # M8-18 R5 (owner ruling 2026-08-10): the composite-drift arrow. drift =
+  # latest composite minus the composite 7 readings earlier (or earliest when
+  # shorter); > +0.02 ↗, < -0.02 ↘, else →; no arrow under 2 readings.
+  def scn_title(latest_comp, comps, regime: 'NEUTRAL')
+    latest = { 'regime' => regime, 'composite' => latest_comp, 'modules' => [] }
+    history = { 'entries' => comps.map { |c| { 'ts' => '2026-08-01T00:00:00Z', 'composite' => c } } }
+    Publish::Charts.scenario_strip(latest, history)['title']['text']
+  end
+
+  def test_scenario_title_drift_arrow_rising_falling_flat_and_short_history
+    assert_equal 'Scenario NEUTRAL +0.30 ↗', scn_title(0.30, [0.0, 0.1, 0.30])
+    assert_equal 'Scenario NEUTRAL -0.30 ↘', scn_title(-0.30, [0.2, 0.0, -0.30])
+    # |drift| within the 0.02 dead-band reads flat (→); +0.02 exactly is flat
+    assert_equal 'Scenario NEUTRAL +0.10 →', scn_title(0.10, [0.09, 0.10])
+    assert_equal 'Scenario NEUTRAL +0.30 →', scn_title(0.30, [0.28, 0.30])
+    # fewer than 2 readings -> NO arrow at all
+    assert_equal 'Scenario NEUTRAL +0.10', scn_title(0.10, [0.10])
+    assert_equal 'Scenario NEUTRAL +0.10', scn_title(0.10, [])
+    # exactly "7 readings earlier": with 9 entries the reference is the
+    # 8th-from-last (index 1), so a spike 8 readings back (index 0) is ignored
+    comps = [0.9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.05]
+    assert_equal 'Scenario NEUTRAL +0.05 ↗', scn_title(0.05, comps)
   end
 
   def test_scenario_visual_map_hidden_and_scoped_to_heatmap
@@ -360,7 +565,33 @@ class TestChartSpecs < Minitest::Test
     opt = build('scenario_strip')
     hist = JSON.parse(File.read(File.join(PAYLOADS, 'payload_scenario_history.json')))
     data = opt['series'].first['data']
-    assert_equal hist['entries'].map { |e| [e['ts'], e['composite']] }, data
+    assert_equal hist['entries'].size, data.size
+    # M8-10: healthy entries stay bare [ts, composite] pairs; a blind entry
+    # (M8-8 marker) becomes a styled object so the line still reads its value.
+    hist['entries'].zip(data).each do |e, pt|
+      if e['blind']
+        assert_equal [e['ts'], e['composite']], pt['value']
+      else
+        assert_equal [e['ts'], e['composite']], pt
+      end
+    end
+  end
+
+  # M8-10: a blind day renders as a hollow (transparent-fill) grey marker,
+  # visibly degraded from a real neutral print.
+  def test_scenario_blind_day_renders_hollow_grey_marker
+    opt = build('scenario_strip')
+    hist = JSON.parse(File.read(File.join(PAYLOADS, 'payload_scenario_history.json')))
+    blind_ts = hist['entries'].select { |e| e['blind'] }.map { |e| e['ts'] }
+    refute_empty blind_ts, 'fixture must carry a synthetic blind row (README)'
+    styled = opt['series'].first['data'].select { |d| d.is_a?(Hash) }
+    assert_equal blind_ts, styled.map { |d| d['value'].first }
+    styled.each do |d|
+      assert_equal 'transparent', d['itemStyle']['color'], 'blind marker is hollow'
+      assert_equal '#9aa0a6', d['itemStyle']['borderColor'], 'blind marker is grey'
+    end
+    # and the meta help names the convention
+    assert_match(/hollow\/grey/, Publish::Charts::CHARTS['scenario_strip'][:meta]['help'])
   end
 
   # ---- lppl_regime structure -------------------------------------------

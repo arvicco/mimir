@@ -242,3 +242,76 @@ everything can land display-only/advisory first and graduate into the
 scenario score by explicit later ruling, which keeps Golden Rule 4
 clean and lets the scorecard (P-19) referee what earns score
 membership.
+
+## Reconciliation with improvements.md + scenario_upgrades.md
+## (owner-requested assessment, 2026-07-12; tier probes run same day)
+
+The two older docs remain the richer specs for what they cover; this
+section is the merge map and the probe-corrected reality. Where they
+conflict with probes, THIS section wins.
+
+**Tier probe results (2026-07-12, our current Coinglass plan):**
+- SERVED: etf flow-history (642d), global long/short account ratio +
+  top-position ratio (need exchange=Binance&symbol=BTCUSDT params),
+  coinbase-premium-index (needs interval), puell-multiple (5.8k rows),
+  plus everything probed 2026-07-08..10 (OI agg history, OI-weighted
+  funding, liquidation HISTORY, taker buy/sell, option info/max-pain,
+  fear-greed, exchange balances, ETF AUM, bubble-index).
+- TIER-GATED ("Upgrade plan"): liquidation aggregated-map, liquidation
+  heatmap model2, reserve-risk. LTH/STH realized price / SOPR / NUPL
+  404 under every documented path variant tried -- treat the whole
+  cohort family as unavailable on this tier until a doc-verified path
+  proves otherwise. CDRI and the account-subscription tier-probe
+  endpoint also 404 (no runtime tier probe possible; per-call 401
+  detection instead).
+
+**Corrections this forces:**
+- improvements.md headline 1 (cohort metrics = "biggest single
+  analytical upgrade") does NOT hold on our tier -- A2 and U2 are
+  blocked on data.
+- improvements.md B1 liqmap (the flagship) is blocked: only the
+  liquidation time-series HISTORY is served, not the price-axis
+  map/heatmap topology.
+- The groundwork "tier probe" step is unimplementable as specced;
+  BTC::Coinglass (built, M8) gains 401->tier_gated detection instead.
+
+**NEW DECISION ITEM D9-a (the pivot): Coinglass plan upgrade.**
+One paid-tier step would unblock B1 liqmap + the A2/U2 cohort family +
+U5 squeeze -- i.e. the flagship AND the two highest-value hypothesis
+modules. Alternatives: free cohort sources (research task: e.g.
+bitcoin-data.com / CheckOnChain publish LTH-SOPR etc.), or drop the
+cohort/liq-topology line entirely. Owner call; price it first.
+
+**Merge map into phases:**
+- ALREADY BUILT (Phase 8A): coinglass client seam (improvements step
+  0, minus TTL cache + minus tier probe), A4's display half (basis.rb:
+  OI-weighted funding + basis curve -- the scenario funding_basis.rb
+  source swap remains, research-gated), A6 (gex_check.rb max-pain
+  cross-check; exchange-OI leg still open, small).
+- Phase 8 wave 2 (next family, all probe-verified live): groundwork
+  completion (SourceCache-backed TTLs + 401 detection, S); A1
+  etf_flows swap to primary w/ 1-week parallel run + per-ticker detail
+  (feeds U1); P-6/B2 positioning (both ratio endpoints live;
+  display-first strip + weight-0 module behind ruling); A3 cb_premium
+  history (data+detail now, scoring via research gate); A5 lppl price
+  fallback (S, resilience); A6 exchange-OI leg (S); P-7 COT, P-8
+  exchange reserves/whale-lite (B4 minus unprobed Hyperliquid), P-12
+  bubble-index, P-13 Kalshi as already scoped.
+- Phase 9 (scenario v2 = scenario_upgrades.md, probe-amended): U1
+  flow_decay (data live, nearest-term resolution -- FIRST), U4 macro
+  v2 (FRED-only, longest parallel run -- start EARLY), U3 expiry_low
+  (own gex + live max-pain), U6 cycle_pos (lppl cache), U7
+  housekeeping (hash_ribbons hpc_era caveat can land any time; the
+  weight demotion is a research decision). U2 cohort + U5 squeeze +
+  B1 liqmap wait on D9-a. B3 CDRI: endpoint unfound -- demote to
+  opportunistic. Module-weight table in scenario_upgrades.md stays a
+  PROPOSAL; every weight change needs ledger evidence + owner ruling.
+- Phase 10 (dashboard round 2): panel list stands (flow_decay_curve,
+  cohort_panel, expiry_timeline, macro_clock); liq_topology only if
+  D9-a unblocks it.
+
+Governance unchanged: source swaps behavior-preserving under existing
+contract tests; new modules enter at weight 0 with pre-registered kill
+criteria in the file header; every threshold/weight change is an owner
+research decision with parallel-run evidence (>= 2 weeks, both sources
+logged to history).

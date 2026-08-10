@@ -23,6 +23,13 @@ module BTC
       base && !base.empty? ? File.join(base, suite) : default
     end
 
+    # True when runtime data is redirected away from the in-tree dirs.
+    # Write-guards use this to tell a staging replay from the live tree.
+    def data_dir_override?
+      base = ENV['BTC_DATA_DIR']
+      !(base.nil? || base.empty?)
+    end
+
     # Scrub secrets from a string bound for output: credential-looking
     # query params by pattern, plus the literal values of SECRET_ENV
     # (some APIs, e.g. FRED, only accept keys as query params, so URLs

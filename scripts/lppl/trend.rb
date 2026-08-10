@@ -87,7 +87,11 @@ new_rows = []
   HORIZ.each do |h|
     j = i - h
     next if j < MINFIT
-    next if have.key?("#{dkey}|#{h}|pl_full")
+    # A group is complete only when pl_full AND rw are both present (rw is
+    # unconditional whenever pl_full lands; pl_recent legitimately drops
+    # out on early dates). pl_full-only meant a torn append -- a crash
+    # between the two lines -- left the group half-written forever (C8).
+    next if have.key?("#{dkey}|#{h}|pl_full") && have.key?("#{dkey}|#{h}|rw")
 
     x_star = xs[i]
     y      = p[:lnp][i]
@@ -97,11 +101,11 @@ new_rows = []
     next unless f
 
     ls = logscore(y, f[:icept] + f[:slope] * x_star, f[:sigma2])
-    new_rows << [dkey, h, 'pl_full', ls]
+    new_rows << [dkey, h, 'pl_full', ls] unless have.key?("#{dkey}|#{h}|pl_full")
 
     # pl_recent
     a = j - WIN_REC + 1
-    if a >= 0 && (f2 = reg.fit(a, j))
+    if a >= 0 && (f2 = reg.fit(a, j)) && !have.key?("#{dkey}|#{h}|pl_recent")
       ls2 = logscore(y, f2[:icept] + f2[:slope] * x_star, f2[:sigma2])
       new_rows << [dkey, h, 'pl_recent', ls2]
     end
@@ -124,7 +128,9 @@ end
 if !Lppl.as_of && !new_rows.empty?
   File.open(CACHE, 'a') do |f|
     f.puts 'date,h,model,logscore' unless File.exist?(CACHE) && File.size(CACHE) > 0
-    new_rows.each { |r| f.puts r.join(',') }
+    # single write: one syscall for the whole batch narrows the torn-append
+    # window the group-completeness check above exists to heal
+    f.write(new_rows.map { |r| "#{r.join(',')}\n" }.join)
   end
   new_rows.each { |d, h, m, s| have["#{d}|#{h}|#{m}"] = s }
 end

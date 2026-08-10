@@ -213,7 +213,7 @@ module BTC
     # is a pre-Phase-3 publish and the dashboard renders no charts
     # (found live at Gate 4: age alone passed while the site looked
     # broken; content matters, not just freshness).
-    CHART_KEYS = %w[chart:gex_profile chart:scenario_strip
+    CHART_KEYS = %w[chart:gex_btc chart:scenario_strip
                     chart:lppl_regime chart:btco_table].freeze
 
     def verdict_index(code, body, now)

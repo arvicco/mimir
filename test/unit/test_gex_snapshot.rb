@@ -141,4 +141,175 @@ class TestGexSnapshot < Minitest::Test
                    calls[1], 'second call must be gex_us.rb IBIT MSTR --json'
     end
   end
+
+  # ---- M8-8: retry-on-error date-guard ---------------------------------
+
+  # An errored file (partial: btc_combined failed) is RETRYABLE: a later run
+  # re-captures and atomically REPLACES it, both keys now present, errors {}.
+  def test_errored_file_is_recaptured_and_replaced
+    Dir.mktmpdir do |dir|
+      target = File.join(dir, '2026-07-06.json')
+      File.write(target, JSON.generate('date' => '2026-07-06', 'btc_combined' => nil,
+                                       'us' => US_DATA,
+                                       'errors' => { 'btc_combined' => 'earlier outage' }))
+      runner, calls = fake_runner([BTC_JSON, US_JSON])
+      result = Ops::GexSnapshot.capture(dir: dir, now: NOW, runner: runner)
+
+      assert_equal :written, result[:status], 'a healed retry writes a clean file'
+      assert_equal 2, calls.size, 'both captures must be retried'
+      parsed = JSON.parse(File.read(target))
+      assert_equal BTC_DATA, parsed['btc_combined']
+      assert_equal US_DATA,  parsed['us']
+      assert_equal({},       parsed['errors'], 'the errors map must be cleared')
+      assert_empty Dir.glob(File.join(dir, '*.tmp'))
+    end
+  end
+
+  # A clean file (empty errors) still short-circuits: :skipped, runner untouched.
+  def test_clean_file_still_skips
+    Dir.mktmpdir do |dir|
+      target = File.join(dir, '2026-07-06.json')
+      clean  = JSON.generate('date' => '2026-07-06', 'btc_combined' => BTC_DATA,
+                             'us' => US_DATA, 'errors' => {})
+      File.write(target, clean)
+
+      called = false
+      runner = lambda { |_a, _t| called = true; '{}' }
+      result = Ops::GexSnapshot.capture(dir: dir, now: NOW, runner: runner)
+
+      assert_equal :skipped, result[:status]
+      assert_equal clean, File.read(target), 'a clean file must be byte-identical'
+      refute called, 'runner must not run for a clean file'
+    end
+  end
+
+  # A both-fail retry leaves the pre-existing errored file in place (never worse).
+  def test_both_fail_retry_leaves_existing_errored_file
+    Dir.mktmpdir do |dir|
+      target   = File.join(dir, '2026-07-06.json')
+      original = JSON.generate('date' => '2026-07-06', 'btc_combined' => nil,
+                               'us' => US_DATA, 'errors' => { 'btc_combined' => 'x' })
+      File.write(target, original)
+      runner, _ = fake_runner([RuntimeError.new('still down'), RuntimeError.new('still down')])
+      result = Ops::GexSnapshot.capture(dir: dir, now: NOW, runner: runner)
+
+      assert_equal :failed, result[:status]
+      assert_equal original, File.read(target), 'existing errored file must survive'
+    end
+  end
+
+  # ---- M8-1: capture_vol (separate vol_history file) -------------------
+
+  VOL_DATA = { 'ts' => '2026-07-06T08:15:00Z', 'btc_spot' => 63_000.0,
+               'tenors' => [{ 'tenor_d' => 7, 'atm_iv' => 0.44 }] }.freeze
+  VOL_JSON = JSON.generate(VOL_DATA)
+
+  # 7. Vol success: dated file with the vol payload verbatim, errors {},
+  #    and the runner invoked with exactly `ruby scripts/vol.rb --json`.
+  def test_capture_vol_writes_file_with_vol_verbatim_and_empty_errors
+    Dir.mktmpdir do |dir|
+      runner, calls = fake_runner([VOL_JSON])
+      result = Ops::GexSnapshot.capture_vol(dir: dir, now: NOW, runner: runner)
+
+      assert_equal :written, result[:status]
+      expected_path = File.join(dir, '2026-07-06.json')
+      assert_equal expected_path, result[:path]
+
+      parsed = JSON.parse(File.read(expected_path))
+      assert_equal '2026-07-06', parsed['date']
+      assert_equal NOW.iso8601,  parsed['captured_at']
+      assert_equal VOL_DATA,     parsed['vol'], 'vol payload must be verbatim'
+      assert_equal({},           parsed['errors'])
+
+      assert_equal [['ruby', 'scripts/vol.rb', '--json']], calls
+    end
+  end
+
+  # 8. Vol date-guard: file already present -> :skipped, runner untouched.
+  def test_capture_vol_date_guard_skips_and_leaves_file_untouched
+    Dir.mktmpdir do |dir|
+      target = File.join(dir, '2026-07-06.json')
+      File.write(target, 'vol-sentinel')
+
+      called = false
+      runner = lambda { |_a, _t| called = true; '{}' }
+      result = Ops::GexSnapshot.capture_vol(dir: dir, now: NOW, runner: runner)
+
+      assert_equal :skipped, result[:status]
+      assert_equal 'vol-sentinel', File.read(target), 'file must be byte-identical'
+      refute called, 'runner must not run when the vol date-guard fires'
+    end
+  end
+
+  # 9. Vol failure: NO file written (nothing worth archiving), :failed with
+  #    the redacted error -- and, crucially, no *.tmp left behind.
+  def test_capture_vol_failure_writes_no_file_and_redacts
+    Dir.mktmpdir do |dir|
+      runner, _ = fake_runner([RuntimeError.new('boom token=abc123')])
+      result = Ops::GexSnapshot.capture_vol(dir: dir, now: NOW, runner: runner)
+
+      assert_equal :failed, result[:status]
+      refute File.file?(result[:path]), 'no file when the vol capture fails'
+      assert_empty Dir.glob(File.join(dir, '*.tmp'))
+
+      assert result[:errors].key?('vol')
+      refute_includes result[:errors]['vol'], 'abc123', 'raw secret must not appear'
+      assert_includes result[:errors]['vol'], '[REDACTED]'
+    end
+  end
+
+  # M8-8: an errored vol file is retryable and REPLACED; a clean one skips.
+  def test_capture_vol_errored_file_is_recaptured_and_replaced
+    Dir.mktmpdir do |dir|
+      target = File.join(dir, '2026-07-06.json')
+      File.write(target, JSON.generate('date' => '2026-07-06', 'vol' => nil,
+                                       'errors' => { 'vol' => 'earlier outage' }))
+      runner, calls = fake_runner([VOL_JSON])
+      result = Ops::GexSnapshot.capture_vol(dir: dir, now: NOW, runner: runner)
+
+      assert_equal :written, result[:status]
+      assert_equal 1, calls.size
+      parsed = JSON.parse(File.read(target))
+      assert_equal VOL_DATA, parsed['vol']
+      assert_equal({},       parsed['errors'])
+    end
+  end
+
+  def test_capture_vol_clean_file_still_skips
+    Dir.mktmpdir do |dir|
+      target = File.join(dir, '2026-07-06.json')
+      clean  = JSON.generate('date' => '2026-07-06', 'vol' => VOL_DATA, 'errors' => {})
+      File.write(target, clean)
+
+      called = false
+      runner = lambda { |_a, _t| called = true; '{}' }
+      result = Ops::GexSnapshot.capture_vol(dir: dir, now: NOW, runner: runner)
+
+      assert_equal :skipped, result[:status]
+      assert_equal clean, File.read(target)
+      refute called
+    end
+  end
+
+  # 10. Containment: capture() (GEX) and capture_vol() are independent --
+  #     a vol failure leaves a successful GEX snapshot fully intact.
+  def test_vol_failure_does_not_disturb_gex_snapshot
+    Dir.mktmpdir do |gex_dir|
+      Dir.mktmpdir do |vol_dir|
+        gex_runner, _ = fake_runner([BTC_JSON, US_JSON])
+        gex = Ops::GexSnapshot.capture(dir: gex_dir, now: NOW, runner: gex_runner)
+        assert_equal :written, gex[:status]
+
+        vol_runner, _ = fake_runner([RuntimeError.new('vol down')])
+        vol = Ops::GexSnapshot.capture_vol(dir: vol_dir, now: NOW, runner: vol_runner)
+        assert_equal :failed, vol[:status]
+
+        # GEX file is present and complete regardless of the vol outcome.
+        parsed = JSON.parse(File.read(gex[:path]))
+        assert_equal BTC_DATA, parsed['btc_combined']
+        assert_equal US_DATA,  parsed['us']
+        assert_equal({},       parsed['errors'])
+      end
+    end
+  end
 end

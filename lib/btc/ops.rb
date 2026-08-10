@@ -71,9 +71,10 @@ module BTC
        log: 'gex_snapshot.log', marker: '=== run_gex_snapshot',
        success_re: /\b(written|skipped \(today's file exists\)|partial)/,
        timeout: 90, kind: :snapshot],
-      ['com.mimir.btco-alert', 'run_btco_alert.sh',
-       log: 'btco_alert.log', marker: '=== run_btco_alert',
-       success_re: /alert: /, timeout: 60, kind: :alert],
+      # com.mimir.btco-alert RETIRED 2026-08-10 (owner ruling: BTCo frozen,
+      # "No alert"). Removed from the install/status set so a reinstall
+      # cannot resurrect it; the live instance is booted out by hand
+      # (commands in docs/BACKLOG.md, post-Gate-7 rulings).
       ['com.mimir.suite-history', 'run_suite_history.sh',
        log: 'suite_history.log', marker: '=== run_suite_history',
        success_re: %r{suite-history OK: \d+/\d+ suites updated},

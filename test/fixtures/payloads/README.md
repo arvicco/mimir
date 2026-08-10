@@ -10,3 +10,36 @@ Regenerate deliberately (a payload refresh changes every dependent
 golden, which then needs visual re-review + `rake golden:approve`):
 run the dry-run publish, then copy each artifact's `payload` member
 into `payload_<key>.json` here.
+
+## Hand-added synthetic rows (not from the recorded set)
+
+- `payload_scenario_history.json` carries a trailing **synthetic blind
+  row** (`2026-07-07`, `"blind": true`, composite 0.0) so the M8-10
+  scenario_strip golden exercises the hollow/grey blind-day marker. The
+  recorded 2026-07-06 run had no outage, so no real blind row existed to
+  capture. Keep this row on any refresh (re-append it).
+
+- `payload_vol_mstr.json` (M8-17) is the REAL `scripts/vol_mstr.rb --json`
+  output, generated OFFLINE through the contract harness (fake transport +
+  the recorded `cboe_options_mstr.json` fixture) under the vol_spread clock
+  `FAKE_NOW=2026-07-04T19:00:00Z` (keeps the fixture's expiries in the
+  future). Regenerate with:
+  `RUBYOPT="-Itest/support -rfake_transport" FAKE_NOW=2026-07-04T19:00:00Z
+  BTC_DATA_DIR=$(mktemp -d) ruby scripts/vol_mstr.rb --json`. Already minimal
+  (3 tenors); drives the `vol_surface_mstr` golden.
+
+- `payload_gex_trend.json` carries a **synthetic `mstr` block** (M8-18): the
+  additive top-level `mstr` = `{series, stats}` that `scripts/gex_trend.rb
+  --json` now emits from the MSTR entries of each snapshot's `us` capture. 5
+  days (`2026-07-06`..`2026-07-10`) of MSTR spot/flip/CW/PW on MSTR's own dollar
+  axis (~$95-101), drifting up, all `long_gamma`. The recorded 2026-07-06 set
+  predates the `mstr` field, so it is hand-added; it drives the
+  `gex_mstr_trend` golden. Keep it on any refresh (or regenerate from real
+  snapshots once several days of `us` captures exist).
+
+- `payload_vol_spread.json` carries a **synthetic `history` block** (M8-16):
+  10 days (`2026-06-25`..`2026-07-04`), 5 tenors each (7/14/21/45/90d),
+  spreads drifting ~0.40-0.47, with a deliberate **null 45d spread on
+  `2026-06-30`** so the `vol_spread_trend` golden exercises the gap path
+  (a null point, never a zero). The daily history did not exist when the
+  set was recorded, so it is hand-added; keep it on any refresh.

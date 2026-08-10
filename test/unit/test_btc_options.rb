@@ -194,3 +194,59 @@ class TestFlipAndWalls < Minitest::Test
     assert_equal [95.0, -10.0], put_wall
   end
 end
+
+# M8-1: Black-Scholes delta and the standard-normal CDF that backs it.
+class TestBsDelta < Minitest::Test
+  def test_norm_cdf_at_zero_is_exactly_half
+    assert_equal 0.5, BTC::Options.norm_cdf(0.0)
+  end
+
+  def test_norm_cdf_symmetry_sums_to_one
+    [-2.7, -0.3, 0.1, 1.4, 3.0].each do |x|
+      assert_close 1.0, BTC::Options.norm_cdf(x) + BTC::Options.norm_cdf(-x), 1e-15
+    end
+  end
+
+  # N(0.1) = 0.5398278372770290 (standard normal table / erf identity).
+  def test_norm_cdf_reference_value
+    assert_close 0.5398278372770290, BTC::Options.norm_cdf(0.1), 1e-15
+  end
+
+  # ATM call: s=k, t=1, v=0.2 -> d1 = 0.5*v^2*t / (v*sqrt(t)) = 0.1, so
+  # the call delta is exactly N(0.1) (independently pinned above).
+  def test_atm_call_delta_reference_value
+    assert_close 0.5398278372770290, BTC::Options.bs_delta(100.0, 100.0, 1.0, 0.2, 'C'), 1e-12
+  end
+
+  def test_deep_itm_call_delta_approaches_one
+    assert_close 1.0, BTC::Options.bs_delta(100_000.0, 1_000.0, 1.0, 0.5, 'C'), 1e-6
+  end
+
+  def test_deep_otm_call_delta_approaches_zero
+    assert_close 0.0, BTC::Options.bs_delta(1_000.0, 100_000.0, 1.0, 0.5, 'C'), 1e-6
+  end
+
+  def test_deep_itm_put_delta_approaches_minus_one
+    assert_close(-1.0, BTC::Options.bs_delta(1_000.0, 100_000.0, 1.0, 0.5, 'P'), 1e-6)
+  end
+
+  def test_put_delta_is_negative_atm
+    d = BTC::Options.bs_delta(100.0, 100.0, 1.0, 0.2, 'P')
+    assert_operator d, :<, 0.0
+  end
+
+  # Put-call parity of deltas (r = 0): call_delta - put_delta == 1 exactly.
+  def test_call_minus_put_delta_is_one
+    args = [65_000.0, 70_000.0, 0.25, 0.55]
+    c = BTC::Options.bs_delta(*args, 'C')
+    p = BTC::Options.bs_delta(*args, 'P')
+    assert_close 1.0, c - p, 1e-15
+  end
+
+  def test_degenerate_inputs_return_zero
+    assert_equal 0.0, BTC::Options.bs_delta(100.0, 100.0, 0.0, 0.5, 'C')
+    assert_equal 0.0, BTC::Options.bs_delta(100.0, 100.0, 0.25, 0.0, 'P')
+    assert_equal 0.0, BTC::Options.bs_delta(0.0, 100.0, 0.25, 0.5, 'C')
+    assert_equal 0.0, BTC::Options.bs_delta(100.0, 0.0, 0.25, 0.5, 'C')
+  end
+end

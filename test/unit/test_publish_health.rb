@@ -123,6 +123,37 @@ class TestPublishHealth < Minitest::Test
     end
   end
 
+  # ---- BLIND data-integrity marker (additive M8-10) ----------------------
+
+  # A fresh, complete LIVE line carrying ` BLIND:...` earns `!` AND the bare
+  # `BLIND` marker, even though age and n/m are healthy.
+  def test_blind_marker_flags_and_surfaces_on_otherwise_healthy_line
+    Dir.mktmpdir do |dir|
+      path = write_status(dir, "PUB LIVE 13/13 keys 12:00 UTC BLIND:scenario\n", 37 * 60)
+      assert_equal 'PUB! 13/13 0:37 BLIND',
+                   Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
+    end
+  end
+
+  # Multiple blind suites still collapse to one bare `BLIND` token.
+  def test_blind_marker_with_multiple_suites_shows_single_blind
+    Dir.mktmpdir do |dir|
+      path = write_status(dir, "PUB LIVE 13/13 keys 12:00 UTC BLIND:scenario,lppl\n", 37 * 60)
+      assert_equal 'PUB! 13/13 0:37 BLIND',
+                   Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
+    end
+  end
+
+  # OLD and BLIND compose, in that order (both markers present).
+  def test_old_and_blind_compose
+    Dir.mktmpdir do |dir|
+      path = write_status(dir,
+                          "PUB LIVE 13/13 keys 12:00 UTC OLD:lppl:ledger BLIND:scenario\n", 37 * 60)
+      assert_equal 'PUB! 13/13 0:37 OLD BLIND',
+                   Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
+    end
+  end
+
   # ---- Error paths --------------------------------------------------------
 
   def test_missing_file_returns_error_line

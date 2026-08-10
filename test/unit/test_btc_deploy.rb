@@ -284,7 +284,7 @@ class TestBtcDeploy < Minitest::Test
     gen = (now - 3600).iso8601
     transport_for(
       '/healthz' => FakeRes.new('200', '{"ok":true,"worker_ts":"x"}'),
-      '/api/v1/index' => FakeRes.new('200', %({"v":1,"generated_at":"#{gen}","payload":{"keys":[{"key":"chart:gex_profile"},{"key":"chart:scenario_strip"},{"key":"chart:lppl_regime"},{"key":"chart:btco_table"}]}})),
+      '/api/v1/index' => FakeRes.new('200', %({"v":1,"generated_at":"#{gen}","payload":{"keys":[{"key":"chart:gex_btc"},{"key":"chart:scenario_strip"},{"key":"chart:lppl_regime"},{"key":"chart:btco_table"}]}})),
       '/api/v1/definitely:missing' => FakeRes.new('404', '{"error":"unknown key"}'),
       '/' => FakeRes.new('200', '<html><head><title>mimir</title></head></html>')
     )
@@ -304,7 +304,7 @@ class TestBtcDeploy < Minitest::Test
     gen = (now - 60).iso8601
     transport_for(
       '/healthz' => FakeRes.new('200', '{"ok":true,"worker_ts":"x"}'),
-      '/api/v1/index' => FakeRes.new('200', %({"generated_at":"#{gen}","payload":{"keys":[{"key":"chart:gex_profile"},{"key":"chart:scenario_strip"},{"key":"chart:lppl_regime"},{"key":"chart:btco_table"}]}})),
+      '/api/v1/index' => FakeRes.new('200', %({"generated_at":"#{gen}","payload":{"keys":[{"key":"chart:gex_btc"},{"key":"chart:scenario_strip"},{"key":"chart:lppl_regime"},{"key":"chart:btco_table"}]}})),
       '/api/v1/definitely:missing' => FakeRes.new('404', '{}'),
       '/' => FakeRes.new('200', '<title>mimir</title>')
     )
@@ -351,7 +351,7 @@ class TestBtcDeploy < Minitest::Test
   def run_real_deploy(extra_env: {})
     now = Time.utc(2026, 7, 5, 12, 0, 0)
     gen = (now - 60).iso8601
-    keys = '{"keys":[{"key":"chart:gex_profile"},{"key":"chart:scenario_strip"},{"key":"chart:lppl_regime"},{"key":"chart:btco_table"}]}'
+    keys = '{"keys":[{"key":"chart:gex_btc"},{"key":"chart:scenario_strip"},{"key":"chart:lppl_regime"},{"key":"chart:btco_table"}]}'
     transport_for(
       '/healthz' => FakeRes.new('200', '{"ok":true,"worker_ts":"x"}'),
       '/api/v1/index' => FakeRes.new('200', %({"generated_at":"#{gen}","payload":#{keys}})),
@@ -425,7 +425,7 @@ class TestBtcDeploy < Minitest::Test
   def test_smoke_index_fresh_passes
     now = Time.utc(2026, 7, 5, 12, 0, 0)
     gen = (now - 1800).iso8601
-    ok, detail = BTC::Deploy.verdict_index(200, %({"generated_at":"#{gen}","payload":{"keys":[{"key":"chart:gex_profile"},{"key":"chart:scenario_strip"},{"key":"chart:lppl_regime"},{"key":"chart:btco_table"}]}}), now)
+    ok, detail = BTC::Deploy.verdict_index(200, %({"generated_at":"#{gen}","payload":{"keys":[{"key":"chart:gex_btc"},{"key":"chart:scenario_strip"},{"key":"chart:lppl_regime"},{"key":"chart:btco_table"}]}}), now)
     assert ok
     assert_match(/age 0\.5h/, detail)
   end

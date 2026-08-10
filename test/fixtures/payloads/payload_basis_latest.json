@@ -1,0 +1,36 @@
+{
+  "ts": "2026-07-04T18:27:00Z",
+  "spot": 63128.1,
+  "basis": {
+    "tenors": [
+      {
+        "instrument": "BTC-8JUL26",
+        "days": 3.56,
+        "mark": 63123.64,
+        "basis_ann_pct": -0.73
+      },
+      {
+        "instrument": "BTC-10JUL26",
+        "days": 5.56,
+        "mark": 63136.85,
+        "basis_ann_pct": 0.906
+      },
+      {
+        "instrument": "BTC-25JUN27",
+        "days": 355.56,
+        "mark": 65626.74,
+        "basis_ann_pct": 4.066
+      }
+    ],
+    "perp_premium_pct": 0.0116,
+    "reason": null
+  },
+  "funding": {
+    "latest_pct": 0.01,
+    "d1_pct": 0.008,
+    "d7_pct": 0.0073,
+    "d30_pct": 0.0067,
+    "points": 30,
+    "reason": null
+  }
+}

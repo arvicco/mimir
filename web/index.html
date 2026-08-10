@@ -44,9 +44,9 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-size: 13px;
   }
-  /* data face -- EVERY number / status token (chips, badges, ages, pub slot),
-     tabular so ticking values never jitter. */
-  .chip, .badge, .age, #pub {
+  /* data face -- number / status tokens (chips, pub slot); tabular so ticking
+     values never jitter. Badge text lives in .badge-bubble (its own mono). */
+  .chip, #pub {
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     font-variant-numeric: tabular-nums;
   }
@@ -90,8 +90,13 @@
     color: #ffd7d7; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px;
     font-size: 12px; line-height: 1.5;
   }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  @media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } }
+  /* 3x2 card grid (owner ruling 2026-08-10): row 1 GEX · Volatility ·
+     Vol-Spread, row 2 Scenario · LPPL · BTCo. Order comes from
+     render.js CARD_ORDER; narrower viewports fall back 2-col, then 1. */
+  .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  @media (max-width: 1160px) { .grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 780px)  { .grid { grid-template-columns: 1fr; } }
+  .stacksec { position: relative; } /* bubble + badge anchor per stacked section (owner ruling 2026-08-10) */
   .card {
     background: #1b1f26; border: 1px solid #2a2f38; border-radius: 8px;
     padding: 10px 12px; min-width: 0; position: relative;
@@ -124,11 +129,55 @@
   .card-head:has(.hover:focus) ~ .bubble,
   .bubble:hover { display: block; }
   .info:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
-  .badge {
-    display: inline-flex; align-items: center; gap: 6px; margin-left: auto;
-    font-size: 11px; padding: 2px 8px; border-radius: 20px;
-    border: 1px solid #2a2f38; color: #b9c0ca;
+  /* Title ⓘ affordance + instant orientation bubble (M8-7). SAME instant
+     CSS hover/focus pattern as the card-head bubbles (never native title=).
+     It sits at the top of the page, so it opens DOWNWARD and can never clip
+     at the top; anchored to the header's left edge and width-capped so it
+     can't clip at the right either (mimir-design: overlays never clip). */
+  #titleinfo {
+    font-size: 12px; color: #7f8896; cursor: help; flex: 0 0 auto;
+    margin-left: -8px; /* pull it close to the title (header gap is 14px) */
   }
+  #titleinfo:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; border-radius: 3px; }
+  #titlebubble {
+    display: none; position: absolute; left: 0; top: calc(100% + 4px);
+    z-index: 50; width: max-content; max-width: min(360px, 92vw);
+    background: #232933; border: 1px solid #3a424e; border-radius: 8px;
+    padding: 10px 14px; font-size: 12px; line-height: 1.55; color: #ccd3dc;
+    box-shadow: 0 6px 24px rgba(0,0,0,.45); white-space: normal;
+  }
+  #titlebubble p { margin: 0 0 8px; }
+  #titlebubble p:last-child { margin-bottom: 0; }
+  #titlebubble .links { display: flex; gap: 16px; }
+  #titlebubble a { color: #a9d1ff; text-decoration: none; }
+  #titlebubble a:hover, #titlebubble a:focus { text-decoration: underline; }
+  #titlebubble a:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; border-radius: 2px; }
+  /* open on hover/focus of the ⓘ, and stay open while the pointer is over
+     the bubble OR keyboard focus is inside it (so its two links are Tab-
+     reachable -- the card bubbles carry no links, this one does) */
+  #head:has(#titleinfo:hover) #titlebubble,
+  #head:has(#titleinfo:focus) #titlebubble,
+  #titlebubble:hover, #titlebubble:focus-within { display: block; }
+  /* M8-18 R6: a card badge is a bare staleness dot (dot-only + hover/focus
+     bubble -- the header-ldot pattern). Focusable like the header dots; the
+     bubble carries age/ttl/time, right-anchored + flip-up so it never clips. */
+  .badge {
+    position: relative; display: inline-flex; align-items: center;
+    margin-left: auto; padding: 3px; border-radius: 50%; cursor: help;
+  }
+  .badge:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
+  .badge-bubble {
+    display: none; position: absolute; right: 0; top: calc(100% + 6px);
+    z-index: 45; white-space: nowrap;
+    background: #232933; border: 1px solid #3a424e; border-radius: 6px;
+    padding: 4px 9px; font-size: 11px; color: #ccd3dc;
+    box-shadow: 0 6px 24px rgba(0,0,0,.45);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  .badge-bubble.up { top: auto; bottom: calc(100% + 6px); }
+  .badge:hover .badge-bubble, .badge:focus .badge-bubble,
+  .badge:focus-within .badge-bubble { display: block; }
   .chart { width: 100%; height: 500px; }
   /* GEX tab bar (M6-4, owner ruling D7-c): the two GEX charts share one
      card as [BTC][MSTR] tabs. Real <button>s in the card-head, dim until
@@ -141,15 +190,18 @@
   }
   .tabbtn.active { color: #d7dce3; border-color: #3a424e; background: #20252d; }
   .tabbtn:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
-  /* Grouped (p) VENUE (c) legend widget (meta.legend_widget hook) --
-     one line per venue over the chart's right margin. Bright = shown,
-     dim = hidden; sides keep their series colors. */
+  /* Grouped (p) VENUE (c) legend widget (meta.legend_widget hook). Owner
+     ruling M8-18 R3 (2026-08-10): a FIXED 2x3 grid at the TOP-RIGHT of the
+     BTC GEX chart (an owner-ruled EXCEPTION to "side panels go right"), so
+     the plot reclaims the old right-margin column. Bright = shown, dim =
+     hidden; sides keep their series colors. */
   .cp-legend {
-    position: absolute; right: 16px; top: 68px; z-index: 30;
-    display: flex; flex-direction: column; gap: 4px;
-    font-size: 11px; line-height: 1.3; user-select: none; text-align: center;
+    position: absolute; right: 12px; top: 4px; z-index: 30;
+    display: flex; flex-direction: column; gap: 2px; align-items: flex-end;
+    font-size: 11px; line-height: 1.25; user-select: none;
   }
-  .cp-row { white-space: nowrap; }
+  .cp-row { display: flex; justify-content: flex-end; gap: 10px; white-space: nowrap; }
+  .cp-cell { white-space: nowrap; }
   /* Reset the real <button> (render.js) back to inline text -- keyboard
      operable but identical to the old <span>. */
   .cp {
@@ -194,9 +246,17 @@
 <body>
   <div id="head">
     <h1>mimir</h1>
+    <span id="titleinfo" role="button" tabindex="0" aria-label="About this dashboard and how to read it">ⓘ</span>
     <span id="chips"></span>
     <span id="pub"></span>
     <div id="livebubble" role="status"></div>
+    <div id="titlebubble" role="region" aria-label="About mimir">
+      <p>mimir is a personal Bitcoin analytics dashboard: four instrument families computed on a private machine and published as pre-built charts every two hours. This page is a dumb renderer &mdash; it draws the last publish and computes nothing itself.</p>
+      <p class="links">
+        <a href="guide.html">How to read this dashboard &rarr;</a>
+        <a href="https://github.com/arvicco/mimir/blob/main/docs/METHODOLOGY.md">Methodology &rarr;</a>
+      </p>
+    </div>
   </div>
   <div id="banner"></div>
   <div id="grid" class="grid"></div>
@@ -214,11 +274,18 @@ function apiUrl(key) { return API + key; }  // key may contain ':' (valid path c
 
 // Which producer publishes each chart key -- for the 404 failure copy.
 var PRODUCERS = {
-  gex_profile:    "gex_btc_combined.rb",
+  gex_btc:        "gex_btc_combined.rb",
   gex_mstr:       "gex_us.rb",
+  gex_btc_trend:  "gex_trend.rb",
+  gex_mstr_trend: "gex_trend.rb",
   scenario_strip: "scenario.rb",
   lppl_regime:    "lppl.rb",
-  btco_table:     "btco.rb"
+  btco_table:     "btco.rb",
+  vol_surface:    "vol.rb",
+  vol_surface_mstr: "vol_mstr.rb",
+  vol_spread:     "vol_spread.rb",
+  vol_spread_trend: "vol_spread.rb",
+  vol_basis:      "basis.rb"
 };
 
 async function getJSON(url) {
@@ -261,40 +328,15 @@ function buildHeader(idx) {
   });
 }
 
-// ---- THE SIGNATURE: live age ticker -----------------------------------
-// One shared 1 s interval (cheap, whole-page) rewrites every card badge's
-// age and re-evaluates its staleness dot from data-generated-at/data-ttl.
-// prefers-reduced-motion: this is a text update only -- no other animation
-// exists on the page, so nothing to disable.
-function fmtAge(sec) {
-  var s = Math.floor(sec < 0 ? 0 : sec);
-  function p2(n) { return (n < 10 ? "0" : "") + n; }
-  if (s < 3600)  return Math.floor(s / 60) + "m" + p2(s % 60) + "s";
-  if (s < 86400) return Math.floor(s / 3600) + "h " + p2(Math.floor((s % 3600) / 60)) + "m";
-  return Math.floor(s / 86400) + "d " + p2(Math.floor((s % 86400) / 3600)) + "h";
-}
-
-function paintBadge(badge) {
-  var gen = badge.getAttribute("data-generated-at");
-  var ttl = Number(badge.getAttribute("data-ttl"));
-  badge.querySelector(".dot").className = "dot " + R.staleClass(gen, ttl);
-  badge.querySelector(".age").textContent = fmtAge((Date.now() - new Date(gen).getTime()) / 1000);
-}
-
+// ---- THE SIGNATURE: live staleness ticker -----------------------------
+// One shared 1 s interval (cheap, whole-page) re-evaluates every card badge's
+// staleness dot from data-generated-at/data-ttl, and keeps an OPEN hover/focus
+// bubble's age text current (M8-18 R6: the badge is a bare dot now -- age/ttl
+// live in the bubble, built by the shared renderer). Text/class updates only,
+// no animation, so nothing to gate on prefers-reduced-motion.
 function tickAll() {
   var badges = document.querySelectorAll("#grid .badge[data-generated-at]");
-  for (var i = 0; i < badges.length; i += 1) paintBadge(badges[i]);
-}
-
-// Replace render.js's static badge text with the ticking dot + age, keyed
-// off data attributes the shared ticker scans.
-function initBadge(card, env) {
-  var badge = card.querySelector(".badge");
-  if (!badge) return;
-  badge.setAttribute("data-generated-at", env.generated_at);
-  badge.setAttribute("data-ttl", env.ttl_hint_s);
-  badge.innerHTML = '<span class="dot"></span><span class="age"></span>';
-  paintBadge(badge);
+  for (var i = 0; i < badges.length; i += 1) R.refreshBadge(badges[i]);
 }
 
 // ---- one chart card ---------------------------------------------------
@@ -323,14 +365,13 @@ async function loadChart(key) {
   }
   try {
     var card = R.buildChartCard(env, key);
+    // The renderer builds every badge fully (dot + hover/focus bubble +
+    // data-generated-at/data-ttl via setBadge), so the page only appends the
+    // card; the 1 s ticker (R.refreshBadge) drives the dots from those attrs.
     // A tab-group's 2nd+ member (M6-4) returns the SAME, already-connected
-    // card: re-appending would MOVE it and break the 2x2 grid order, and
-    // re-initBadge would point the shared badge at the wrong tab's env
-    // (the renderer's tab machinery owns the badge swap). Guard both.
-    if (!card.isConnected) {
-      grid.appendChild(card);
-      initBadge(card, env);
-    }
+    // card -- re-appending would MOVE it and break the grid order, so guard.
+    if (!card.isConnected) grid.appendChild(card);
+    registerCard(key, env, card); // M8-13: remember it for auto-refresh
   } catch (e) {
     grid.appendChild(R.errCard(key, "render failed: " + apiUrl(key) + "\n" + e.message));
   }
@@ -349,8 +390,8 @@ function btcoErr(key, e) {
 }
 
 // Fallback-only full-width card, used when the chart:btco_table card is
-// absent (e.g. a pre-chart publish): key-style title (no bubble -- the
-// suite envelope carries no meta) + the ticking age badge (initBadge).
+// absent (e.g. a pre-chart publish): key-style title (no bubble -- the suite
+// envelope carries no meta) + the shared dot-only badge (M8-18 R6).
 function buildBtcoCard(env) {
   var card = document.createElement("div");
   card.className = "card wide";
@@ -360,8 +401,8 @@ function buildBtcoCard(env) {
   keySpan.className = "key";
   keySpan.textContent = "btco:latest · universe";
   head.appendChild(keySpan);
-  var badge = document.createElement("span");
-  badge.className = "badge";
+  var badge = R.makeBadge();
+  R.setBadge(badge, env);
   head.appendChild(badge);
   card.appendChild(head);
   var companies = (env.payload && env.payload.companies) || [];
@@ -379,16 +420,197 @@ async function loadBtco() {
     return;
   }
   try {
+    BTCO.env = env; // M8-13: remember the last good universe for auto-refresh
     // In-quadrant attach is shared renderer behavior (round 5 ruling).
     if (!R.attachBtcoTable(grid, env)) {
       // no chart card (pre-chart publish) -- fall back to its own strip
       var card = buildBtcoCard(env);
       grid.appendChild(card);
-      initBadge(card, env);
+      BTCO.el = card; // fallback strip -- refresh replaces this node wholesale
+    } else {
+      BTCO.el = null; // table lives inside the chart:btco_table card
     }
   } catch (e) {
     grid.appendChild(R.errCard("btco:latest", "render failed: " + apiUrl("btco:latest") + "\n" + e.message));
   }
+}
+
+// ---- M8-13 auto-refresh -----------------------------------------------
+// Every published key is re-pulled on its own timer so an OPEN tab
+// converges to the latest publish with no reload (the gap that twice
+// confused us). Cadence per key = the payload's ttl_hint_s, floored at
+// 60s by R.nextDelay -- a "good for 30 min" payload is re-pulled every
+// 30 min, and nothing ever polls faster than 60s (no request storm).
+// generated_at is the change signal: an unchanged value rebuilds nothing.
+// A failed fetch keeps the last good card silently -- the page's designed
+// error cards are for the FIRST load only. Polling pauses while the tab is
+// hidden (visibilitychange) and catches up on return. Display behavior
+// only: no ttl_hint_s VALUE, chart spec, or publish path changes here.
+var CARDS = {};        // chart key -> { env, el, group }
+var GROUP_KEYS = {};   // tab_group id -> [member keys] in initial-load order
+var BTCO = { env: null, el: null }; // universe table's last good env + fallback node
+var HEADER = { idx: null, cadence: 60000, last: 0, timer: null };
+var UNITS = [];        // one poll unit per solo card / tab-group / the table
+
+function hidden() { return document.visibilityState === "hidden"; }
+function tabPos(env) { var m = env.meta || {}; return m.tab_pos == null ? 99 : m.tab_pos; }
+
+// Called for every chart key as it first renders (loadChart).
+function registerCard(key, env, card) {
+  var group = (env.meta && env.meta.tab_group) || null;
+  CARDS[key] = { env: env, el: card, group: group };
+  if (group) (GROUP_KEYS[group] || (GROUP_KEYS[group] = [])).push(key);
+}
+
+// Re-drop the universe table into (a rebuilt) chart:btco_table card from
+// the last good BTCO.env: remove any existing table first so a refresh
+// never duplicates it. Falls back to replacing a standalone strip node.
+function reattachBtco() {
+  if (!BTCO.env) return;
+  var grid = document.getElementById("grid");
+  var host = grid.querySelector('[data-key="chart:btco_table"]');
+  if (host) {
+    var old = host.querySelector("table.btco");
+    if (old) old.parentNode.removeChild(old);
+    R.attachBtcoTable(grid, BTCO.env);
+    return;
+  }
+  if (BTCO.el && BTCO.el.parentNode) {
+    var card = buildBtcoCard(BTCO.env); // its badge is built by makeBadge+setBadge
+    BTCO.el.parentNode.replaceChild(card, BTCO.el);
+    BTCO.el = card;
+  }
+}
+
+// ---- unit factories: solo chart, tab-group, universe table -------------
+function soloUnit(key) {
+  return {
+    cadenceFn: function () { return R.nextDelay(CARDS[key].env.ttl_hint_s); },
+    refresh: async function () {
+      var env = await getJSON(apiUrl(key));
+      if (env.generated_at === CARDS[key].env.generated_at) return; // unchanged
+      var oldCard = CARDS[key].el, parent = oldCard.parentNode;
+      R.releaseCard(oldCard);
+      var newCard = R.buildChartCard(env, key);
+      parent.replaceChild(newCard, oldCard);
+      CARDS[key] = { env: env, el: newCard, group: null };
+      if (key === "chart:btco_table") reattachBtco(); // gauge rebuilt -> re-add table
+    }
+  };
+}
+
+function groupUnit(groupId) {
+  var keys = GROUP_KEYS[groupId];
+  return {
+    cadenceFn: function () {
+      return Math.min.apply(null, keys.map(function (k) {
+        return R.nextDelay(CARDS[k].env.ttl_hint_s);
+      }));
+    },
+    refresh: async function () {
+      var envs = await Promise.all(keys.map(function (k) { return getJSON(apiUrl(k)); }));
+      var changed = keys.some(function (k, i) {
+        return envs[i].generated_at !== CARDS[k].env.generated_at;
+      });
+      if (!changed) return;
+      var oldCard = CARDS[keys[0]].el, parent = oldCard.parentNode;
+      R.releaseCard(oldCard);
+      R.forgetGroup(groupId); // rebuild the shared card from scratch
+      var newCard = null;
+      keys.forEach(function (k, i) {
+        newCard = R.buildChartCard(envs[i], k); // both members return the same card
+        CARDS[k] = { env: envs[i], el: newCard, group: groupId };
+      });
+      parent.replaceChild(newCard, oldCard);
+      // The renderer's setBadge already stamped every section/tab badge; the
+      // 1 s ticker drives their dots. Nothing more to wire here.
+    }
+  };
+}
+
+function btcoUnit() {
+  return {
+    cadenceFn: function () { return R.nextDelay(BTCO.env && BTCO.env.ttl_hint_s); },
+    refresh: async function () {
+      var env = await getJSON(apiUrl("btco:latest"));
+      if (BTCO.env && env.generated_at === BTCO.env.generated_at) return;
+      BTCO.env = env;
+      reattachBtco();
+    }
+  };
+}
+
+// ---- scheduler: pause on hidden, catch up on return --------------------
+function pollUnit(u) {
+  if (hidden()) return; // resumeAll() reschedules when the tab returns
+  Promise.resolve()
+    .then(function () { return u.refresh(); })
+    .catch(function () { /* silent: the last good card stays put */ })
+    .then(function () {
+      u.last = Date.now();
+      u.cadence = u.cadenceFn();
+      u.timer = setTimeout(function () { pollUnit(u); }, u.cadence);
+    });
+}
+
+function pollHeader() {
+  if (hidden()) return;
+  Promise.resolve()
+    .then(function () { return getJSON(apiUrl("index")); })
+    .then(function (idx) {
+      HEADER.idx = idx;
+      var chips = document.getElementById("chips");
+      while (chips.firstChild) chips.removeChild(chips.firstChild); // clear old dots
+      buildHeader(idx); // repaint dot cluster + pub/fresh from the fresh index
+    })
+    .catch(function () { /* silent: last good header stays */ })
+    .then(function () {
+      HEADER.last = Date.now();
+      HEADER.cadence = R.nextDelay(HEADER.idx ? HEADER.idx.ttl_hint_s : 60);
+      HEADER.timer = setTimeout(pollHeader, HEADER.cadence);
+    });
+}
+
+function addUnit(u) {
+  u.last = Date.now();
+  u.cadence = u.cadenceFn();
+  u.timer = setTimeout(function () { pollUnit(u); }, u.cadence);
+  UNITS.push(u);
+}
+
+function pauseAll() {
+  UNITS.forEach(function (u) { clearTimeout(u.timer); });
+  clearTimeout(HEADER.timer);
+}
+
+function resumeAll() {
+  pauseAll(); // drop any pending timer so we never double-schedule
+  var now = Date.now();
+  UNITS.forEach(function (u) {
+    var due = u.cadence - (now - u.last);
+    if (due <= 0) pollUnit(u);                 // stale -> refresh immediately
+    else u.timer = setTimeout(function () { pollUnit(u); }, due);
+  });
+  var hdue = HEADER.cadence - (now - HEADER.last);
+  if (hdue <= 0) pollHeader();
+  else HEADER.timer = setTimeout(pollHeader, hdue);
+}
+
+// Build one poll unit per solo card, per tab-group, and for the table,
+// plus the header poller, then arm the visibility pause/resume.
+function startAutoRefresh() {
+  Object.keys(CARDS).forEach(function (key) {
+    var c = CARDS[key];
+    if (c.group) { if (GROUP_KEYS[c.group][0] === key) addUnit(groupUnit(c.group)); }
+    else addUnit(soloUnit(key));
+  });
+  if (BTCO.env || BTCO.el) addUnit(btcoUnit());
+  HEADER.last = Date.now();
+  HEADER.cadence = R.nextDelay(HEADER.idx ? HEADER.idx.ttl_hint_s : 60);
+  HEADER.timer = setTimeout(pollHeader, HEADER.cadence);
+  document.addEventListener("visibilitychange", function () {
+    if (hidden()) pauseAll(); else resumeAll();
+  });
 }
 
 // ---- boot -------------------------------------------------------------
@@ -407,6 +629,7 @@ async function loadBtco() {
     showBanner();
     return;
   }
+  HEADER.idx = idx; // seed the header poller with the first index
   var chartKeys = buildHeader(idx);
   // An index without chart:* keys is a publish older than the chart
   // pipeline -- render the reason, not a bare page (Gate 4 lesson).
@@ -415,7 +638,7 @@ async function loadBtco() {
     eb.style.display = "block";
     eb.textContent = "The published index lists no chart:* keys -- KV holds a publish " +
                      "older than the chart pipeline. Run: PUBLISH_DRY_RUN=0 ruby publish/publish.rb " +
-                     "(expect PUB LIVE 13/13), then reload.";
+                     "(expect PUB LIVE 26/26), then reload.";
   }
   for (var i = 0; i < chartKeys.length; i += 1) {
     await loadChart(chartKeys[i]);
@@ -423,6 +646,7 @@ async function loadBtco() {
   await loadBtco(); // the literal universe table, INSIDE the btco quadrant
   if (!healthzOk) showBanner(); // index served (maybe cached) but worker probe failed
   setInterval(tickAll, 1000);   // the signature -- ONE interval for the page
+  startAutoRefresh();           // M8-13: per-key re-fetch so the tab converges live
   window.addEventListener("resize", function () {
     R.charts.forEach(function (c) { c.resize(); });
   });
