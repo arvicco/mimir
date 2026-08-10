@@ -86,6 +86,14 @@ class TestChartSpecs < Minitest::Test
                  metas['vol_surface'].values_at('tab_group', 'group_style', 'tab_pos', 'height').map(&:to_s)
     assert_equal %w[vol stack 2 235],
                  metas['vol_basis'].values_at('tab_group', 'group_style', 'tab_pos', 'height').map(&:to_s)
+    # M8-17 (owner ruling 2026-08-10): the SURFACE section is itself a
+    # [BTC][MSTR] tab pair -- vol_surface + vol_surface_mstr share tab_pos 0
+    # so the renderer collapses them into ONE tabbed section; tab_label names
+    # the button (BTC leads by CARD_ORDER, MSTR second).
+    assert_equal 'BTC', metas['vol_surface']['tab_label']
+    assert_equal %w[vol stack 0 235 MSTR],
+                 metas['vol_surface_mstr'].values_at('tab_group', 'group_style',
+                                                     'tab_pos', 'height', 'tab_label').map(&:to_s)
     # M8-16 (owner ruling 2026-08-10): vol_spread + vol_spread_trend share
     # the 'volspread' card the same way -- the current per-tenor bars on top
     # (tab_pos 0), the daily spread trend below (tab_pos 1), both half-height.
@@ -97,7 +105,7 @@ class TestChartSpecs < Minitest::Test
                  metas['gex_trend'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
     # the vol charts carry no drawn-legend/tooltip renderer hooks;
     # the stacked pairs DO carry height (half a card each)
-    %w[vol_surface vol_spread vol_spread_trend vol_basis gex_trend].each do |n|
+    %w[vol_surface vol_surface_mstr vol_spread vol_spread_trend vol_basis gex_trend].each do |n|
       assert_nil metas[n]['tooltip_formatter'], n
       assert_nil metas[n]['legend_widget'], n
     end
@@ -123,6 +131,25 @@ class TestChartSpecs < Minitest::Test
     exp = Publish::Charts.vol_surface(p2)['series'].find { |s| s['name'] == 'exp(d)' }
     assert_equal 0, exp['lineStyle']['opacity']
     refute_includes Publish::Charts.vol_surface(p2)['legend']['data'], 'exp(d)'
+  end
+
+  # M8-17: vol_surface_mstr shares vol_surface's option body (they tab into
+  # one SURFACE section) -- byte-identical for the SAME payload except the
+  # title prefix, so the MSTR tab is a true "same set-up" surface.
+  def test_vol_surface_mstr_is_the_btc_body_with_an_mstr_title
+    mstr = JSON.parse(File.read(File.join(PAYLOADS, 'payload_vol_mstr.json')))
+    as_btc  = Publish::Charts.vol_surface(mstr)      # same payload, BTC title
+    as_mstr = Publish::Charts.vol_surface_mstr(mstr) # same payload, MSTR title
+    assert_match(/\AMSTR vol surface · ATM /, as_mstr['title']['text'])
+    assert_match(/\AVol surface · ATM /, as_btc['title']['text'])
+    # everything but the title text is identical -> one set-up, two labels
+    assert_equal as_btc.reject { |k, _| k == 'title' },
+                 as_mstr.reject { |k, _| k == 'title' }
+    assert_equal as_btc['title'].reject { |k, _| k == 'text' },
+                 as_mstr['title'].reject { |k, _| k == 'text' }
+    # the real MSTR fixture drives real curves (30d ATM ~86%)
+    atm = as_mstr['series'].find { |s| s['name'] == 'ATM IV' }['data']
+    assert(atm.compact.all? { |v| v > 0 }, 'MSTR ATM IV points are live percentages')
   end
 
   def test_vol_spread_bars_coloured_by_sign_legs_as_lines

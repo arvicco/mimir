@@ -37,7 +37,7 @@ rsync -a ~/Dev/mimir/scripts/lppl/data/ scripts/lppl/data/
 rsync -a ~/Dev/mimir/scripts/scenario/data/ scripts/scenario/data/
 rsync -a ~/Dev/mimir/data/gex_history/ data/gex_history/
 rsync -a ~/Dev/mimir/data/vol_history/ data/vol_history/ 2>/dev/null || true
-PUBLISH_DRY_RUN=1 ruby publish/publish.rb   # EXPECT: no SKIP lines, 23 keys + index
+PUBLISH_DRY_RUN=1 ruby publish/publish.rb   # EXPECT: no SKIP lines, 25 keys (incl. index)
 rake preview
 ```
 
@@ -47,8 +47,12 @@ answering :8000 — `lsof -ti :8000 | xargs kill`, then `rake preview`
 again. That exact trap cost the loop a review cycle.)
 
 EXPECT:
-- A fifth card, `chart:vol_surface`, with [SURFACE][SPREAD][BASIS]
-  tabs, SURFACE active; title like `Vol surface · ATM 30d 43.9%`.
+- The Volatility card is STACKED: a SURFACE section on top, a BASIS
+  section below. The SURFACE section carries a `[BTC][MSTR]` tab pair
+  (M8-17), BTC active by default; the BTC tab title is like `Vol
+  surface · ATM 30d 43.9%`, the MSTR tab like `MSTR vol surface · ATM
+  30d 86.2%`. Clicking MSTR swaps that section's chart/title/badge; the
+  BASIS section is unaffected.
 - The GEX card now shows [BTC][MSTR][TREND]; the TREND tab plots
   spot/flip/CW/PW daily lines and its title carries the max-pain
   delta (`· MP Δ+0.59%`).
@@ -82,7 +86,7 @@ gh run list --repo arvicco/mimir --branch main --limit 1   # EXPECT: success
 rake deploy        # interactive; includes one real publish
 ```
 
-EXPECT from the deploy's publish: `PUB LIVE 23/23 keys` (was 13/13 —
+EXPECT from the deploy's publish: `PUB LIVE 25/25 keys` (was 13/13 —
 the monitor/notes expectation changes with this deploy; tell the loop
 so its tick-watch copy updates). Then put the working tree back on
 main so the launchd agents run the released code — the loop will
@@ -129,8 +133,8 @@ EXPECT:
   ladder, bubble-index cross-ref; then scorecard/backtest road) plus
   M7-13 (deterministic iXBRL parser) and M7-15b (cash model — makes
   DJT/BLSH mNAV honest).
-- KV quota check (Gate 5 carry-over): 23 keys × 12 runs/day ≈ 276
-  writes/day, ~26% of the free tier by arithmetic — confirm in the CF
+- KV quota check (Gate 5 carry-over): 25 keys × 12 runs/day ≈ 300
+  writes/day, ~30% of the free tier by arithmetic — confirm in the CF
   dashboard if you want the observed number.
 - gex_check divergence threshold: stays report-only until weeks of
   data suggest a band (deliberate, Golden Rule 4).

@@ -212,9 +212,42 @@ module Publish
                     'Negative RR25 = downside fear; a rising FLY25 = fatter tails.',
           # stacked card (owner ruling 2026-08-10): surface + basis are
           # one card, two half-height charts -- group_style 'stack',
-          # tab_pos = vertical order, height = half a card
+          # tab_pos = vertical order, height = half a card. The SURFACE
+          # section is itself a [BTC][MSTR] tab pair (owner ruling
+          # 2026-08-10, M8-17): vol_surface + vol_surface_mstr share
+          # tab_pos 0, so the renderer collapses them into one tabbed
+          # section; tab_label names the button (BTC leads, lower CARD_ORDER).
           'tab_group' => 'vol', 'group_style' => 'stack', 'tab_pos' => 0,
-          'height' => 235
+          'tab_label' => 'BTC', 'height' => 235
+        }
+      },
+      # M8-17: the MSTR vol surface -- same builder body as vol_surface, an
+      # MSTR title. Shares vol_surface's tab_pos 0 so the SURFACE section of
+      # the stacked vol card carries [BTC][MSTR] tabs (owner ruling 2026-08-10).
+      'vol_surface_mstr' => {
+        inputs: %w[payload_vol_mstr.json], fn: :vol_surface_mstr,
+        meta: {
+          'desc' => 'The implied-vol term structure from MicroStrategy\'s ' \
+                    'own option chain (CBOE single-name, USD cash-settled) at ' \
+                    'three nominal tenors: ATM IV is the at-the-money level, ' \
+                    'RR25 the 25-delta risk reversal (call IV minus put IV) and ' \
+                    'FLY25 the 25-delta butterfly. MSTR is a levered, reflexive ' \
+                    'BTC holder, so its vol persistently trades richer than ' \
+                    'BTC\'s -- the [BTC] tab is the coin, this is the equity.',
+          'axes' => { 'x' => 'requested tenor (7/30/90d); the actual option ' \
+                             'expiry backing each rides the tooltip as exp(d)',
+                      'y' => 'left: ATM implied vol (%); right: 25-delta skew in ' \
+                             'vol points (RR25 red, FLY25 amber)' },
+          'help' => 'ATM IV (teal) reads on the left axis; RR25 (red) and FLY25 ' \
+                    '(amber) are vol points on the right. MSTR options are ' \
+                    'USD-settled single-name, so the listed chain is shorter ' \
+                    'than BTC\'s -- a thin 90d tenor drops honestly (reason set), ' \
+                    'never drawn as zero. Negative RR25 = downside fear.',
+          # the MSTR half of the SURFACE section (owner ruling 2026-08-10):
+          # same tab_pos 0 as vol_surface so the renderer tabs the two into
+          # one section; MSTR is the second tab (BTC leads by CARD_ORDER).
+          'tab_group' => 'vol', 'group_style' => 'stack', 'tab_pos' => 0,
+          'tab_label' => 'MSTR', 'height' => 235
         }
       },
       'vol_spread' => {
@@ -908,7 +941,23 @@ module Publish
     # so it shows in the axis tooltip as exp(d) -- the gex aggregate-line
     # idiom, pure JSON, no renderer formatter. A tenor whose leg failed
     # (reason set) is an OMITTED point (nil), not a zero.
+    #
+    # M8-17: vol_surface (BTC) and vol_surface_mstr (MSTR) are the SAME
+    # option body with a different title -- they share tab_pos 0 so the
+    # renderer tabs them into one SURFACE section. The shared body is
+    # vol_surface_option; the two public builders only pick the title
+    # prefix, keeping the existing vol_surface golden byte-identical
+    # (format('%s · ATM %s','Vol surface',head) == the old literal).
     def vol_surface(vol)
+      vol_surface_option(vol, 'Vol surface')
+    end
+
+    # MSTR sibling (reads vol:mstr) -- identical body, MSTR title.
+    def vol_surface_mstr(vol)
+      vol_surface_option(vol, 'MSTR vol surface')
+    end
+
+    def vol_surface_option(vol, title_prefix)
       tenors = vol['tenors'] || []
       labels = tenors.map { |t| "#{t['tenor_d']}d" }
       atm    = tenors.map { |t| vol_pct(t['atm_iv']) }
@@ -919,7 +968,7 @@ module Publish
 
       {
         'backgroundColor' => 'transparent',
-        'title' => { 'text' => format('Vol surface · ATM %s', head),
+        'title' => { 'text' => format('%s · ATM %s', title_prefix, head),
                      'textStyle' => { 'fontSize' => 13 } },
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 } },

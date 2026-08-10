@@ -262,6 +262,7 @@ var PRODUCERS = {
   lppl_regime:    "lppl.rb",
   btco_table:     "btco.rb",
   vol_surface:    "vol.rb",
+  vol_surface_mstr: "vol_mstr.rb",
   vol_spread:     "vol_spread.rb",
   vol_spread_trend: "vol_spread.rb",
   vol_basis:      "basis.rb",
@@ -384,6 +385,14 @@ async function loadChart(key) {
     // (the renderer's tab machinery owns the badge swap). Guard both.
     if (!card.isConnected) {
       grid.appendChild(card);
+      initBadge(card, env);
+    } else if (env.meta && env.meta.group_style === "stack") {
+      // A stacked card (M8-17) rebuilds ALL its sections on every new
+      // member, so the earlier badges the first initBadge ticker-ified are
+      // gone -- re-stamp the ticker onto every section badge (each already
+      // carries its own data-generated-at from the renderer's setBadge, so
+      // initBadge honors it). A tab-group card (group_style unset) is NOT
+      // re-inited: its single badge is owned by the renderer's tab machinery.
       initBadge(card, env);
     }
     registerCard(key, env, card); // M8-13: remember it for auto-refresh
@@ -660,7 +669,7 @@ function startAutoRefresh() {
     eb.style.display = "block";
     eb.textContent = "The published index lists no chart:* keys -- KV holds a publish " +
                      "older than the chart pipeline. Run: PUBLISH_DRY_RUN=0 ruby publish/publish.rb " +
-                     "(expect PUB LIVE 23/23), then reload.";
+                     "(expect PUB LIVE 25/25), then reload.";
   }
   for (var i = 0; i < chartKeys.length; i += 1) {
     await loadChart(chartKeys[i]);

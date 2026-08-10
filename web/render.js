@@ -398,11 +398,18 @@ function buildGroupedCard(env, key, meta, groupId) {
 // Build (or extend) a STACKED group card (owner ruling 2026-08-10:
 // vol_surface + vol_basis are "one card, two half-card charts", not
 // tabs). Same GROUPS registry and grouping meta as the tab style, but
-// every member is always visible: each contributes a section -- its own
-// head row (key + ⓘ + badge) above its half-height chart -- ordered by
-// tab_pos. Each section keeps its own hover bubble and its badge keeps
-// its own envelope's freshness (setBadge stamps data-generated-at, so
-// the page ticker drives every section independently).
+// members are stacked vertically by tab_pos, each a section with its own
+// head (key + ⓘ + badge) above its half-height chart, its own hover
+// bubble, and its own envelope's freshness (setBadge stamps
+// data-generated-at, so the page ticker drives every section).
+//
+// M8-17 (owner ruling 2026-08-10): members that SHARE a tab_pos collapse
+// into ONE tabbed section -- the vol card's SURFACE half is a [BTC][MSTR]
+// tab pair on top, BASIS a plain section below. Each member owns a stable
+// chart div + instance; the section chrome around them is rebuilt on every
+// add (buildGroupedCard's rebuild idiom), so a late-loading sibling can
+// re-form the tab bar. The whole card is rebuilt from all member envelopes
+// on refresh (index.html groupUnit + forgetGroup).
 function buildStackedCard(env, key, meta, groupId) {
   var g = GROUPS[groupId];
   if (!g) {
@@ -411,50 +418,133 @@ function buildStackedCard(env, key, meta, groupId) {
     g = GROUPS[groupId] = { card: card, members: [], active: null, stacked: true };
   }
 
+  var inst = buildChartInstance(env, key, meta, null);
+  g.members.push({ pos: meta.tab_pos == null ? 99 : meta.tab_pos,
+                   key: env.key || key, env: env, meta: meta,
+                   chartDiv: inst.div, chart: inst.chart });
+  rebuildStack(g);
+  return g.card;
+}
+
+// (Re)build a stacked card's sections from its members: bucket by tab_pos
+// (ascending vertical order), each bucket becoming ONE section. A bucket
+// with a single member is a plain section; a bucket with several (a shared
+// tab_pos, M8-17) is a tabbed section, its members ordered by CARD_ORDER
+// rank so BTC (lower rank) leads. Chart divs/instances are reused (moved,
+// not recreated) so echarts survives; a rAF resize re-fits them once placed.
+function rebuildStack(g) {
+  var byPos = {}, order = [];
+  g.members.forEach(function (m) {
+    if (!byPos[m.pos]) { byPos[m.pos] = []; order.push(m.pos); }
+    byPos[m.pos].push(m);
+  });
+  order.sort(function (a, b) { return a - b; });
+
+  while (g.card.firstChild) g.card.removeChild(g.card.firstChild);
+  var firstKey = null;
+  order.forEach(function (pos, i) {
+    var ms = byPos[pos].slice().sort(function (a, b) { return cardRank(a.key) - cardRank(b.key); });
+    if (i === 0) firstKey = ms[0].key;
+    g.card.appendChild(ms.length > 1 ? tabbedStackSection(ms) : plainStackSection(ms[0]));
+  });
+  g.card.dataset.key = firstKey;
+  g.members.forEach(function (m) { requestAnimationFrame(function () { m.chart.resize(); }); });
+}
+
+// One stacked-section shell: a head (key.hover + ⓘ [+ tab bar] + badge)
+// over a hover bubble, with the viewport-flip orient wiring. The caller
+// fills the key/bubble/badge and appends the chart div(s).
+function stackShell(withTabbar) {
   var section = document.createElement("div");
   section.className = "stacksec";
   var head = document.createElement("div");
   head.className = "card-head";
   var keySpan = document.createElement("span");
   keySpan.className = "key hover";
-  keySpan.textContent = env.key || key;
   head.appendChild(keySpan);
   var info = document.createElement("span");
   info.className = "info hover";
   info.textContent = "ⓘ";
   info.tabIndex = 0;
   head.appendChild(info);
+  var tabbar = null;
+  if (withTabbar) {
+    tabbar = document.createElement("span");
+    tabbar.className = "tabbar";
+    tabbar.setAttribute("role", "tablist");
+    tabbar.setAttribute("aria-label", "surface underlying");
+    head.appendChild(tabbar);
+  }
   var badge = document.createElement("span");
   badge.className = "badge";
   head.appendChild(badge);
   section.appendChild(head);
-  var bubble = buildBubble(meta);
+  var bubble = document.createElement("div");
+  bubble.className = "bubble";
   section.appendChild(bubble);
   function orient() {
     requestAnimationFrame(function () {
       if (!bubble.getBoundingClientRect().height) return;
       bubble.classList.remove("up");
-      if (bubble.getBoundingClientRect().bottom > window.innerHeight) {
-        bubble.classList.add("up");
-      }
+      if (bubble.getBoundingClientRect().bottom > window.innerHeight) bubble.classList.add("up");
     });
   }
   head.addEventListener("mouseover", orient);
   head.addEventListener("focusin", orient);
-  setBadge(badge, env);
+  return { section: section, keySpan: keySpan, tabbar: tabbar, badge: badge, bubble: bubble };
+}
 
-  var inst = buildChartInstance(env, key, meta, null);
-  section.appendChild(inst.div);
-  g.members.push({ pos: meta.tab_pos == null ? 99 : meta.tab_pos,
-                   key: env.key || key, env: env, meta: meta,
-                   div: section, chart: inst.chart });
+// Replace a bubble element's contents with the structured help for `meta`.
+function fillBubble(target, meta) {
+  var nb = buildBubble(meta);
+  while (target.firstChild) target.removeChild(target.firstChild);
+  while (nb.firstChild) target.appendChild(nb.firstChild);
+}
 
-  // vertical order = tab_pos, whatever order the members loaded in
-  g.members.sort(function (a, b) { return a.pos - b.pos; });
-  g.members.forEach(function (m) { g.card.appendChild(m.div); });
-  g.card.dataset.key = g.members[0].key;
-  requestAnimationFrame(function () { inst.chart.resize(); });
-  return g.card;
+// A single-member stacked section: exactly the pre-M8-17 layout.
+function plainStackSection(m) {
+  var s = stackShell(false);
+  s.keySpan.textContent = m.key;
+  fillBubble(s.bubble, m.meta);
+  setBadge(s.badge, m.env);
+  m.chartDiv.style.display = "";
+  s.section.appendChild(m.chartDiv);
+  return s.section;
+}
+
+// A tabbed stacked section (M8-17): one head with a mini [BTC][MSTR] tab
+// bar, ONE chart visible at a time. Clicking a tab swaps the visible chart
+// (resizing it -- a display:none div renders 0x0), and the section's key
+// text, hover bubble and staleness badge to that member's envelope (the
+// activateGroup idiom, scoped to this section). Default = ms[0] (lowest
+// CARD_ORDER rank, i.e. BTC).
+function tabbedStackSection(ms) {
+  var s = stackShell(true);
+  function activate(m) {
+    ms.forEach(function (x) {
+      var on = x === m;
+      x.chartDiv.style.display = on ? "" : "none";
+      x.btn.classList.toggle("active", on);
+      x.btn.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    s.keySpan.textContent = m.key;
+    fillBubble(s.bubble, m.meta);
+    setBadge(s.badge, m.env);
+    requestAnimationFrame(function () { m.chart.resize(); });
+  }
+  ms.forEach(function (m) {
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tabbtn";
+    btn.setAttribute("role", "tab");
+    btn.textContent = m.meta.tab_label || m.key;
+    btn.addEventListener("click", function () { activate(m); });
+    m.btn = btn;
+    s.tabbar.appendChild(btn);
+    s.section.appendChild(m.chartDiv);
+  });
+  activate(ms[0]);
+  return s.section;
 }
 
 // Build a chart card from an already-fetched envelope. Returns the card
@@ -575,7 +665,7 @@ function liveHeader(o) {
 // Unknown keys keep index order after the known ones (fail-open for
 // future charts).
 var CARD_ORDER = ["chart:gex_profile", "chart:gex_mstr", "chart:gex_trend",
-                  "chart:vol_surface", "chart:vol_basis",
+                  "chart:vol_surface", "chart:vol_surface_mstr", "chart:vol_basis",
                   "chart:vol_spread", "chart:vol_spread_trend",
                   "chart:scenario_strip", "chart:lppl_regime", "chart:btco_table"];
 function cardRank(key) {
@@ -724,7 +814,7 @@ function forgetGroup(groupId) {
 // rev: bump on EVERY render.js change; `MimirRender.rev` in the console
 // answers "which renderer is this tab actually running?" after deploys.
 window.MimirRender = {
-  rev: "m8-13-autorefresh",
+  rev: "m8-17-mstr-surface-tab",
   staleClass: staleClass,
   hhmm: hhmm,
   liveHeader: liveHeader,
