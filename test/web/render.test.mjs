@@ -183,6 +183,30 @@ test('clicking MSTR reveals + resizes its chart and swaps title/badge; BTC resto
                '2026-07-06T16:00:00Z');
 });
 
+// ---- M8-12: KV strings render as text nodes, never innerHTML ------------
+
+test('errCard builds the key/message as text nodes (no innerHTML from data)', () => {
+  const { R } = loadRender();
+  const evil = 'chart:<img src=x onerror=alert(1)>';
+  const card = R.errCard(evil, 'boom <script>');
+  assert.equal(card.className, 'card err');
+  assert.equal(card.innerHTML, '', 'no innerHTML string was assigned');
+  assert.equal(card.querySelector('.key').textContent, evil, 'key is raw text, not parsed HTML');
+  assert.equal(card.querySelector('.msg').textContent, 'boom <script>');
+});
+
+test('a solo card badge is a dot span + a text node (no innerHTML from ttl)', () => {
+  const { R } = loadRender();
+  const solo = env('chart:lppl_regime', '2026-07-06T12:00:00Z',
+    { desc: 'd', axes: { x: 'x', y: 'y' }, help: 'h' }, []);
+  const badge = R.buildChartCard(solo, 'chart:lppl_regime').querySelector('.badge');
+  assert.equal(badge.innerHTML, '', 'no innerHTML string was assigned');
+  assert.ok(badge.querySelector('.dot'), 'a .dot span child');
+  // dot + one text node "<cls> · ttl 1800s"
+  const text = badge.children.filter((c) => c.nodeType === 3).map((c) => c.textContent).join('');
+  assert.match(text, /· ttl 1800s$/);
+});
+
 test('a non-grouped chart still builds a fresh, tab-less card', () => {
   const { R } = loadRender();
   const solo = env('chart:lppl_regime', '2026-07-06T12:00:00Z',
