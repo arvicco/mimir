@@ -26,6 +26,13 @@
 # Forward output: projected trough date/level from extrapolating the fitted
 # curve up to +400d (reported 'none<=+400d' if the minimum sits on the
 # boundary -- itself a strike against the anti-bubble reading).
+#
+# Report-only diagnostics (M9-5, additive --json, NOT gating -- flip is D9-e):
+#   b_negative            -- fitted B < 0, the standard LPPLS sign restriction
+#                            the four-filter pass does not currently impose
+#   damping               -- D = m|B| / (omega|C|) (4dp; nil when C absent)
+#   damping_ref_threshold -- 1.0, the Sornette-school condition D >= 1;
+#                            reference-only, wired into NOTHING today.
 
 require_relative 'common'
 
@@ -112,6 +119,11 @@ scan.(((b0[:tc] - 2)..(b0[:tc] + 2)).step(1).to_a,
 rmse = Math.sqrt(best[:sse] / best[:n])
 a, b, c1, c2 = best[:coef]
 cmag = Math.sqrt(c1 * c1 + c2 * c2)
+
+# Report-only diagnostics (M9-5): B<0 sign restriction + damping condition.
+# Additive next to the four filters, NOT wired into pass/fail or the score
+# (that flip is decision item D9-e). See Lppl.fit_report_flags.
+rflags = Lppl.fit_report_flags(best[:m], b, best[:w], cmag)
 
 # null: pure power decay
 null = Lppl.power_decay_fit(p, i_peak)
@@ -200,4 +212,7 @@ Lppl.report(NAME, score,
               'trough_px' => (interior ? trough_px : nil),
               'filters' => filters.inspect,
               'rmse_impr_pct' => impr && impr.round(1),
-              'trough_std_days' => tstd)
+              'trough_std_days' => tstd,
+              'b_negative' => rflags[:b_negative],
+              'damping' => rflags[:damping],
+              'damping_ref_threshold' => Lppl::DAMPING_REF_THRESHOLD)

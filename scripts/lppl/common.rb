@@ -255,6 +255,30 @@ module Lppl
     best
   end
 
+  # ---- report-only fit diagnostics (M9-5, D9-e) -------------------------------
+
+  # The Sornette-school damping condition threshold: a genuine anti-bubble
+  # decline satisfies D = m|B| / (omega|C|) >= 1. Reference-only -- the fit
+  # does NOT impose it (nor the B<0 sign restriction) today; the flip from
+  # report-only to gating is decision item D9-e. Named a reference constant so
+  # no caller mistakes it for an active threshold.
+  DAMPING_REF_THRESHOLD = 1.0
+
+  # Report-only flags for a fitted LPPLS combo, additive next to the frozen
+  # four-filter verdict (never wired into pass/fail or the score):
+  #   b_negative -- fitted B < 0, the standard LPPLS sign restriction the fit
+  #                 currently does not impose
+  #   damping    -- D = m|B| / (omega|C|), 4dp; nil when C is zero/absent (no
+  #                 oscillation amplitude to damp against).
+  def fit_report_flags(m, b, omega, cmag)
+    damping = if cmag.abs < 1e-12 || omega.abs < 1e-12
+                nil
+              else
+                (m * b.abs / (omega * cmag.abs)).round(4)
+              end
+    { b_negative: b.negative?, damping: damping }
+  end
+
   # ---- anti-bubble window helpers ---------------------------------------------
 
   # Index of the cycle peak (max close on/after from_date).

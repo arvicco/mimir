@@ -87,8 +87,9 @@ class TestLpplContract < Minitest::Test
                       %w[bootstrap], []],
     'envelope'    => [%w[ratio bound floor freeze_candidate trough_ratios
                          trend_today days_below_strong days_below_floor], [], []],
-    'fit'         => [%w[omega m tc_date filters],
-                      %w[trough_date trough_px rmse_impr_pct trough_std_days], []],
+    'fit'         => [%w[omega m tc_date filters b_negative damping_ref_threshold],
+                      %w[trough_date trough_px rmse_impr_pct trough_std_days
+                         damping], []],
     'logperiodic' => [%w[omega_peak p_value ar1_rho n_resid], [], %w[--sims 5]],
     'percentile'  => [%w[z pct_emp pct_gauss trend_px exponent ratio_to_trend
                          record prior_min_z prior_min_date days_le_p01
@@ -130,6 +131,17 @@ class TestLpplContract < Minitest::Test
       assert_kind_of Numeric, h['sum']
       assert_kind_of Integer, h['n_evals']
     end
+  end
+
+  # M9-5: report-only fit diagnostics ride additively next to the frozen
+  # four-filter verdict -- b_negative (bool, always present) and
+  # damping_ref_threshold (the reference-only constant 1.0). damping itself is
+  # nil-droppable (absent when C is zero). None of them touch the score.
+  def test_fit_report_only_flags_shape
+    j = module_json('fit')
+    assert_includes [true, false], j['b_negative']
+    assert_equal 1.0, j['damping_ref_threshold']
+    assert_kind_of Numeric, j['damping'] if j.key?('damping')
   end
 
   # ---- aggregator ------------------------------------------------------
