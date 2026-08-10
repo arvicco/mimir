@@ -1556,3 +1556,134 @@ on index.html -- badge bubble on hover AND keyboard focus ("age 2m16s · ttl
 1800s · 19:31Z"), venue (p) toggle flips off, all four GEX tabs render a live
 canvas, vol surface MSTR tab still swaps, console clean. NOT live until the
 phase-8 gate merges + deploys.
+
+---
+
+## Phase 9 -- LPPL statistics revision (branch: phase-9, worktree
+## ~/Dev/mimir-phase9; spec = the SBI consolidated review 2026-07-31)
+
+Owner-approved 2026-08-11 ("Let's go P9"). The reviewed math stays; the
+statistics one level up get honest. EVERY verdict-affecting change runs
+SHADOW-FIRST: new numbers as additive fields next to the frozen ones,
+soak, then an explicit owner ruling flips gating. Golden Rule 4 applies
+to every packet here. Local working notes: .docs/lppl-improvements.md.
+
+## M9-1 · Trend statistic honesty  [tier: opus -- Fable spec+review; wording + additive fields, no scoring change] [status: ready] [deps: --]
+Goal: (a) rename in headers/tmux wording/docs: "cumulative log
+      predictive-score differential", never "Bayes factor"; bayes-named
+      --json keys stay (deprecated in comments), additive new keys.
+      (b) per-horizon reporting always: additive fields
+      per_horizon:{h:{sum,mean_per_eval,n_evals}}; never lead with the
+      cross-horizon sum. (c) REPRODUCE the SBI section-3.1 cache-density
+      sensitivity offline (thinned copy of trend_scores.csv, --skip-update)
+      and record the result in the packet -- it feeds decision item D9-b
+      (normalization + uncertainty estimator choice).
+Acceptance: rake green; contracts additive+tested; METHODOLOGY.md and
+      LPPL-SUITE.md wording updated; reproduction result documented.
+
+## M9-2 · Percentile monitor: empirical primary  [tier: opus -- presentation reorder, weight stays 0] [status: ready] [deps: --]
+Goal: pct_emp becomes the primary displayed number (Gaussian as
+      reference only) in table/tmux/chart title paths; weight REMAINS 0
+      (two reviews independently call that prudent). No new fields
+      needed (both already emitted).
+Acceptance: rake green; goldens re-blessed if the chart title changes;
+      METHODOLOGY wording updated.
+
+## M9-3 · Evidence-index labeling + omega cross-check  [tier: opus -- additive surfacing; the refusal RULE is a decision item, not code] [status: ready] [deps: --]
+Goal: (a) user-facing language: the composite is an "evidence index",
+      not a probability (tmux/table/README/METHODOLOGY/guide.html).
+      (b) additive --json: omega_xcheck {fit_omega, ls_omega, delta}
+      (the suite never surfaces that its two frequency estimates agree,
+      8.6 vs 8.5 -- SBI flagged this as a missed self-check) and
+      trough_stability as a first-class field. (c) file D9-a.
+Acceptance: rake green; additive contract tests; chart/goldens updated
+      where titles change.
+
+## M9-4 · Envelope language + freeze rule prep  [tier: sonnet -- wording + one report-only field] [status: ready] [deps: --]
+Goal: "descriptive cycle heuristic" language everywhere user-facing;
+      additive field freeze_candidate (the bound as it would be if
+      frozen pre-trough, report-only). The actual freeze-rule flip is
+      decision item D9-g.
+Acceptance: rake green; additive + tested.
+
+## M9-5 · Fit filters: B<0 + damping (report-only)  [tier: fable -- semantics-adjacent: the filters that will later gate verdicts] [status: ready] [deps: --]
+Goal: fit.rb computes and REPORTS (additive fields, no gating):
+      b_negative (bool) and damping = m*|B|/(omega*|C|) with the
+      standard threshold marked. Exact-value tests on synthetic fits
+      either side of each condition. Gating flip = D9-e after soak.
+Acceptance: rake green; additive + tested; dashboard fit card may show
+      the two flags dimly (design-skill pass if so).
+
+## M9-6 · Symmetric null optimization (shadow)  [tier: fable -- changes what the RMSE-improvement figure means] [status: ready] [deps: M9-5]
+Goal: power_decay_fit gets the same coarse+refined pass as the LPPLS
+      fit; tc selected on RMSE (or fixed row set), never raw SSE across
+      tc-dependent windows. SHADOW: emit null_rmse_v2/improvement_v2
+      next to the current figures; both soak side by side. SBI observed
+      the null tc pinned at its +10d grid edge -- the shadow fields
+      should show that artifact disappearing.
+Acceptance: rake green; additive + tested; old numbers untouched.
+
+## M9-7 · Bootstrap null upgrade (shadow)  [tier: fable -- stdlib statistics; runtime budget matters] [status: ready] [deps: --]
+Goal: ARMA-GARCH parametric bootstrap for logperiodic.rb (stdlib-only;
+      no FFT needed), >=1000 sims, burn-in, per-sim re-fit through the
+      power-decay null. SHADOW field p_value_v2 next to the AR(1)
+      p-value. Deterministic seed in tests (Random.new(42)). Budget the
+      cron runtime (nightly-only if needed -- document the choice).
+      IAAFT (needs pure-Ruby FFT) only if ARMA-GARCH proves
+      insufficient -- separate packet, not this one.
+Acceptance: rake green; shadow field additive + tested; runtime
+      measured and recorded in the packet.
+
+## M9-8 · Long horizons 365/730d (report-only)  [tier: opus -- mechanical extension; whether they SCORE is D9-c] [status: ready] [deps: M9-1]
+Goal: trend.rb evaluates h=365 and h=730 alongside 30/90/180 --
+      REPORT-ONLY (excluded from the +-1 band until D9-c). Backfill is
+      free (retrospective evaluation from the price cache; expect a
+      one-time cache rebuild cost -- measure it). Per-horizon fields
+      from M9-1 carry them. Published evidence says the power law wins
+      at 12-24mo -- the report-only soak shows whether OUR data agrees
+      before any scoring ruling.
+Acceptance: rake green; cache append remains crash-safe; additive
+      fields tested; runtime measured.
+
+## M9-9 · PL+LP1 rival (characterize, then shadow)  [tier: fable -- the deepest hypothesis change in the phase] [status: ready] [deps: M9-8]
+Goal: stage 1 CHARACTERIZE: reproduce the SBI empirical check on our
+      own data -- Lomb-Scargle of full-history trend residuals in
+      ln(age); record peak omega and explained variance (SBI: omega
+      8.75, 35%). Stage 2 SHADOW: add pl_lp1 (power law + ONE rigid
+      log-periodic mode in ln age) to the trend rival set, report-only
+      per-horizon scores. NEVER conflate ln(age) omega with the
+      post-peak ln(tau) omega (different clocks -- SBI's own caution;
+      label both everywhere). Adoption into the verdict = D9-d.
+Acceptance: rake green; stage-1 numbers recorded; shadow fields
+      additive + tested; deterministic.
+
+## M9-10 · Log-time reporting  [tier: sonnet -- one additive field] [status: ready] [deps: --]
+Goal: additive delta_ln_age field on trend output (the 1y window at
+      age ~17.5y spans ~0.057 in the model's natural clock). The
+      evaluation-schedule change itself is out of scope (revisit after
+      the M9-8 soak).
+Acceptance: rake green; additive + tested.
+
+## Decision items -- Phase 9 (filed at elaboration, owner rules later)
+- D9-a Composite refusal + dead-module weight: refuse a composite when
+  a weight-3 module fails? Remove dead modules from the denominator
+  (SBI C8: outages currently drift the regime toward NEUTRAL)? Both
+  change verdict behavior on bad days.
+- D9-b Trend normalization: per-evaluation-point mean as headline +
+  which uncertainty estimator (Newey-West vs block bootstrap) -- ruled
+  AFTER M9-1's cache-density reproduction.
+- D9-c Do 365/730d horizons enter the +-1 scoring band, and with what
+  thresholds? Ruled after the M9-8 report-only soak.
+- D9-d PL+LP1 rival adoption: changes what "trend against the power
+  law" MEANS (pure-PL test -> coupled-scale-invariance test). Ruled
+  after M9-9 stage-2 soak.
+- D9-e Flip B<0/damping/symmetric-null from report-only to gating
+  (fit verdict changes). After M9-5/6 soak.
+- D9-f Which bootstrap p-value becomes headline. After M9-7 soak.
+- D9-g Envelope freeze rule (freeze each cycle's bound before the
+  subsequent trough). After M9-4.
+
+## GATE 9 (sketch; runbook written when the phase closes)
+All shadow fields live on the dashboard next to their frozen
+originals; a soak long enough for the owner to compare; the D9-*
+rulings made with data in front of them; flips applied; v1.1 tag.
