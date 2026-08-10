@@ -67,8 +67,11 @@ class TestLpplContract < Minitest::Test
     self.class.build_prices
   end
 
+  # LPPL_SIMS_V2 shrinks logperiodic's M9-7 AR(1)+GARCH shadow bootstrap (1000
+  # sims by default, ~20s) to a handful so the contract suite -- and every
+  # aggregator run that spawns logperiodic without flags -- stays fast.
   def lppl_env(root = DATA_ROOT)
-    { 'BTC_DATA_DIR' => root }
+    { 'BTC_DATA_DIR' => root, 'LPPL_SIMS_V2' => '5' }
   end
 
   # F-9: exactly one stdout line in --json mode, parsing as one object.
@@ -90,7 +93,9 @@ class TestLpplContract < Minitest::Test
     'fit'         => [%w[omega m tc_date filters b_negative damping_ref_threshold],
                       %w[trough_date trough_px rmse_impr_pct trough_std_days
                          damping null_v2 improvement_v2], []],
-    'logperiodic' => [%w[omega_peak p_value ar1_rho n_resid], [], %w[--sims 5]],
+    'logperiodic' => [%w[omega_peak p_value ar1_rho n_resid
+                         p_value_v2 sims_v2 garch runtime_v2_s], [],
+                      %w[--sims 5 --sims-v2 5]],
     'percentile'  => [%w[z pct_emp pct_gauss trend_px exponent ratio_to_trend
                          record prior_min_z prior_min_date days_le_p01
                          days_le_p05 envelope_pos envelope_neg], [], []]
@@ -157,6 +162,21 @@ class TestLpplContract < Minitest::Test
       assert_match(/\A\d{4}-\d{2}-\d{2}\z/, nv['tc'])
       assert_kind_of Numeric, j['improvement_v2']
     end
+  end
+
+  # M9-7: the AR(1)+GARCH bootstrap SHADOW rides additively next to the frozen
+  # AR(1) p_value -- p_value_v2, sims_v2, a garch{...} block, and a measured
+  # runtime_v2_s. The frozen p_value / ar1_rho are untouched.
+  def test_logperiodic_garch_shadow_shape
+    j = module_json('logperiodic', '--sims', '5', '--sims-v2', '5')
+    assert_kind_of Numeric, j['p_value']      # frozen AR(1) still present
+    assert_kind_of Numeric, j['p_value_v2']
+    assert_equal 5, j['sims_v2']
+    assert_kind_of Numeric, j['runtime_v2_s']
+    g = j['garch']
+    assert_equal %w[alpha ar1 beta fitted omega], g.keys.sort
+    assert_includes [true, false], g['fitted']
+    %w[alpha ar1 beta omega].each { |k| assert_kind_of Numeric, g[k] }
   end
 
   # ---- aggregator ------------------------------------------------------
