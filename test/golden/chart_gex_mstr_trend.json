@@ -1,0 +1,126 @@
+{
+  "backgroundColor": "transparent",
+  "title": {
+    "text": "MSTR GEX trend · flip dist +8.91% · 5d long_gamma",
+    "textStyle": {
+      "fontSize": 13
+    }
+  },
+  "tooltip": {
+    "trigger": "axis",
+    "confine": true,
+    "textStyle": {
+      "fontSize": 11
+    }
+  },
+  "legend": {
+    "top": 24,
+    "data": [
+      "spot",
+      "flip",
+      "CW",
+      "PW"
+    ]
+  },
+  "grid": {
+    "left": 56,
+    "right": 24,
+    "top": 52,
+    "bottom": 28
+  },
+  "xAxis": {
+    "type": "category",
+    "data": [
+      "07-06",
+      "07-07",
+      "07-08",
+      "07-09",
+      "07-10"
+    ]
+  },
+  "yAxis": {
+    "type": "value",
+    "name": "price ($)",
+    "scale": true,
+    "nameLocation": "middle",
+    "nameGap": 44
+  },
+  "series": [
+    {
+      "name": "spot",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 7,
+      "itemStyle": {
+        "color": "#d7dce3"
+      },
+      "lineStyle": {
+        "color": "#d7dce3"
+      },
+      "data": [
+        95.0,
+        97.0,
+        96.0,
+        99.0,
+        101.0
+      ]
+    },
+    {
+      "name": "flip",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 7,
+      "itemStyle": {
+        "color": "#e6a23c"
+      },
+      "lineStyle": {
+        "color": "#e6a23c"
+      },
+      "data": [
+        90.0,
+        90.5,
+        91.0,
+        91.5,
+        92.0
+      ]
+    },
+    {
+      "name": "CW",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 7,
+      "itemStyle": {
+        "color": "#2fbf8f"
+      },
+      "lineStyle": {
+        "color": "#2fbf8f"
+      },
+      "data": [
+        99.0,
+        99.0,
+        100.0,
+        100.0,
+        102.0
+      ]
+    },
+    {
+      "name": "PW",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 7,
+      "itemStyle": {
+        "color": "#ef6b6b"
+      },
+      "lineStyle": {
+        "color": "#ef6b6b"
+      },
+      "data": [
+        88.0,
+        88.0,
+        89.0,
+        90.0,
+        90.0
+      ]
+    }
+  ]
+}

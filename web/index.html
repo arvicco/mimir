@@ -256,8 +256,10 @@ function apiUrl(key) { return API + key; }  // key may contain ':' (valid path c
 
 // Which producer publishes each chart key -- for the 404 failure copy.
 var PRODUCERS = {
-  gex_profile:    "gex_btc_combined.rb",
+  gex_btc:        "gex_btc_combined.rb",
   gex_mstr:       "gex_us.rb",
+  gex_btc_trend:  "gex_trend.rb",
+  gex_mstr_trend: "gex_trend.rb",
   scenario_strip: "scenario.rb",
   lppl_regime:    "lppl.rb",
   btco_table:     "btco.rb",
@@ -265,8 +267,7 @@ var PRODUCERS = {
   vol_surface_mstr: "vol_mstr.rb",
   vol_spread:     "vol_spread.rb",
   vol_spread_trend: "vol_spread.rb",
-  vol_basis:      "basis.rb",
-  gex_trend:      "gex_trend.rb"
+  vol_basis:      "basis.rb"
 };
 
 async function getJSON(url) {
@@ -669,7 +670,7 @@ function startAutoRefresh() {
     eb.style.display = "block";
     eb.textContent = "The published index lists no chart:* keys -- KV holds a publish " +
                      "older than the chart pipeline. Run: PUBLISH_DRY_RUN=0 ruby publish/publish.rb " +
-                     "(expect PUB LIVE 25/25), then reload.";
+                     "(expect PUB LIVE 26/26), then reload.";
   }
   for (var i = 0; i < chartKeys.length; i += 1) {
     await loadChart(chartKeys[i]);

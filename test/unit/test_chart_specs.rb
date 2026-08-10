@@ -54,9 +54,9 @@ class TestChartSpecs < Minitest::Test
 
   def test_renderer_hooks_declared_in_meta
     metas = Publish::Charts::CHARTS.transform_values { |s| s[:meta] }
-    assert_equal 'gex_levels', metas['gex_profile']['tooltip_formatter']
+    assert_equal 'gex_levels', metas['gex_btc']['tooltip_formatter']
     assert_equal 250, metas['scenario_strip']['height'] # half-quadrant card
-    assert_equal 'gex_cp', metas['gex_profile']['legend_widget'] # (p) DERI (c)
+    assert_equal 'gex_cp', metas['gex_btc']['legend_widget'] # (p) DERI (c)
     # hooks are opt-in: nobody else declares them
     assert_nil metas['lppl_regime']['tooltip_formatter']
     assert_nil metas['btco_table']['height']
@@ -69,9 +69,9 @@ class TestChartSpecs < Minitest::Test
     # dashboard card as [BTC][MSTR] tabs. tab_group pairs them; tab_pos
     # fixes BTC first (the index sorts keys alphabetically, so gex_mstr
     # would otherwise lead). tab_label is the button text.
-    assert_equal 'gex', metas['gex_profile']['tab_group']
-    assert_equal 'BTC', metas['gex_profile']['tab_label']
-    assert_equal 1, metas['gex_profile']['tab_pos']
+    assert_equal 'gex', metas['gex_btc']['tab_group']
+    assert_equal 'BTC', metas['gex_btc']['tab_label']
+    assert_equal 1, metas['gex_btc']['tab_pos']
     assert_equal 'gex', metas['gex_mstr']['tab_group']
     assert_equal 'MSTR', metas['gex_mstr']['tab_label']
     assert_equal 2, metas['gex_mstr']['tab_pos']
@@ -101,15 +101,23 @@ class TestChartSpecs < Minitest::Test
                  metas['vol_spread'].values_at('tab_group', 'group_style', 'tab_pos', 'height').map(&:to_s)
     assert_equal %w[volspread stack 1 235],
                  metas['vol_spread_trend'].values_at('tab_group', 'group_style', 'tab_pos', 'height').map(&:to_s)
-    assert_equal %w[gex TREND 3],
-                 metas['gex_trend'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
+    # M8-18 (owner ruling 2026-08-10): the GEX card is now four tabs --
+    # [BTC][MSTR][BTC TREND][MSTR TREND]. gex_btc_trend keeps pos 3 (relabelled
+    # 'BTC TREND'); gex_mstr_trend is the new pos-4 tab, reading gex:trend's
+    # additive 'mstr' block.
+    assert_equal ['gex', 'BTC TREND', '3'],
+                 metas['gex_btc_trend'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
+    assert_equal ['gex', 'MSTR TREND', '4'],
+                 metas['gex_mstr_trend'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
     # the vol charts carry no drawn-legend/tooltip renderer hooks;
     # the stacked pairs DO carry height (half a card each)
-    %w[vol_surface vol_surface_mstr vol_spread vol_spread_trend vol_basis gex_trend].each do |n|
+    %w[vol_surface vol_surface_mstr vol_spread vol_spread_trend vol_basis
+       gex_btc_trend gex_mstr_trend].each do |n|
       assert_nil metas[n]['tooltip_formatter'], n
       assert_nil metas[n]['legend_widget'], n
     end
-    assert_nil metas['gex_trend']['height'] # gex_trend is a tab, not a stacked half
+    assert_nil metas['gex_btc_trend']['height'] # a tab, not a stacked half
+    assert_nil metas['gex_mstr_trend']['height']
   end
 
   # ---- M8-6 vol/gex family structure -----------------------------------
@@ -220,6 +228,33 @@ class TestChartSpecs < Minitest::Test
     assert_equal 7, spot['symbolSize']
   end
 
+  # ---- gex_mstr_trend structure (M8-18) --------------------------------
+
+  def test_gex_mstr_trend_reads_the_mstr_block_in_raw_dollars
+    opt = build('gex_mstr_trend')
+    # title from the mstr stats block (no MP cross-check tail -- BTC-only)
+    assert_equal 'MSTR GEX trend · flip dist +8.91% · 5d long_gamma',
+                 opt['title']['text']
+    refute_includes opt['title']['text'], 'MP'
+    # four price lines, filled dots, MSTR's own axis in raw dollars ($)
+    assert_equal %w[spot flip CW PW], opt['series'].map { |s| s['name'] }
+    assert_equal 'price ($)', opt['yAxis']['name']
+    spot = opt['series'].find { |s| s['name'] == 'spot' }
+    assert_equal 95.0, spot['data'].first # raw dollars, NOT /1000 like BTC
+    assert_equal 7, spot['symbolSize']
+    # x axis = the mstr history dates, compacted to MM-DD
+    trend = JSON.parse(File.read(File.join(PAYLOADS, 'payload_gex_trend.json')))
+    assert_equal trend['mstr']['series'].map { |r| r['date'][5..] }, opt['xAxis']['data']
+  end
+
+  def test_gex_mstr_trend_degrades_on_absent_mstr_block
+    # no 'mstr' key at all -> a valid, empty option (honest pre-accumulation)
+    opt = Publish::Charts.gex_mstr_trend({})
+    assert_equal [], opt['xAxis']['data']
+    assert(opt['series'].all? { |s| s['data'].empty? })
+    assert_equal 'MSTR GEX trend · flip dist n/a · 0d ', opt['title']['text']
+  end
+
   # ---- gex_profile structure -------------------------------------------
 
   def gex_payload
@@ -237,7 +272,7 @@ class TestChartSpecs < Minitest::Test
   end
 
   def test_gex_profile_two_series_per_active_venue_plus_aggregates
-    opt = build('gex_profile')
+    opt = build('gex_btc')
     assert_equal 2 + active_venues.size * 2, opt['series'].size
     # aggregates FIRST so the hover bubble leads with them, side colors
     assert_equal %w[C P], opt['series'].first(2).map { |s| s['name'] }
@@ -255,7 +290,7 @@ class TestChartSpecs < Minitest::Test
   def test_gex_profile_call_and_put_columns_overlay_exactly
     # round 4: the calls stack sits exactly on the puts stack at each
     # level (barGap -100%), not side by side
-    build('gex_profile')['series'].each do |s|
+    build('gex_btc')['series'].each do |s|
       assert_equal '-100%', s['barGap'], "#{s['name']}" if s['type'] == 'bar'
     end
   end
@@ -281,7 +316,7 @@ class TestChartSpecs < Minitest::Test
   end
 
   def test_gex_profile_values_scaled_to_millions
-    opt = build('gex_profile')
+    opt = build('gex_btc')
     level = gex_payload['profiles']['Deribit'].keys.max_by { |l|
       gex_payload['profiles']['Deribit'][l]['call'].to_i.abs
     }
@@ -293,7 +328,7 @@ class TestChartSpecs < Minitest::Test
   end
 
   def test_gex_profile_marklines_flip_and_walls
-    marks = first_bar(build('gex_profile'))['markLine']['data']
+    marks = first_bar(build('gex_btc'))['markLine']['data']
     labels = marks.map { |m| m['label']['formatter'] }
     assert_equal %w[flip CW PW], labels # the fixture payload has all three
     marks.each { |m| assert_match(/\A\d+(\.\d)?k\z/, m['xAxis']) } # snapped to category
@@ -307,7 +342,7 @@ class TestChartSpecs < Minitest::Test
   end
 
   def test_gex_profile_levels_ascend_and_data_aligns
-    opt = build('gex_profile')
+    opt = build('gex_btc')
     labels = opt['xAxis']['data']
     assert_equal labels, labels.sort_by { |l| l.to_f } # ascending BTC axis
     opt['series'].each do |s|
@@ -411,7 +446,7 @@ class TestChartSpecs < Minitest::Test
   end
 
   def test_gex_profile_wall_labels_raised_and_label_zone
-    opt = build('gex_profile')
+    opt = build('gex_btc')
     marks = opt['series'].map { |s| s['markLine'] }.compact.first['data']
     %w[CW PW].each do |w|
       m = marks.find { |x| x['label']['formatter'] == w }

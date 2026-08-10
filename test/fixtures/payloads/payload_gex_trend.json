@@ -63,5 +63,70 @@
     "flip_dist_pct_min": 1.61,
     "flip_dist_pct_max": 3.67,
     "flip_dist_pct_last": 3.67
+  },
+  "mstr": {
+    "series": [
+      {
+        "date": "2026-07-06",
+        "spot": 95.0,
+        "flip": 90.0,
+        "flip_dist_pct": 5.26,
+        "cw": 99.0,
+        "pw": 88.0,
+        "net_gex": 12000000,
+        "regime": "long_gamma"
+      },
+      {
+        "date": "2026-07-07",
+        "spot": 97.0,
+        "flip": 90.5,
+        "flip_dist_pct": 6.70,
+        "cw": 99.0,
+        "pw": 88.0,
+        "net_gex": 13500000,
+        "regime": "long_gamma"
+      },
+      {
+        "date": "2026-07-08",
+        "spot": 96.0,
+        "flip": 91.0,
+        "flip_dist_pct": 5.21,
+        "cw": 100.0,
+        "pw": 89.0,
+        "net_gex": 12800000,
+        "regime": "long_gamma"
+      },
+      {
+        "date": "2026-07-09",
+        "spot": 99.0,
+        "flip": 91.5,
+        "flip_dist_pct": 7.58,
+        "cw": 100.0,
+        "pw": 90.0,
+        "net_gex": 14200000,
+        "regime": "long_gamma"
+      },
+      {
+        "date": "2026-07-10",
+        "spot": 101.0,
+        "flip": 92.0,
+        "flip_dist_pct": 8.91,
+        "cw": 102.0,
+        "pw": 90.0,
+        "net_gex": 15600000,
+        "regime": "long_gamma"
+      }
+    ],
+    "stats": {
+      "days": 5,
+      "regime": "long_gamma",
+      "regime_days": 5,
+      "transitions": 0,
+      "cw_moves": 2,
+      "pw_moves": 2,
+      "flip_dist_pct_min": 5.21,
+      "flip_dist_pct_max": 8.91,
+      "flip_dist_pct_last": 8.91
+    }
   }
 }

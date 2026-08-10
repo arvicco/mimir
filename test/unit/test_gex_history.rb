@@ -136,6 +136,78 @@ class TestGexHistory < Minitest::Test
     assert_nil st['flip_dist_pct_last']
   end
 
+  # ---- mstr_series (M8-18) ------------------------------------------------
+  # A daily snapshot's `us` array carries the per-underlying gex_us.rb output;
+  # mstr_series reads the MSTR entry (walls under 'strike', not 'level').
+
+  def mstr_snap(date, spot:, flip:, cw:, pw:, regime:, net_gex: 12_000_000, ibit: true)
+    us = []
+    us << { 'ticker' => 'IBIT', 'spot' => 40.0 } if ibit
+    us << { 'ticker' => 'MSTR', 'spot' => spot, 'gamma_flip' => flip,
+            'net_gex_usd_per_1pct' => net_gex, 'regime' => regime,
+            'call_wall' => cw.nil? ? nil : { 'strike' => cw, 'gex' => 1 },
+            'put_wall' => pw.nil? ? nil : { 'strike' => pw, 'gex' => -1 } }
+    { 'date' => date, 'us' => us }
+  end
+
+  def test_mstr_series_row_shape_and_exact_values
+    snaps = [
+      mstr_snap('2026-07-06', spot: 100.0, flip: 90.0, cw: 99.0, pw: 88.0, regime: 'long_gamma'),
+      mstr_snap('2026-07-07', spot: 96.0,  flip: 96.0, cw: 100.0, pw: 89.0, regime: 'short_gamma')
+    ]
+    rows = BTC::GexHistory.mstr_series(snaps)
+    assert_equal 2, rows.length
+    r0 = rows.first
+    assert_equal %w[cw date flip flip_dist_pct net_gex pw regime spot], r0.keys.sort
+    assert_equal '2026-07-06', r0['date']
+    assert_equal 100.0, r0['spot']
+    assert_equal 90.0, r0['flip']
+    assert_in_delta 10.0, r0['flip_dist_pct'], 1e-9 # (100-90)/100*100
+    assert_equal 99.0, r0['cw']  # from call_wall.strike (not .level)
+    assert_equal 88.0, r0['pw']
+    assert_equal 'long_gamma', r0['regime']
+    assert_equal 0.0, rows[1]['flip_dist_pct'] # spot == flip
+  end
+
+  def test_mstr_series_skips_days_without_an_mstr_capture
+    snaps = [
+      mstr_snap('2026-07-06', spot: 100.0, flip: 90.0, cw: 99.0, pw: 88.0, regime: 'long_gamma'),
+      { 'date' => '2026-07-07', 'us' => [{ 'ticker' => 'IBIT', 'spot' => 40.0 }] }, # no MSTR
+      { 'date' => '2026-07-08', 'errors' => {} },                                   # no us array
+      { 'date' => '2026-07-09', 'us' => 'garbage' }                                 # us not an array
+    ]
+    rows = BTC::GexHistory.mstr_series(snaps)
+    assert_equal 1, rows.length
+    assert_equal '2026-07-06', rows.first['date']
+  end
+
+  def test_mstr_series_carries_nil_walls_and_nil_flip_dist
+    snaps = [mstr_snap('2026-07-06', spot: 100.0, flip: nil, cw: nil, pw: nil, regime: 'long_gamma')]
+    row = BTC::GexHistory.mstr_series(snaps).first
+    assert_nil row['cw']
+    assert_nil row['pw']
+    assert_nil row['flip_dist_pct'] # flip missing
+  end
+
+  def test_mstr_series_empty_for_empty_or_nil_input
+    assert_empty BTC::GexHistory.mstr_series([])
+    assert_empty BTC::GexHistory.mstr_series(nil)
+  end
+
+  def test_mstr_stats_reuse_the_generic_stats_over_mstr_rows
+    snaps = [
+      mstr_snap('2026-07-06', spot: 100.0, flip: 90.0, cw: 99.0,  pw: 88.0, regime: 'long_gamma'),
+      mstr_snap('2026-07-07', spot: 100.0, flip: 92.0, cw: 100.0, pw: 88.0, regime: 'long_gamma')
+    ]
+    st = BTC::GexHistory.stats(BTC::GexHistory.mstr_series(snaps))
+    assert_equal 2, st['days']
+    assert_equal 'long_gamma', st['regime']
+    assert_equal 2, st['regime_days']
+    assert_equal 1, st['cw_moves'] # 99 -> 100
+    assert_equal 0, st['pw_moves']
+    assert_in_delta 8.0, st['flip_dist_pct_last'], 1e-9 # (100-92)/100*100
+  end
+
   def test_stats_flip_dist_extremes_ignore_nil_days
     snaps = [
       snap('2026-07-06', spot: 100_000, flip: 99_000, cw: 64_000, pw: 60_000, regime: 'long_gamma'),

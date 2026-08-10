@@ -37,8 +37,8 @@ class TestBtcPreviewServer < Minitest::Test
   def test_api_path_maps_plain_and_namespaced_keys
     assert_equal File.join(ROOT, 'data/publish_preview', 'index.json'),
                  BTC::PreviewServer.api_path(ROOT, '/api/v1/index')
-    assert_equal File.join(ROOT, 'data/publish_preview', 'chart_gex_profile.json'),
-                 BTC::PreviewServer.api_path(ROOT, '/api/v1/chart:gex_profile')
+    assert_equal File.join(ROOT, 'data/publish_preview', 'chart_gex_btc.json'),
+                 BTC::PreviewServer.api_path(ROOT, '/api/v1/chart:gex_btc')
     assert_equal File.join(ROOT, 'data/publish_preview', 'gex_combined.json'),
                  BTC::PreviewServer.api_path(ROOT, '/api/v1/gex:combined')
   end

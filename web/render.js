@@ -664,7 +664,8 @@ function liveHeader(o) {
 // key in iteration order, so every group member ranks with its group.
 // Unknown keys keep index order after the known ones (fail-open for
 // future charts).
-var CARD_ORDER = ["chart:gex_profile", "chart:gex_mstr", "chart:gex_trend",
+var CARD_ORDER = ["chart:gex_btc", "chart:gex_mstr", "chart:gex_btc_trend",
+                  "chart:gex_mstr_trend",
                   "chart:vol_surface", "chart:vol_surface_mstr", "chart:vol_basis",
                   "chart:vol_spread", "chart:vol_spread_trend",
                   "chart:scenario_strip", "chart:lppl_regime", "chart:btco_table"];
@@ -814,7 +815,7 @@ function forgetGroup(groupId) {
 // rev: bump on EVERY render.js change; `MimirRender.rev` in the console
 // answers "which renderer is this tab actually running?" after deploys.
 window.MimirRender = {
-  rev: "m8-17-mstr-surface-tab",
+  rev: "m8-18-gex-renames-mstr-trend",
   staleClass: staleClass,
   hhmm: hhmm,
   liveHeader: liveHeader,

@@ -9,7 +9,7 @@
 #
 #   ruby scripts/gex_trend.rb              # full history, aligned table + footer
 #   ruby scripts/gex_trend.rb --days 14    # only the last 14 daily files
-#   ruby scripts/gex_trend.rb --json       # machine dump {ts,days,series,stats}
+#   ruby scripts/gex_trend.rb --json       # machine dump {ts,days,series,stats,mstr}
 #
 # DESCRIPTIVE ONLY -- NO SCORING. Every number here is read straight from
 # the snapshots or is simple day-over-day arithmetic over them: no
@@ -61,9 +61,16 @@ snaps = snaps.last(days) if days && days.positive?
 rows  = BTC::GexHistory.series(snaps)
 stats = BTC::GexHistory.stats(rows)
 
+# M8-18: additive top-level 'mstr' block -- the same descriptive series over
+# the MSTR entries of each snapshot's `us` capture, on MSTR's own dollar axis
+# (feeds chart:gex_mstr_trend). Days with no MSTR capture are honest gaps.
+mstr_rows  = BTC::GexHistory.mstr_series(snaps)
+mstr_stats = BTC::GexHistory.stats(mstr_rows)
+
 if json_mode
   puts JSON.pretty_generate(ts: Time.now.utc.iso8601, days: rows.length,
-                            series: rows, stats: stats)
+                            series: rows, stats: stats,
+                            mstr: { series: mstr_rows, stats: mstr_stats })
   exit 0
 end
 
