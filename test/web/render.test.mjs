@@ -1,5 +1,5 @@
 // M6-4: render.js tab-group machinery (node built-in runner, zero npm).
-// The two GEX charts (chart:gex_profile [BTC], chart:gex_mstr [MSTR])
+// The two GEX charts (chart:gex_btc [BTC], chart:gex_mstr [MSTR])
 // share ONE dashboard card as tabs (owner ruling D7-c, 2026-07-06). This
 // pins the render-layer contract with a minimal DOM + echarts stub -- no
 // browser, no network. The full visual/interaction proof is the
@@ -112,7 +112,7 @@ function env(key, gen, meta, series) {
   return { key, generated_at: gen, ttl_hint_s: 1800, meta,
            payload: { series: series || [] } };
 }
-const BTC = () => env('chart:gex_profile', '2026-07-06T16:00:00Z',
+const BTC = () => env('chart:gex_btc', '2026-07-06T16:00:00Z',
   { desc: 'BTC gex', axes: { x: 'x', y: 'y' }, help: 'h',
     tooltip_formatter: 'gex_levels', legend_widget: 'gex_cp',
     tab_group: 'gex', tab_label: 'BTC', tab_pos: 1 },
@@ -126,9 +126,9 @@ const MSTR = () => env('chart:gex_mstr', '2026-07-06T15:00:00Z',
 
 test('both GEX members share ONE card, tabs ordered by tab_pos, BTC default', () => {
   const { R } = loadRender();
-  // index sorts alphabetically -> gex_mstr loads FIRST, gex_profile second
+  // load MSTR first to prove tab_pos ordering wins regardless of load order
   const cardA = R.buildChartCard(MSTR(), 'chart:gex_mstr');
-  const cardB = R.buildChartCard(BTC(), 'chart:gex_profile');
+  const cardB = R.buildChartCard(BTC(), 'chart:gex_btc');
   assert.equal(cardA, cardB, 'the 2nd member returns the SAME card element');
 
   const tabs = cardA.querySelector('.tabbar').children;
@@ -138,7 +138,7 @@ test('both GEX members share ONE card, tabs ordered by tab_pos, BTC default', ()
   assert.ok(!tabs[1].classList.contains('active'));
 
   // title + badge reflect the active (BTC) tab
-  assert.equal(cardA.querySelector('.key').textContent, 'chart:gex_profile');
+  assert.equal(cardA.querySelector('.key').textContent, 'gex_btc');
   assert.equal(cardA.querySelector('.badge').getAttribute('data-generated-at'),
                '2026-07-06T16:00:00Z');
 
@@ -151,7 +151,7 @@ test('both GEX members share ONE card, tabs ordered by tab_pos, BTC default', ()
 test('the (p)/(c) legend widget hosts on the BTC chart div, so it hides with the tab', () => {
   const { R } = loadRender();
   R.buildChartCard(MSTR(), 'chart:gex_mstr');
-  const card = R.buildChartCard(BTC(), 'chart:gex_profile');
+  const card = R.buildChartCard(BTC(), 'chart:gex_btc');
   const legends = card.querySelectorAll('.cp-legend');
   assert.equal(legends.length, 1);
   assert.ok(legends[0].parentNode._classes.has('chart'),
@@ -161,7 +161,7 @@ test('the (p)/(c) legend widget hosts on the BTC chart div, so it hides with the
 test('clicking MSTR reveals + resizes its chart and swaps title/badge; BTC restores', () => {
   const { R, echarts } = loadRender();
   const card = R.buildChartCard(MSTR(), 'chart:gex_mstr');
-  R.buildChartCard(BTC(), 'chart:gex_profile');
+  R.buildChartCard(BTC(), 'chart:gex_btc');
   const tabs = card.querySelector('.tabbar').children; // [BTC, MSTR]
 
   const before = echarts.instances.reduce((s, i) => s + i._resizes, 0);
@@ -171,16 +171,141 @@ test('clicking MSTR reveals + resizes its chart and swaps title/badge; BTC resto
 
   assert.ok(tabs[1].classList.contains('active'));
   assert.ok(!tabs[0].classList.contains('active'));
-  assert.equal(card.querySelector('.key').textContent, 'chart:gex_mstr');
+  assert.equal(card.querySelector('.key').textContent, 'gex_mstr');
   assert.equal(card.querySelector('.badge').getAttribute('data-generated-at'),
                '2026-07-06T15:00:00Z');
   assert.equal(card.dataset.key, 'chart:gex_mstr');
 
   tabs[0].click(); // back to BTC
   assert.ok(tabs[0].classList.contains('active'));
-  assert.equal(card.querySelector('.key').textContent, 'chart:gex_profile');
+  assert.equal(card.querySelector('.key').textContent, 'gex_btc');
   assert.equal(card.querySelector('.badge').getAttribute('data-generated-at'),
                '2026-07-06T16:00:00Z');
+});
+
+// ---- M8-17: stacked card with a tabbed section (shared tab_pos) ----------
+// Owner ruling 2026-08-10: the vol card's SURFACE half is a [BTC][MSTR] tab
+// pair -- members sharing a tab_pos collapse into ONE tabbed section; a
+// unique tab_pos stays a plain section. vol_surface (pos 0, BTC) +
+// vol_surface_mstr (pos 0, MSTR) tab together above vol_basis (pos 2).
+function stackEnv(key, gen, tab_pos, tab_label) {
+  return env(key, gen,
+    { desc: key + ' d', axes: { x: 'x', y: 'y' }, help: 'h',
+      tab_group: 'vol', group_style: 'stack', tab_pos: tab_pos,
+      tab_label: tab_label, height: 235 }, []);
+}
+const VSURF = () => stackEnv('chart:vol_surface', '2026-08-10T16:00:00Z', 0, 'BTC');
+const VMSTR = () => stackEnv('chart:vol_surface_mstr', '2026-08-10T15:00:00Z', 0, 'MSTR');
+const VBASIS = () => stackEnv('chart:vol_basis', '2026-08-10T14:00:00Z', 2, null);
+
+test('shared tab_pos collapses into ONE tabbed section; unique pos stays plain', () => {
+  const { R } = loadRender();
+  // index sorts alphabetically -> vol_basis, then vol_surface, then _mstr
+  const c1 = R.buildChartCard(VBASIS(), 'chart:vol_basis');
+  const c2 = R.buildChartCard(VSURF(), 'chart:vol_surface');
+  const c3 = R.buildChartCard(VMSTR(), 'chart:vol_surface_mstr');
+  assert.equal(c1, c2, 'all members share ONE stacked card');
+  assert.equal(c2, c3);
+
+  const secs = c1.querySelectorAll('.stacksec');
+  assert.equal(secs.length, 2, 'two sections: the tabbed surface + plain basis');
+  // section order = tab_pos: surface (pos 0) on top, basis (pos 2) below
+  const bars = c1.querySelectorAll('.tabbar');
+  assert.equal(bars.length, 1, 'exactly one section carries a tab bar');
+  const tabs = bars[0].children;
+  assert.deepEqual(tabs.map((b) => b.textContent), ['BTC', 'MSTR'], 'BTC leads by CARD_ORDER');
+  assert.ok(tabs[0].classList.contains('active'), 'BTC active by default');
+  // the surface section shows ONE chart; the basis section its own
+  assert.equal(c1.querySelectorAll('.chart').length, 3);
+  assert.equal(c1.querySelectorAll('.chart').filter((d) => d.style.display !== 'none').length,
+               2, 'one visible surface chart + the always-visible basis chart');
+});
+
+test('clicking MSTR swaps the surface section key/badge and resizes; basis untouched', () => {
+  const { R, echarts } = loadRender();
+  const card = R.buildChartCard(VBASIS(), 'chart:vol_basis');
+  R.buildChartCard(VSURF(), 'chart:vol_surface');
+  R.buildChartCard(VMSTR(), 'chart:vol_surface_mstr');
+  const tabbar = card.querySelector('.tabbar');
+  const tabs = tabbar.children; // [BTC, MSTR]
+  // the surface section head reflects the active (BTC) member
+  const surfHead = tabbar.parentNode;         // .card-head
+  const surfSec = surfHead.parentNode;        // .stacksec
+  assert.equal(surfSec.querySelector('.key').textContent, 'vol_surface');
+  assert.equal(surfSec.querySelector('.badge').getAttribute('data-generated-at'),
+               '2026-08-10T16:00:00Z');
+
+  const before = echarts.instances.reduce((s, i) => s + i._resizes, 0);
+  tabs[1].click(); // -> MSTR
+  const after = echarts.instances.reduce((s, i) => s + i._resizes, 0);
+  assert.ok(after > before, 'revealed MSTR chart is resized (hidden-init is 0x0)');
+  assert.ok(tabs[1].classList.contains('active'));
+  assert.equal(surfSec.querySelector('.key').textContent, 'vol_surface_mstr');
+  assert.equal(surfSec.querySelector('.badge').getAttribute('data-generated-at'),
+               '2026-08-10T15:00:00Z');
+  // the basis section is a separate .stacksec, unaffected by the tab click
+  const basisSec = card.querySelectorAll('.stacksec').filter((s) => s !== surfSec)[0];
+  assert.equal(basisSec.querySelector('.key').textContent, 'vol_basis');
+});
+
+// ---- M8-13: re-fetch cadence clamp --------------------------------------
+
+test('nextDelay honours ttl_hint_s but never polls faster than the 60s floor', () => {
+  const { R } = loadRender();
+  assert.equal(R.nextDelay(1800), 1800 * 1000, 'a 30-min ttl re-fetches every 30 min');
+  assert.equal(R.nextDelay(60), 60 * 1000, '60s is the floor itself');
+  assert.equal(R.nextDelay(59), 60 * 1000, 'below the floor clamps up to 60s');
+  assert.equal(R.nextDelay(0), 60 * 1000, 'zero clamps to 60s (no storm)');
+  assert.equal(R.nextDelay(-5), 60 * 1000, 'negative clamps to 60s');
+  assert.equal(R.nextDelay(undefined), 60 * 1000, 'missing ttl clamps to 60s');
+  assert.equal(R.nextDelay('90'), 90 * 1000, 'numeric string is coerced');
+  assert.equal(R.nextDelay('nope'), 60 * 1000, 'garbage clamps to 60s');
+});
+
+// ---- M8-12: KV strings render as text nodes, never innerHTML ------------
+
+test('errCard builds the key/message as text nodes (no innerHTML from data)', () => {
+  const { R } = loadRender();
+  const evil = 'chart:<img src=x onerror=alert(1)>';
+  const card = R.errCard(evil, 'boom <script>');
+  assert.equal(card.className, 'card err');
+  assert.equal(card.innerHTML, '', 'no innerHTML string was assigned');
+  // dispKey strips the internal chart: prefix for display (owner ruling
+  // 2026-08-10); the payload remains raw TEXT either way -- the security
+  // property under test is unchanged.
+  assert.equal(card.querySelector('.key').textContent,
+               '<img src=x onerror=alert(1)>', 'key is raw text, not parsed HTML');
+  assert.equal(card.querySelector('.msg').textContent, 'boom <script>');
+});
+
+test('a solo card badge is a bare dot + a hover/focus bubble (M8-18 R6)', () => {
+  const { R } = loadRender();
+  const solo = env('chart:lppl_regime', '2026-07-06T12:00:00Z',
+    { desc: 'd', axes: { x: 'x', y: 'y' }, help: 'h' }, []);
+  const badge = R.buildChartCard(solo, 'chart:lppl_regime').querySelector('.badge');
+  assert.equal(badge.innerHTML, '', 'no innerHTML string was assigned');
+  assert.ok(badge.querySelector('.dot'), 'a .dot span child');
+  assert.ok(badge.querySelector('.badge-bubble'), 'a .badge-bubble child');
+  // dot-only: no text node lives directly on the badge anymore
+  assert.equal(badge.children.filter((c) => c.nodeType === 3).length, 0);
+  // data attrs stamped so the ticker + the bubble can read freshness
+  assert.equal(badge.getAttribute('data-generated-at'), '2026-07-06T12:00:00Z');
+  assert.equal(badge.getAttribute('data-ttl'), '1800');
+  assert.equal(badge.getAttribute('tabindex'), '0', 'focusable like the header dots');
+  // the bubble text is built ON OPEN from the data attrs: "age .. · ttl .. · HH:MMZ"
+  badge._ev.mouseenter.forEach((f) => f());
+  assert.match(badge.querySelector('.badge-bubble').textContent, /^age .+ · ttl 1800s · 12:00Z$/);
+});
+
+test('refreshBadge repaints the dot from the data attrs (the page ticker)', () => {
+  const { R } = loadRender();
+  const solo = env('chart:lppl_regime', '2026-07-06T12:00:00Z',
+    { desc: 'd', axes: { x: 'x', y: 'y' }, help: 'h' }, []);
+  const badge = R.buildChartCard(solo, 'chart:lppl_regime').querySelector('.badge');
+  // stale it far in the past, tick, and the dot goes red (age >> 3x ttl)
+  badge.setAttribute('data-generated-at', '2000-01-01T00:00:00Z');
+  R.refreshBadge(badge);
+  assert.ok(badge.querySelector('.dot').classList.contains('red'));
 });
 
 test('a non-grouped chart still builds a fresh, tab-less card', () => {

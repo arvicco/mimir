@@ -1,5 +1,16 @@
 # Served by Workers static assets (wrangler.toml [assets]) -- part of
 # the D4-c public-read mitigations: the dashboard host must never land
 # in a search index.
+#
+# Content-Security-Policy (M8-12, SBI review finding C4) is defence in
+# depth behind render.js's textContent rendering: even if a KV payload
+# string were ever poisoned, injected external scripts and inline event
+# handlers cannot run. script-src carries NO 'unsafe-inline' -- only self,
+# the ONE pinned ECharts CDN origin, and the sha256 of each page's inline
+# boot script (index.html + preview.html; recompute a hash whenever that
+# page's inline <script> changes -- test/web/csp.test.mjs pins the sync).
+# style-src keeps 'unsafe-inline' because the pages carry a <style> block
+# and render.js sets element .style at runtime.
 /*
   X-Robots-Tag: noindex
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-Su+OelZXercmsoExHZh68ERMZhlB53NJvGxiC9qXgU8=' 'sha256-t/gqlBhNjRywXKFm9kYPgPcFaJyPQl4g4IQJkWQgzjU='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'

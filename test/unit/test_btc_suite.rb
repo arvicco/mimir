@@ -36,10 +36,32 @@ class TestBtcSuite < Minitest::Test
     end
   end
 
-  def test_timeout_raises
+  def test_timeout_raises_and_kills_the_child
     Dir.mktmpdir do |dir|
-      write_module(dir, 'hang', 'sleep 30')
+      pidfile = File.join(dir, 'pid.txt')
+      write_module(dir, 'hang', <<~RB)
+        File.write(#{pidfile.inspect}, Process.pid.to_s)
+        sleep 30
+      RB
+      t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       assert_raises(Timeout::Error) { BTC::Suite.run_module(dir, 'hang', 0.3) }
+      elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - t0
+      # the pre-fix behavior held the Timeout::Error for the child's full
+      # 30 s sleep inside IO.popen's implicit close-wait
+      assert_operator elapsed, :<, 5, 'timeout must interrupt, not wait out the child'
+      pid = File.read(pidfile).to_i
+      # C8 (SBI review): the timed-out child must not linger. Poll briefly --
+      # the TERM/KILL escalation is allowed a moment to land.
+      dead = 20.times.any? do
+        begin
+          Process.kill(0, pid)
+          sleep 0.1
+          false
+        rescue Errno::ESRCH
+          true
+        end
+      end
+      assert dead, "child #{pid} still alive after timeout"
     end
   end
 

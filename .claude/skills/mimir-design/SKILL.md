@@ -19,15 +19,26 @@ another. When a new ruling lands, add it here in the same commit.
   text/axis/legend colors the theme already tunes — the light-theme
   defaults (near-black titles, inactive-brighter-than-active legends)
   are exactly what the owner rejected.
-- Exactly four renderer hooks exist, declared in envelope meta:
+- Exactly five renderer hooks exist, declared in envelope meta:
   `tooltip_formatter` (a NAME in the renderer's formatter registry),
   `height` (card pixels), `legend_widget` (a NAME in the renderer's
   HTML widget registry; the spec ships `legend.show=false` but keeps
   `legend.data` so ECharts still owns selection state and the widget
-  drives it via legend actions), and `tab_group` (+ `tab_label` /
+  drives it via legend actions), `tab_group` (+ `tab_label` /
   `tab_pos`; charts sharing a group render into ONE card as tabs --
-  owner ruling D7-c 2026-07-06, currently the two GEX charts). Add a
-  new hook only with an owner ruling.
+  owner ruling D7-c 2026-07-06, the GEX card), and `group_style:
+  'stack'` (owner ruling 2026-08-10: a tab_group rendered as ONE card
+  with every member ALWAYS visible, stacked vertically by tab_pos,
+  each member keeping its own head/badge/bubble at meta.height -- the
+  vol_surface + vol_basis card). Add a new hook only with an owner
+  ruling.
+
+- Card placement (owner ruling 2026-08-10): the dashboard is a 3x2
+  grid -- row 1 GEX · Volatility(stacked) · Vol-Spread, row 2
+  Scenario · LPPL · BTCo. Order lives in render.js CARD_ORDER (the
+  published index stays alphabetical); 3 columns is the norm, 2 under
+  1160px, 1 under 780px. Never restore a breakpoint that turns a
+  normal laptop window into 2 columns.
 - Every chart registers `meta` (desc / axes / help) — 2-4 sentences
   compressed from docs/METHODOLOGY.md, rendered as hover bubbles.
 - Goldens regenerate deterministically from test/fixtures/payloads/. A
@@ -46,13 +57,36 @@ scrolling legends. Whitespace is not a feature here — density is.
 
 **Side panels go right, not below.** Legends, scoreboards, module
 strips: vertical columns to the right of the plot, so rows stack
-line-by-line and the plot keeps its height.
+line-by-line and the plot keeps its height. EXCEPTION (owner ruling
+2026-08-10, M8-18 R3): the BTC GEX card's `(p) VENUE (c)` toggle
+widget (`gex_cp`) sits at the TOP-RIGHT of the plot as a fixed 2x3
+grid (row 1 IBIT FBTC BITB, row 2 DERI ARKB GBTC; absent venues
+collapse their slot), NOT a right-hand column -- so the profile plot
+reclaims the full right margin and reads visibly wider. This is the
+one sanctioned top-anchored side panel; everything else still goes
+right.
 
 **An entity's views share its quadrant.** A chart's companion views
 (the BTCo literal table) live INSIDE that chart's card -- shrink the
 chart to make room -- never as a separate strip elsewhere on the page
 (round 5: the full-width bottom table was rejected). One subject, one
 card.
+
+**Key labels drop the chart: prefix.** (Owner ruling 2026-08-10.) The
+prefix is internal namespacing (it is how the pipeline tells chart
+keys from producer keys); every user-visible label -- card heads,
+header-dot bubbles, error-card titles -- shows the bare name
+(render.js dispKey). KV key names themselves keep the prefix.
+
+**Card badges are dot-only.** (Owner ruling 2026-08-10, M8-18 R6.) A
+card/section freshness badge is JUST the coloured staleness dot,
+top-right -- no `● green · ttl 1800s`, no ticking `age` text (too
+much). Age/ttl/publish-time move to an instant hover/focus bubble
+(`age 3m12s · ttl 1800s · 14:18Z`), the SAME dot-only + bubble pattern
+as the header ldots. The badge is keyboard-focusable; the bubble is
+built from the badge's data attrs ON OPEN (always current), right-
+anchored and flip-up so it never clips at the viewport. The page
+ticker only re-evaluates the dot's colour (and an open bubble's text).
 
 **Hover help everywhere, instantly.** Never native `title=` attributes
 (fixed browser delay, unstyled blob). Card-level CSS bubbles open on

@@ -1,0 +1,45 @@
+{
+  "code": "0",
+  "data": [
+    {
+      "date": "260711",
+      "call_open_interest_market_value": 326327.31,
+      "put_open_interest": 1505.73,
+      "put_open_interest_market_value": 74116.58,
+      "max_pain_price": "63500",
+      "call_open_interest": 1624.27,
+      "call_open_interest_notional": 103720333.47,
+      "put_open_interest_notional": 96164914.73
+    },
+    {
+      "date": "260712",
+      "call_open_interest_market_value": 320535.95,
+      "put_open_interest": 944.91,
+      "put_open_interest_market_value": 71041.0,
+      "max_pain_price": "63500",
+      "call_open_interest": 761.84,
+      "call_open_interest_notional": 48662564.48,
+      "put_open_interest_notional": 60359225.22
+    },
+    {
+      "date": "260713",
+      "call_open_interest_market_value": 342743.68,
+      "put_open_interest": 1413.01,
+      "put_open_interest_market_value": 121071.51,
+      "max_pain_price": "63500",
+      "call_open_interest": 980.99,
+      "call_open_interest_notional": 62648346.42,
+      "put_open_interest_notional": 90234792.75
+    },
+    {
+      "date": "260714",
+      "call_open_interest_market_value": 23491.06,
+      "put_open_interest": 297.82,
+      "put_open_interest_market_value": 43000.52,
+      "max_pain_price": "64000",
+      "call_open_interest": 166.68,
+      "call_open_interest_notional": 10644657.35,
+      "put_open_interest_notional": 19021871.63
+    }
+  ]
+}

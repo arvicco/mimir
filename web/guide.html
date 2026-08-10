@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<!--
+  guide.html -- mimir dashboard reading guide (work packet M8-7).
+  A hand-authored, single-file static page: how to read every element of
+  the production dashboard (web/index.html), written for a first-time
+  reader. Pure HTML + inline CSS lifted from index.html's dark theme; no
+  JavaScript, no CDN, no build step -- anchors via ids. Served by Workers
+  static assets (wrangler.toml [assets] directory = "web", so it lands at
+  /guide.html on the live host) and by `rake preview` (at /web/guide.html).
+
+  Accuracy rule (M8-7): every factual claim traces to docs/METHODOLOGY.md,
+  README.md, or a publish/chart_specs.rb meta block. If a detail is not
+  documented there it is omitted, not invented.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mimir -- how to read this dashboard</title>
+<style>
+  /* Palette + faces lifted verbatim from web/index.html so the guide and
+     the dashboard read as one surface. */
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 16px 48px;
+    background: #14171c; color: #d7dce3;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 13px; line-height: 1.6;
+  }
+  .wrap { max-width: 820px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 6px; }
+  .strap { color: #b9c0ca; margin: 0 0 14px; max-width: 70ch; }
+  /* jump nav -- compact, one row, dense */
+  nav.toc {
+    display: flex; flex-wrap: wrap; gap: 6px 14px;
+    font-size: 12px; padding: 8px 0 14px; margin-bottom: 18px;
+    border-bottom: 1px solid #2a2f38;
+  }
+  a { color: #a9d1ff; text-decoration: none; }
+  a:hover, a:focus { text-decoration: underline; }
+  a:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; border-radius: 2px; }
+  section { margin: 0 0 22px; }
+  h2 {
+    font-size: 15px; font-weight: 600; margin: 0 0 4px;
+    padding-top: 6px; scroll-margin-top: 12px;
+  }
+  h2 .tag { font-weight: 400; color: #7f8896; font-size: 12px; margin-left: 6px; }
+  h2 .tabs {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px; color: #8fa3bd; margin-left: 8px;
+  }
+  p { margin: 0 0 8px; max-width: 74ch; }
+  /* the labeled-paragraph idiom, same shape as the dashboard hover bubbles:
+     a bright inline label, then the sentence. */
+  .lbl { color: #8fa3bd; font-weight: 600; }
+  .term { color: #d7dce3; font-weight: 600; }
+  code, .mono {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11.5px; background: #0f1216; padding: 1px 5px;
+    border-radius: 4px; color: #a9d1ff;
+  }
+  .rows { margin: 0 0 8px; }
+  .rows > div { margin: 0 0 4px; max-width: 74ch; }
+  .dotwrap { display: inline-flex; align-items: center; gap: 5px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .green { background: #35c46a; } .amber { background: #e2a52b; } .red { background: #e04b4b; }
+  .teal { color: #2fbf8f; } .rd { color: #ef6b6b; } .amb { color: #e6a23c; }
+  hr { border: 0; border-top: 1px solid #2a2f38; margin: 20px 0; }
+  .foot { color: #8a93a0; font-size: 12px; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>mimir &mdash; how to read this dashboard</h1>
+  <p class="strap">
+    mimir is a personal Bitcoin analytics dashboard. Four instrument
+    families &mdash; options positioning (GEX), a multi-signal regime
+    composite, an LPPL bubble-diagnostic suite, and a treasury-company
+    analyser &mdash; are computed on a private machine and published as
+    pre-built charts roughly every two hours. The dashboard is a dumb
+    renderer: it draws whatever the last publish produced and computes
+    nothing itself.
+  </p>
+
+  <nav class="toc" aria-label="Sections">
+    <a href="#header">Reading the header</a>
+    <a href="#gex">GEX</a>
+    <a href="#scenario">Scenario</a>
+    <a href="#lppl">LPPL</a>
+    <a href="#btco">BTCo</a>
+    <a href="#vol">Volatility</a>
+    <a href="#math">Want the math?</a>
+  </nav>
+
+  <section id="header">
+    <h2>Reading the header</h2>
+    <p>
+      The one line at the top of the dashboard tells you how fresh the
+      data is before you read any chart.
+    </p>
+    <div class="rows">
+      <div>
+        <span class="lbl">The dot cluster &mdash;</span> one small dot per
+        published data key. <span class="dotwrap"><span class="dot green"></span>green</span>
+        means the key is fresher than its <span class="term">TTL</span>
+        (time-to-live &mdash; the age past which the data is treated as
+        stale); <span class="dotwrap"><span class="dot amber"></span>amber</span>
+        means it has aged past the TTL but not yet three times it;
+        <span class="dotwrap"><span class="dot red"></span>red</span> means
+        older still. Hover any dot to see its key and last publish time
+        (<code>key@HH:MM</code>, UTC).
+      </div>
+      <div>
+        <span class="lbl">The pub slot &mdash;</span>
+        <code>pub HH:MMZ &middot; n/N fresh</code> is the time of the newest
+        publish tick across all keys (<code>Z</code> = UTC) and how many of
+        the N keys are currently green.
+      </div>
+      <div>
+        <span class="lbl">Keep-last-good &mdash;</span> when an upstream
+        source fails, the affected card <em>ages</em>; it never blanks. Its
+        dot drifts amber then red and its age counter keeps climbing, but
+        the last good chart stays on screen. An honest red beats a silent
+        lie: you always know how old the number in front of you is.
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <section id="gex">
+    <h2>GEX <span class="tabs">tabs: BTC / MSTR / TREND</span></h2>
+    <p>
+      <span class="lbl">What it shows &mdash;</span> <span class="term">GEX</span>
+      (gamma exposure) is the dollar amount options dealers must re-hedge
+      for every 1% move in the underlying. Dealers who are net
+      <span class="term">long gamma</span> sell rallies and buy dips, which
+      <em>pins</em> price; net <span class="term">short gamma</span> dealers
+      do the opposite, which <em>amplifies</em> moves. The <b>BTC</b> tab
+      buckets dealer gamma across Deribit and nine US spot-ETF option chains
+      on one BTC-equivalent price axis; the <b>MSTR</b> tab shows
+      MicroStrategy's own single-name chain on its equity price axis
+      (deliberately not merged &mdash; MSTR gamma lives on the stock, not
+      the coin); the <b>TREND</b> tab is a daily history of where spot sat
+      relative to the flip and the walls.
+    </p>
+    <p>
+      <span class="lbl">How to read it &mdash;</span> above zero is long
+      gamma (pinning), below zero short gamma (amplifying). Three markers
+      carry the structure: the <span class="amb">gamma flip</span>, the
+      level where net GEX crosses zero (below it the market trades
+      short-gamma &mdash; expect faster, gappier moves; distance from spot
+      to the flip is the cushion); the <span class="teal">call wall (CW)</span>,
+      the largest positive strike bucket; and the <span class="rd">put wall
+      (PW)</span>, the most negative. Walls attract and then repel price, so
+      they read as range edges. This is a naive dealer model (dealers
+      assumed long calls, short puts), so trust the <em>levels and walls</em>
+      more than the sign. On the TREND tab a <code>MP &Delta;</code> in the
+      title cross-checks our flip against Coinglass's max-pain level.
+    </p>
+    <p>
+      <span class="lbl">The title number &mdash;</span>
+      <code>GEX $M/1% &middot; spot &lt;price&gt;</code> (net dealer gamma
+      in $M per 1% move, and spot); the TREND title carries flip distance,
+      the current gamma-regime run length, and the max-pain delta.
+    </p>
+    <p>
+      <span class="lbl">Cadence &mdash;</span> published bi-hourly. Deribit
+      open interest is live; CBOE quotes are ~15 min delayed and OPRA open
+      interest is previous-day. The TREND tab gains one point per day from
+      the 08:15 GEX snapshot (options data cannot be backfilled).
+    </p>
+    <p>
+      <span class="lbl">When it fails &mdash;</span> a venue with no open
+      interest is omitted entirely, not drawn as zero. The sign convention
+      is the weak part of the model on two-sided Deribit flow &mdash; read
+      the flip, the walls, and the magnitude, not the long/short label.
+    </p>
+  </section>
+
+  <hr>
+
+  <section id="scenario">
+    <h2>Scenario <span class="tag">regime composite</span></h2>
+    <p>
+      <span class="lbl">What it shows &mdash;</span> seven cheap,
+      independent signals, each scored <span class="mono">-1 / 0 / +1</span>
+      for whether the tape supports flush, base, or recovery at its own
+      horizon: <span class="term">ETF flows</span> (US spot-ETF net flows),
+      <span class="term">funding/basis</span> (perp funding, contrarian),
+      <span class="term">Coinbase premium</span> (US institutional bid),
+      <span class="term">macro liquidity</span> (Fed net liquidity and real
+      yields), <span class="term">hash ribbons</span> (miner capitulation),
+      <span class="term">MVRV</span> (market cap / realized cap), and
+      <span class="term">stablecoin supply</span>. The right column shows
+      one coloured cell per module (<span class="rd">red -1</span> /
+      grey 0 / <span class="teal">teal +1</span>).
+    </p>
+    <p>
+      <span class="lbl">How to read it &mdash;</span> the weighted composite
+      (<code>sum(weight&times;score) / 12</code>) is banded
+      <span class="mono">FLUSH / LEAN-FLUSH / NEUTRAL / BASE / RECOVERY</span>.
+      No single module is trustworthy alone; the signal is the composite's
+      <em>drift</em> across successive readings, which is why the main plot
+      is the composite path over time.
+    </p>
+    <p>
+      <span class="lbl">The title number &mdash;</span>
+      <code>Scenario &lt;regime&gt; &plusmn;&lt;composite&gt;</code>.
+    </p>
+    <p>
+      <span class="lbl">Cadence &mdash;</span> published bi-hourly; a new
+      composite reading is appended to the history once a day (06:45). The
+      modules lead at different horizons &mdash; funding and premium by days,
+      flows by days to weeks, hash / MVRV / stables by weeks, macro by
+      months.
+    </p>
+    <p>
+      <span class="lbl">When it fails &mdash;</span> a dead data source
+      scores a fail-soft 0 and marks itself <code>unavailable</code> &mdash;
+      a healthy 0 and a blind 0 read the same on the strip, so a module
+      pinned grey may be neutral or simply down. The macro module needs a
+      FRED key to score; ETF flows is a web scrape that degrades on layout
+      drift.
+    </p>
+  </section>
+
+  <hr>
+
+  <section id="lppl">
+    <h2>LPPL <span class="tag">regime falsification</span></h2>
+    <p>
+      <span class="lbl">What it shows &mdash;</span> the
+      <span class="term">LPPL-as-regime</span> claim holds that BTC's log
+      price is an <span class="term">anti-bubble</span> &mdash; a post-peak
+      decline with log-periodic oscillations &mdash; around a
+      genesis-anchored power law. The suite does not try to prove this; it
+      runs four independently falsifiable tests daily (out-of-sample trend
+      Bayes factor, damping envelope, anti-bubble LPPLS fit, and
+      oscillation significance) and accumulates evidence either way, any
+      one test able to kill the claim. The chart plots that evidence
+      <em>ledger</em> over time, not price versus trend.
+    </p>
+    <p>
+      <span class="lbl">How to read it &mdash;</span> three stacked panels:
+      (top) the price/trend ratio against the damping-envelope
+      <span class="amb">bound</span> (amber, last cycle's trough ratio) and
+      <span class="rd">floor</span> (red, the worst historical ratio) &mdash;
+      the ratio must hold above the bound for the damping story to survive;
+      (middle) the trailing-1-year log10 Bayes factor of the global power
+      law versus its best rival, with a zero line &mdash; read its sign and
+      drift, not its absolute size; (bottom) the age-adjusted percentile Z.
+    </p>
+    <p>
+      <span class="lbl">The title number &mdash;</span>
+      <code>LPPL &lt;verdict&gt; &plusmn;&lt;composite&gt;</code>. The
+      verdict vocabulary is
+      <span class="mono">REGIME-INTACT / SUPPORTED / INDETERMINATE /
+      STRESSED / FALSIFIED</span>; if either the trend or the envelope test
+      reads -1 the verdict is capped at STRESSED, and if both do it is
+      FALSIFIED outright.
+    </p>
+    <p>
+      <span class="lbl">Cadence &mdash;</span> published bi-hourly; the tests
+      run and the ledger is appended once a day (06:45).
+    </p>
+    <p>
+      <span class="lbl">When it fails &mdash;</span> the first run bootstraps
+      its score cache weekly, later runs densify to daily &mdash; so the
+      Bayes-factor magnitude is not comparable across cache densities. Read
+      the sign and the per-horizon pattern, never the raw number.
+    </p>
+  </section>
+
+  <hr>
+
+  <section id="btco">
+    <h2>BTCo <span class="tag">treasury-company table</span></h2>
+    <p>
+      <span class="lbl">What it shows &mdash;</span> the universe of Bitcoin
+      treasury companies &mdash; levered, reflexive BTC holders. Above BTC
+      NAV they issue shares to buy more coin (the flywheel on); below NAV
+      the flywheel dies and leverage can turn them into forced sellers. The
+      card pairs a labelled bar row per company with a stress gauge and a
+      sortable table of the raw metrics.
+    </p>
+    <p>
+      <span class="lbl">How to read it &mdash;</span> <span class="term">mNAV</span>
+      is market cap over BTC NAV &mdash; the premium (&gt;1) or discount
+      (&lt;1) the market puts on the coins the company holds;
+      <span class="term">netNAV</span> is the same premium measured on the
+      equity's claim after senior debt and preferred are netted out. The
+      per-company verdict buckets netNAV:
+      <span class="mono">DEEP-DISC &lt; 0.90 &middot; UNDER &lt; 1.10 &middot;
+      FAIR &lt; 1.45 &middot; RICH &lt; 1.90 &middot; OVER</span>. The
+      aggregate <span class="term">stress score</span> (0&ndash;100,
+      BTC-weighted) blends the share of the universe below mNAV 1, the
+      median-mNAV shortfall below 1.40, and aggregate leverage, banded
+      <span class="mono">CALM &lt; 25 &middot; ELEVATED &lt; 50 &middot;
+      STRESSED &lt; 75 &middot; CRITICAL</span>.
+    </p>
+    <p>
+      <span class="lbl">The title number &mdash;</span>
+      <code>BTCo stress &lt;n&gt; &lt;band&gt;</code>.
+    </p>
+    <p>
+      <span class="lbl">Cadence &mdash;</span> published bi-hourly; prices,
+      FX, and BTC spot are fetched live each run. Company fundamentals are
+      FROZEN (development stopped 2026-08-10, pending a rethink): no new
+      filings are ingested, and rows show STALE as their as-of dates age.
+      Treat the fundamentals as historical, not current.
+    </p>
+    <p>
+      <span class="lbl">When it fails &mdash;</span> a row flagged
+      <span class="rd">STALE</span> (its BTC-as-of date is over 120 days
+      old) or <span class="amb">*</span> (placeholder seed data) is not yet
+      trustworthy. The model carries no cash or operating-business value, so
+      diversified holders (DJT, BLSH) read richer than they are until a cash
+      model lands &mdash; the stress score measures balance-sheet posture,
+      not cash flow.
+    </p>
+  </section>
+
+  <hr>
+
+  <section id="vol">
+    <h2>Volatility <span class="tabs">tabs: SURFACE / SPREAD / BASIS</span></h2>
+    <p>
+      <span class="lbl">What it shows &mdash;</span> where GEX says how
+      dealers are positioned, this card says what the market <em>pays</em>
+      for volatility. <b>SURFACE</b> is BTC's implied-vol term structure
+      from Deribit &mdash; ATM IV (the at-the-money level) at three tenors,
+      plus the <span class="term">25-delta risk reversal (RR25)</span>
+      (call IV minus put IV) and the <span class="term">25-delta butterfly
+      (FLY25)</span>. <b>SPREAD</b> is MSTR's ATM IV minus BTC's, tenor by
+      tenor &mdash; the live price of treasury-company leverage. <b>BASIS</b>
+      is the annualized basis of Deribit's dated futures over spot, per
+      expiry, plus the OI-weighted perpetual funding rate.
+    </p>
+    <p>
+      <span class="lbl">How to read it &mdash;</span> a negative RR25 means
+      the market pays up for downside &mdash; puts cost more than calls
+      (fear); a rising FLY25 means fatter tails. A positive MSTR&minus;BTC
+      spread is what the option market charges for MSTR's leverage right
+      now. On BASIS, positive basis and positive funding mean the market
+      pays to be long (contango, leverage demand); a flip negative is
+      deleveraging or fear. These readings are descriptive only &mdash;
+      there are no thresholds and no scores here.
+    </p>
+    <p>
+      <span class="lbl">The title numbers &mdash;</span>
+      <code>Vol surface &middot; ATM &lt;tenor&gt;d &lt;pct&gt;%</code>,
+      <code>MSTR-BTC IV &middot; &lt;spread&gt;</code>, and
+      <code>Basis ann% &middot; funding &lt;pct&gt;%/8h</code>.
+    </p>
+    <p>
+      <span class="lbl">Cadence &mdash;</span> published bi-hourly off live
+      Deribit data; the surface also snapshots daily (08:15) so IV rank and
+      percentiles become buildable after a few weeks of accumulation.
+    </p>
+    <p>
+      <span class="lbl">When it fails &mdash;</span> a tenor whose option
+      chain is too thin is dropped, not drawn as zero. The funding leg needs
+      a Coinglass key and fails soft to a reasoned null without it.
+    </p>
+  </section>
+
+  <hr>
+
+  <section id="math">
+    <h2>Want the math?</h2>
+    <p>
+      This page is about reading the dashboard. The interpretation model
+      behind every field &mdash; the weights, thresholds, sign conventions,
+      and caveats &mdash; lives in the repository (public):
+    </p>
+    <div class="rows">
+      <div><a href="https://github.com/arvicco/mimir/blob/main/docs/METHODOLOGY.md">Methodology &rarr;</a> &mdash; what each tool measures, every displayed field, and the caveats.</div>
+      <div><a href="https://github.com/arvicco/mimir/blob/main/README.md">README &rarr;</a> &mdash; what runs today, the commands, and the data sources.</div>
+    </div>
+  </section>
+
+  <p class="foot">mimir &middot; personal analytics, no advice.</p>
+
+</div>
+</body>
+</html>

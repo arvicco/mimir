@@ -72,7 +72,7 @@ end
 
 Lppl.fail_soft(NAME, 'no rows fetched and no cache') if existing.empty?
 
-File.open(Lppl::PRICES, 'w') do |f|
+Lppl.atomic_write(Lppl::PRICES) do |f|
   f.puts 'date,close'
   existing.keys.sort.each { |d| f.puts "#{d},#{existing[d]}" }
 end

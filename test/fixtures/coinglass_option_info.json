@@ -1,0 +1,54 @@
+{
+  "code": "0",
+  "data": [
+    {
+      "exchange_name": "All",
+      "open_interest": 438593.17,
+      "oi_market_share": 100,
+      "open_interest_change_24h": -4.45,
+      "open_interest_usd": 28014065690.479195,
+      "volume_usd_24h": 3241904934.7266793,
+      "volume_change_percent_24h": 12.11
+    },
+    {
+      "exchange_name": "Deribit",
+      "open_interest": 360588.02,
+      "oi_market_share": 82.21,
+      "open_interest_change_24h": -3.44,
+      "open_interest_usd": 23029604791.4586,
+      "volume_usd_24h": 1507433040.7906
+    },
+    {
+      "exchange_name": "OKX",
+      "open_interest": 34699.32,
+      "oi_market_share": 7.91,
+      "open_interest_change_24h": -6.52,
+      "open_interest_usd": 2215895105.268,
+      "volume_usd_24h": 396595522.96
+    },
+    {
+      "exchange_name": "Binance",
+      "open_interest": 19064.6,
+      "oi_market_share": 4.34,
+      "open_interest_change_24h": -8.99,
+      "open_interest_usd": 1218822440.3927062,
+      "volume_usd_24h": 550795953.1778867
+    },
+    {
+      "exchange_name": "Bybit",
+      "open_interest": 15208.83,
+      "oi_market_share": 3.46,
+      "open_interest_change_24h": -18.05,
+      "open_interest_usd": 972338150.9598895,
+      "volume_usd_24h": 781167262.7981925
+    },
+    {
+      "exchange_name": "CME",
+      "open_interest": 9032.4,
+      "oi_market_share": 2.05,
+      "open_interest_change_24h": 0.57,
+      "open_interest_usd": 577405202.4,
+      "volume_usd_24h": 5913155.0
+    }
+  ]
+}

@@ -1197,11 +1197,17 @@ week; v1 tags at Gate 7 (real BTCo data, per the standing ruling).
 steps 1-5): lib/btc/coinglass.rb + TTL cache + tier probe; A1 etf_flows
 swap; B1 liqmap.rb; A2 cohort; A3/A4 -- all detail-only/parallel-run
 behind the research gate; scenario history seeded where sources permit.
+SUPERSEDED 2026-07-10: Phase 8 scope now comes from docs/DEV-PROPOSALS.md
+(waves approved 2026-07-09); packets M8-1.. below. The Coinglass client
+groundwork survives inside M8-3/M8-4 where those packets need it.
 
-**Phase 9 -- scenario v2 hypothesis modules** (scenario_upgrades.md):
-U1/U2 first, U4 early, U3/U5/U6 monitors, U7 housekeeping; weight-0
-entries with pre-registered kill criteria; weight/threshold changes
-batched as research decisions on ledger evidence.
+**Phase 9 -- scenario v2 hypothesis modules** (scenario_upgrades.md;
+probe-amended 2026-07-12, see DEV-PROPOSALS.md Reconciliation): U1
+first, U4 early (longest parallel run), U3/U6 monitors, U7
+housekeeping; U2 + U5 blocked on the Coinglass tier (D9-a: plan
+upgrade vs alternate cohort source vs drop); weight-0 entries with
+pre-registered kill criteria; weight/threshold changes batched as
+research decisions on ledger evidence.
 
 **Phase 10 -- dashboard round 2**: flow_decay_curve, cohort_panel,
 expiry_timeline, macro_clock, liq_topology specs + D4-a LPPL price
@@ -1241,3 +1247,312 @@ multi-phase plan approval)
   no code change required.
 - (D4-a LPPL price-vs-trend panel: no longer queue tail -- scheduled
   into Phase 10 at the 2026-07-06 plan approval.)
+
+## Phase 8A -- GEX / volatility family (branch: phase-8, cut from
+## phase-7 e48ce84; owner-approved 2026-07-10 to run IN PARALLEL with
+## the Phase 7 soak -- nothing installs or publishes until its own gate)
+
+Scope = DEV-PROPOSALS.md family A (P-1..P-5), display-first: no
+scenario-score membership changes in this phase (Golden Rule 4; score
+questions are separate later rulings). Decision defaults approved
+2026-07-10: P-1 standard conventions (25-delta from Deribit's own
+delta field, tenors bucketed to nearest 7d/30d/90d expiry, RR =
+call IV - put IV); P-5 report-only divergence (threshold picked
+empirically after weeks of data); P-2 nearest-expiry tenor pairing;
+layout = ONE new Volatility card hosting P-1/P-2/P-3 strips (D7-c tab
+machinery), P-4/P-5 enrich the existing GEX card. Cross-cutting:
+golden files + contract tests from birth for every new spec/--json;
+new Coinglass endpoints get fixtures (owner-run record) + health.rb
+registration in the same commit; KV key count grows ~3-5 -- the Gate 5
+KV-quota check must precede go-live. Code agents work in isolated
+worktrees (Stage A tiering; no destructive git).
+
+## M8-1 · Vol surface & skew (P-1)  [tier: opus -- Fable spec + review; first-of-family: sets the IV-extraction seam M8-2/M8-5 reuse] [status: stage 1 done 2026-07-10 -- Opus impl, Fable spec + review; lib/btc/vol.rb + scripts/vol.rb + vol_history snapshot; chart spec/card = stage 2] [deps: --]
+Extract mark IV from the Deribit option book we already fetch (gex.rb
+discards it): ATM IV, 25-delta risk reversal, butterfly, per tenor
+bucket (7d/30d/90d nearest). Pure functions in a new lib seam
+(lib/btc/vol.rb or scripts-local per spec), exact-value unit tests.
+Daily snapshot to data/vol_history/ via the gex-snapshot 08:15 agent
+(gex_history pattern) so IV rank/percentiles emerge after a few weeks.
+New vol_surface chart spec + golden + Volatility card. GEX says how
+dealers are positioned; skew says what the market pays for tails.
+
+## M8-2 · GEX history analytics (P-4)  [tier: opus -- pure local computation over existing snapshots, written spec] [status: stage 1 done 2026-07-10 -- Opus impl, Fable spec + review; lib/btc/gex_history.rb + scripts/gex_trend.rb; card enrichment = stage 2] [deps: --]
+data/gex_history/ accumulates daily snapshots (since 2026-07-06)
+NOTHING reads. Compute flip-point distance time series, CW/PW wall
+migration, gamma-regime persistence/transition stats. Publishes as
+additive series on the GEX card (time-aware story); feeds the future
+P-16 state machine and P-19 scorecard. Zero shared code with M8-1 --
+runs fully parallel. Decision (deferred to review): which derived
+series ship vs stay local.
+
+## M8-3 · Options positioning cross-check (P-5)  [tier: opus -- new source registration + health-style check] [status: stage 1 done 2026-07-10 -- Opus impl, Fable spec + review; lib/btc/gex_check.rb + scripts/gex_check.rb; GEX-card line = stage 2] [deps: M8-1 (card real estate only; logic independent)]
+Coinglass option/info + option/max-pain (PROBED on our tier) vs our
+own computed walls: does Deribit max pain agree with our CW/PW?
+Report-only divergence line on the GEX card + a health-style test --
+an outcome-first check on the GEX suite itself, same philosophy as
+the ingest ref lines. Fixture + SOURCES registration same commit.
+
+## M8-4 · Futures basis & funding composite (P-3)  [tier: opus] [status: stage 1 done 2026-07-10 -- Opus impl, Fable spec + review + funding-unit fix (coinglass returns percent, verified vs binance x100.05); lib/btc/basis.rb + scripts/basis.rb; card strip = stage 2] [deps: --]
+Deribit futures book (fetched, unused) -> annualized basis per tenor;
+Coinglass OI-weighted funding (PROBED) replaces the single-exchange
+Binance approximation FOR DISPLAY. Contango steepness = leverage
+appetite; basis collapse/backwardation = stress. Sparkline strip on
+the Volatility card. Explicitly display-only: joining the scenario
+score is a separate owner ruling (NOT this packet).
+
+## M8-5 · MSTR-vs-BTC implied-vol spread (P-2)  [tier: sonnet -- pattern-following on M8-1's extraction seam] [status: stage 1 done 2026-07-10 -- Sonnet impl, Fable spec + review; scripts/vol_spread.rb on the M8-1 seam; card strip = stage 2] [deps: M8-1]
+Apply M8-1's IV extraction to the CBOE MSTR chain (already fetched);
+spread = MSTR IV - BTC IV at nearest-expiry pairing -- the market's
+live price of treasury-company leverage; nobody publishes this.
+Strip on the Volatility card.
+
+## M8-6 · Family A stage 2: publish wiring + Volatility card + GEX trend tab  [tier: opus -- Fable design direction + review; mimir-design skill binding] [status: done 2026-07-11 -- goldens PROVISIONAL until owner blesses; agent caught + fixed a legend-swatch bug; Fable visual verify caught its own stale-server screenshot trap] [deps: M8-1..M8-5]
+Pipeline PRODUCERS += vol:latest / vol:spread / basis:latest /
+gex:trend / gex:check (key count 13 -> 22; every count pin updated in
+the same commits). Four chart specs + goldens (PROVISIONAL until the
+owner blesses at the gate): vol_surface/vol_spread/vol_basis as the
+new Volatility card (tab_group 'vol', SURFACE default; keys named
+vol_* so the card sorts after the blessed quadrants), gex_trend joins
+the existing GEX card as a [TREND] tab (tab_pos 2) with the gex_check
+max-pain delta as a title suffix. web/: 404-copy map entries only;
+tab machinery is generic. Self-review loop per the skill (headless
+screenshots, crop-zoom, critique, fix) before handoff.
+
+## M8-7 · Dashboard guide + title bubble  [tier: opus -- Fable plan + prose/visual review] [status: done 2026-07-12] [deps: M8-6]
+Owner request 2026-07-12: user-facing "what is this and how to read
+it" doc linked from the top title. web/guide.html: single-file static
+page, dark theme, no JS/deps -- what mimir is, reading the header
+(dots/pub/keep-last-good), one section per card (What it shows / How
+to read / The title number / Cadence / When it fails), GitHub links to
+METHODOLOGY + README (repo public -- zero serving machinery). Title
+<h1> gains the card-head-pattern instant bubble (orientation paragraph
++ "How to read this dashboard ->" + "Methodology ->"), mirrored in
+preview.html; worker serves web/ wholesale so guide.html ships free.
+Every prose claim traced to METHODOLOGY/README/chart meta or the code
+(verdict buckets verified against btco.rb); honest blind-0 caveat kept.
+Ships with the Gate 8 deploy (runbook step 5 EXPECT added).
+
+## M8-8 · Data integrity: detection + marking at write time  [tier: opus -- Fable plan + review] [status: done 2026-07-13 -- Opus impl, Fable review + visual verify (hollow blind point confirmed in preview); golden PROVISIONAL] [deps: --]
+Owner ruling 2026-07-13 (after the blind-zero incident): corrupted
+data never reaches the dashboard unmarked; mark at write, repair
+same-day, monitor persistence. This packet = the markers: scenario
+--history row gains additive blind:true (zero live modules) /
+unavailable:[names] (partial); lppl --history row gains
+stale_input:true when the price cache is older than the run date
+allows; gex/vol snapshot date-guard treats an errors-carrying file as
+retryable (today only). Contract tests same-commit; composite math
+untouched.
+
+## M8-9 · Data integrity: same-day repair loop  [tier: opus] [status: done 2026-07-13 -- Opus impl, Fable review + visual verify (hollow blind point confirmed in preview); golden PROVISIONAL] [deps: M8-8]
+ops/repair.rb (pure decision module + runner): scan TODAY's artifacts
+for blind/stale_input/errored-or-missing; if sources answer now,
+re-run the producer in same-day REPLACE mode (rewrite today's line /
+re-capture today's file, never duplicate) and log REPAIRED old->new.
+Wired into ops/run_publish.sh BEFORE publish (12 chances/day, healed
+row publishes same tick, no reinstall -- plist execs the repo script).
+Artifacts older than today are never touched: permanent marked gaps.
+
+## M8-10 · Data integrity: surface honesty + BLIND invariant  [tier: opus] [status: done 2026-07-13 -- Opus impl, Fable review + visual verify (hollow blind point confirmed in preview); golden PROVISIONAL] [deps: M8-8, M8-9]
+scenario_strip renders blind rows hollow/greyed (spec + golden + meta
+help); publish status line gains additive BLIND:<suite> marker (OLD
+pattern) when today's artifact is still marked after repair ran --
+monitor relays it. Gate-8 runbook + README updated. Post-ship one-time
+owner-approved edit: stamp the 2026-07-13 scenario row blind:true so
+the chart greys it (predates the mechanics; ledgered in worklog).
+
+## OWNER RULINGS 2026-08-10 (post-Gate-7, verbatim intent)
+Gate 7 closed 2026-08-10 (PR #8, v1 at 03cac84, deployed + verified).
+Three rulings from the decide step:
+1. BTCo table stays VISIBLE on the dashboard -- "to remind me it needs
+   re-think". STALE flags will grow; that is accepted and intended.
+2. The daily 07:45 btco-alert agent STOPS ("No alert").
+   Decommissioning inventory (per the standing verification rules):
+   - Duty: daily EDGAR discovery + new-filing count -> DROPPED by the
+     BTCo freeze (there are no ingest sessions left to alert).
+   - Duty: /tmp/ingest.status token for the tmux bar -> no successor
+     needed; the bar cats the file, absent = blank slot. Remove the
+     stale file once at stop time.
+   - Duty: btco_alert.log growth -> stops; file remains for history.
+   - Prose: web/guide.html says discovery "runs daily" -> corrected in
+     M8-11 so the shipped guide is honest.
+   Owner stop commands (launchd = human action):
+     launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.mimir.btco-alert.plist
+     rm ~/Library/LaunchAgents/com.mimir.btco-alert.plist
+     rm -f /tmp/ingest.status
+   M8-11 removes the plist from rake ops:install so a reinstall cannot
+   resurrect it.
+3. Dashboard auto-refresh: BUILD (packet M8-13).
+
+## M8-11 · Pre-Gate-8 hardening + btco-alert retirement  [tier: fable -- small cross-cutting fixes from the SBI review] [status: ready] [deps: --]
+Goal: (a) C5: atomic write for scripts/lppl/prices.rb (tmp+rename,
+      same pattern as backfill.rb) -- a crash mid-write must not
+      corrupt the price cache cron depends on. (b) C6: lppl.rb refuses
+      --history when --as-of is set unless BTC_DATA_DIR points at a
+      staging dir (the header's read-only claim becomes true).
+      (c) C8: subprocess timeouts kill the child process; trend-cache
+      dedup key made crash-safe. NOT included: the scenario
+      dead-module-weight change -- that alters composite semantics,
+      parked for Phase 9 with R10. (d) ops:install drops the
+      btco-alert plist (agent retired by ruling above); guide.html
+      prose corrected. Tests first for every behavior change.
+Acceptance: rake green; a SIGKILLed mid-write prices.rb leaves the old
+      cache intact; --history --as-of aborts outside staging; ops:install
+      lists 3 agents.
+
+## M8-12 · Web hardening (SBI C4)  [tier: opus -- spec-driven, mimir-design bound] [status: done -- 2026-08-10, d8cc65d; Vary: Authorization on the cacheable 200, CSP in _headers (no script unsafe-inline; verified in headless Chrome -- 0 violations), KV strings render via textContent; rake green incl. web:test 24/24] [deps: --]
+Goal: worker.mjs adds Vary: Authorization + a Content-Security-Policy
+      header; render.js/index.html replace innerHTML string
+      interpolation with textContent/element building on every path
+      that renders KV-sourced strings (stored-XSS shape if the publish
+      token were ever compromised). No visual change -- goldens and
+      screenshots identical.
+Acceptance: rake green incl. web:test; header check in web tests;
+      manual preview pixel-identical.
+
+## M8-13 · Dashboard auto-refresh  [tier: opus -- spec-driven, mimir-design bound] [status: done -- 2026-08-10, 6bca072; per-key re-fetch (ttl_hint_s, 60s floor via R.nextDelay), visibility pause/resume, live header pub tick; verified in headless Chrome under CSP -- badges + pub advanced to a newer generation with no reload, clean console; rake green incl. web:test 24/24] [deps: M8-12 (same files)]
+Goal: the page re-pulls keys on a timer so an open tab converges to
+      current data (the twice-confused-us gap; owner-ruled BUILD
+      2026-08-10). Per-chart re-fetch respecting each payload's
+      ttl_hint_s (display behavior only -- no pinned ttl VALUES
+      change); pauses when the tab is hidden (visibilitychange);
+      the header age badge updates live.
+Acceptance: open tab shows a newer pub tick within one publish cycle
+      without a reload; no request storm (>=60s floor per key);
+      rake green; preview verified.
+
+## M8-14 · Gate 8 feedback: 3x2 grid, vol_spread solo top-right  [tier: fable -- owner-directed layout ruling] [status: done 2026-08-10]
+Owner ruling at the Gate 8 preview: six cards, 3 columns x 2 rows --
+row 1 GEX · Volatility · Vol-Spread (top-right by the GEX profile),
+row 2 Scenario · LPPL · BTCo. vol_spread leaves the 'vol' tab_group
+(SPREAD tab removed; Volatility keeps SURFACE/BASIS) and becomes a
+solo card. Card order = render.js CARD_ORDER (display concern, so the
+renderer owns it -- the published index stays alphabetical); grid CSS
+3-col with 2-col/1-col fallbacks, index.html + preview.html in sync.
+Goldens untouched (tab hooks live in meta, not the option). Verified
+by headless screenshot at 2000px: order, tabs, no clipping.
+
+## M8-15 · Gate 8 feedback: stacked vol card + finer spread tenors  [tier: fable -- owner-directed, new renderer hook] [status: done 2026-08-10]
+Two owner rulings during the Gate 8 preview review:
+(a) vol_surface + vol_basis = ONE card, TWO half-height charts stacked
+    (surface above basis), not tabs. New renderer hook group_style
+    'stack' (documented in the mimir-design skill, same commit): same
+    tab_group machinery, but every member always visible, each with
+    its own head/badge/bubble; meta height 235 each. Page initBadge
+    now honors per-badge envelope stamps so both sections tick
+    independently.
+(b) chart:vol_spread tenor ladder 7/14/21/45/90d (was 7/30/90) -- the
+    spread's term structure was invisible with three points. Additive
+    rows, per-tenor field set unchanged; found + fixed a second
+    hard-coded DEFAULT_TARGETS iteration in the pairing loop that
+    silently dropped the new tenors. Payload fixture still carries
+    7/30/90 (re-record at the next fixtures:record session; goldens
+    regenerate from the fixture so they are unaffected).
+Verified by headless screenshot: one vol card with both charts, five
+filled spread bars, 3x2 grid intact, 22/22 fresh.
+
+## M8-16 · vol_spread daily trend (stacked, owner-ruled 2026-08-10)  [tier: opus -- Fable spec + review, mimir-design bound] [status: done 2026-08-10]
+Owner ruling: chart:vol_spread becomes a stacked card like the
+vol_surface/vol_basis pair -- current per-tenor spread bars on top
+(existing chart, unchanged), a NEW daily-trend chart below plotting the
+7/14/21/45/90d spreads over time.
+(a) Producer: scripts/vol_spread.rb now appends ONE row per UTC day to
+    BTC::Env.data_dir('vol_spread','data/vol_spread')/history.jsonl
+    (date-guarded like gex_snapshot.rb; a row is written whenever >=1 leg
+    is live, null legs are honest gaps). --json gains an additive
+    "history" field (trailing 120 rows, trimmed to date +
+    tenors[{tenor_d, spread_atm}]); contract test updated same commit
+    (TOP_KEYS + shape + date-guard: two runs same fake day -> one row).
+(b) Chart: new builder vol_spread_trend + 'vol_spread_trend' registry
+    entry (SAME payload fixture, group_style 'stack', tab_group
+    'volspread', tab_pos 1, height 235); vol_spread gains the matching
+    stack meta at tab_pos 0. One line per tenor, spread_atm*100 vol pts
+    (1dp), null -> gap, filled dots size 6; empty history still yields a
+    valid option. Fixture gained a synthetic 10-day history (one null
+    45d day for the gap path); golden chart_vol_spread_trend.json blessed
+    PROVISIONAL (owner re-blesses at Gate 8). CARD_ORDER + PRODUCERS map +
+    index.html CSP hash updated; key count 22 -> 23 across the pins.
+Verified: rake green (660 runs, 0 failures; web:test 24/24);
+PUBLISH_DRY_RUN=1 -> 23/23 keys, 0 skipped; headless screenshot shows the
+stacked spread card (bars on top, trend below) with one dot per series
+from the single live day, 3x2 grid intact, 23/23 fresh.
+
+## M8-17 · MSTR vol surface tab (owner-ruled 2026-08-10)  [tier: opus -- Fable spec + review, mimir-design bound] [status: done 2026-08-10]
+Owner ruling: the vol card's SURFACE half gets a [BTC][MSTR] tab pair --
+an MSTR vol surface with the same set-up as the BTC one, as another tab
+on the same stacked card (surface section on top, now tabbed; basis
+section below, unchanged).
+(a) Producer: scripts/vol_mstr.rb mirrors vol.rb's shape and --json
+    contract ({ts, mstr_spot, tenors[]} with the identical per-tenor
+    field set) but the underlying is MSTR via the CBOE delayed-quote
+    chain (book mapping copied from vol_spread.rb's MSTR leg -- iv already
+    a fraction, u = current_price; not a refactor). Tenors = DEFAULT_TARGETS
+    (7/30/90). Aborts nonzero when CBOE is down (vol.rb precedent). Contract
+    test pins the frozen field set + the CBOE-down abort against the recorded
+    MSTR fixture. Same CBOE endpoint -> no new health source.
+(b) Chart: vol_surface + vol_surface_mstr share the SAME option body via a
+    new private vol_surface_option(vol, title_prefix) helper (two public
+    builders differ only in the title -> vol_surface's golden byte-stable).
+    Both carry tab_group 'vol'/group_style 'stack'/tab_pos 0, so the
+    renderer collapses them into ONE tabbed SURFACE section; vol_basis
+    (tab_pos 2) stays a plain section below. vol_surface meta gains
+    tab_label 'BTC', vol_surface_mstr 'MSTR'.
+(c) Renderer: buildStackedCard now buckets members by tab_pos -- a shared
+    tab_pos becomes one tabbed section (mini [BTC][MSTR] tab bar; click
+    swaps the visible chart div + key/bubble/badge, resizing the revealed
+    chart), a unique tab_pos stays a plain section. Default = lowest
+    CARD_ORDER rank (BTC). CARD_ORDER + PRODUCERS 404 map + index.html CSP
+    hash updated; index.html re-inits the ticker on stacked cards per member
+    (the stack rebuilds on each add). KEY COUNT 23 -> 25 (a producer AND a
+    chart are both new keys -- the task brief's "24" undercounted): status
+    25/25, 25 real PUTs, 24 index members, Gate-8 runbook + KV-quota line.
+Verified: rake green (665 runs, 0 failures; web:test 26/26);
+PUBLISH_DRY_RUN=1 -> 25/25 keys, 0 skipped; Playwright on index.html --
+[BTC][MSTR] surface tabs (BTC default, real curves), clicking MSTR swaps
+to chart:vol_surface_mstr ("MSTR vol surface · ATM 30d 70.4%"), basis
+untouched, all 8 badges tick, console clean, 3x2 grid intact, 25/25 fresh.
+
+## M8-18 · GEX renames + MSTR trend + display rulings (owner-ruled 2026-08-10)  [tier: opus -- Fable spec + review, mimir-design bound] [status: done 2026-08-10]
+Six owner rulings, the final display packet before Gate 8, in five feature
+commits (tests+code together) + this docs commit; all display-only, no
+analytics semantics touched.
+(R1) Chart-key renames: chart:gex_profile -> chart:gex_btc, chart:gex_trend
+     -> chart:gex_btc_trend (producer keys gex:combined/gex:trend and the
+     builder fns unchanged). CHARTS registry, goldens (git mv), CARD_ORDER,
+     index.html PRODUCERS map, deploy.rb CHART_KEYS sentinel, every test pin,
+     runbook. Old KV keys v1:chart:gex_profile / v1:chart:gex_trend become
+     harmless orphans post-deploy (runbook Background; optional cleanup).
+(R2) New chart:gex_mstr_trend -- the daily MSTR GEX trend, fourth tab of the
+     GEX card ([BTC][MSTR][BTC TREND][MSTR TREND]; TREND relabelled BTC TREND).
+     scripts/gex_trend.rb --json gains an additive top-level 'mstr' = {series,
+     stats}, built by a new BTC::GexHistory.mstr_series over the MSTR entries
+     of each snapshot's `us` capture (walls under 'strike'), reusing #stats.
+     Builder mirrors gex_trend but in RAW DOLLARS (not $k) with no max-pain
+     cross-check (BTC-only). Contract test + gex_history unit tests + synthetic
+     fixture 'mstr' block (payloads/README noted). Key count 25 -> 26.
+(R3) The (p) VENUE (c) toggle widget moves from a right column to a FIXED 2x3
+     grid at the TOP-RIGHT of the BTC GEX plot (IBIT FBTC BITB / DERI ARKB
+     GBTC; absent venues collapse their slot, stale 'DERI!' still fills DERI).
+     Recorded in mimir-design as an EXCEPTION to "side panels go right".
+(R4) Both GEX profile tabs cut margins (right 92->12, left 52->42) -- visibly
+     wider plot; gex_btc top 56->66 so raised wall labels clear the widget.
+(R5) scenario_strip title gains a composite-drift arrow (latest minus 7
+     readings back; >+0.02 ↗, <-0.02 ↘, else →; no arrow under 2 readings).
+(R6) Card badges are dot-only -- age/ttl/time move to an instant hover/focus
+     bubble (header-ldot pattern; keyboard-focusable, right-anchored + flip-up,
+     built from data attrs on open). render.js makeBadge/setBadge/refreshBadge;
+     index.html ticker simplified (.age span + fmtAge/paintBadge/initBadge
+     gone); both pages dot-only; index.html CSP hash recomputed. Recorded in
+     mimir-design.
+(R7) LPPL three-panel grids denser (heights 19%->23%, gaps ~14/11% -> ~4/4%).
+Goldens (gex_btc, gex_btc_trend, gex_mstr_trend, gex_mstr, scenario_strip,
+lppl_regime) PROVISIONAL -- owner re-blesses at Gate 8.
+Verified: rake green (675 runs, 0 failures; web:test 27/27);
+PUBLISH_DRY_RUN=1 -> 26/26 keys, 0 skipped; headless 1440+2000 screenshots
+read against every ruling (2x3 toggles top-right, wider GEX plots, four GEX
+tabs, MSTR TREND renders real 34-day history, scenario arrow, taller/tighter
+LPPL panels, every badge a bare dot, 3x2 grid intact, 26/26 fresh); Playwright
+on index.html -- badge bubble on hover AND keyboard focus ("age 2m16s · ttl
+1800s · 19:31Z"), venue (p) toggle flips off, all four GEX tabs render a live
+canvas, vol surface MSTR tab still swaps, console clean. NOT live until the
+phase-8 gate merges + deploys.

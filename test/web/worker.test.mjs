@@ -49,14 +49,29 @@ test('known key returns the KV envelope verbatim with cache+age headers', async 
   assert.equal(await res.text(), ENVELOPE); // verbatim, not re-serialized
   assert.equal(res.headers.get('Content-Type'), 'application/json; charset=utf-8');
   assert.equal(res.headers.get('Cache-Control'), 'public, max-age=60');
+  // A shared cache keyed on the Authorization header (M8-12 / SBI C4):
+  // once AUTH_TOKEN is enabled it must never hand a token-authorized
+  // response to an anonymous client.
+  assert.equal(res.headers.get('Vary'), 'Authorization');
   assert.equal(res.headers.get('X-Generated-At'), GENERATED_AT);
   assert.equal(res.headers.get('X-Data-Age-Seconds'), '90');
   assert.deepEqual(env.asked, ['v1:gex:combined']);
 });
 
+test('Vary: Authorization rides the cacheable 200, not the no-store paths', async () => {
+  const env = fakeEnv({ 'v1:index': ENVELOPE });
+  const ok = await handle(get('/api/v1/index'), env, NOW_MS);
+  assert.equal(ok.headers.get('Cache-Control'), 'public, max-age=60');
+  assert.equal(ok.headers.get('Vary'), 'Authorization');
+  // no-store responses are never shared-cached, so they carry no Vary
+  const miss = await handle(get('/api/v1/nope:missing'), fakeEnv(), NOW_MS);
+  assert.equal(miss.headers.get('Cache-Control'), 'no-store');
+  assert.equal(miss.headers.get('Vary'), null);
+});
+
 test('chart and index key shapes are accepted', async () => {
-  const env = fakeEnv({ 'v1:chart:gex_profile': ENVELOPE, 'v1:index': ENVELOPE });
-  assert.equal((await handle(get('/api/v1/chart:gex_profile'), env, NOW_MS)).status, 200);
+  const env = fakeEnv({ 'v1:chart:gex_btc': ENVELOPE, 'v1:index': ENVELOPE });
+  assert.equal((await handle(get('/api/v1/chart:gex_btc'), env, NOW_MS)).status, 200);
   assert.equal((await handle(get('/api/v1/index'), env, NOW_MS)).status, 200);
 });
 

@@ -38,6 +38,10 @@ module FakeTransport
     ['stablecoins',                 'defillama_stables.json'],
     ['farside',                     'farside_flows.html'], # also matches the archive-proxy URL
     ['flow-history',                'coinglass_flows.json'],
+    ['option/info',                 'coinglass_option_info.json'],
+    ['option/max-pain',             'coinglass_max_pain.json'],
+    ['oi-weight-history',           'coinglass_funding_oi.json'],
+    ['delayed_quotes/options/MSTR', 'cboe_options_mstr.json'],
     ['frankfurter',                 'frankfurter_fx.json'],
     ['bitcointreasuries',           'bitcointreasuries_table.html'],
     ['companies/public_treasury',   'coingecko_treasury.json'],

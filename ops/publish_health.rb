@@ -27,16 +27,19 @@
 #   LIVE, age >= 2*interval                 PUB! n/m H:MM
 #   DRY mode (misconfig on the prod box)    PUB! DRY n/m H:MM
 #   status line carries ` OLD:<key>...`     PUB! n/m H:MM OLD (additive M7-5)
+#   status line carries ` BLIND:<suite>...` PUB! n/m H:MM BLIND (additive M8-10)
 #   File missing / unreadable / garbled     PUB! ?
 #
 #   `!` = attention; the payload says why (n<m keys missing, age past
-#   2x cadence, DRY, `OLD` = a published evidence tail stopped moving, or
-#   ? no readable status). Severity reads from the age itself -- no separate
-#   amber/red tiers. `OLD` (M7-5, 2026-07-07 frozen-evidence incident) is
-#   ADDITIVE: the pipeline appends ` OLD:<key>[,...]` to the status line
-#   when a published tail's newest entry is older than 30h; this reader
-#   surfaces the bare `OLD` marker and forces `!`. It composes with the
-#   others (e.g. `PUB! DRY 13/13 5:00 OLD`).
+#   2x cadence, DRY, `OLD` = a published evidence tail stopped moving,
+#   `BLIND` = a freshest tail is still data-corrupted after same-day repair,
+#   or ? no readable status). Severity reads from the age itself -- no
+#   separate amber/red tiers. `OLD` (M7-5, 2026-07-07 frozen-evidence
+#   incident) and `BLIND` (M8-10, blind-zero incident) are ADDITIVE: the
+#   pipeline appends ` OLD:<key>[,...]` when a published tail's newest entry
+#   is older than 30h, and ` BLIND:<suite>[,...]` when a freshest tail still
+#   carries its M8-8 marker; this reader surfaces the bare `OLD` / `BLIND`
+#   markers and forces `!`. They compose (e.g. `PUB! DRY 13/13 5:00 OLD BLIND`).
 #
 # H:MM: hours unpadded, minutes zero-padded to 2 digits, age floored to
 # whole minutes.  Examples: 37 min -> 0:37; 65 min -> 1:05; 1563 min -> 26:03.
@@ -81,12 +84,16 @@ module Ops
       # published evidence tail has stopped moving (2026-07-07 incident).
       # OLD earns the attention flag AND surfaces the `OLD` marker.
       old     = first_line.include?(' OLD:')
-      suffix  = old ? ' OLD' : ''
+      # ADDITIVE (M8-10): ` BLIND:<suite>[,...]` when a freshest tail is still
+      # corrupted after same-day repair (blind scenario / stale lppl). Like
+      # OLD it earns `!` and surfaces a bare `BLIND` marker.
+      blind   = first_line.include?(' BLIND:')
+      suffix  = format('%s%s', old ? ' OLD' : '', blind ? ' BLIND' : '')
       age_s   = now - mtime
       age_min = age_s / 60.0
       age_str = format_age(age_s)
       if mode == 'LIVE'
-        flag = old || attention?(n, total, age_min, interval_min) ? '!' : ''
+        flag = old || blind || attention?(n, total, age_min, interval_min) ? '!' : ''
         format('PUB%s %d/%d %s%s', flag, n, total, age_str, suffix)
       else
         format('PUB! %s %d/%d %s%s', mode, n, total, age_str, suffix)
