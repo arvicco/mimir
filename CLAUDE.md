@@ -183,7 +183,15 @@ same commit (`rake health` fails on registry drift).
 
 ## Current phase
 
-Phase 8 (branch phase-8; Gate 7 closed 2026-08-10 -- PR #8 merged,
+Phase 9 (LPPL statistics revision, branch phase-9 in
+~/Dev/mimir-phase9; Gate 8 closed 2026-08-10 -- PR #9 + hotfix #10,
+deployed + live-verified, 26 keys). Spec = the SBI consolidated
+review; packets M9-1..10 + decision items D9-a..g in docs/BACKLOG.md.
+SHADOW-FIRST: verdict-affecting changes ship as additive report-only
+fields and flip only on owner rulings (Golden Rule 4). BTCo stays
+FROZEN (2026-08-10 ruling). Stage A tiering; visual work follows
+.claude/skills/mimir-design; deploys and launchd changes are HUMAN
+actions. Update this line at each gate.
 v1 tagged at 03cac84, deployed and live-verified). **BTCo
 development is FROZEN (owner ruling 2026-08-10, pending a rethink)**:
 no BTCo packets, no ingest work, no universe edits; code and tests
