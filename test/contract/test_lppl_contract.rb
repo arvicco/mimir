@@ -86,7 +86,8 @@ class TestLpplContract < Minitest::Test
   # test file -> [required detail keys, optional detail keys (nil-dropped
   # or run-dependent), extra argv]
   TESTS = {
-    'trend'       => [%w[bf bf_by_horizon per_horizon delta_ln_age eval_points_1y],
+    'trend'       => [%w[bf bf_by_horizon per_horizon per_horizon_long
+                         delta_ln_age eval_points_1y],
                       %w[bootstrap], []],
     'envelope'    => [%w[ratio bound floor freeze_candidate trough_ratios
                          trend_today days_below_strong days_below_floor], [], []],
@@ -133,6 +134,22 @@ class TestLpplContract < Minitest::Test
     assert_equal %w[180 30 90], ph.keys.sort
     ph.each_value do |h|
       assert_equal %w[mean_per_eval n_evals sum], h.keys.sort
+      assert_kind_of Numeric, h['sum']
+      assert_kind_of Integer, h['n_evals']
+    end
+  end
+
+  # M9-8: the 365/730 long horizons ride in a SEPARATE additive map, each entry
+  # the same {sum, mean_per_eval, n_evals} shape plus report_only:true. They
+  # never touch per_horizon (pinned above) or the score.
+  def test_trend_per_horizon_long_shape
+    j  = module_json('trend')
+    ph = j['per_horizon_long']
+    assert_kind_of Hash, ph
+    assert_equal %w[365 730], ph.keys.sort
+    ph.each_value do |h|
+      assert_equal %w[mean_per_eval n_evals report_only sum], h.keys.sort
+      assert_equal true, h['report_only']
       assert_kind_of Numeric, h['sum']
       assert_kind_of Integer, h['n_evals']
     end
