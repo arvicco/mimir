@@ -1568,7 +1568,7 @@ SHADOW-FIRST: new numbers as additive fields next to the frozen ones,
 soak, then an explicit owner ruling flips gating. Golden Rule 4 applies
 to every packet here. Local working notes: .docs/lppl-improvements.md.
 
-## M9-1 · Trend statistic honesty  [tier: opus -- Fable spec+review; wording + additive fields, no scoring change] [status: ready] [deps: --]
+## M9-1 · Trend statistic honesty  [tier: opus -- Fable spec+review; wording + additive fields, no scoring change] [status: done -- aa2d1a7; rename + per_horizon; SBI-3.1 reproduction: full 364pts diff -459.14 vs thinned 52pts -66.65 (6.89x sum drop for 7x point drop; per-eval mean ~-1.26 vs -1.28, invariant) -- feeds D9-b] [deps: --]
 Goal: (a) rename in headers/tmux wording/docs: "cumulative log
       predictive-score differential", never "Bayes factor"; bayes-named
       --json keys stay (deprecated in comments), additive new keys.
@@ -1581,7 +1581,7 @@ Goal: (a) rename in headers/tmux wording/docs: "cumulative log
 Acceptance: rake green; contracts additive+tested; METHODOLOGY.md and
       LPPL-SUITE.md wording updated; reproduction result documented.
 
-## M9-2 · Percentile monitor: empirical primary  [tier: opus -- presentation reorder, weight stays 0] [status: ready] [deps: --]
+## M9-2 · Percentile monitor: empirical primary  [tier: opus -- presentation reorder, weight stays 0] [status: done -- fbe0a0b; empirical was already the lead number, so this makes the Gaussian's reference-only status explicit (header, "Gaussian ref" headline label, METHODOLOGY); no field/scoring change; chart title carries no percentile so no golden re-bless] [deps: --]
 Goal: pct_emp becomes the primary displayed number (Gaussian as
       reference only) in table/tmux/chart title paths; weight REMAINS 0
       (two reviews independently call that prudent). No new fields
@@ -1589,7 +1589,7 @@ Goal: pct_emp becomes the primary displayed number (Gaussian as
 Acceptance: rake green; goldens re-blessed if the chart title changes;
       METHODOLOGY wording updated.
 
-## M9-3 · Evidence-index labeling + omega cross-check  [tier: opus -- additive surfacing; the refusal RULE is a decision item, not code] [status: ready] [deps: --]
+## M9-3 · Evidence-index labeling + omega cross-check  [tier: opus -- additive surfacing; the refusal RULE is a decision item, not code] [status: done -- 2ff4920; "evidence index (not a probability)" in lppl.rb/METHODOLOGY/README/guide.html (scenario+lppl); lppl --json += omega_xcheck{fit_omega,ls_omega,delta} (real 8.7/8.5/0.2) + trough_stability first-class; contract tests same commit; D9-a already filed] [deps: --]
 Goal: (a) user-facing language: the composite is an "evidence index",
       not a probability (tmux/table/README/METHODOLOGY/guide.html).
       (b) additive --json: omega_xcheck {fit_omega, ls_omega, delta}
@@ -1599,7 +1599,7 @@ Goal: (a) user-facing language: the composite is an "evidence index",
 Acceptance: rake green; additive contract tests; chart/goldens updated
       where titles change.
 
-## M9-4 · Envelope language + freeze rule prep  [tier: sonnet -- wording + one report-only field] [status: ready] [deps: --]
+## M9-4 · Envelope language + freeze rule prep  [tier: sonnet -- wording + one report-only field] [status: done -- 2dc4fa1; "descriptive cycle heuristic" wording (envelope.rb/METHODOLOGY/LPPL-SUITE/guide.html) + additive freeze_candidate (2022 bound vs trend frozen at the 2022 trough; real 0.358 vs live drifting bound 0.439); contract same commit; feeds D9-g] [deps: --]
 Goal: "descriptive cycle heuristic" language everywhere user-facing;
       additive field freeze_candidate (the bound as it would be if
       frozen pre-trough, report-only). The actual freeze-rule flip is
@@ -1657,7 +1657,7 @@ Goal: stage 1 CHARACTERIZE: reproduce the SBI empirical check on our
 Acceptance: rake green; stage-1 numbers recorded; shadow fields
       additive + tested; deterministic.
 
-## M9-10 · Log-time reporting  [tier: sonnet -- one additive field] [status: ready] [deps: --]
+## M9-10 · Log-time reporting  [tier: sonnet -- one additive field] [status: done -- 54db48e; additive delta_ln_age on trend --json (ln(age_end)-ln(age_start) of the trailing-1y window, 4dp; real 0.0584 at age ~17.6y); contract same commit; eval-schedule change stays out of scope] [deps: --]
 Goal: additive delta_ln_age field on trend output (the 1y window at
       age ~17.5y spans ~0.057 in the model's natural clock). The
       evaluation-schedule change itself is out of scope (revisit after
