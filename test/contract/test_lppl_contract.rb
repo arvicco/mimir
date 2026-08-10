@@ -86,7 +86,7 @@ class TestLpplContract < Minitest::Test
   # test file -> [required detail keys, optional detail keys (nil-dropped
   # or run-dependent), extra argv]
   TESTS = {
-    'trend'       => [%w[bf bf_by_horizon per_horizon per_horizon_long
+    'trend'       => [%w[bf bf_by_horizon per_horizon per_horizon_long pl_lp1
                          delta_ln_age eval_points_1y],
                       %w[bootstrap], []],
     'envelope'    => [%w[ratio bound floor freeze_candidate trough_ratios
@@ -153,6 +153,37 @@ class TestLpplContract < Minitest::Test
       assert_kind_of Numeric, h['sum']
       assert_kind_of Integer, h['n_evals']
     end
+  end
+
+  # M9-9: the PL+LP1 rival rides in its own additive section pl_lp1{per_horizon,
+  # omega, clock}, report-only. It never touches per_horizon (pinned above), bf,
+  # or the score. The clock label carries the SBI ln(age)-vs-ln(tau) caution.
+  def test_trend_pl_lp1_shape
+    j = module_json('trend')
+    s = j['pl_lp1']
+    assert_kind_of Hash, s
+    assert_equal %w[clock omega per_horizon], s.keys.sort
+    assert_kind_of Numeric, s['omega']
+    assert_match(/ln\(age\)/, s['clock'])
+    assert_equal %w[180 30 90], s['per_horizon'].keys.sort
+    s['per_horizon'].each_value do |h|
+      assert_equal %w[mean_per_eval n_evals report_only sum], h.keys.sort
+      assert_equal true, h['report_only']
+      assert_kind_of Numeric, h['sum']
+    end
+  end
+
+  # M9-9 stage 1: lp1_check.rb is a standalone research script (not in publish)
+  # -- a --json smoke test that it runs offline and emits the characterization
+  # fields, including the ln(age) clock caveat.
+  def test_lp1_check_json_smoke
+    out, err, st = run_script('scripts/lppl/lp1_check.rb', '--json', env: lppl_env)
+    assert st.success?, "lp1_check exit #{st.exitstatus}: #{err}"
+    d = JSON.parse(out)
+    assert_contract_keys %w[clock mode_r2 n name peak_omega peak_power], d, 'lp1_check'
+    assert_kind_of Numeric, d['peak_omega']
+    assert_kind_of Numeric, d['mode_r2']
+    assert_match(/ln\(age\)/, d['clock'])
   end
 
   # M9-5: report-only fit diagnostics ride additively next to the frozen

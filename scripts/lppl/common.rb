@@ -169,6 +169,58 @@ module Lppl
     end
   end
 
+  # O(1)-per-fit least squares for the FIXED 4-column PL+LP1 design
+  # [1, ln(age), cos(w*ln age), sin(w*ln age)] with omega fixed -- the rigid
+  # single-mode rival (M9-9). The mirror of RangeReg: prefix sums of X'X, X'y,
+  # y'y let any [0, b] prefix fit be assembled in O(1). Report-only; it feeds a
+  # SEPARATE trend cache and never the frozen rival set.
+  class PlLp1Reg
+    def initialize(u, y, omega)
+      n     = u.size
+      @u    = u
+      @cw   = u.map { |x| Math.cos(omega * x) }
+      @sw   = u.map { |x| Math.sin(omega * x) }
+      cols  = [Array.new(n, 1.0), u, @cw, @sw]
+      @sxx  = Array.new(4) { Array.new(4) { Array.new(n + 1, 0.0) } }
+      @sxy  = Array.new(4) { Array.new(n + 1, 0.0) }
+      @syy  = Array.new(n + 1, 0.0)
+      (0...n).each do |i|
+        @syy[i + 1] = @syy[i] + y[i] * y[i]
+        (0...4).each do |a|
+          @sxy[a][i + 1] = @sxy[a][i] + cols[a][i] * y[i]
+          (a...4).each { |b| @sxx[a][b][i + 1] = @sxx[a][b][i] + cols[a][i] * cols[b][i] }
+        end
+      end
+    end
+
+    # Fit on rows 0..b inclusive. Returns { coef: [4], sigma2: } or nil.
+    def fit(b)
+      m = b + 1
+      return nil if m < 6
+
+      xtx = Array.new(4) { Array.new(4, 0.0) }
+      xty = Array.new(4, 0.0)
+      (0...4).each do |a|
+        xty[a] = @sxy[a][b + 1]
+        (a...4).each { |c| xtx[a][c] = @sxx[a][c][b + 1]; xtx[c][a] = xtx[a][c] }
+      end
+      coef = Lppl.gauss_solve(xtx, xty)
+      return nil unless coef
+
+      bxy = (0...4).inject(0.0) { |s, a| s + coef[a] * xty[a] }
+      bxb = 0.0
+      (0...4).each { |a| (0...4).each { |c| bxb += coef[a] * xtx[a][c] * coef[c] } }
+      sse = @syy[b + 1] - 2 * bxy + bxb
+      sse = 0.0 if sse < 0
+      { coef: coef, sigma2: sse / [m - 4, 1].max }
+    end
+
+    # Design row at index i, for forecasting at the eval point.
+    def row(i)
+      [1.0, @u[i], @cw[i], @sw[i]]
+    end
+  end
+
   # Gaussian elimination with partial pivoting; a is NxN (array of rows),
   # b is length-N. Returns solution array or nil if singular.
   def gauss_solve(a, b)

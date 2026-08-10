@@ -41,6 +41,14 @@
 # They are EXCLUDED from the +-1 band and the score until decision item D9-c.
 # Published evidence says the power law wins at 12-24mo; the soak shows whether
 # our own data agrees before any scoring ruling.
+#
+# PL+LP1 RIVAL (M9-9, REPORT-ONLY): a fourth model, pl_lp1 = power law + one
+# rigid log-periodic mode in ln(age) at LP1_OMEGA (stage-1 lp1_check.rb peak),
+# fitted like pl_full on [0, j]. Scores go to a SEPARATE cache
+# (data/trend_scores_lp1.csv) and surface as the additive --json section
+# pl_lp1{per_horizon:{...}, omega, clock}. The pl_full-vs-pl_lp1 differential is
+# paired on matched eval dates. pl_lp1 NEVER enters the best-rival max or bf_yr;
+# adoption into the verdict is decision item D9-d.
 
 require_relative 'common'
 
@@ -49,8 +57,17 @@ CACHE   = File.join(Lppl::DATA, 'trend_scores.csv')
 # Long horizons 365/730 (M9-8) are REPORT-ONLY: a SEPARATE cache and
 # aggregation, never folded into HORIZ, the +-1 scoring band, or the score.
 CACHE_LONG = File.join(Lppl::DATA, 'trend_scores_long.csv')
+# PL+LP1 rival (M9-9): power law + ONE rigid log-periodic mode in ln(age), a
+# SEPARATE report-only cache that NEVER enters the frozen best-rival max.
+CACHE_LP1  = File.join(Lppl::DATA, 'trend_scores_lp1.csv')
 HORIZ   = [30, 90, 180].freeze
 HORIZ_LONG = [365, 730].freeze
+# Rigid, refit-free omega -- the full-history ln(age) Lomb-Scargle peak from
+# stage-1 lp1_check.rb (8.70; SBI 8.75). The hypothesis is ONE fundamental
+# mode, so omega is fixed, not searched per eval; a per-eval omega search would
+# be a different, slower test (future work). NOTE: ln(age) clock -- NOT the
+# post-peak ln(tau) omega fit.rb/logperiodic.rb report (different clocks).
+LP1_OMEGA = 8.70
 EVAL0   = Time.utc(2017, 1, 1)
 WIN_REC = 1095 # rows in the "recent" power-law window
 MINFIT  = 1460 # min rows of history before a fit is scored
@@ -219,6 +236,55 @@ if !Lppl.as_of && !new_rows_long.empty?
   new_rows_long.each { |d, h, m, s| have_long["#{d}|#{h}|#{m}"] = s }
 end
 
+# ---- PL+LP1 rival SHADOW (M9-9, report-only) ---------------------------------
+# power law + ONE rigid log-periodic mode in ln(age), fitted like pl_full on the
+# full [0, j] training window (omega fixed at LP1_OMEGA). Scores go to a SEPARATE
+# cache and are compared to pl_full on MATCHED eval dates only (never entering
+# the frozen best-rival max or bf_yr). Same discipline (C8 completeness,
+# read-only under as-of, weekly-stride bootstrap) as the frozen path.
+lp1reg = Lppl::PlLp1Reg.new(xs, p[:lnp], LP1_OMEGA)
+
+have_lp1 = {}
+if File.exist?(CACHE_LP1)
+  File.foreach(CACHE_LP1) do |ln|
+    d, h, m, s = ln.strip.split(',')
+    next if d.nil? || d == 'date'
+    next if asof_key && d >= asof_key
+
+    have_lp1["#{d}|#{h}|#{m}"] = s.to_f
+  end
+end
+bootstrap_lp1 = have_lp1.empty?
+stride_lp1    = bootstrap_lp1 ? 7 : 1
+
+new_rows_lp1 = []
+(0...n).each do |i|
+  next if p[:dates][i] < EVAL0
+  next if bootstrap_lp1 && (i % stride_lp1 != 0)
+
+  dkey = p[:dates][i].strftime('%Y-%m-%d')
+  HORIZ.each do |h|
+    j = i - h
+    next if j < MINFIT
+    next if have_lp1.key?("#{dkey}|#{h}|pl_lp1")
+
+    g = lp1reg.fit(j)
+    next unless g
+
+    xi = lp1reg.row(i)
+    mu = g[:coef].each_index.inject(0.0) { |s, a| s + g[:coef][a] * xi[a] }
+    new_rows_lp1 << [dkey, h, 'pl_lp1', logscore(p[:lnp][i], mu, g[:sigma2])]
+  end
+end
+
+if !Lppl.as_of && !new_rows_lp1.empty?
+  File.open(CACHE_LP1, 'a') do |f|
+    f.puts 'date,h,model,logscore' unless File.exist?(CACHE_LP1) && File.size(CACHE_LP1) > 0
+    f.write(new_rows_lp1.map { |r| "#{r.join(',')}\n" }.join)
+  end
+  new_rows_lp1.each { |d, h, m, s| have_lp1["#{d}|#{h}|#{m}"] = s }
+end
+
 # ---- aggregate ---------------------------------------------------------------
 # delta_ln_age (M9-10, additive): how far the model's NATURAL clock -- ln(age),
 # age = days since genesis -- advances across the trailing-1y aggregation
@@ -287,6 +353,36 @@ HORIZ_LONG.each do |h|
                                'report_only' => true }
 end
 
+# pl_lp1 (M9-9, additive, REPORT-ONLY): the pl_full-vs-pl_lp1 differential over
+# the trailing-1y window, paired on eval dates present in BOTH caches so the
+# comparison is density-matched (SBI 3.1). Same {sum, mean_per_eval, n_evals}
+# shape, pl_full-centric like per_horizon: sum > 0 means the rigid mode HURTS
+# out-of-sample (pl_full wins), sum < 0 means it HELPS. Never enters bf_yr or
+# the best-rival max (that flip is decision item D9-d).
+pl_lp1_ph = {}
+HORIZ.each do |h|
+  diff = 0.0
+  ne   = 0
+  have_lp1.each do |k, s_lp1|
+    d, hh, m = k.split('|')
+    next unless hh == h.to_s && m == 'pl_lp1'
+    next if d < cut
+
+    pf = have["#{d}|#{h}|pl_full"]
+    next unless pf
+
+    diff += (pf - s_lp1)
+    ne   += 1
+  end
+  dd10 = diff / Math.log(10)
+  pl_lp1_ph[h.to_s] = { 'sum' => dd10.round(2),
+                        'mean_per_eval' => (ne.positive? ? (dd10 / ne).round(4) : nil),
+                        'n_evals' => ne,
+                        'report_only' => true }
+end
+pl_lp1_field = { 'per_horizon' => pl_lp1_ph, 'omega' => LP1_OMEGA,
+                 'clock' => 'ln(age) -- not the post-peak ln(tau) omega' }
+
 score = if bf_yr >= 1.0
           1
         elsif bf_yr <= -1.0
@@ -302,6 +398,7 @@ Lppl.report(NAME, score,
               'bf_by_horizon' => per_h.inspect, # deprecated name; see per_horizon
               'per_horizon' => per_horizon,
               'per_horizon_long' => per_horizon_long,
+              'pl_lp1' => pl_lp1_field,
               'delta_ln_age' => delta_ln_age,
               'eval_points_1y' => count["yr|90|pl_full"],
               'bootstrap' => (bootstrap ? 'first run: weekly stride history built' : nil))
