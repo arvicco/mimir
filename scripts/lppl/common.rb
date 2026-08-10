@@ -341,4 +341,73 @@ module Lppl
     best[:rmse]  = Math.sqrt(best[:sse] / resid.size)
     best
   end
+
+  # Symmetric-null SHADOW (M9-6, feeds D9-e/D9-f). power_decay_fit above
+  # selects tc on raw SSE across tc-dependent row counts -- rows with tau > 2d
+  # shrink as tc moves late, so a later tc wins mechanically (fewer squared
+  # residuals to sum). SBI observed the null tc pinned at the +10d coarse-grid
+  # edge as a result. This variant removes both biases:
+  #   (a) selects tc/m on RMSE = sqrt(SSE / rows) so row count cannot tilt the
+  #       choice, and
+  #   (b) adds the same coarse+refined two-pass search the LPPLS fit gets.
+  # REPORT-ONLY: it feeds fit.rb's improvement_v2 and never the frozen null
+  # fields or the frozen improvement figure. The original power_decay_fit is
+  # left byte-identical (logperiodic.rb still consumes its u/resid).
+  # at_grid_edge flags whether the chosen tc still sits at the late (+10d) or
+  # early (-30d) coarse boundary -- the artifact SBI saw; a cleared artifact
+  # reads false. Returns { tc:, m:, a:, b:, sse:, rmse:, at_grid_edge: } or nil.
+  def power_decay_fit_v2(p, i_peak)
+    peak_day = p[:days][i_peak]
+    idx_all  = (i_peak...p[:days].size).to_a
+    return nil if idx_all.size < 60
+
+    eval_fit = lambda do |tc, mm|
+      idx = idx_all.select { |i| p[:days][i] - tc > 2.0 }
+      next nil if idx.size < 60
+
+      y = idx.map { |i| p[:lnp][i] }
+      x = idx.map { |i| (p[:days][i] - tc)**mm }
+      n = x.size.to_f
+      sx = 0.0; sy = 0.0; sxx = 0.0; sxy = 0.0; syy = 0.0
+      (0...x.size).each do |k|
+        sx += x[k]; sy += y[k]
+        sxx += x[k] * x[k]; sxy += x[k] * y[k]; syy += y[k] * y[k]
+      end
+      den = n * sxx - sx * sx
+      next nil if den.abs < 1e-12
+
+      bb  = (n * sxy - sx * sy) / den
+      aa  = (sy - bb * sx) / n
+      sse = syy + n * aa * aa + bb * bb * sxx -
+            2 * aa * sy - 2 * bb * sxy + 2 * aa * bb * sx
+      sse = 0.0 if sse < 0
+      { tc: tc, m: mm, a: aa, b: bb, sse: sse, rmse: Math.sqrt(sse / n) }
+    end
+
+    best = nil
+    pick = lambda do |tcs, ms|
+      tcs.each do |tc|
+        ms.each do |mm|
+          r = eval_fit.(tc, mm)
+          next unless r
+          next unless best.nil? || r[:rmse] < best[:rmse]
+
+          best = r
+        end
+      end
+    end
+
+    # coarse pass -- same tc/m ranges as the original null's coarse grid
+    pick.((-30..10).step(2).map { |dt| peak_day + dt }, (0.1..0.9).step(0.1).to_a)
+    return nil if best.nil?
+
+    # refinement pass around the coarse optimum, mirroring the LPPLS fit's
+    b0 = best
+    pick.(((b0[:tc] - 2)..(b0[:tc] + 2)).step(1).to_a,
+          ([b0[:m] - 0.08, 0.05].max..(b0[:m] + 0.08)).step(0.02).to_a)
+
+    dt_sel = best[:tc] - peak_day
+    best[:at_grid_edge] = dt_sel >= 10.0 || dt_sel <= -30.0
+    best
+  end
 end
