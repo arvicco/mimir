@@ -1450,3 +1450,29 @@ Two owner rulings during the Gate 8 preview review:
     regenerate from the fixture so they are unaffected).
 Verified by headless screenshot: one vol card with both charts, five
 filled spread bars, 3x2 grid intact, 22/22 fresh.
+
+## M8-16 · vol_spread daily trend (stacked, owner-ruled 2026-08-10)  [tier: opus -- Fable spec + review, mimir-design bound] [status: done 2026-08-10]
+Owner ruling: chart:vol_spread becomes a stacked card like the
+vol_surface/vol_basis pair -- current per-tenor spread bars on top
+(existing chart, unchanged), a NEW daily-trend chart below plotting the
+7/14/21/45/90d spreads over time.
+(a) Producer: scripts/vol_spread.rb now appends ONE row per UTC day to
+    BTC::Env.data_dir('vol_spread','data/vol_spread')/history.jsonl
+    (date-guarded like gex_snapshot.rb; a row is written whenever >=1 leg
+    is live, null legs are honest gaps). --json gains an additive
+    "history" field (trailing 120 rows, trimmed to date +
+    tenors[{tenor_d, spread_atm}]); contract test updated same commit
+    (TOP_KEYS + shape + date-guard: two runs same fake day -> one row).
+(b) Chart: new builder vol_spread_trend + 'vol_spread_trend' registry
+    entry (SAME payload fixture, group_style 'stack', tab_group
+    'volspread', tab_pos 1, height 235); vol_spread gains the matching
+    stack meta at tab_pos 0. One line per tenor, spread_atm*100 vol pts
+    (1dp), null -> gap, filled dots size 6; empty history still yields a
+    valid option. Fixture gained a synthetic 10-day history (one null
+    45d day for the gap path); golden chart_vol_spread_trend.json blessed
+    PROVISIONAL (owner re-blesses at Gate 8). CARD_ORDER + PRODUCERS map +
+    index.html CSP hash updated; key count 22 -> 23 across the pins.
+Verified: rake green (660 runs, 0 failures; web:test 24/24);
+PUBLISH_DRY_RUN=1 -> 23/23 keys, 0 skipped; headless screenshot shows the
+stacked spread card (bars on top, trend below) with one dot per series
+from the single live day, 3x2 grid intact, 23/23 fresh.
