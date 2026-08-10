@@ -9,6 +9,21 @@
 #   ruby vol_spread.rb          # aligned terminal table
 #   ruby vol_spread.rb --json   # machine-readable JSON (frozen contract)
 #
+# DAILY HISTORY (M8-16)
+#   Every run appends ONE row per UTC day to
+#   BTC::Env.data_dir('vol_spread','data/vol_spread')/history.jsonl -- the
+#   per-tenor ATM spread term structure, so the trend chart can accumulate
+#   over time. The append is date-guarded (skip when the file's last row is
+#   already today's date), so same-day re-runs are idempotent (like
+#   ops/gex_snapshot.rb). A row is written whenever at least one leg is live
+#   (both-legs-failed exits above); null legs are honest gaps in the row.
+#   Row schema:
+#     {"date":"YYYY-MM-DD","ts":ISO8601,
+#      "tenors":[{"tenor_d":7,"spread_atm":0.46,"mstr_atm":0.77,"btc_atm":0.31},...]}
+#   --json gains an additive "history" field: the trailing 120 rows, each as
+#   {"date":..,"tenors":[{"tenor_d":..,"spread_atm":..}]} (mstr_atm/btc_atm are
+#   dropped to keep the payload lean); [] when the file is absent.
+#
 # SEMANTICS (owner-approved 2026-07-10, nearest-expiry pairing)
 #   BTC leg:  Deribit BTC option book -> BTC::Vol.surface (7/14/21/45/90d
 #             targets -- finer than the surface chart, owner ruling 2026-08-10).
@@ -43,10 +58,12 @@
 
 require 'json'
 require 'time'
+require 'fileutils'
 require_relative '../lib/btc/options'
 require_relative '../lib/btc/deribit'
 require_relative '../lib/btc/source_cache'
 require_relative '../lib/btc/vol'
+require_relative '../lib/btc/env'
 
 CBOE_BASE = 'https://cdn.cboe.com/api/global/delayed_quotes/options'
 
@@ -160,6 +177,52 @@ spread_rows = TARGETS.map do |target_d|
     spread_atm: spread_atm&.round(4) }
 end
 
+# ---- daily history: one row per UTC day (append-only jsonl) -----------------
+# At least one leg is live here (both-legs-failed exited above), so the row is
+# always worth keeping; null legs stay null (honest gaps). The date guard makes
+# same-day re-runs idempotent (ops/gex_snapshot.rb pattern).
+hist_dir  = BTC::Env.data_dir('vol_spread', 'data/vol_spread')
+hist_file = File.join(hist_dir, 'history.jsonl')
+today     = now.strftime('%Y-%m-%d')
+
+last_history_date = lambda do
+  return nil unless File.file?(hist_file)
+
+  last = nil
+  File.foreach(hist_file) { |l| s = l.strip; last = s unless s.empty? }
+  last && (JSON.parse(last)['date'] rescue nil)
+end
+
+if last_history_date.call != today
+  FileUtils.mkdir_p(hist_dir)
+  File.open(hist_file, 'a') do |f|
+    f.puts JSON.generate(
+      'date'   => today,
+      'ts'     => now.iso8601,
+      'tenors' => spread_rows.map do |sr|
+        { 'tenor_d'    => sr[:tenor_d],
+          'spread_atm' => sr[:spread_atm],
+          'mstr_atm'   => sr[:mstr][:atm_iv],
+          'btc_atm'    => sr[:btc][:atm_iv] }
+      end
+    )
+  end
+end
+
+# Trailing 120 rows, trimmed to {date, tenors[{tenor_d, spread_atm}]} for the
+# lean --json "history" field ([] when the file is absent).
+emit_history = lambda do
+  return [] unless File.file?(hist_file)
+
+  File.readlines(hist_file).map(&:strip).reject(&:empty?).last(120).filter_map do |l|
+    h = JSON.parse(l) rescue next
+    { 'date'   => h['date'],
+      'tenors' => (h['tenors'] || []).map do |t|
+        { 'tenor_d' => t['tenor_d'], 'spread_atm' => t['spread_atm'] }
+      end }
+  end
+end
+
 # ---- output -----------------------------------------------------------------
 if ARGV.include?('--json')
   puts JSON.pretty_generate(
@@ -175,7 +238,8 @@ if ARGV.include?('--json')
                       atm_iv:   sr[:btc][:atm_iv],
                       reason:   sr[:btc][:reason] },
         spread_atm: sr[:spread_atm] }
-    end
+    end,
+    history:   emit_history.call
   )
   exit
 end
