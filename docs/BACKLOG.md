@@ -1606,7 +1606,7 @@ Goal: "descriptive cycle heuristic" language everywhere user-facing;
       decision item D9-g.
 Acceptance: rake green; additive + tested.
 
-## M9-5 · Fit filters: B<0 + damping (report-only)  [tier: fable -- semantics-adjacent: the filters that will later gate verdicts] [status: ready] [deps: --]
+## M9-5 · Fit filters: B<0 + damping (report-only)  [tier: fable -- semantics-adjacent: the filters that will later gate verdicts] [status: done -- bd8a898; additive fit --json b_negative + damping=m|B|/(omega|C|) + damping_ref_threshold 1.0, wired into NOTHING (not filters, not score); pure Lppl.fit_report_flags w/ exact-value unit tests either side of each condition. Real cache: b_negative=true (sign restriction met), damping=0.4132 (< 1.0 -- damping condition NOT met). Frozen fields byte-identical (score -1, omega 8.7, m 0.05, 3/4 filters). Gating flip = D9-e] [deps: --]
 Goal: fit.rb computes and REPORTS (additive fields, no gating):
       b_negative (bool) and damping = m*|B|/(omega*|C|) with the
       standard threshold marked. Exact-value tests on synthetic fits
@@ -1614,7 +1614,7 @@ Goal: fit.rb computes and REPORTS (additive fields, no gating):
 Acceptance: rake green; additive + tested; dashboard fit card may show
       the two flags dimly (design-skill pass if so).
 
-## M9-6 · Symmetric null optimization (shadow)  [tier: fable -- changes what the RMSE-improvement figure means] [status: ready] [deps: M9-5]
+## M9-6 · Symmetric null optimization (shadow)  [tier: fable -- changes what the RMSE-improvement figure means] [status: done -- ccae0c7; new Lppl.power_decay_fit_v2 (refined pass + RMSE-selected tc, orig power_decay_fit byte-identical, characterization-pinned); fit --json += null_v2{tc,rmse,at_grid_edge} + improvement_v2. Real cache -- ARTIFACT CLEARED: orig null tc pinned at +10d edge (rmse .0804) -> v2 tc -22d, at_grid_edge=false (rmse .0789); frozen rmse_impr 29.2% -> honest improvement_v2 27.9%. Feeds D9-e/D9-f] [deps: M9-5]
 Goal: power_decay_fit gets the same coarse+refined pass as the LPPLS
       fit; tc selected on RMSE (or fixed row set), never raw SSE across
       tc-dependent windows. SHADOW: emit null_rmse_v2/improvement_v2
@@ -1623,7 +1623,7 @@ Goal: power_decay_fit gets the same coarse+refined pass as the LPPLS
       should show that artifact disappearing.
 Acceptance: rake green; additive + tested; old numbers untouched.
 
-## M9-7 · Bootstrap null upgrade (shadow)  [tier: fable -- stdlib statistics; runtime budget matters] [status: ready] [deps: --]
+## M9-7 · Bootstrap null upgrade (shadow)  [tier: fable -- stdlib statistics; runtime budget matters] [status: done -- e2dc9dd; stdlib AR(1)+GARCH(1,1) parametric bootstrap (pure-Ruby Nelder-Mead MLE, fallback+fitted:false, per-sim power-decay refit through the real pipeline), 1000 sims, seeded. logperiodic --json += p_value_v2/sims_v2/garch{...}/runtime_v2_s; frozen AR(1) path byte-identical. Real cache: AR(1) p=0.376 -> GARCH v2 p=0.238 (both non-significant, garch fitted=true a=.202 b=.600), runtime 18.22s (<120s budget, DEFAULT stays 1000; --sims-v2/LPPL_SIMS_V2 override). Feeds D9-f] [deps: --]
 Goal: ARMA-GARCH parametric bootstrap for logperiodic.rb (stdlib-only;
       no FFT needed), >=1000 sims, burn-in, per-sim re-fit through the
       power-decay null. SHADOW field p_value_v2 next to the AR(1)
@@ -1634,7 +1634,7 @@ Goal: ARMA-GARCH parametric bootstrap for logperiodic.rb (stdlib-only;
 Acceptance: rake green; shadow field additive + tested; runtime
       measured and recorded in the packet.
 
-## M9-8 · Long horizons 365/730d (report-only)  [tier: opus -- mechanical extension; whether they SCORE is D9-c] [status: ready] [deps: M9-1]
+## M9-8 · Long horizons 365/730d (report-only)  [tier: opus -- mechanical extension; whether they SCORE is D9-c] [status: done -- d2a03da; separate trend_scores_long.csv + additive per_horizon_long (parallel map, report_only:true, per_horizon 30/90/180 byte-identical); excluded from +-1 band + score. Real cache (trailing-1y, 53 evals): differential climbs with horizon and FLIPS POSITIVE at 730d -- 365d mean/eval -0.1093, 730d +0.1598 (vs 30d -0.61/90d -0.43/180d -0.22) -- power law loses short-term, WINS at 24mo, matching published evidence. Earliest eval 2017-01-01 (EVAL0-bound, arithmetic confirmed). Backfill 3013 rows ~1.1ms compute (O(1) RangeReg), steady-state ~0.003ms/day. Feeds D9-c] [deps: M9-1]
 Goal: trend.rb evaluates h=365 and h=730 alongside 30/90/180 --
       REPORT-ONLY (excluded from the +-1 band until D9-c). Backfill is
       free (retrospective evaluation from the price cache; expect a
@@ -1645,7 +1645,7 @@ Goal: trend.rb evaluates h=365 and h=730 alongside 30/90/180 --
 Acceptance: rake green; cache append remains crash-safe; additive
       fields tested; runtime measured.
 
-## M9-9 · PL+LP1 rival (characterize, then shadow)  [tier: fable -- the deepest hypothesis change in the phase] [status: ready] [deps: M9-8]
+## M9-9 · PL+LP1 rival (characterize, then shadow)  [tier: fable -- the deepest hypothesis change in the phase] [status: done -- d085814; stage-1 lp1_check.rb (research script, not in publish): full-history power law in ln(age), Lomb-Scargle peak omega 8.70, single-mode R^2 34.3% -- reproduces SBI (8.75, ~35%). stage-2 trend rival pl_lp1 ([1,ln age,cos,sin] rigid omega, prefix-sum Lppl::PlLp1Reg), separate trend_scores_lp1.csv + additive pl_lp1{per_horizon,omega,clock}, NEVER in best-rival max/bf. DEEPEST FINDING (raw per-eval mean logscore, 53 evals): pl_full vs pl_lp1 -- 30d -0.8085/-0.8037, 90d -0.8208/-0.8398, 180d -0.8336/-0.8700: the mode explains 34% IN-SAMPLE variance yet adds ~nothing out-of-sample and slightly HURTS at long h -- descriptive artifact, not predictive. ln(age) omega labelled NOT comparable to post-peak ln(tau) omega throughout. Frozen fields byte-identical. Feeds D9-d] [deps: M9-8]
 Goal: stage 1 CHARACTERIZE: reproduce the SBI empirical check on our
       own data -- Lomb-Scargle of full-history trend residuals in
       ln(age); record peak omega and explained variance (SBI: omega
@@ -1671,15 +1671,24 @@ Acceptance: rake green; additive + tested.
   change verdict behavior on bad days.
 - D9-b Trend normalization: per-evaluation-point mean as headline +
   which uncertainty estimator (Newey-West vs block bootstrap) -- ruled
-  AFTER M9-1's cache-density reproduction.
+  AFTER M9-1's cache-density reproduction. DATA READY: per_horizon.
+  mean_per_eval live on trend --json since M9-1 (aa2d1a7).
 - D9-c Do 365/730d horizons enter the +-1 scoring band, and with what
-  thresholds? Ruled after the M9-8 report-only soak.
+  thresholds? Ruled after the M9-8 report-only soak. DATA READY:
+  per_horizon_long live on trend --json since M9-8 (d2a03da) -- the
+  differential flips positive at 730d.
 - D9-d PL+LP1 rival adoption: changes what "trend against the power
   law" MEANS (pure-PL test -> coupled-scale-invariance test). Ruled
-  after M9-9 stage-2 soak.
+  after M9-9 stage-2 soak. DATA READY: pl_lp1 section live on trend
+  --json since M9-9 (d085814) -- pl_lp1 ~ties pl_full out-of-sample
+  (34% in-sample variance, ~zero predictive gain).
 - D9-e Flip B<0/damping/symmetric-null from report-only to gating
-  (fit verdict changes). After M9-5/6 soak.
+  (fit verdict changes). After M9-5/6 soak. DATA READY: fit --json
+  b_negative/damping (M9-5 bd8a898) + null_v2/improvement_v2 (M9-6
+  ccae0c7) -- the null tc grid-edge artifact clears under v2.
 - D9-f Which bootstrap p-value becomes headline. After M9-7 soak.
+  DATA READY: logperiodic --json p_value_v2 (AR(1)+GARCH) live since
+  M9-7 (e2dc9dd) -- v2 p 0.238 vs AR(1) 0.376, both non-significant.
 - D9-g Envelope freeze rule (freeze each cycle's bound before the
   subsequent trough). After M9-4.
 
