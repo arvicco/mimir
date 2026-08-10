@@ -1476,3 +1476,38 @@ Verified: rake green (660 runs, 0 failures; web:test 24/24);
 PUBLISH_DRY_RUN=1 -> 23/23 keys, 0 skipped; headless screenshot shows the
 stacked spread card (bars on top, trend below) with one dot per series
 from the single live day, 3x2 grid intact, 23/23 fresh.
+
+## M8-17 · MSTR vol surface tab (owner-ruled 2026-08-10)  [tier: opus -- Fable spec + review, mimir-design bound] [status: done 2026-08-10]
+Owner ruling: the vol card's SURFACE half gets a [BTC][MSTR] tab pair --
+an MSTR vol surface with the same set-up as the BTC one, as another tab
+on the same stacked card (surface section on top, now tabbed; basis
+section below, unchanged).
+(a) Producer: scripts/vol_mstr.rb mirrors vol.rb's shape and --json
+    contract ({ts, mstr_spot, tenors[]} with the identical per-tenor
+    field set) but the underlying is MSTR via the CBOE delayed-quote
+    chain (book mapping copied from vol_spread.rb's MSTR leg -- iv already
+    a fraction, u = current_price; not a refactor). Tenors = DEFAULT_TARGETS
+    (7/30/90). Aborts nonzero when CBOE is down (vol.rb precedent). Contract
+    test pins the frozen field set + the CBOE-down abort against the recorded
+    MSTR fixture. Same CBOE endpoint -> no new health source.
+(b) Chart: vol_surface + vol_surface_mstr share the SAME option body via a
+    new private vol_surface_option(vol, title_prefix) helper (two public
+    builders differ only in the title -> vol_surface's golden byte-stable).
+    Both carry tab_group 'vol'/group_style 'stack'/tab_pos 0, so the
+    renderer collapses them into ONE tabbed SURFACE section; vol_basis
+    (tab_pos 2) stays a plain section below. vol_surface meta gains
+    tab_label 'BTC', vol_surface_mstr 'MSTR'.
+(c) Renderer: buildStackedCard now buckets members by tab_pos -- a shared
+    tab_pos becomes one tabbed section (mini [BTC][MSTR] tab bar; click
+    swaps the visible chart div + key/bubble/badge, resizing the revealed
+    chart), a unique tab_pos stays a plain section. Default = lowest
+    CARD_ORDER rank (BTC). CARD_ORDER + PRODUCERS 404 map + index.html CSP
+    hash updated; index.html re-inits the ticker on stacked cards per member
+    (the stack rebuilds on each add). KEY COUNT 23 -> 25 (a producer AND a
+    chart are both new keys -- the task brief's "24" undercounted): status
+    25/25, 25 real PUTs, 24 index members, Gate-8 runbook + KV-quota line.
+Verified: rake green (665 runs, 0 failures; web:test 26/26);
+PUBLISH_DRY_RUN=1 -> 25/25 keys, 0 skipped; Playwright on index.html --
+[BTC][MSTR] surface tabs (BTC default, real curves), clicking MSTR swaps
+to chart:vol_surface_mstr ("MSTR vol surface · ATM 30d 70.4%"), basis
+untouched, all 8 badges tick, console clean, 3x2 grid intact, 25/25 fresh.
