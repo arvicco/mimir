@@ -62,6 +62,12 @@ if AS_OF && ARGV.include?('--tmux')
        '/tmp/lppl.status token). Use --json or the table.'
   exit 2
 end
+if AS_OF && ARGV.include?('--history') && !BTC::Env.data_dir_override?
+  warn 'as-of: --history replay against the live data dir is refused ' \
+       '(it would append backdated ledger entries). Point BTC_DATA_DIR ' \
+       'at a staging directory first (see rake lppl:backfill).'
+  exit 2
+end
 
 DIR    = File.expand_path(__dir__)
 LEDGER = File.join(BTC::Env.data_dir('lppl', File.join(DIR, 'data')),

@@ -207,3 +207,33 @@ class TestAsOfSeam < Minitest::Test
     end
   end
 end
+
+class TestAtomicWrite < Minitest::Test
+  # C5 (SBI review): prices.csv was rewritten in place in production cron; a
+  # crash mid-write corrupts the suite's single source of truth. The helper
+  # writes a same-directory temp file and renames it over the target.
+  def test_success_replaces_content_and_leaves_no_temp
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, 'prices.csv')
+      File.write(path, "old\n")
+      Lppl.atomic_write(path) { |f| f.puts 'new' }
+      assert_equal "new\n", File.read(path)
+      assert_equal ['prices.csv'], Dir.children(dir)
+    end
+  end
+
+  def test_crash_inside_block_leaves_original_intact
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, 'prices.csv')
+      File.write(path, "old\n")
+      assert_raises(RuntimeError) do
+        Lppl.atomic_write(path) do |f|
+          f.puts 'half-written'
+          raise 'crash mid-write'
+        end
+      end
+      assert_equal "old\n", File.read(path)
+      assert_equal ['prices.csv'], Dir.children(dir), 'temp file must be cleaned up'
+    end
+  end
+end

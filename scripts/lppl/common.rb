@@ -64,6 +64,17 @@ module Lppl
 
   # ---- IO / reporting --------------------------------------------------------
 
+  # Crash-safe file replace (C5): write a same-directory temp file, rename
+  # over the target. A crash mid-write leaves the original untouched; the
+  # temp is removed on any failure. Rename is atomic on the same filesystem.
+  def atomic_write(path)
+    tmp = "#{path}.tmp-#{Process.pid}"
+    File.open(tmp, 'w') { |f| yield f }
+    File.rename(tmp, path)
+  ensure
+    File.unlink(tmp) if File.exist?(tmp)
+  end
+
   def get_json(url, headers = {})
     BTC::Http.get_json(url, { 'User-Agent' => 'lppl.rb' }.merge(headers),
                        read_timeout: 60)

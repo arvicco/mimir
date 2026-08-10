@@ -281,7 +281,8 @@ class TestBtcOps < Minitest::Test
     assert_equal 0, code, io.string
     assert_includes io.string, 'publish LIVE: 11 written'
     assert_includes io.string, "written: #{gdir}/2026-07-06.json"
-    assert_includes io.string, 'alert: no new filings -> quiet'
+    # btco-alert retired 2026-08-10 -- its row must be gone
+    refute_includes io.string, 'alert:'
     assert_includes io.string, 'suite-history OK: 2/2 suites updated'
     # every verification row PASSed, none FAILed
     refute_includes io.string.split('verification:').last, '[FAIL]'
@@ -354,7 +355,7 @@ class TestBtcOps < Minitest::Test
   def test_uninstall_accepted_bootouts_and_deletes
     la = File.join(@home, 'Library', 'LaunchAgents')
     FileUtils.mkdir_p(la)
-    labels = %w[com.mimir.publish com.mimir.gex-snapshot com.mimir.btco-alert com.mimir.suite-history]
+    labels = %w[com.mimir.publish com.mimir.gex-snapshot com.mimir.suite-history]
     labels.each { |l| File.write(File.join(la, "#{l}.plist"), 'x') }
     fake = FakeLaunchctl.new(repo: @repo, loaded: labels.to_h { |l| [l, true] })
     code = BTC::Ops.uninstall(home: @home, runner: fake.method(:call), io: StringIO.new,
@@ -367,9 +368,11 @@ class TestBtcOps < Minitest::Test
     end
   end
 
-  def test_agents_list_covers_four_agents_including_suite_history
+  def test_agents_list_covers_three_agents_btco_alert_retired
+    # btco-alert retired 2026-08-10 (owner ruling: BTCo frozen) -- its
+    # absence here is what keeps ops:install from resurrecting it.
     labels = BTC::Ops::AGENTS.map(&:first)
-    assert_equal %w[com.mimir.publish com.mimir.gex-snapshot com.mimir.btco-alert
+    assert_equal %w[com.mimir.publish com.mimir.gex-snapshot
                     com.mimir.suite-history], labels
   end
 
