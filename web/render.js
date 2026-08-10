@@ -238,17 +238,72 @@ function errCard(key, msg) {
   return card;
 }
 
-// Static "<dot> cls · ttl Ns" badge content, built as nodes rather than
-// innerHTML because ttl_hint_s is a KV value (M8-12 / SBI C4). Clears
-// first so it is safe to re-fill (preview.html's tab swap re-runs it).
-// The dot span carries the staleness class; the text is one text node,
-// with a literal middot -- byte-identical to the old '&middot;' markup.
-function fillStaticBadge(badge, cls, ttlSec) {
-  while (badge.firstChild) badge.removeChild(badge.firstChild);
+// M8-18 R6 (owner ruling 2026-08-10): a card badge is now JUST a staleness
+// dot -- the '● green · ttl 1800s' text (and the ticking 'age' on index.html)
+// was too much. Everything moved to an instant hover/focus bubble (the header
+// ldot pattern: dot-only + bubble, owner ruling 2026-07-06). The badge is a
+// focusable element carrying data-generated-at/data-ttl; its bubble text is
+// built from those attrs ON OPEN so it is always current, right-anchored and
+// flip-up so it never clips at the viewport.
+//
+// makeBadge builds the DOM + wires the on-open text fill ONCE; setBadge points
+// it at an envelope (dot class + data attrs); refreshBadge re-evaluates the dot
+// from the data attrs alone (the page ticker, which has no envelope).
+function makeBadge() {
+  var badge = document.createElement("span");
+  badge.className = "badge";
+  badge.setAttribute("tabindex", "0");      // focusable like the header ldots
+  badge.setAttribute("role", "img");
   var dot = document.createElement("span");
-  dot.className = "dot " + cls;
+  dot.className = "dot";
   badge.appendChild(dot);
-  badge.appendChild(document.createTextNode(cls + " · ttl " + ttlSec + "s"));
+  var bubble = document.createElement("span");
+  bubble.className = "badge-bubble";
+  badge.appendChild(bubble);
+  function fill() {
+    bubble.textContent = badgeBubbleText(badge); // current at open time
+    // flip up when the default below-the-badge position would clip at the
+    // viewport bottom (bottom-row cards) -- the orient() pattern.
+    requestAnimationFrame(function () {
+      bubble.classList.remove("up");
+      var r = bubble.getBoundingClientRect();
+      if (r.height && r.bottom > window.innerHeight) bubble.classList.add("up");
+    });
+  }
+  badge.addEventListener("mouseenter", fill);
+  badge.addEventListener("focus", fill);
+  return badge;
+}
+
+// "age 3m12s · ttl 1800s · 14:18Z" from a badge's data attrs (built on open).
+function badgeBubbleText(badge) {
+  var gen = badge.getAttribute("data-generated-at");
+  var ttl = Number(badge.getAttribute("data-ttl"));
+  var age = (Date.now() - new Date(gen).getTime()) / 1000;
+  return "age " + fmtBadgeAge(age) + " · ttl " + ttl + "s · " + hhmm(gen) + "Z";
+}
+
+// Compact age: "3m12s" under an hour, "2h 05m" under a day, else "1d 03h".
+function fmtBadgeAge(sec) {
+  var s = Math.floor(sec < 0 ? 0 : sec);
+  function p2(n) { return (n < 10 ? "0" : "") + n; }
+  if (s < 3600)  return Math.floor(s / 60) + "m" + p2(s % 60) + "s";
+  if (s < 86400) return Math.floor(s / 3600) + "h " + p2(Math.floor((s % 3600) / 60)) + "m";
+  return Math.floor(s / 86400) + "d " + p2(Math.floor((s % 86400) / 3600)) + "h";
+}
+
+// Re-evaluate a badge's dot class + aria from its own data attrs, and refresh
+// an already-populated bubble's text (the page ticker calls this each second;
+// it has no envelope). No-op on a badge the renderer has not stamped yet.
+function refreshBadge(badge) {
+  var gen = badge.getAttribute("data-generated-at");
+  if (!gen) return;
+  var cls = staleClass(gen, Number(badge.getAttribute("data-ttl")));
+  var dot = badge.querySelector(".dot");
+  if (dot) dot.className = "dot " + cls;
+  badge.setAttribute("aria-label", "data freshness " + cls);
+  var bubble = badge.querySelector(".badge-bubble");
+  if (bubble && bubble.textContent) bubble.textContent = badgeBubbleText(badge);
 }
 
 // Instantiate ONE chart div+echarts from an envelope, applying the
@@ -288,25 +343,15 @@ function buildChartInstance(env, key, meta, legendHost) {
   return { div: div, chart: chart };
 }
 
-// Point a badge at an envelope's staleness, compatible with BOTH host
-// pages (M6-4 tab swap): index.html rewrites the badge to a ticking
-// dot+age keyed off data-generated-at/data-ttl, preview.html keeps the
-// static "green · ttl Ns" text. Detect which shape is present: if a
-// .age span exists (index's ticker structure) only refresh the dot +
-// data attributes (the page's 1 s ticker owns the age text); otherwise
-// rewrite the static text. Always sets the data attributes so the
-// ticker follows whichever tab is visible.
+// Point a badge (from makeBadge) at an envelope's staleness -- stamps
+// data-generated-at/data-ttl (so the page ticker and the on-open bubble read
+// them) and repaints the dot. Shared by BOTH host pages and every tab/stack
+// swap; refreshes an already-open bubble so a swap under the pointer stays
+// current. Dot-only since M8-18 R6.
 function setBadge(badge, env) {
-  var cls = staleClass(env.generated_at, env.ttl_hint_s);
   badge.setAttribute("data-generated-at", env.generated_at);
   badge.setAttribute("data-ttl", env.ttl_hint_s);
-  var age = badge.querySelector(".age");
-  if (age) {
-    var dot = badge.querySelector(".dot");
-    if (dot) dot.className = "dot " + cls; // instant; age caught up by the ticker
-  } else {
-    fillStaticBadge(badge, cls, env.ttl_hint_s);
-  }
+  refreshBadge(badge);
 }
 
 // Live tab-groups, keyed by meta.tab_group (M6-4). One entry per shared
@@ -367,8 +412,7 @@ function buildGroupedCard(env, key, meta, groupId) {
     tabbar.setAttribute("role", "tablist");
     tabbar.setAttribute("aria-label", "chart variant");
     head.appendChild(tabbar);
-    var badge = document.createElement("span");
-    badge.className = "badge";
+    var badge = makeBadge();
     head.appendChild(badge);
     card.appendChild(head);
     var bubble = document.createElement("div");
@@ -500,8 +544,7 @@ function stackShell(withTabbar) {
     tabbar.setAttribute("aria-label", "surface underlying");
     head.appendChild(tabbar);
   }
-  var badge = document.createElement("span");
-  badge.className = "badge";
+  var badge = makeBadge();
   head.appendChild(badge);
   section.appendChild(head);
   var bubble = document.createElement("div");
@@ -593,7 +636,6 @@ function buildChartCard(env, key) {
   var card = document.createElement("div");
   card.className = "card";
   card.dataset.key = env.key || key; // pages locate specific cards by key
-  var badgeCls = staleClass(env.generated_at, env.ttl_hint_s);
   var head = document.createElement("div");
   head.className = "card-head";
 
@@ -610,9 +652,8 @@ function buildChartCard(env, key) {
     info.tabIndex = 0; // keyboard-reachable: focus opens the bubble (.hover:focus rule)
     head.appendChild(info);
   }
-  var badge = document.createElement("span");
-  badge.className = "badge";
-  fillStaticBadge(badge, badgeCls, env.ttl_hint_s);
+  var badge = makeBadge();
+  setBadge(badge, env);
   head.appendChild(badge);
 
   card.appendChild(head);
@@ -840,7 +881,7 @@ function forgetGroup(groupId) {
 // rev: bump on EVERY render.js change; `MimirRender.rev` in the console
 // answers "which renderer is this tab actually running?" after deploys.
 window.MimirRender = {
-  rev: "m8-18-gex-toggles-top",
+  rev: "m8-18-dot-badges",
   staleClass: staleClass,
   hhmm: hhmm,
   liveHeader: liveHeader,
@@ -849,6 +890,9 @@ window.MimirRender = {
   buildBubble: buildBubble,
   errCard: errCard,
   buildChartCard: buildChartCard,
+  makeBadge: makeBadge,
+  setBadge: setBadge,
+  refreshBadge: refreshBadge,
   nextDelay: nextDelay,
   releaseCard: releaseCard,
   forgetGroup: forgetGroup,

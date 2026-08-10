@@ -44,9 +44,9 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-size: 13px;
   }
-  /* data face -- EVERY number / status token (chips, badges, ages, pub slot),
-     tabular so ticking values never jitter. */
-  .chip, .badge, .age, #pub {
+  /* data face -- number / status tokens (chips, pub slot); tabular so ticking
+     values never jitter. Badge text lives in .badge-bubble (its own mono). */
+  .chip, #pub {
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     font-variant-numeric: tabular-nums;
   }
@@ -158,11 +158,26 @@
   #head:has(#titleinfo:hover) #titlebubble,
   #head:has(#titleinfo:focus) #titlebubble,
   #titlebubble:hover, #titlebubble:focus-within { display: block; }
+  /* M8-18 R6: a card badge is a bare staleness dot (dot-only + hover/focus
+     bubble -- the header-ldot pattern). Focusable like the header dots; the
+     bubble carries age/ttl/time, right-anchored + flip-up so it never clips. */
   .badge {
-    display: inline-flex; align-items: center; gap: 6px; margin-left: auto;
-    font-size: 11px; padding: 2px 8px; border-radius: 20px;
-    border: 1px solid #2a2f38; color: #b9c0ca;
+    position: relative; display: inline-flex; align-items: center;
+    margin-left: auto; padding: 3px; border-radius: 50%; cursor: help;
   }
+  .badge:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
+  .badge-bubble {
+    display: none; position: absolute; right: 0; top: calc(100% + 6px);
+    z-index: 45; white-space: nowrap;
+    background: #232933; border: 1px solid #3a424e; border-radius: 6px;
+    padding: 4px 9px; font-size: 11px; color: #ccd3dc;
+    box-shadow: 0 6px 24px rgba(0,0,0,.45);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  .badge-bubble.up { top: auto; bottom: calc(100% + 6px); }
+  .badge:hover .badge-bubble, .badge:focus .badge-bubble,
+  .badge:focus-within .badge-bubble { display: block; }
   .chart { width: 100%; height: 500px; }
   /* GEX tab bar (M6-4, owner ruling D7-c): the two GEX charts share one
      card as [BTC][MSTR] tabs. Real <button>s in the card-head, dim until
@@ -313,48 +328,15 @@ function buildHeader(idx) {
   });
 }
 
-// ---- THE SIGNATURE: live age ticker -----------------------------------
-// One shared 1 s interval (cheap, whole-page) rewrites every card badge's
-// age and re-evaluates its staleness dot from data-generated-at/data-ttl.
-// prefers-reduced-motion: this is a text update only -- no other animation
-// exists on the page, so nothing to disable.
-function fmtAge(sec) {
-  var s = Math.floor(sec < 0 ? 0 : sec);
-  function p2(n) { return (n < 10 ? "0" : "") + n; }
-  if (s < 3600)  return Math.floor(s / 60) + "m" + p2(s % 60) + "s";
-  if (s < 86400) return Math.floor(s / 3600) + "h " + p2(Math.floor((s % 3600) / 60)) + "m";
-  return Math.floor(s / 86400) + "d " + p2(Math.floor((s % 86400) / 3600)) + "h";
-}
-
-function paintBadge(badge) {
-  var gen = badge.getAttribute("data-generated-at");
-  var ttl = Number(badge.getAttribute("data-ttl"));
-  badge.querySelector(".dot").className = "dot " + R.staleClass(gen, ttl);
-  badge.querySelector(".age").textContent = fmtAge((Date.now() - new Date(gen).getTime()) / 1000);
-}
-
+// ---- THE SIGNATURE: live staleness ticker -----------------------------
+// One shared 1 s interval (cheap, whole-page) re-evaluates every card badge's
+// staleness dot from data-generated-at/data-ttl, and keeps an OPEN hover/focus
+// bubble's age text current (M8-18 R6: the badge is a bare dot now -- age/ttl
+// live in the bubble, built by the shared renderer). Text/class updates only,
+// no animation, so nothing to gate on prefers-reduced-motion.
 function tickAll() {
   var badges = document.querySelectorAll("#grid .badge[data-generated-at]");
-  for (var i = 0; i < badges.length; i += 1) paintBadge(badges[i]);
-}
-
-// Replace render.js's static badge text with the ticking dot + age, keyed
-// off data attributes the shared ticker scans.
-function initBadge(card, env) {
-  // A stacked card (group_style 'stack') carries one badge PER section,
-  // each already stamped with its own envelope's data attributes by the
-  // renderer -- honor those; fall back to the passed env for the solo/
-  // tab card whose single badge is unstamped on first build.
-  var badges = card.querySelectorAll(".badge");
-  for (var i = 0; i < badges.length; i += 1) {
-    var badge = badges[i];
-    if (!badge.getAttribute("data-generated-at")) {
-      badge.setAttribute("data-generated-at", env.generated_at);
-      badge.setAttribute("data-ttl", env.ttl_hint_s);
-    }
-    badge.innerHTML = '<span class="dot"></span><span class="age"></span>';
-    paintBadge(badge);
-  }
+  for (var i = 0; i < badges.length; i += 1) R.refreshBadge(badges[i]);
 }
 
 // ---- one chart card ---------------------------------------------------
@@ -383,22 +365,12 @@ async function loadChart(key) {
   }
   try {
     var card = R.buildChartCard(env, key);
+    // The renderer builds every badge fully (dot + hover/focus bubble +
+    // data-generated-at/data-ttl via setBadge), so the page only appends the
+    // card; the 1 s ticker (R.refreshBadge) drives the dots from those attrs.
     // A tab-group's 2nd+ member (M6-4) returns the SAME, already-connected
-    // card: re-appending would MOVE it and break the 2x2 grid order, and
-    // re-initBadge would point the shared badge at the wrong tab's env
-    // (the renderer's tab machinery owns the badge swap). Guard both.
-    if (!card.isConnected) {
-      grid.appendChild(card);
-      initBadge(card, env);
-    } else if (env.meta && env.meta.group_style === "stack") {
-      // A stacked card (M8-17) rebuilds ALL its sections on every new
-      // member, so the earlier badges the first initBadge ticker-ified are
-      // gone -- re-stamp the ticker onto every section badge (each already
-      // carries its own data-generated-at from the renderer's setBadge, so
-      // initBadge honors it). A tab-group card (group_style unset) is NOT
-      // re-inited: its single badge is owned by the renderer's tab machinery.
-      initBadge(card, env);
-    }
+    // card -- re-appending would MOVE it and break the grid order, so guard.
+    if (!card.isConnected) grid.appendChild(card);
     registerCard(key, env, card); // M8-13: remember it for auto-refresh
   } catch (e) {
     grid.appendChild(R.errCard(key, "render failed: " + apiUrl(key) + "\n" + e.message));
@@ -418,8 +390,8 @@ function btcoErr(key, e) {
 }
 
 // Fallback-only full-width card, used when the chart:btco_table card is
-// absent (e.g. a pre-chart publish): key-style title (no bubble -- the
-// suite envelope carries no meta) + the ticking age badge (initBadge).
+// absent (e.g. a pre-chart publish): key-style title (no bubble -- the suite
+// envelope carries no meta) + the shared dot-only badge (M8-18 R6).
 function buildBtcoCard(env) {
   var card = document.createElement("div");
   card.className = "card wide";
@@ -429,8 +401,8 @@ function buildBtcoCard(env) {
   keySpan.className = "key";
   keySpan.textContent = "btco:latest · universe";
   head.appendChild(keySpan);
-  var badge = document.createElement("span");
-  badge.className = "badge";
+  var badge = R.makeBadge();
+  R.setBadge(badge, env);
   head.appendChild(badge);
   card.appendChild(head);
   var companies = (env.payload && env.payload.companies) || [];
@@ -454,7 +426,6 @@ async function loadBtco() {
       // no chart card (pre-chart publish) -- fall back to its own strip
       var card = buildBtcoCard(env);
       grid.appendChild(card);
-      initBadge(card, env);
       BTCO.el = card; // fallback strip -- refresh replaces this node wholesale
     } else {
       BTCO.el = null; // table lives inside the chart:btco_table card
@@ -505,9 +476,8 @@ function reattachBtco() {
     return;
   }
   if (BTCO.el && BTCO.el.parentNode) {
-    var card = buildBtcoCard(BTCO.env);
+    var card = buildBtcoCard(BTCO.env); // its badge is built by makeBadge+setBadge
     BTCO.el.parentNode.replaceChild(card, BTCO.el);
-    initBadge(card, BTCO.env);
     BTCO.el = card;
   }
 }
@@ -523,7 +493,6 @@ function soloUnit(key) {
       R.releaseCard(oldCard);
       var newCard = R.buildChartCard(env, key);
       parent.replaceChild(newCard, oldCard);
-      initBadge(newCard, env);
       CARDS[key] = { env: env, el: newCard, group: null };
       if (key === "chart:btco_table") reattachBtco(); // gauge rebuilt -> re-add table
     }
@@ -553,12 +522,8 @@ function groupUnit(groupId) {
         CARDS[k] = { env: envs[i], el: newCard, group: groupId };
       });
       parent.replaceChild(newCard, oldCard);
-      // The default-active member (lowest tab_pos) owns the ticking badge,
-      // exactly as on first load; tab clicks re-point it via the renderer.
-      var active = keys.slice().sort(function (a, b) {
-        return tabPos(CARDS[a].env) - tabPos(CARDS[b].env);
-      })[0];
-      initBadge(newCard, CARDS[active].env);
+      // The renderer's setBadge already stamped every section/tab badge; the
+      // 1 s ticker drives their dots. Nothing more to wire here.
     }
   };
 }

@@ -72,6 +72,16 @@ chart to make room -- never as a separate strip elsewhere on the page
 (round 5: the full-width bottom table was rejected). One subject, one
 card.
 
+**Card badges are dot-only.** (Owner ruling 2026-08-10, M8-18 R6.) A
+card/section freshness badge is JUST the coloured staleness dot,
+top-right -- no `● green · ttl 1800s`, no ticking `age` text (too
+much). Age/ttl/publish-time move to an instant hover/focus bubble
+(`age 3m12s · ttl 1800s · 14:18Z`), the SAME dot-only + bubble pattern
+as the header ldots. The badge is keyboard-focusable; the bubble is
+built from the badge's data attrs ON OPEN (always current), right-
+anchored and flip-up so it never clips at the viewport. The page
+ticker only re-evaluates the dot's colour (and an open bubble's text).
+
 **Hover help everywhere, instantly.** Never native `title=` attributes
 (fixed browser delay, unstyled blob). Card-level CSS bubbles open on
 hover with structured paragraphs: description, `x —` / `y —` axis
