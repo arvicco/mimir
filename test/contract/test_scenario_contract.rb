@@ -133,7 +133,14 @@ class TestScenarioContract < Minitest::Test
   # single appended JSONL line, parsed. +deny+ is the FAKE_HTTP_DENY value.
   def history_line(deny: nil)
     root = Dir.mktmpdir('mimir-scn-history')
-    env = FRED_ENV.merge('BTC_DATA_DIR' => root)
+    env = FRED_ENV.merge('BTC_DATA_DIR' => root,
+                         # a real COINGLASS_API_KEY inherited from the shell
+                         # activates etf_flows' third fallback, whose host is
+                         # not in any deny list -- one live module un-blinds
+                         # the day and the blind/partial expectations flip
+                         # (found 2026-08-10: rake deploy pre-flight runs the
+                         # gate with the owner env sourced). nil = unset.
+                         'COINGLASS_API_KEY' => nil)
     env['FAKE_HTTP_DENY'] = deny if deny
     _, err, st = run_script('scripts/scenario/scenario.rb', '--json', '--history',
                             env: env)
