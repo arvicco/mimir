@@ -239,10 +239,11 @@ ambiguous** -- deepest value ever vs first out-of-sample failure -- so
 this test carries no verdict weight; its score encodes what
 *disambiguates*:
 
-**Displayed:** `Z -1.82 -> emp pctile 0.19% (gauss 3.43%); 18d at <=1st pct, 38d at <=5th; NEW RECORD low (prior -1.73 on 2022-12-31)`
-- trust the **empirical** percentile (rank among all history); the
-  Gaussian number is printed only for comparison with the published
-  method -- at Z ~ -2 the fat tails dominate (0.19% vs 3.43% here).
+**Displayed:** `Z -1.82 -> emp pctile 0.19% (Gaussian ref 3.43%); 18d at <=1st pct, 38d at <=5th; NEW RECORD low (prior -1.73 on 2022-12-31)`
+- the **empirical** percentile (rank among all history) is the primary
+  reading; the Gaussian number is a **reference only**, printed for
+  comparison with the published method -- at Z ~ -2 the fat tails
+  dominate (0.19% vs 3.43% here) and the empirical rank is the honest one.
 - score -1 after >= 60 consecutive days at/below the 1st empirical
   percentile (mean reversion failing = evidence against the
   distribution itself); +1 if an extreme (<= 5th pctile) printed within

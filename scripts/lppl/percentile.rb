@@ -3,8 +3,11 @@
 #
 # percentile.rb -- Test 5 (weight 0, monitor): Perrenod-style age-adjusted
 # valuation percentile, with two fixes over the published method:
-#   * empirical-rank percentile alongside the Gaussian-table number (the
-#     residuals are not normal; at Z ~ -2.3 the tail shape dominates the answer)
+#   * the empirical-rank percentile is the PRIMARY reading; the Gaussian-table
+#     number is shown as a reference only (the residuals are not normal -- at
+#     Z ~ -2.3 the tail shape dominates, so the empirical rank is the honest
+#     answer and the Gaussian is there only to compare against the published
+#     method). M9-2: leading with the empirical number, weight stays 0.
 #   * a record tracker: is today's Z merely rare, or the deepest
 #     age-adjusted reading in Bitcoin's history?
 #
@@ -103,7 +106,7 @@ score = 1 if score.zero? && recent_min <= z05 && z_now >= -1.0
 trend_px = 10**(f[:icept] + f[:slope] * x[-1])
 
 Lppl.report(NAME, score,
-              format('Z %.2f -> emp pctile %.2f%% (gauss %.2f%%); %dd at <=1st pct, %dd at <=5th; %s',
+              format('Z %.2f -> emp pctile %.2f%% (Gaussian ref %.2f%%); %dd at <=1st pct, %dd at <=5th; %s',
                      z_now, pct_e * 100, pct_g * 100, run01, run05,
                      record ? format('NEW RECORD low (prior %.2f on %s)', pmin, pmin_d) \
                             : format('record %.2f on %s', pmin, pmin_d)),
