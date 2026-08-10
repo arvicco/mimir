@@ -1400,7 +1400,7 @@ Acceptance: rake green; a SIGKILLed mid-write prices.rb leaves the old
       cache intact; --history --as-of aborts outside staging; ops:install
       lists 3 agents.
 
-## M8-12 · Web hardening (SBI C4)  [tier: opus -- spec-driven, mimir-design bound] [status: ready] [deps: --]
+## M8-12 · Web hardening (SBI C4)  [tier: opus -- spec-driven, mimir-design bound] [status: done -- 2026-08-10, d8cc65d; Vary: Authorization on the cacheable 200, CSP in _headers (no script unsafe-inline; verified in headless Chrome -- 0 violations), KV strings render via textContent; rake green incl. web:test 24/24] [deps: --]
 Goal: worker.mjs adds Vary: Authorization + a Content-Security-Policy
       header; render.js/index.html replace innerHTML string
       interpolation with textContent/element building on every path
@@ -1410,7 +1410,7 @@ Goal: worker.mjs adds Vary: Authorization + a Content-Security-Policy
 Acceptance: rake green incl. web:test; header check in web tests;
       manual preview pixel-identical.
 
-## M8-13 · Dashboard auto-refresh  [tier: opus -- spec-driven, mimir-design bound] [status: ready] [deps: M8-12 (same files)]
+## M8-13 · Dashboard auto-refresh  [tier: opus -- spec-driven, mimir-design bound] [status: done -- 2026-08-10, 6bca072; per-key re-fetch (ttl_hint_s, 60s floor via R.nextDelay), visibility pause/resume, live header pub tick; verified in headless Chrome under CSP -- badges + pub advanced to a newer generation with no reload, clean console; rake green incl. web:test 24/24] [deps: M8-12 (same files)]
 Goal: the page re-pulls keys on a timer so an open tab converges to
       current data (the twice-confused-us gap; owner-ruled BUILD
       2026-08-10). Per-chart re-fetch respecting each payload's
