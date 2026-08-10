@@ -183,6 +183,20 @@ test('clicking MSTR reveals + resizes its chart and swaps title/badge; BTC resto
                '2026-07-06T16:00:00Z');
 });
 
+// ---- M8-13: re-fetch cadence clamp --------------------------------------
+
+test('nextDelay honours ttl_hint_s but never polls faster than the 60s floor', () => {
+  const { R } = loadRender();
+  assert.equal(R.nextDelay(1800), 1800 * 1000, 'a 30-min ttl re-fetches every 30 min');
+  assert.equal(R.nextDelay(60), 60 * 1000, '60s is the floor itself');
+  assert.equal(R.nextDelay(59), 60 * 1000, 'below the floor clamps up to 60s');
+  assert.equal(R.nextDelay(0), 60 * 1000, 'zero clamps to 60s (no storm)');
+  assert.equal(R.nextDelay(-5), 60 * 1000, 'negative clamps to 60s');
+  assert.equal(R.nextDelay(undefined), 60 * 1000, 'missing ttl clamps to 60s');
+  assert.equal(R.nextDelay('90'), 90 * 1000, 'numeric string is coerced');
+  assert.equal(R.nextDelay('nope'), 60 * 1000, 'garbage clamps to 60s');
+});
+
 // ---- M8-12: KV strings render as text nodes, never innerHTML ------------
 
 test('errCard builds the key/message as text nodes (no innerHTML from data)', () => {

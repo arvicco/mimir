@@ -608,11 +608,41 @@ function attachBtcoTable(gridEl, env) {
   return true;
 }
 
+// ---- M8-13 auto-refresh seams -------------------------------------------
+// Re-fetch cadence for a key: the payload's own ttl_hint_s, clamped to a
+// hard 60s floor so no key can ever storm the Worker. A missing/NaN/short
+// ttl also floors to 60s. Returns MILLISECONDS for setTimeout. Pure -- the
+// only unit-tested piece of the refresh loop (page.html owns the DOM timer,
+// exercised in preview).
+function nextDelay(ttlSec) {
+  var t = Number(ttlSec);
+  if (!isFinite(t) || t < 60) t = 60;
+  return t * 1000;
+}
+
+// Dispose every echarts instance rendered inside `card` and drop it from
+// the resize registry (mutated in place so MimirRender.charts stays the
+// same array). Called before a refresh swaps a card out, so stale
+// instances neither leak nor keep answering window-resize.
+function releaseCard(card) {
+  for (var i = charts.length - 1; i >= 0; i -= 1) {
+    var dom = charts[i].getDom && charts[i].getDom();
+    if (dom && card.contains(dom)) { charts[i].dispose(); charts.splice(i, 1); }
+  }
+}
+
+// Forget a tab-group so its shared card can be rebuilt from scratch on
+// refresh (GROUPS state is otherwise per-page-load and would accrue
+// duplicate members). Pair with releaseCard on the old card element.
+function forgetGroup(groupId) {
+  if (GROUPS[groupId]) delete GROUPS[groupId];
+}
+
 // ONE global -- shared by preview.html and index.html.
 // rev: bump on EVERY render.js change; `MimirRender.rev` in the console
 // answers "which renderer is this tab actually running?" after deploys.
 window.MimirRender = {
-  rev: "m8-12-textnodes",
+  rev: "m8-13-autorefresh",
   staleClass: staleClass,
   hhmm: hhmm,
   liveHeader: liveHeader,
@@ -621,6 +651,9 @@ window.MimirRender = {
   buildBubble: buildBubble,
   errCard: errCard,
   buildChartCard: buildChartCard,
+  nextDelay: nextDelay,
+  releaseCard: releaseCard,
+  forgetGroup: forgetGroup,
   charts: charts,
   FORMATTERS: FORMATTERS,
   WIDGETS: WIDGETS
