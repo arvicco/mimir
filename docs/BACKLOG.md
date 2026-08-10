@@ -1511,3 +1511,48 @@ PUBLISH_DRY_RUN=1 -> 25/25 keys, 0 skipped; Playwright on index.html --
 [BTC][MSTR] surface tabs (BTC default, real curves), clicking MSTR swaps
 to chart:vol_surface_mstr ("MSTR vol surface · ATM 30d 70.4%"), basis
 untouched, all 8 badges tick, console clean, 3x2 grid intact, 25/25 fresh.
+
+## M8-18 · GEX renames + MSTR trend + display rulings (owner-ruled 2026-08-10)  [tier: opus -- Fable spec + review, mimir-design bound] [status: done 2026-08-10]
+Six owner rulings, the final display packet before Gate 8, in five feature
+commits (tests+code together) + this docs commit; all display-only, no
+analytics semantics touched.
+(R1) Chart-key renames: chart:gex_profile -> chart:gex_btc, chart:gex_trend
+     -> chart:gex_btc_trend (producer keys gex:combined/gex:trend and the
+     builder fns unchanged). CHARTS registry, goldens (git mv), CARD_ORDER,
+     index.html PRODUCERS map, deploy.rb CHART_KEYS sentinel, every test pin,
+     runbook. Old KV keys v1:chart:gex_profile / v1:chart:gex_trend become
+     harmless orphans post-deploy (runbook Background; optional cleanup).
+(R2) New chart:gex_mstr_trend -- the daily MSTR GEX trend, fourth tab of the
+     GEX card ([BTC][MSTR][BTC TREND][MSTR TREND]; TREND relabelled BTC TREND).
+     scripts/gex_trend.rb --json gains an additive top-level 'mstr' = {series,
+     stats}, built by a new BTC::GexHistory.mstr_series over the MSTR entries
+     of each snapshot's `us` capture (walls under 'strike'), reusing #stats.
+     Builder mirrors gex_trend but in RAW DOLLARS (not $k) with no max-pain
+     cross-check (BTC-only). Contract test + gex_history unit tests + synthetic
+     fixture 'mstr' block (payloads/README noted). Key count 25 -> 26.
+(R3) The (p) VENUE (c) toggle widget moves from a right column to a FIXED 2x3
+     grid at the TOP-RIGHT of the BTC GEX plot (IBIT FBTC BITB / DERI ARKB
+     GBTC; absent venues collapse their slot, stale 'DERI!' still fills DERI).
+     Recorded in mimir-design as an EXCEPTION to "side panels go right".
+(R4) Both GEX profile tabs cut margins (right 92->12, left 52->42) -- visibly
+     wider plot; gex_btc top 56->66 so raised wall labels clear the widget.
+(R5) scenario_strip title gains a composite-drift arrow (latest minus 7
+     readings back; >+0.02 ↗, <-0.02 ↘, else →; no arrow under 2 readings).
+(R6) Card badges are dot-only -- age/ttl/time move to an instant hover/focus
+     bubble (header-ldot pattern; keyboard-focusable, right-anchored + flip-up,
+     built from data attrs on open). render.js makeBadge/setBadge/refreshBadge;
+     index.html ticker simplified (.age span + fmtAge/paintBadge/initBadge
+     gone); both pages dot-only; index.html CSP hash recomputed. Recorded in
+     mimir-design.
+(R7) LPPL three-panel grids denser (heights 19%->23%, gaps ~14/11% -> ~4/4%).
+Goldens (gex_btc, gex_btc_trend, gex_mstr_trend, gex_mstr, scenario_strip,
+lppl_regime) PROVISIONAL -- owner re-blesses at Gate 8.
+Verified: rake green (675 runs, 0 failures; web:test 27/27);
+PUBLISH_DRY_RUN=1 -> 26/26 keys, 0 skipped; headless 1440+2000 screenshots
+read against every ruling (2x3 toggles top-right, wider GEX plots, four GEX
+tabs, MSTR TREND renders real 34-day history, scenario arrow, taller/tighter
+LPPL panels, every badge a bare dot, 3x2 grid intact, 26/26 fresh); Playwright
+on index.html -- badge bubble on hover AND keyboard focus ("age 2m16s · ttl
+1800s · 19:31Z"), venue (p) toggle flips off, all four GEX tabs render a live
+canvas, vol surface MSTR tab still swaps, console clean. NOT live until the
+phase-8 gate merges + deploys.

@@ -37,7 +37,7 @@ rsync -a ~/Dev/mimir/scripts/lppl/data/ scripts/lppl/data/
 rsync -a ~/Dev/mimir/scripts/scenario/data/ scripts/scenario/data/
 rsync -a ~/Dev/mimir/data/gex_history/ data/gex_history/
 rsync -a ~/Dev/mimir/data/vol_history/ data/vol_history/ 2>/dev/null || true
-PUBLISH_DRY_RUN=1 ruby publish/publish.rb   # EXPECT: no SKIP lines, 25 keys (incl. index)
+PUBLISH_DRY_RUN=1 ruby publish/publish.rb   # EXPECT: no SKIP lines, 26 keys (incl. index)
 rake preview
 ```
 
@@ -53,9 +53,22 @@ EXPECT:
   surface · ATM 30d 43.9%`, the MSTR tab like `MSTR vol surface · ATM
   30d 86.2%`. Clicking MSTR swaps that section's chart/title/badge; the
   BASIS section is unaffected.
-- The GEX card now shows [BTC][MSTR][TREND]; the TREND tab plots
-  spot/flip/CW/PW daily lines and its title carries the max-pain
-  delta (`· MP Δ+0.59%`).
+- The GEX card now shows four tabs [BTC][MSTR][BTC TREND][MSTR TREND]
+  (M8-18). BTC/MSTR are the profiles; the BTC TREND tab plots
+  spot/flip/CW/PW daily lines with the max-pain delta in its title
+  (`· MP Δ+0.59%`); the MSTR TREND tab is the same daily trend for
+  MSTR on its own dollar axis (~$80-110), title like `MSTR GEX trend ·
+  flip dist +7.69% · 14d long_gamma` (no MP delta — BTC-only).
+- On the BTC GEX tab the venue toggles are a 2x3 grid at the TOP-RIGHT
+  of the plot ((p)IBIT(c) (p)FBTC(c) (p)BITB(c) / (p)DERI(c)
+  (p)ARKB(c) (p)GBTC(c)), and both GEX profile plots are visibly wider
+  (the old right-margin column is gone) (M8-18 R3/R4).
+- Every card/section freshness badge is a BARE coloured dot top-right
+  (M8-18 R6). Hover or keyboard-focus a dot for its bubble (`age .. ·
+  ttl .. · HH:MMZ`).
+- The scenario title carries a drift arrow (`Scenario NEUTRAL +0.08
+  ↗/↘/→`, M8-18 R5); the LPPL card's three panels are taller/tighter
+  (M8-18 R7).
 - Offline fixture data is FLAT/degenerate on the vol tabs (one
   recorded expiry backs all tenors) — that is the fixture, not a bug;
   judge layout/labels/colors, not the line shapes.
@@ -68,9 +81,11 @@ If step 2 looked right:
 cd ~/Dev/mimir-phase8 && rake golden:approve
 ```
 
-EXPECT: it lists exactly four new specs (chart_vol_surface,
-chart_vol_spread, chart_vol_basis, chart_gex_trend), you confirm, and
-`rake test` stays green. Commit lands via the loop.
+EXPECT: it re-blesses all 12 chart goldens; the ones that changed
+under this branch (the vol family, and under M8-18 chart_gex_btc,
+chart_gex_btc_trend, chart_gex_mstr_trend, chart_gex_mstr,
+chart_scenario_strip, chart_lppl_regime) match what you just eyeballed,
+and `rake test` stays green. Commit lands via the loop.
 
 ## 4. Merge and deploy (your actions)
 
@@ -86,7 +101,7 @@ gh run list --repo arvicco/mimir --branch main --limit 1   # EXPECT: success
 rake deploy        # interactive; includes one real publish
 ```
 
-EXPECT from the deploy's publish: `PUB LIVE 25/25 keys` (was 13/13 —
+EXPECT from the deploy's publish: `PUB LIVE 26/26 keys` (was 13/13 —
 the monitor/notes expectation changes with this deploy; tell the loop
 so its tick-watch copy updates). Then put the working tree back on
 main so the launchd agents run the released code — the loop will
@@ -103,10 +118,11 @@ EXPECT:
   structure (roughly 30→37% at the time of writing), negative RR25
   (downside skew), MSTR−BTC spread around +50 vol points, contango
   basis curve.
-- GEX TREND tab shows the accumulated daily history (starts
-  2026-07-06) and keeps growing a point per day; `data/vol_history/`
-  starts accumulating from the first post-deploy 08:15 snapshot (IV
-  rank/percentiles become buildable after a few weeks).
+- The GEX card's BTC TREND and MSTR TREND tabs show the accumulated
+  daily history (starts 2026-07-06) and keep growing a point per day;
+  `data/vol_history/` starts accumulating from the first post-deploy
+  08:15 snapshot (IV rank/percentiles become buildable after a few
+  weeks). Every card badge is a bare dot — hover one for age/ttl.
 - The title ⓘ (next to "mimir") opens its orientation bubble on
   hover/focus, and its "How to read this dashboard →" link loads
   guide.html on the live host (opens `/guide.html`, the full reading
@@ -133,13 +149,22 @@ EXPECT:
   ladder, bubble-index cross-ref; then scorecard/backtest road) plus
   M7-13 (deterministic iXBRL parser) and M7-15b (cash model — makes
   DJT/BLSH mNAV honest).
-- KV quota check (Gate 5 carry-over): 25 keys × 12 runs/day ≈ 300
+- KV quota check (Gate 5 carry-over): 26 keys × 12 runs/day ≈ 312
   writes/day, ~30% of the free tier by arithmetic — confirm in the CF
   dashboard if you want the observed number.
 - gex_check divergence threshold: stays report-only until weeks of
   data suggest a band (deliberate, Golden Rule 4).
 
 ## Background (not needed to run the gate)
+
+M8-18 renamed two chart keys (`chart:gex_profile` → `chart:gex_btc`,
+`chart:gex_trend` → `chart:gex_btc_trend`). After the Gate-8 deploy, the
+old KV keys `v1:chart:gex_profile` and `v1:chart:gex_trend` are ORPHANS —
+the published index no longer lists them, so the dashboard never fetches
+them and they age out harmlessly. Optional cleanup: delete those two KV
+keys from the Cloudflare dashboard (or `wrangler kv key delete`); leaving
+them is fine.
+
 
 Phase 8A was built 2026-07-10/11 during the Phase-7 soak under the
 "keep going" ruling: M8-1 vol surface (+ bs_delta seam), M8-2 GEX
