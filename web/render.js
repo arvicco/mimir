@@ -107,24 +107,42 @@ var FORMATTERS = {
 // ECharts still owns selection state and the widget drives it via legend
 // actions). Unknown names simply render no widget.
 var WIDGETS = {
-  // gex_cp: one compact line per venue -- "(p) DERI (c)". Clicking (p) or
+  // gex_cp: one compact toggle per venue -- "(p) DERI (c)". Clicking (p) or
   // (c) toggles that side's series alone; clicking the venue name toggles
   // both together (both shown -> both hidden, anything else -> both shown).
+  //
+  // M8-18 R3 (owner ruling 2026-08-10): the widget sits at the TOP-RIGHT of
+  // the BTC GEX chart (an owner-ruled EXCEPTION to "side panels go right"),
+  // laid out as a FIXED 2x3 grid -- row 1 IBIT FBTC BITB, row 2 DERI ARKB GBTC.
+  // A venue absent from the payload (filtered as insignificant) leaves its
+  // slot collapsed; rows stay in order. The venue universe is exactly these
+  // six (Deribit + the five US spot-ETF chains), so nothing is ever dropped.
   gex_cp: function (card, chart, option) {
-    var venues = [], sides = {};
+    var ORDER = [["IBIT", "FBTC", "BITB"], ["DERI", "ARKB", "GBTC"]];
+    var sides = {}; // venue LABEL (may carry a stale '!') -> {C, P} series names
     (option.series || []).forEach(function (s) {
       var m = /^(.*) ([CP])$/.exec(s.name || "");
       if (!m) return;
-      if (!sides[m[1]]) { sides[m[1]] = {}; venues.push(m[1]); }
+      if (!sides[m[1]]) sides[m[1]] = {};
       sides[m[1]][m[2]] = s.name;
     });
-    if (!venues.length) return;
+    var labels = Object.keys(sides);
+    if (!labels.length) return;
+    // resolve a fixed slot to the actual present label -- a stale 'DERI!'
+    // still fills the DERI slot (base match); absent venues resolve to null.
+    function resolve(slot) {
+      if (sides[slot]) return slot;
+      for (var i = 0; i < labels.length; i += 1) {
+        if (labels[i].replace(/!$/, "") === slot) return labels[i];
+      }
+      return null;
+    }
 
     var sel = {}; // series start selected; tracked via legendselectchanged
-    venues.forEach(function (v) { sel[sides[v].C] = true; sel[sides[v].P] = true; });
-    var rows = [];
+    labels.forEach(function (v) { sel[sides[v].C] = true; sel[sides[v].P] = true; });
+    var cells = [];
     function paint() {
-      rows.forEach(function (r) {
+      cells.forEach(function (r) {
         r.p.classList.toggle("off", !sel[sides[r.v].P]);
         r.c.classList.toggle("off", !sel[sides[r.v].C]);
         r.name.classList.toggle("off", !sel[sides[r.v].P] && !sel[sides[r.v].C]);
@@ -139,29 +157,36 @@ var WIDGETS = {
 
     var box = document.createElement("div");
     box.className = "cp-legend";
-    venues.forEach(function (v) {
-      var row = document.createElement("div");
-      row.className = "cp-row";
-      function piece(txt, cls, onclick) {
-        // Real <button> (reset via .cp CSS in both host pages) so the toggle
-        // is keyboard-operable with a :focus-visible ring; behavior unchanged.
-        var el = document.createElement("button");
-        el.type = "button";
-        el.className = "cp " + cls;
-        el.textContent = txt;
-        el.onclick = onclick;
-        row.appendChild(el);
-        return el;
-      }
-      var p = piece("(p)", "cp-p", function () { setTo([sides[v].P], !sel[sides[v].P]); });
-      row.appendChild(document.createTextNode(" "));
-      var name = piece(v, "cp-v", function () {
-        setTo([sides[v].P, sides[v].C], !(sel[sides[v].P] && sel[sides[v].C]));
+    ORDER.forEach(function (row) {
+      var rowEl = document.createElement("div");
+      rowEl.className = "cp-row";
+      row.forEach(function (slot) {
+        var v = resolve(slot);
+        if (!v) return; // absent venue -- slot collapses, row keeps its order
+        var cell = document.createElement("span");
+        cell.className = "cp-cell";
+        function piece(txt, cls, onclick) {
+          // Real <button> (reset via .cp CSS in both host pages) so the toggle
+          // is keyboard-operable with a :focus-visible ring; behavior unchanged.
+          var el = document.createElement("button");
+          el.type = "button";
+          el.className = "cp " + cls;
+          el.textContent = txt;
+          el.onclick = onclick;
+          cell.appendChild(el);
+          return el;
+        }
+        var p = piece("(p)", "cp-p", function () { setTo([sides[v].P], !sel[sides[v].P]); });
+        cell.appendChild(document.createTextNode(" "));
+        var name = piece(v, "cp-v", function () {
+          setTo([sides[v].P, sides[v].C], !(sel[sides[v].P] && sel[sides[v].C]));
+        });
+        cell.appendChild(document.createTextNode(" "));
+        var c = piece("(c)", "cp-c", function () { setTo([sides[v].C], !sel[sides[v].C]); });
+        cells.push({ v: v, p: p, c: c, name: name });
+        rowEl.appendChild(cell);
       });
-      row.appendChild(document.createTextNode(" "));
-      var c = piece("(c)", "cp-c", function () { setTo([sides[v].C], !sel[sides[v].C]); });
-      rows.push({ v: v, p: p, c: c, name: name });
-      box.appendChild(row);
+      box.appendChild(rowEl);
     });
     card.appendChild(box);
   }
@@ -815,7 +840,7 @@ function forgetGroup(groupId) {
 // rev: bump on EVERY render.js change; `MimirRender.rev` in the console
 // answers "which renderer is this tab actually running?" after deploys.
 window.MimirRender = {
-  rev: "m8-18-gex-renames-mstr-trend",
+  rev: "m8-18-gex-toggles-top",
   staleClass: staleClass,
   hhmm: hhmm,
   liveHeader: liveHeader,

@@ -421,10 +421,13 @@ module Publish
         # replaces the drawn legend; the component stays so legend actions
         # keep driving series selection
         'legend' => { 'show' => false, 'data' => bars.map { |s| s['name'] } },
-        # top 56: a two-band label zone between the 13px title and the plot
-        # (flip/spot lower band, walls raised) -- markline labels used to
-        # collide with the title while panning (owner report, Gate 6)
-        'grid' => { 'left' => 52, 'right' => 92, 'top' => 56, 'bottom' => 26 },
+        # M8-18 R4 (owner ruling 2026-08-10): the widget moved to the TOP-RIGHT
+        # (was a right-margin column), so right drops 92 -> 12 and left 52 -> 42
+        # (fits the $M value labels) -- a visibly wider plot. top 56 -> 66 so
+        # the raised wall labels (grid.top - 14) sit a clear row BELOW the 2-row
+        # widget (which ends ~34px): screenshot showed CW brushing the DERI
+        # toggle at top 56.
+        'grid' => { 'left' => 42, 'right' => 12, 'top' => 66, 'bottom' => 26 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
         'yAxis' => { 'type' => 'value' },
         # all levels stay in the data; the default window shows the
@@ -584,10 +587,10 @@ module Publish
                                       gex['stale'] ? ' · stale' : ''),
                      'textStyle' => { 'fontSize' => 13 } },
         'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 }, 'axisPointer' => { 'type' => 'shadow' } },
-        # top 56: a two-band label zone between the 13px title and the plot
-        # (flip/spot lower band, walls raised) -- markline labels used to
-        # collide with the title while panning (owner report, Gate 6)
-        'grid' => { 'left' => 52, 'right' => 92, 'top' => 56, 'bottom' => 26 },
+        # M8-18 R4 (owner ruling 2026-08-10): left/right tightened to match the
+        # BTC tab (42/12; no widget here) for a visibly wider plot. top 56 keeps
+        # the two-band markline label zone (flip/spot lower, walls raised).
+        'grid' => { 'left' => 42, 'right' => 12, 'top' => 56, 'bottom' => 26 },
         'xAxis' => { 'type' => 'category', 'data' => levels.map { |l| mstr_label(l) } },
         'yAxis' => { 'type' => 'value' },
         # all strikes stay in the data; the default window shows the

@@ -454,7 +454,12 @@ class TestChartSpecs < Minitest::Test
     end
     flip = marks.find { |x| x['label']['formatter'] == 'flip' }
     refute flip['label'].key?('offset')
-    assert_equal 56, opt['grid']['top']
+    # M8-18 R4: top 66 clears the 2-row top-right toggle widget above the
+    # raised wall labels (the (p) VENUE (c) grid moved off the right margin).
+    assert_equal 66, opt['grid']['top']
+    # the widened plot: right margin freed for the plot (widget is top now)
+    assert_equal 12, opt['grid']['right']
+    assert_equal 42, opt['grid']['left']
   end
 
   def test_gex_mstr_default_zoom_is_spot_plus_minus_30pct
