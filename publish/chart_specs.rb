@@ -186,10 +186,12 @@ module Publish
         }
       },
       # ---- M8-6: the GEX/volatility family (Phase 8A stage 2) ----------
-      # vol_surface + vol_basis share ONE dashboard card as
-      # [SURFACE][BASIS] tabs (tab_group 'vol'); vol_spread is a SOLO
-      # card (owner 3x2-grid ruling 2026-08-10, top-right by the GEX
-      # profile). gex_trend joins the existing GEX card as [TREND].
+      # vol_surface + vol_basis share ONE dashboard card as two STACKED
+      # half-height charts (tab_group 'vol', group_style 'stack').
+      # vol_spread + vol_spread_trend likewise share ONE stacked card
+      # (tab_group 'volspread', owner ruling 2026-08-10): current per-tenor
+      # spread bars on top, the daily spread trend below. gex_trend joins
+      # the existing GEX card as [TREND].
       'vol_surface' => {
         inputs: %w[payload_vol_latest.json], fn: :vol_surface,
         meta: {
@@ -230,9 +232,34 @@ module Publish
           'help' => 'Bars are the ATM spread (teal positive, red negative); the ' \
                     'two lines are the raw ATM IV of each leg, so you can see ' \
                     'whether a move came from MSTR richening or BTC cheapening. A ' \
-                    'leg whose chain failed drops its line and that tenor\'s bar.'
-          # solo card since 2026-08-10 (owner ruling: 3x2 grid, spread
-          # top-right by the GEX profile) -- no tab_group
+                    'leg whose chain failed drops its line and that tenor\'s bar.',
+          # stacked with its trend since 2026-08-10 (owner ruling): the
+          # current per-tenor bars ride on top (tab_pos 0), the daily spread
+          # trend below (vol_spread_trend, tab_pos 1) -- group_style 'stack',
+          # height = half a card, exactly like the vol_surface/vol_basis card.
+          'tab_group' => 'volspread', 'group_style' => 'stack', 'tab_pos' => 0,
+          'height' => 235
+        }
+      },
+      'vol_spread_trend' => {
+        # SAME payload as vol_spread (the spread producer's --json carries the
+        # daily "history"), a different builder -- the trend view below the bars.
+        inputs: %w[payload_vol_spread.json], fn: :vol_spread_trend,
+        meta: {
+          'desc' => 'The MSTR-minus-BTC ATM vol spread over time, one line per ' \
+                    'tenor (7/14/21/45/90d). This is the same treasury-company ' \
+                    'leverage premium as the bars above, but as a term-structure ' \
+                    'trend: it accumulates one point per day from the first ' \
+                    'deploy, so early history is short and fills in daily.',
+          'axes' => { 'x' => 'day (one daily reading per UTC date, oldest left)',
+                      'y' => 'MSTR-minus-BTC ATM spread in vol points, per tenor' },
+          'help' => 'Each line is one requested tenor\'s spread history; a rising ' \
+                    'line means MSTR options are richening versus BTC at that ' \
+                    'tenor. A day whose leg failed leaves a gap, never a zero. ' \
+                    'The chart starts nearly empty and grows a point per day.',
+          # stacked below vol_spread (owner ruling 2026-08-10) -- half a card.
+          'tab_group' => 'volspread', 'group_style' => 'stack', 'tab_pos' => 1,
+          'height' => 235
         }
       },
       'vol_basis' => {
@@ -994,6 +1021,53 @@ module Publish
       return 'n/a' unless t
 
       format('%dd %+.1f', t['tenor_d'], vol_pct(t['spread_atm']))
+    end
+
+    # ---- vol_spread_trend (M8-16) -------------------------------------
+    #
+    # vol:spread's daily "history" -> the MSTR-minus-BTC ATM spread over
+    # time, one line per tenor (7/14/21/45/90d). Stacked BELOW the
+    # vol_spread bars (owner ruling 2026-08-10): the bars are the current
+    # term structure, this is its trend. Values are vol points
+    # (spread_atm * 100, 1dp) scaled at build time (design system); a null
+    # spread on a date is a gap (nil), never a zero. Filled dots
+    # (sparse-data rule) so a single live day reads as a clear point. The
+    # dark theme colours the five series (no semantic pair to preserve).
+    # Empty history still yields a valid option (empty axis + 5 empty
+    # series) -- the acceptable pre-accumulation state.
+    VOL_SPREAD_TREND_TENORS = [7, 14, 21, 45, 90].freeze
+
+    def vol_spread_trend(spread)
+      history = spread['history'] || []
+      dates   = history.map { |r| r['date'] }
+      series  = VOL_SPREAD_TREND_TENORS.map do |td|
+        { 'name' => "#{td}d", 'type' => 'line', 'symbol' => 'circle', 'symbolSize' => 6,
+          'data' => history.map { |r| vol_spread_trend_point(r, td) } }
+      end
+
+      {
+        'backgroundColor' => 'transparent',
+        'title' => { 'text' => format('Spread trend · %dd history', dates.size),
+                     'textStyle' => { 'fontSize' => 13 } },
+        'tooltip' => { 'trigger' => 'axis', 'confine' => true,
+                       'textStyle' => { 'fontSize' => 11 } },
+        'legend' => { 'top' => 24, 'data' => VOL_SPREAD_TREND_TENORS.map { |td| "#{td}d" } },
+        'grid' => { 'left' => 56, 'right' => 24, 'top' => 52, 'bottom' => 28 },
+        'xAxis' => { 'type' => 'category', 'data' => dates },
+        'yAxis' => { 'type' => 'value', 'name' => 'spread vol pts',
+                     'nameLocation' => 'middle', 'nameGap' => 44 },
+        'series' => series
+      }
+    end
+
+    # The scaled spread (vol points, 1dp) for tenor +td+ on one history row,
+    # or nil when that tenor is absent or its spread is null (a gap, never a
+    # zero).
+    def vol_spread_trend_point(row, td)
+      t = (row['tenors'] || []).find { |x| x['tenor_d'] == td }
+      return nil unless t && !t['spread_atm'].nil?
+
+      (t['spread_atm'].to_f * 100).round(1)
     end
 
     # ---- vol_basis (M8-6) ---------------------------------------------

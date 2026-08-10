@@ -37,7 +37,7 @@ rsync -a ~/Dev/mimir/scripts/lppl/data/ scripts/lppl/data/
 rsync -a ~/Dev/mimir/scripts/scenario/data/ scripts/scenario/data/
 rsync -a ~/Dev/mimir/data/gex_history/ data/gex_history/
 rsync -a ~/Dev/mimir/data/vol_history/ data/vol_history/ 2>/dev/null || true
-PUBLISH_DRY_RUN=1 ruby publish/publish.rb   # EXPECT: no SKIP lines, 22 keys + index
+PUBLISH_DRY_RUN=1 ruby publish/publish.rb   # EXPECT: no SKIP lines, 23 keys + index
 rake preview
 ```
 
@@ -82,7 +82,7 @@ gh run list --repo arvicco/mimir --branch main --limit 1   # EXPECT: success
 rake deploy        # interactive; includes one real publish
 ```
 
-EXPECT from the deploy's publish: `PUB LIVE 22/22 keys` (was 13/13 —
+EXPECT from the deploy's publish: `PUB LIVE 23/23 keys` (was 13/13 —
 the monitor/notes expectation changes with this deploy; tell the loop
 so its tick-watch copy updates). Then put the working tree back on
 main so the launchd agents run the released code — the loop will
@@ -129,7 +129,7 @@ EXPECT:
   ladder, bubble-index cross-ref; then scorecard/backtest road) plus
   M7-13 (deterministic iXBRL parser) and M7-15b (cash model — makes
   DJT/BLSH mNAV honest).
-- KV quota check (Gate 5 carry-over): 22 keys × 12 runs/day ≈ 264
+- KV quota check (Gate 5 carry-over): 23 keys × 12 runs/day ≈ 276
   writes/day, ~26% of the free tier by arithmetic — confirm in the CF
   dashboard if you want the observed number.
 - gex_check divergence threshold: stays report-only until weeks of

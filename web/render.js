@@ -576,7 +576,7 @@ function liveHeader(o) {
 // future charts).
 var CARD_ORDER = ["chart:gex_profile", "chart:gex_mstr", "chart:gex_trend",
                   "chart:vol_surface", "chart:vol_basis",
-                  "chart:vol_spread",
+                  "chart:vol_spread", "chart:vol_spread_trend",
                   "chart:scenario_strip", "chart:lppl_regime", "chart:btco_table"];
 function cardRank(key) {
   var i = CARD_ORDER.indexOf(key);
