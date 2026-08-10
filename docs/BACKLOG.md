@@ -1360,3 +1360,63 @@ pattern) when today's artifact is still marked after repair ran --
 monitor relays it. Gate-8 runbook + README updated. Post-ship one-time
 owner-approved edit: stamp the 2026-07-13 scenario row blind:true so
 the chart greys it (predates the mechanics; ledgered in worklog).
+
+## OWNER RULINGS 2026-08-10 (post-Gate-7, verbatim intent)
+Gate 7 closed 2026-08-10 (PR #8, v1 at 03cac84, deployed + verified).
+Three rulings from the decide step:
+1. BTCo table stays VISIBLE on the dashboard -- "to remind me it needs
+   re-think". STALE flags will grow; that is accepted and intended.
+2. The daily 07:45 btco-alert agent STOPS ("No alert").
+   Decommissioning inventory (per the standing verification rules):
+   - Duty: daily EDGAR discovery + new-filing count -> DROPPED by the
+     BTCo freeze (there are no ingest sessions left to alert).
+   - Duty: /tmp/ingest.status token for the tmux bar -> no successor
+     needed; the bar cats the file, absent = blank slot. Remove the
+     stale file once at stop time.
+   - Duty: btco_alert.log growth -> stops; file remains for history.
+   - Prose: web/guide.html says discovery "runs daily" -> corrected in
+     M8-11 so the shipped guide is honest.
+   Owner stop commands (launchd = human action):
+     launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.mimir.btco-alert.plist
+     rm ~/Library/LaunchAgents/com.mimir.btco-alert.plist
+     rm -f /tmp/ingest.status
+   M8-11 removes the plist from rake ops:install so a reinstall cannot
+   resurrect it.
+3. Dashboard auto-refresh: BUILD (packet M8-13).
+
+## M8-11 · Pre-Gate-8 hardening + btco-alert retirement  [tier: fable -- small cross-cutting fixes from the SBI review] [status: ready] [deps: --]
+Goal: (a) C5: atomic write for scripts/lppl/prices.rb (tmp+rename,
+      same pattern as backfill.rb) -- a crash mid-write must not
+      corrupt the price cache cron depends on. (b) C6: lppl.rb refuses
+      --history when --as-of is set unless BTC_DATA_DIR points at a
+      staging dir (the header's read-only claim becomes true).
+      (c) C8: subprocess timeouts kill the child process; trend-cache
+      dedup key made crash-safe. NOT included: the scenario
+      dead-module-weight change -- that alters composite semantics,
+      parked for Phase 9 with R10. (d) ops:install drops the
+      btco-alert plist (agent retired by ruling above); guide.html
+      prose corrected. Tests first for every behavior change.
+Acceptance: rake green; a SIGKILLed mid-write prices.rb leaves the old
+      cache intact; --history --as-of aborts outside staging; ops:install
+      lists 3 agents.
+
+## M8-12 · Web hardening (SBI C4)  [tier: opus -- spec-driven, mimir-design bound] [status: ready] [deps: --]
+Goal: worker.mjs adds Vary: Authorization + a Content-Security-Policy
+      header; render.js/index.html replace innerHTML string
+      interpolation with textContent/element building on every path
+      that renders KV-sourced strings (stored-XSS shape if the publish
+      token were ever compromised). No visual change -- goldens and
+      screenshots identical.
+Acceptance: rake green incl. web:test; header check in web tests;
+      manual preview pixel-identical.
+
+## M8-13 · Dashboard auto-refresh  [tier: opus -- spec-driven, mimir-design bound] [status: ready] [deps: M8-12 (same files)]
+Goal: the page re-pulls keys on a timer so an open tab converges to
+      current data (the twice-confused-us gap; owner-ruled BUILD
+      2026-08-10). Per-chart re-fetch respecting each payload's
+      ttl_hint_s (display behavior only -- no pinned ttl VALUES
+      change); pauses when the tab is hidden (visibilitychange);
+      the header age badge updates live.
+Acceptance: open tab shows a newer pub tick within one publish cycle
+      without a reload; no request storm (>=60s floor per key);
+      rake green; preview verified.
