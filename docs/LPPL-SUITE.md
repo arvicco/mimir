@@ -43,10 +43,17 @@ precision is punished harder than one that missed by 10% while honestly
 claiming plus-or-minus 20%. That grading rule is called the *log score*.
 
 The grades accumulate over years of daily predictions. The headline
-number -- the **Bayes factor** -- is simply the running score
-differential, expressed as odds. BF +1.0 means the accumulated evidence
-favors the global power law 10-to-1 over its best rival; BF -1.0 means
+number -- the **cumulative log predictive-score differential** (formerly
+called the "Bayes factor") -- is simply the running score differential in
+log10 units, readable as odds: +1.0 means the accumulated evidence
+favors the global power law 10-to-1 over its best rival; -1.0 means
 10-to-1 against.
+
+One honesty caveat travels with it: because the number is a *sum* over
+evaluation days, its magnitude scales with how many days the cache holds
+(a weekly-stride cache reads ~7x smaller than a daily one over the same
+year), so read its **sign** and its **per-evaluation-point mean**, never
+the raw total, when comparing across periods.
 
 This is the component that can genuinely kill the theory, because there
 is no arguing with a model that keeps losing a fair forecasting contest

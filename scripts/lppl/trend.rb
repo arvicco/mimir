@@ -12,14 +12,22 @@
 #   pl_recent  power law fitted on trailing 3 years  ("the trend has bent")
 #   rw         random walk, sigma scaled sqrt(h)     (no trend information)
 #
-# Headline: cumulative log10 Bayes factor of pl_full vs the best rival over
-# the trailing 365 evaluation days. This component can genuinely FALSIFY:
-# a decisively negative BF means the trend claim is dying regardless of how
-# pretty the oscillation fit looks.
+# Headline: the trailing-365-day cumulative log predictive-score differential
+# (log10) of pl_full vs the best rival (formerly called the "Bayes factor").
+# This component can genuinely FALSIFY: a decisively negative differential
+# means the trend claim is dying regardless of how pretty the oscillation
+# fit looks.
 #
-#   score +1  trailing BF >= +1.0 (>=10:1 for the global power law)
-#   score -1  trailing BF <= -1.0
+#   score +1  trailing differential >= +1.0 (>=10:1 for the global power law)
+#   score -1  trailing differential <= -1.0
 #   score  0  in between
+#
+# CACHE-DENSITY CAVEAT (SBI 3.1): the headline is a SUM over evaluation days,
+# so its magnitude scales roughly linearly with how many days the cache
+# holds -- a full daily cache and a weekly-stride cache of the same period
+# differ ~7x in magnitude while agreeing on sign and on the per-evaluation
+# MEAN. The additive per_horizon.mean_per_eval field is the density-invariant
+# reading; the raw sum is not comparable across cache densities (feeds D9-b).
 #
 # Scores are cached in data/trend_scores.csv. First run bootstraps history
 # from 2017 with weekly stride (a minute or so); daily runs append only
@@ -151,11 +159,20 @@ end
 
 bf_yr = 0.0
 per_h = {}
+# per_horizon (M9-1, additive): the density-invariant view of the same
+# numbers -- for each horizon the cumulative differential (sum), the
+# per-evaluation-point MEAN (invariant to cache density; feeds D9-b), and
+# the eval-point count that scales the sum.
+per_horizon = {}
 HORIZ.each do |h|
   pl  = sums["yr|#{h}|pl_full"]
   riv = [sums["yr|#{h}|pl_recent"], sums["yr|#{h}|rw"]].max
   d   = (pl - riv) / Math.log(10)
   per_h[h] = d.round(2)
+  ne = count["yr|#{h}|pl_full"]
+  per_horizon[h.to_s] = { 'sum' => d.round(2),
+                          'mean_per_eval' => (ne.positive? ? (d / ne).round(4) : nil),
+                          'n_evals' => ne }
   bf_yr += d
 end
 bf_yr = bf_yr.round(2)
@@ -169,9 +186,10 @@ score = if bf_yr >= 1.0
         end
 
 Lppl.report(NAME, score,
-              format('trailing-1y log10 BF (pl_full vs best rival) %+.2f  [30d %+.2f / 90d %+.2f / 180d %+.2f]',
+              format('trailing-1y cum. log predictive-score differential (log10) pl_full vs best rival %+.2f  [30d %+.2f / 90d %+.2f / 180d %+.2f]',
                      bf_yr, per_h[30], per_h[90], per_h[180]),
-              'bf' => bf_yr,
-              'bf_by_horizon' => per_h.inspect,
+              'bf' => bf_yr, # deprecated name; the value is the cumulative differential
+              'bf_by_horizon' => per_h.inspect, # deprecated name; see per_horizon
+              'per_horizon' => per_horizon,
               'eval_points_1y' => count["yr|90|pl_full"],
               'bootstrap' => (bootstrap ? 'first run: weekly stride history built' : nil))
