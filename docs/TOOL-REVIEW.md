@@ -8,6 +8,11 @@ would change) · **[document]** note in README/headers, no code change ·
 **[P2]** consideration for the publish pipeline design. Owner marks each
 finding AGREED / DEFERRED / REJECTED at the M0-2 review.*
 
+> NOTE (2026-08-11): this is the Phase-0 inventory (2026-07-03). It
+> predates the Phase 8 GEX/volatility tools (vol.rb, vol_mstr.rb,
+> vol_spread.rb, basis.rb, gex_trend.rb, gex_check.rb, gex_us.rb) and
+> the Phase 9 LPPL statistics revision, none of which it covers.
+
 ## 1. Inventory & maturity verdicts
 
 | tool | purpose | live sources | contracts | maturity verdict |
