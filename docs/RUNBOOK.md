@@ -1,6 +1,7 @@
-# Operating mimir on novo
+# Operating mimir on gold
 
-Owner-facing operations runbook for the compute box (novo): the four
+Owner-facing operations runbook for the compute box (gold -- promotion
+to novo remains an open Gate-5 carry-over): the four
 launchd agents that keep the dashboard fresh, advance the evidence trail,
 and flag new BTCo filings, the tmux health line, and the fix-it procedures
 for a 3am stale-everything call.
@@ -25,7 +26,7 @@ EXPECT: `ls "$REPO/ops/run_publish.sh"` prints that path, no error.
 
 ---
 
-## 1. One-time setup on novo
+## 1. One-time setup on gold
 
 Do this once on a fresh box, in order.
 
@@ -125,7 +126,7 @@ keys `present`, ruby, all three wrappers + plists, `ops/ audit` clean,
 
 - `com.mimir.publish: plist` / `bootstrap` -> installed + `program = .../run_publish.sh`
 - `com.mimir.publish: run` -> `publish LIVE: 13 written, 0 skipped -> KV`
-- `com.mimir.publish: status file` -> `PUB LIVE 13/13 keys HH:MM UTC (age 0m)`
+- `com.mimir.publish: status file` -> `PUB LIVE 27/27 keys HH:MM UTC (age 0m)`
 - `com.mimir.gex-snapshot: run` -> `written: .../<today>.json` (or `skipped
   (today's file exists)` / `partial` -- both PASS)
 - `com.mimir.gex-snapshot: snapshot file` -> `present .../<today>.json`
@@ -150,7 +151,7 @@ carrying `ABORT`/`exit 78` means the wrapper could not read the env file
 **2.2 Verify the dashboard header advanced.** Open your dashboard URL in
 a browser and look at the header.
 
-EXPECT: `pub HH:MMZ · 13/13 fresh`, where `HH:MMZ` is the UTC minute the
+EXPECT: `pub HH:MMZ · 27/27 fresh`, where `HH:MMZ` is the UTC minute the
 publish `run` row reported. If the time is old, the publish did not reach
 KV -- section 8.
 
@@ -203,17 +204,17 @@ debugging by hand.)
 hours:minutes since the last publish); no colours -- `!` after PUB is
 the one attention flag, and the payload says why:
 
-- `PUB 13/13 0:37` -- working: last publish LIVE, all 13 keys, age
+- `PUB 27/27 0:37` -- working: last publish LIVE, all 13 keys, age
   under 4h (2x the 2h cadence). Nothing to do.
-- `PUB! 13/13 5:12` -- stale: age past 4h. The bigger the age, the
+- `PUB! 27/27 5:12` -- stale: age past 4h. The bigger the age, the
   worse -- if it keeps growing, section 8.
 - `PUB! 12/13 0:20` -- a key is missing (`n < 13`). Glance at the
   dashboard for the red card; if it persists, section 8.
-- `PUB! DRY 13/13 ...` -- the last run was a DRY-RUN publish, not
+- `PUB! DRY 27/27 ...` -- the last run was a DRY-RUN publish, not
   LIVE. From the agent that should never happen; someone ran
   `PUBLISH_DRY_RUN=1` by hand. The dashboard is not being refreshed ->
   run a real publish (section 8, step 5).
-- `PUB! 13/13 1:12 OLD` -- the publisher is healthy (fresh, all keys)
+- `PUB! 27/27 1:12 OLD` -- the publisher is healthy (fresh, all keys)
   but a **published evidence trail has stopped moving**: a tail's newest
   entry is more than 30h old, so the bi-hourly publish is re-stamping
   frozen content (the 2026-07-07 incident this guard prevents). The daily
@@ -353,7 +354,7 @@ including `GET /api/v1/index ... 13 keys incl. charts`.
 **6.4 Verify the dashboard.** Open your dashboard URL.
 
 EXPECT: all four charts render and the header reads
-`pub HH:MMZ · 13/13 fresh` with the current minute. Namespace migration
+`pub HH:MMZ · 27/27 fresh` with the current minute. Namespace migration
 complete.
 
 ---
@@ -418,7 +419,7 @@ rake ops:status
 EXPECT: an `ops status:` table. Per agent a `loaded; state=not running;
 last exit=0` row (`not loaded` is a row, not a crash) plus a `... log`
 row with the last `=== run_*` marker and summary; then a `status file`
-row `PUB LIVE 13/13 keys HH:MM UTC (age Nm)` and a `newest gex snapshot`
+row `PUB LIVE 27/27 keys HH:MM UTC (age Nm)` and a `newest gex snapshot`
 row naming today's `<date>.json`.
 FAILURE: `not loaded` -> the agent was never installed / got booted out,
 re-run section 2 (`rake ops:install`). A nonzero `last exit` or a large
@@ -432,7 +433,7 @@ on this box -> Step 3.
 ruby "$REPO/ops/publish_health.rb"
 ```
 
-EXPECT: an unflagged `PUB 13/13 H:MM` with a small H:MM.
+EXPECT: an unflagged `PUB 27/27 H:MM` with a small H:MM.
 Cross-check the dashboard header `pub HH:MMZ · n/13 fresh`.
 FAILURE: any `PUB! ...` (stale, partial, DRY, or `?` -- go to Step 3),
 or the dashboard reads a many-hours age. If unflagged and fresh, the
@@ -489,7 +490,7 @@ Run these once a week while the ops layer is on probation.
 **9.1 KV writes vs the budget.** In the Cloudflare console: Workers &
 Pages -> KV -> your namespace -> Metrics, read the last 24h write count.
 
-EXPECT: roughly **156 writes/day** (13 keys x 12 runs/day). Comfortably
+EXPECT: roughly **324 writes/day** (27 keys x 12 runs/day). Comfortably
 under the 1,000/day free-tier write limit. Much higher -> something is
 publishing more often than bi-hourly (a stray manual loop? a second
 agent?); much lower -> the publisher is skipping runs, see section 8.
@@ -782,8 +783,8 @@ missing; if it does not appear at all, check the path. Reload with
 truncate them by hand (section 9.2). This is deliberate -- the volume is
 tiny and rotation is one more thing to break.
 
-**KV budget.** 13 keys x 12 runs/day = 156 writes/day against the
-1,000/day free-tier write limit -- ~13% utilisation, ample headroom.
+**KV budget.** 27 keys x 12 runs/day = 324 writes/day against the
+1,000/day free-tier write limit -- ~32% utilisation, ample headroom.
 
 **Why installs are HUMAN actions.** Installing/bootstrapping agents,
 publishing for real, deploying, and mutating KV are all owner-only
