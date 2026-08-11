@@ -667,6 +667,14 @@ module Publish
     def mark_lines(gex, levels)
       c = gex['combined'] || {}
       lines = []
+      # spot line added 2026-08-11 (owner: the BTC tab lacked it while the
+      # MSTR tab had one -- an M3-1-era omission, not a design choice)
+      if gex['btc_spot']
+        lines << { 'xAxis' => nearest_label(levels, gex['btc_spot']),
+                   'label' => { 'formatter' => 'spot', 'position' => 'start',
+                              'offset' => [0, -14] }, # bottom end, nudged above the tick row (labels-never-collide rule)
+                   'lineStyle' => { 'color' => '#c9ccd1', 'type' => 'solid', 'width' => 1 } }
+      end
       if c['gamma_flip']
         lines << { 'xAxis' => nearest_label(levels, c['gamma_flip']),
                    'label' => { 'formatter' => 'flip' },
