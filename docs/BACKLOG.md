@@ -1692,12 +1692,15 @@ Acceptance: rake green; additive + tested.
 - D9-g Envelope freeze rule (freeze each cycle's bound before the
   subsequent trough). After M9-4.
 
-## GATE 9 (sketch; runbook written when the phase closes)
+## GATE 9 -- see docs/Gate-9-runbook.md (owner ruling 2026-07-11: gate
+## instructions live in a dedicated runbook, not here)
 All shadow fields live on the dashboard next to their frozen
-originals; a soak long enough for the owner to compare; the D9-*
-rulings made with data in front of them; flips applied; v1.1 tag.
+originals (M9-11, the LPPL card's "shadow" scoreboard); a soak long
+enough for the owner to compare (shadow fields append daily with the
+04:45 suite-history run); the D9-* rulings made with data in front of
+them; flips applied as separate reviewed packets; v1.1 tag.
 
-## M9-11 · Surface the shadow numbers on the LPPL card  [tier: opus -- mimir-design bound; additive payload/meta + goldens PROVISIONAL] [status: ready] [deps: M9-1..10]
+## M9-11 · Surface the shadow numbers on the LPPL card  [tier: opus -- mimir-design bound; additive payload/meta + goldens PROVISIONAL] [status: done -- 41dc59a; compact "shadow" scoreboard top-right of the lppl_regime card (4th grid, row names on the category y-axis like the scenario module strip, values as labels on a silent invisible scatter, out of the crosshair). Six rows from lppl:latest, defensively read (missing shadow field drops its ROW; NO shadow fields -> byte-identical pre-M9-11 three-panel card): mean/eval = sum of per_horizon.{30,90,180}.mean_per_eval (D9-b, real -1.26 = the density-honest headline), 365/730 = per_horizon_long means (D9-c, +0.16 at 730d), damping = fit.damping vs damping_ref_threshold (D9-e), impr = rmse_impr_pct->improvement_v2 (D9-e), p(osc) = p_value->p_value_v2 (D9-f), freeze = envelope.bound->freeze_candidate (D9-g). Compact/scaled at build time (leading-zero strip, -> arrow). Card help gains one sentence per row naming its D9 item; trough note moved left to clear the column. Fixture extended additively w/ realistic synthetic shadow values (per_horizon sums match frozen bf_by_horizon; noted in payloads/README). Golden chart_lppl_regime PROVISIONAL, screenshot-reviewed at 1440px (no clipping/collisions); no other golden diffs. Contract additive-only, full rake green. Gate-9-runbook.md written.] [deps: M9-1..10]
 Goal: the D9 rulings need the shadow-vs-frozen comparison VISIBLE
       during the soak. LPPL card gains a compact right-side scoreboard
       (side-panels-right ruling) titled "shadow", one line per
