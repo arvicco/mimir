@@ -1,5 +1,9 @@
 # BTCo data sources -- research findings (2026-07-08)
 
+> FROZEN with BTCo (owner ruling 2026-08-10). BTCo development stopped
+> pending a rethink; these data-source findings are retained as the
+> historical research record and are not being acted on.
+
 Owner ruling that triggered this: "BTCo ingest process seems to be
 unreliable and prone to errors. I suggest we do deep research to find
 out if this very data is available somewhere reliably."
