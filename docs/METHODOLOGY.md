@@ -299,6 +299,64 @@ abbreviation), envelope ratio, fit's projected trough
 date/level (`--/--` = none interior), fit omega, logperiodic p-value,
 percentile Z @ empirical percentile, `!` = record low.
 
+### Shadow diagnostics (SHADOW tab -- report-only during the D9 soak)
+
+The Phase-9 statistics revision computes a second, "shadow" version of
+six suite internals alongside the frozen ones and surfaces the pair on
+the LPPL card's SHADOW tab: the current (frozen) value, an arrow, the
+shadow value, and a one-phrase verdict per row. They are additive,
+report-only fields on `lppl:latest` -- no verdict, weight, or threshold
+moves during the soak -- and each row feeds one pre-registered decision
+item (D9-a..g). The representative live numbers below are the ones the
+shipped hover text cites.
+
+- **mean/eval (feeds D9-b).** The average forecast-score gap per
+  evaluation -- power law vs its best rival, in log10; negative means
+  rivals beat the power law that day. Unlike the headline sum (about
+  -460), it does not grow just because we evaluate more often -- it is
+  the honest size of the effect. -1.26 means that on an average day the
+  best rival gave about 18x higher probability to what actually
+  happened. Open question: make this the primary trend number?
+- **365/730 (feeds D9-c).** The same per-evaluation score at 1-year and
+  2-year forecast horizons; these do NOT count toward the verdict yet.
+  Negative at 365d (the power law still loses), positive at 730d (it
+  WINS at two years) -- matching published research that short horizons
+  favour naive models and long horizons favour the power law. Open
+  question: should long horizons enter the score?
+- **damping (feeds D9-e).** An anti-bubble shape test from the Sornette
+  school: a genuine damped anti-bubble's oscillations decay with a
+  damping ratio of at least 1. Today's fit scores 0.41 -- it does NOT
+  qualify under the standard condition, even though it passes the
+  suite's four original filters. Report-only for now. Open question:
+  should this gate the fit verdict?
+- **impr (feeds D9-e).** How much better the LPPLS curve fits the
+  post-peak decline than a plain decay curve. The frozen 29.2% was
+  measured with an unfair advantage (the plain curve got a coarser
+  parameter search); 27.9% is the fair, like-for-like number -- the
+  LPPLS fit still wins, just honestly. The fair search also fixes a bias
+  that pushed the plain curve's peak date to the edge of its grid.
+- **p(osc) (feeds D9-f).** The probability that the log-periodic wobble
+  is just noise. Under the simple noise model (frozen): 0.38; under a
+  realistic model with fat tails and volatility clustering (shadow):
+  0.24. Both are far above the usual 0.05 bar -- the wobble is NOT
+  statistically proven, and the suite is right to say so. Open question:
+  which noise model is the headline?
+- **freeze (feeds D9-g).** The envelope's support bound. 0.439 is
+  today's live value, recomputed daily against a trend that keeps
+  drifting as new data arrives; 0.358 is what the bound would be if
+  frozen at the 2022 low, as a stricter rule would demand. The gap
+  between them is how much the drifting trend flatters the "envelope
+  intact" reading. Open question: freeze each cycle's bound?
+
+**How a shadow number becomes a verdict.** The path is deliberate and
+gated. A candidate statistic ships first as an additive, report-only
+shadow field (no behaviour change); it soaks in view on the SHADOW tab
+so the owner can watch the frozen and shadow values diverge across real
+days; the owner then rules the matching pre-registered decision item
+(D9-a..g); only a ruling flips the headline, and that flip is a reviewed
+analytics-semantics change (Golden Rule 4), never a drive-by. Until a
+ruling lands, the frozen number stays the one the verdict uses.
+
 ## 4. BTCo -- treasury-company balance-sheet stress (scripts/btco/)
 
 ### Why
