@@ -24,8 +24,9 @@ class TestBtcOps < Minitest::Test
   class FakeLaunchctl
     attr_reader :calls
 
-    def initialize(repo:, loaded: {}, on_kickstart: nil)
-      @repo = repo
+    # program_root = the app-managed LIVE clone the plists point at (M9-12).
+    def initialize(program_root:, loaded: {}, on_kickstart: nil)
+      @program_root = program_root
       @loaded = loaded
       @on_kickstart = on_kickstart
       @calls = []
@@ -60,7 +61,7 @@ class TestBtcOps < Minitest::Test
       return [false, "Could not find service #{label}"] unless @loaded[label]
 
       [true, "#{label} = {\n\tstate = not running\n\tlast exit code = 0\n" \
-             "\tprogram = #{@repo}/ops/#{wrapper_for(label)}\n}\n"]
+             "\tprogram = #{@program_root}/ops/#{wrapper_for(label)}\n}\n"]
     end
 
     def bootout(label)
@@ -85,6 +86,12 @@ class TestBtcOps < Minitest::Test
     @repo = Dir.mktmpdir
     FileUtils.mkdir_p(File.join(@repo, 'ops'))
     Dir.glob(File.join(REAL_OPS, '*')).each { |f| FileUtils.cp(f, File.join(@repo, 'ops')) }
+    # M9-12: the app-managed live clone the agents exec from -- a .git dir
+    # plus the ops/ wrappers, exactly what `rake deploy` leaves behind.
+    @live = BTC::Env.live_dir(@home)
+    FileUtils.mkdir_p(File.join(@live, '.git'))
+    FileUtils.mkdir_p(File.join(@live, 'ops'))
+    Dir.glob(File.join(REAL_OPS, '*')).each { |f| FileUtils.cp(f, File.join(@live, 'ops')) }
     @envpath = File.join(@home, '.config', 'mimir', 'env')
     FileUtils.mkdir_p(File.dirname(@envpath))
     @now = Time.utc(2026, 7, 6, 12, 0, 0)
@@ -125,7 +132,8 @@ class TestBtcOps < Minitest::Test
   end
 
   def gex_dir
-    File.join(@repo, 'data', 'gex_history')
+    # Agents write under the data home now (wrapper pins BTC_DATA_DIR).
+    File.join(BTC::Env.data_home(@home), 'gex_history')
   end
 
   def row(rows, label)
@@ -187,7 +195,7 @@ class TestBtcOps < Minitest::Test
 
   def test_install_renders_plist_without_placeholder_into_launchagents
     write_env
-    fake = FakeLaunchctl.new(repo: @repo)
+    fake = FakeLaunchctl.new(program_root: @live)
     code = install(fake, input: StringIO.new("n\nn\nn\nn\n")) # decline all kickstarts
     assert_equal 0, code
 
@@ -195,12 +203,14 @@ class TestBtcOps < Minitest::Test
     assert File.exist?(installed), 'installed plist should exist'
     content = File.read(installed)
     refute_includes content, '__REPO__'
-    assert_includes content, "#{@repo}/ops/run_publish.sh"
+    # M9-12: the program line points at the LIVE clone, not the dev tree.
+    assert_includes content, "#{@live}/ops/run_publish.sh"
+    refute_includes content, "#{@repo}/ops/run_publish.sh"
   end
 
   def test_install_aborts_when_preflight_fails
     # no env file written -> pre-flight fails -> no launchctl calls, exit 1
-    fake = FakeLaunchctl.new(repo: @repo)
+    fake = FakeLaunchctl.new(program_root: @live)
     code = install(fake, input: StringIO.new("n\nn\n"))
     assert_equal 1, code
     refute(fake.calls.any? { |c| c[0] == 'launchctl' }, 'must not touch launchctl on a failed pre-flight')
@@ -210,7 +220,7 @@ class TestBtcOps < Minitest::Test
 
   def test_reinstall_bootouts_before_bootstrap
     write_env
-    fake = FakeLaunchctl.new(repo: @repo,
+    fake = FakeLaunchctl.new(program_root: @live,
                              loaded: { 'com.mimir.publish' => true, 'com.mimir.gex-snapshot' => true })
     code = install(fake, input: StringIO.new("n\nn\nn\nn\n"))
     assert_equal 0, code
@@ -228,7 +238,7 @@ class TestBtcOps < Minitest::Test
 
   def test_fresh_install_does_not_bootout
     write_env
-    fake = FakeLaunchctl.new(repo: @repo) # nothing loaded
+    fake = FakeLaunchctl.new(program_root: @live) # nothing loaded
     install(fake, input: StringIO.new("n\nn\nn\nn\n"))
     refute(fake.calls.any? { |c| c[0, 2] == %w[launchctl bootout] },
            'a fresh install must not bootout')
@@ -238,7 +248,7 @@ class TestBtcOps < Minitest::Test
 
   def test_declined_kickstart_skips_verification
     write_env
-    fake = FakeLaunchctl.new(repo: @repo)
+    fake = FakeLaunchctl.new(program_root: @live)
     io = StringIO.new
     code = install(fake, input: StringIO.new("n\nn\nn\nn\n"), io: io)
     assert_equal 0, code
@@ -274,7 +284,7 @@ class TestBtcOps < Minitest::Test
                                         "suite-history OK: 2/2 suites updated (lppl, scenario)\n")
       end
     end
-    fake = FakeLaunchctl.new(repo: @repo, on_kickstart: on_kick)
+    fake = FakeLaunchctl.new(program_root: @live, on_kickstart: on_kick)
     io = StringIO.new
     code = install(fake, input: StringIO.new("y\ny\ny\ny\n"), io: io, clock: fixed_clock)
 
@@ -294,7 +304,7 @@ class TestBtcOps < Minitest::Test
   def test_kickstart_timeout_fail_row_and_sleeper_called
     write_env
     sleeps = []
-    fake = FakeLaunchctl.new(repo: @repo, on_kickstart: ->(_l) {}) # log never grows
+    fake = FakeLaunchctl.new(program_root: @live, on_kickstart: ->(_l) {}) # log never grows
     io = StringIO.new
     # advancing clock: 100s per call, publish timeout 240s -> times out
     code = install(fake, input: StringIO.new("y\nn\nn\nn\n"), io: io,
@@ -312,7 +322,7 @@ class TestBtcOps < Minitest::Test
     on_kick = lambda do |label|
       append_log('publish.log', "=== run_publish 2026-07-06T12:00:00Z\nABORT: producer crashed\n") if label == 'com.mimir.publish'
     end
-    fake = FakeLaunchctl.new(repo: @repo, on_kickstart: on_kick)
+    fake = FakeLaunchctl.new(program_root: @live, on_kickstart: on_kick)
     io = StringIO.new
     code = install(fake, input: StringIO.new("y\nn\nn\nn\n"), io: io, clock: fixed_clock)
     assert_equal 1, code
@@ -324,7 +334,7 @@ class TestBtcOps < Minitest::Test
 
   def test_status_reports_loaded_and_not_loaded_without_error
     write_env
-    fake = FakeLaunchctl.new(repo: @repo, loaded: { 'com.mimir.publish' => true })
+    fake = FakeLaunchctl.new(program_root: @live, loaded: { 'com.mimir.publish' => true })
     write_status('PUB LIVE 11/11 keys 12:00 UTC', @now - 120)
     io = StringIO.new
     code = BTC::Ops.status(home: @home, repo: @repo, env: {}, runner: fake.method(:call),
@@ -342,7 +352,7 @@ class TestBtcOps < Minitest::Test
     la = File.join(@home, 'Library', 'LaunchAgents')
     FileUtils.mkdir_p(la)
     File.write(File.join(la, 'com.mimir.publish.plist'), 'x')
-    fake = FakeLaunchctl.new(repo: @repo)
+    fake = FakeLaunchctl.new(program_root: @live)
     io = StringIO.new
     code = BTC::Ops.uninstall(home: @home, runner: fake.method(:call), io: io,
                               input: StringIO.new("n\n"), uid: UID)
@@ -357,7 +367,7 @@ class TestBtcOps < Minitest::Test
     FileUtils.mkdir_p(la)
     labels = %w[com.mimir.publish com.mimir.gex-snapshot com.mimir.suite-history]
     labels.each { |l| File.write(File.join(la, "#{l}.plist"), 'x') }
-    fake = FakeLaunchctl.new(repo: @repo, loaded: labels.to_h { |l| [l, true] })
+    fake = FakeLaunchctl.new(program_root: @live, loaded: labels.to_h { |l| [l, true] })
     code = BTC::Ops.uninstall(home: @home, runner: fake.method(:call), io: StringIO.new,
                               input: StringIO.new("y\n"), uid: UID)
     assert_equal 0, code
@@ -374,6 +384,119 @@ class TestBtcOps < Minitest::Test
     labels = BTC::Ops::AGENTS.map(&:first)
     assert_equal %w[com.mimir.publish com.mimir.gex-snapshot
                     com.mimir.suite-history], labels
+  end
+
+  # ---- M9-12: live-runtime pre-flight --------------------------------
+
+  def test_preflight_flags_missing_live_runtime
+    write_env
+    FileUtils.remove_entry(File.join(@live, '.git')) # deploy hasn't run
+    rows = BTC::Ops.preflight(home: @home, repo: @repo, env: {},
+                              runner: ->(_c, _o = {}) { [true, '/bin/launchctl'] }, uid: UID)
+    r = row(rows, 'live runtime')
+    refute r[2]
+    assert_match(/run rake deploy first/, r[1])
+  end
+
+  def test_preflight_live_runtime_present_passes
+    write_env
+    rows = BTC::Ops.preflight(home: @home, repo: @repo, env: {},
+                              runner: ->(_c, _o = {}) { [true, '/bin/launchctl'] }, uid: UID)
+    r = row(rows, 'live runtime')
+    assert r[2], 'live runtime row must pass when the clone is present'
+    assert_includes r[1], @live
+  end
+
+  # ---- M9-12: data migration planner ---------------------------------
+
+  # Seed a dev-tree suite dir with +files+ (name => body); returns the dir.
+  def seed_dev(rel, files)
+    dir = File.join(@repo, rel)
+    FileUtils.mkdir_p(dir)
+    files.each { |name, body| File.write(File.join(dir, name), body) }
+    dir
+  end
+
+  def data_home
+    BTC::Env.data_home(@home)
+  end
+
+  def test_migration_maps_each_suite_to_the_data_dir_seam_layout
+    rows = BTC::Ops.migration_rows(repo: @repo, data_home: data_home, apply: false)
+    got = rows.to_h { |r| [r[:suite], r[:dest]] }
+    BTC::Ops::MIGRATION_SUITES.each do |suite, rel|
+      assert_equal File.join(data_home, suite), got[suite]
+      assert_equal File.join(@repo, rel), rows.find { |r| r[:suite] == suite }[:source]
+    end
+  end
+
+  def test_migration_copies_all_files_then_is_idempotent
+    seed_dev(File.join('scripts', 'lppl', 'data'), 'ledger.jsonl' => "a\n", 'params.json' => '{}')
+    seed_dev(File.join('data', 'gex_history'), '2026-07-06.json' => '{}')
+
+    first = BTC::Ops.migration_rows(repo: @repo, data_home: data_home, apply: true)
+    assert_equal 3, first.sum { |r| r[:copied] }
+    assert_equal 0, first.sum { |r| r[:errors] }
+    assert_equal "a\n", File.read(File.join(data_home, 'lppl', 'ledger.jsonl'))
+    assert File.exist?(File.join(data_home, 'gex_history', '2026-07-06.json'))
+
+    # cp preserved mtime, so a second apply copies nothing (idempotent).
+    second = BTC::Ops.migration_rows(repo: @repo, data_home: data_home, apply: true)
+    assert_equal 0, second.sum { |r| r[:copied] }
+    assert_equal 3, second.sum { |r| r[:skipped] }
+  end
+
+  def test_migration_never_clobbers_a_newer_destination
+    src = seed_dev(File.join('scripts', 'scenario', 'data'), 'history.jsonl' => "old\n")
+    dst_dir = File.join(data_home, 'scenario')
+    FileUtils.mkdir_p(dst_dir)
+    dst = File.join(dst_dir, 'history.jsonl')
+    File.write(dst, "newer\n")
+    # make destination strictly newer than source
+    File.utime(Time.now + 60, Time.now + 60, dst)
+    File.utime(Time.now - 60, Time.now - 60, File.join(src, 'history.jsonl'))
+
+    rows = BTC::Ops.migration_rows(repo: @repo, data_home: data_home, apply: true)
+    scen = rows.find { |r| r[:suite] == 'scenario' }
+    assert_equal 0, scen[:copied]
+    assert_equal 1, scen[:skipped]
+    assert_equal "newer\n", File.read(dst), 'newer destination data must survive'
+  end
+
+  def test_migration_dry_plan_writes_nothing
+    seed_dev(File.join('data', 'vol_spread'), 'history.jsonl' => "x\n")
+    rows = BTC::Ops.migration_rows(repo: @repo, data_home: data_home, apply: false)
+    vs = rows.find { |r| r[:suite] == 'vol_spread' }
+    assert_equal 1, vs[:copied] # planned
+    refute File.exist?(File.join(data_home, 'vol_spread', 'history.jsonl')),
+           'a dry plan must not write to the data home'
+  end
+
+  # ---- M9-12: install runs the migration interactively ---------------
+
+  def test_install_migrates_when_confirmed
+    write_env
+    seed_dev(File.join('scripts', 'lppl', 'data'), 'ledger.jsonl' => "row\n")
+    fake = FakeLaunchctl.new(program_root: @live)
+    io = StringIO.new
+    # inputs: migration 'y', then decline the three kickstarts
+    code = install(fake, input: StringIO.new("y\nn\nn\nn\n"), io: io)
+    assert_equal 0, code
+    assert_includes io.string, 'migration inventory'
+    assert_includes io.string, 'migrated: 1 copied'
+    assert_equal "row\n", File.read(File.join(data_home, 'lppl', 'ledger.jsonl'))
+  end
+
+  def test_install_skips_migration_when_declined
+    write_env
+    seed_dev(File.join('scripts', 'lppl', 'data'), 'ledger.jsonl' => "row\n")
+    fake = FakeLaunchctl.new(program_root: @live)
+    io = StringIO.new
+    code = install(fake, input: StringIO.new("n\nn\nn\nn\n"), io: io)
+    assert_equal 0, code
+    assert_includes io.string, 'migration skipped'
+    refute File.exist?(File.join(data_home, 'lppl', 'ledger.jsonl')),
+           'a declined migration must copy nothing'
   end
 
   # ---- tmux health line ----------------------------------------------
