@@ -85,17 +85,17 @@ rake deploy
 EXPECT, in order: the pre-flight table (all `[ok]`), the generated-
 config line, `deploying: wrangler deploy ...`, `deployed host:
 https://<name>.<subdomain>.workers.dev`, a publish
-(`PUB ... LIVE 11/11` line), and four smoke probes:
+(`PUB ... LIVE 27/27` line), and four smoke probes:
 
 ```
 post-deploy smoke:
   [PASS] GET /healthz                      200 {ok:true}
-  [PASS] GET /api/v1/index                 200 envelope, age 0.0h, 11 keys incl. charts
+  [PASS] GET /api/v1/index                 200 envelope, age 0.0h, 27 keys incl. charts
   [PASS] GET /api/v1/definitely:missing    404 as expected
   [PASS] GET / (dashboard)                 200 dashboard html
 ```
 
-The index probe checks CONTENT, not just freshness: all four
+The index probe checks CONTENT, not just freshness: all 13
 `chart:*` keys must be listed, or it fails.
 
 **2.3 Open the printed host in a browser.** That's the dashboard, live.
@@ -107,6 +107,13 @@ That's the whole routine -- every future deploy is 2.1 + 2.2.
 ---
 
 ## 3. Gate 4 acceptance checklist (once, against the live host)
+
+> HISTORICAL (Gate 4, 2026-07-05): this is the one-time acceptance pass
+> run when the Cloudflare layer first shipped. Its key counts and
+> chart-key spot-check reflect that day's 11-key / four-chart surface;
+> the live surface is now 27 keys / 13 charts (see section 2). Kept as
+> the historical Gate-4 record -- for a current probe use section 2's
+> smoke output.
 
 Set `H` to your deployed host first: `H=https://<name>.<subdomain>.workers.dev`
 
@@ -120,7 +127,7 @@ Set `H` to your deployed host first: `H=https://<name>.<subdomain>.workers.dev`
 ```
 for k in index gex:combined scenario:latest scenario:history \
          lppl:latest lppl:ledger btco:latest \
-         chart:gex_profile chart:scenario_strip chart:lppl_regime chart:btco_table; do
+         chart:gex_btc chart:scenario_strip chart:lppl_regime chart:btco_table; do
   printf '%-24s ' "$k"
   curl -s -o /dev/null -w '%{http_code}  ' "$H/api/v1/$k"
   curl -sI "$H/api/v1/$k" | tr -d '\r' | grep -i x-data-age-seconds
