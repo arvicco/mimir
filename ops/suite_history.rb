@@ -12,7 +12,7 @@
 #   install and NO agent took the duty -- so the bi-hourly publisher
 #   (which deliberately runs lppl --skip-update / no --history) kept
 #   re-stamping FROZEN content and the site served ~29h-stale evidence
-#   under all-green machinery (2026-07-07 INCIDENT, docs/WORKLOG.md).
+#   under all-green machinery (2026-07-07 INCIDENT, .docs/WORKLOG.md).
 #   This agent is that retired duty's successor: it runs the two --history
 #   suites once a day so the evidence trail advances.
 #

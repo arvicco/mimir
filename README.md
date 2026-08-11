@@ -95,7 +95,7 @@ probability.
 Archive snapshot and then CoinGlass (`COINGLASS_API_KEY`, free) -- see
 the source-chain note in the script header. Its history entries before
 2026-07-04 are unreliable: the old parser reported day-of-month numbers
-as daily totals (TOOL-REVIEW.md F-22).
+as daily totals (internal review finding F-22).
 Everything else is keyless public APIs; `etf_flows` is the one HTML
 scrape (degrades gracefully on layout drift).
 
@@ -346,7 +346,7 @@ real neutral day.
   diversified holders (DJT, BLSH, miners) overstates richness by
   construction -- the M7-15b research question.
 - Phase 8 remaining candidates (owner-approved waves,
-  docs/DEV-PROPOSALS.md; family A -- vol surface, basis, GEX history,
+  .docs/DEV-PROPOSALS.md; family A -- vol surface, basis, GEX history,
   max-pain cross-check, IV spread -- shipped 2026-07-10/11 as the
   tools above): Coinglass derivatives-positioning module, CFTC COT,
   exchange reserves, Kalshi implied probabilities, bubble-index
@@ -380,8 +380,9 @@ recorded before a recorder fix are refreshed (`rake fixtures:record`,
 network, owner-run); the skip messages say exactly which.
 
 Read `docs/METHODOLOGY.md` (how to interpret the outputs), `CLAUDE.md`
-(ground rules), `ARCHITECTURE.md` (design + phases), `docs/DEV-LOOP.md`
-(how this gets built), `docs/TOOL-REVIEW.md` (per-tool audit),
-`docs/BACKLOG.md` (work state), `docs/RUNBOOK.md` (operate the box:
-launchd agents, tmux health line, rotate token / recover from stale).
+(ground rules), `ARCHITECTURE.md` (design + phases), `docs/RUNBOOK.md`
+(operate the box: launchd agents, tmux health line, rotate token /
+recover from stale). Internal process documents (dev loop, backlog,
+worklog, proposals, gate runbooks) live in the gitignored `.docs/` on
+the development machine and are not part of the repository.
 ENV reference: `.env.example`.
