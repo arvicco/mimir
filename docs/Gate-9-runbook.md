@@ -15,7 +15,7 @@ to run the gate.
 ## 1. Preview eyeball — the shadow scoreboard
 
 ```
-cd ~/Dev/mimir-phase9
+cd ~/Dev/mimir/.worktrees/phase-9
 rsync -a ~/Dev/mimir/scripts/lppl/data/ scripts/lppl/data/        # cached inputs (gitignored)
 rsync -a ~/Dev/mimir/scripts/scenario/data/ scripts/scenario/data/
 PUBLISH_DRY_RUN=1 ruby publish/publish.rb                          # EXPECT: 26 written, 0 skipped
@@ -68,6 +68,14 @@ STOP — a chart changed that shouldn't have.
 commit; this step is your formal re-bless after looking at step 1.)
 
 ## 3. Merge and deploy (your actions; loop verifies CI first)
+
+After the merge lands, remove the phase worktree in the same sitting
+(owner ruling 2026-08-11: a stale worktree after its phase ends is an
+anti-pattern; `rake health` fails until it is gone):
+```
+cd ~/Dev/mimir && git worktree remove .worktrees/phase-9
+```
+
 
 Open the PR:
 https://github.com/arvicco/mimir/compare/main...phase-9

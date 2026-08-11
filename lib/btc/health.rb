@@ -281,6 +281,51 @@ module BTC
       bad
     end
 
+    # Worktree discipline (owner rulings 2026-08-11). Two anti-patterns:
+    #   (a) a worktree OUTSIDE the main checkout (sibling ~/Dev/mimir-phaseX
+    #       folders; the convention is .worktrees/, gitignored), and
+    #   (b) a STALE worktree left behind after its phase ended (its branch
+    #       already merged into main) -- the phase-8 one rotted for a month.
+    # check_worktrees is pure (offline-testable); scan_worktrees gathers the
+    # git state and returns [] where git/worktrees are absent (CI checkout).
+    def check_worktrees(porcelain, merged_branches)
+      bad = []
+      entries = porcelain.split(/\n\n+/).map(&:strip).reject(&:empty?)
+      # git lists the MAIN checkout first -- that anchors "inside the repo"
+      # no matter which worktree the gate runs from
+      main = File.expand_path(entries.first[/^worktree (.+)$/, 1].to_s)
+      return [] if main.empty?
+
+      entries.each do |entry|
+        path   = entry[/^worktree (.+)$/, 1]
+        branch = entry[/^branch refs\/heads\/(.+)$/, 1]
+        next unless path
+
+        path = File.expand_path(path)
+        next if path == main # the main checkout itself
+
+        unless path.start_with?(main + File::SEPARATOR)
+          bad << "worktree: #{path} is outside the repo (anti-pattern, owner " \
+                 'ruling 2026-08-11) -- git worktree move it under .worktrees/'
+        end
+        if branch && merged_branches.include?(branch)
+          bad << "worktree: #{path} (branch #{branch}) is STALE -- the branch " \
+                 'is merged into main; the phase ended, git worktree remove it'
+        end
+      end
+      bad
+    end
+
+    def scan_worktrees
+      porcelain = IO.popen(%w[git worktree list --porcelain], &:read)
+      return [] unless $?.success?
+
+      merged = IO.popen(%w[git branch --merged main --format %(refname:short)],
+                        &:read)
+      merged = '' unless $?.success?
+      check_worktrees(porcelain, merged.split("\n").map(&:strip) - ['main'])
+    end
+
     # One shell wrapper: `bash -n` syntax, the PUBLISH_DRY_RUN=0 guarantee
     # for the publish wrapper, and the repo-wide --apply ban (universe.json
     # protection -- no ops job may mutate the universe).

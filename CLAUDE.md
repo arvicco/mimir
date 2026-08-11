@@ -169,6 +169,10 @@ same commit (`rake health` fails on registry drift).
   they cover. Never commit `data/`, `*.status`, fixtures containing
   secrets, or `.env`.
 - Do not rewrite published history; do not tag -- tags are gate actions.
+- **Worktrees live INSIDE the repo** at `.worktrees/<branch>` (gitignored)
+  -- sibling `~/Dev/mimir-phaseX` folders are a banned anti-pattern, and
+  a worktree whose branch has merged is removed at the gate that merged
+  it (owner rulings 2026-08-11; `rake health` enforces both).
 
 ## Repo map (details in ARCHITECTURE.md section 3)
 
@@ -183,26 +187,13 @@ same commit (`rake health` fails on registry drift).
 
 ## Current phase
 
-Phase 9 (LPPL statistics revision, branch phase-9 in
-~/Dev/mimir-phase9; Gate 8 closed 2026-08-10 -- PR #9 + hotfix #10,
+Phase 9 (LPPL statistics revision, branch phase-9, worktree
+.worktrees/phase-9; Gate 8 closed 2026-08-10 -- PR #9 + hotfix #10,
 deployed + live-verified, 26 keys). Spec = the SBI consolidated
-review; packets M9-1..10 + decision items D9-a..g in docs/BACKLOG.md.
-SHADOW-FIRST: verdict-affecting changes ship as additive report-only
-fields and flip only on owner rulings (Golden Rule 4). BTCo stays
-FROZEN (2026-08-10 ruling). Stage A tiering; visual work follows
-.claude/skills/mimir-design; deploys and launchd changes are HUMAN
-actions. Update this line at each gate.
-v1 tagged at 03cac84, deployed and live-verified). **BTCo
-development is FROZEN (owner ruling 2026-08-10, pending a rethink)**:
-no BTCo packets, no ingest work, no universe edits; code and tests
-stay. Owner rulings 2026-08-10: BTCo table stays VISIBLE (as a
-rethink reminder), the daily btco-alert agent STOPS, dashboard
-auto-refresh gets BUILT (pre-Gate-8 packet). Gate 8 = vol/GEX family
-(M8-1..M8-10 built) + pre-gate hardening; runbook
-docs/Gate-8-runbook.md. After Gate 8: Phase 9 (LPPL statistics
-revision from the SBI review; every verdict-affecting change is a
-Golden-Rule-4 decision item). Stage A tiering (DEV-LOOP.md section
-2): Fable orchestrates/reviews, Opus/Sonnet write most code in
-isolated worktrees. Visual work follows .claude/skills/mimir-design;
-deploys and launchd changes are HUMAN actions (Golden Rule 3).
-Update this line at each gate.
+review; packets M9-1..11 + decision items D9-a..g in docs/BACKLOG.md;
+Gate 9 = docs/Gate-9-runbook.md. SHADOW-FIRST: verdict-affecting
+changes ship as additive report-only fields and flip only on owner
+rulings (Golden Rule 4). BTCo stays FROZEN (2026-08-10 ruling).
+Stage A tiering; visual work follows .claude/skills/mimir-design;
+deploys and launchd changes are HUMAN actions. Update this line at
+each gate.
