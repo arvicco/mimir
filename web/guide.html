@@ -75,10 +75,11 @@
 
   <h1>mimir &mdash; how to read this dashboard</h1>
   <p class="strap">
-    mimir is a personal Bitcoin analytics dashboard. Four instrument
+    mimir is a personal Bitcoin analytics dashboard. Five instrument
     families &mdash; options positioning (GEX), a multi-signal regime
-    composite, an LPPL bubble-diagnostic suite, and a treasury-company
-    analyser &mdash; are computed on a private machine and published as
+    composite, an LPPL bubble-diagnostic suite, a treasury-company
+    analyser, and a volatility surface / spread / basis view &mdash; are
+    computed on a private machine and published as
     pre-built charts roughly every two hours. The dashboard is a dumb
     renderer: it draws whatever the last publish produced and computes
     nothing itself.
@@ -125,13 +126,20 @@
         the last good chart stays on screen. An honest red beats a silent
         lie: you always know how old the number in front of you is.
       </div>
+      <div>
+        <span class="lbl">Glossary hovers &mdash;</span> bold terms and
+        legend abbreviations across the dashboard &mdash; CW / PW, ATM IV,
+        RR25, and the scenario module names &mdash; carry hover
+        explanations wherever they appear; point at one to read what it
+        means.
+      </div>
     </div>
   </section>
 
   <hr>
 
   <section id="gex">
-    <h2>GEX <span class="tabs">tabs: BTC / MSTR / TREND</span></h2>
+    <h2>GEX <span class="tabs">tabs: BTC / MSTR / BTC TREND / MSTR TREND</span></h2>
     <p>
       <span class="lbl">What it shows &mdash;</span> <span class="term">GEX</span>
       (gamma exposure) is the dollar amount options dealers must re-hedge
@@ -139,12 +147,13 @@
       <span class="term">long gamma</span> sell rallies and buy dips, which
       <em>pins</em> price; net <span class="term">short gamma</span> dealers
       do the opposite, which <em>amplifies</em> moves. The <b>BTC</b> tab
-      buckets dealer gamma across Deribit and nine US spot-ETF option chains
+      buckets dealer gamma across Deribit and the US spot-ETF option chains
       on one BTC-equivalent price axis; the <b>MSTR</b> tab shows
       MicroStrategy's own single-name chain on its equity price axis
       (deliberately not merged &mdash; MSTR gamma lives on the stock, not
-      the coin); the <b>TREND</b> tab is a daily history of where spot sat
-      relative to the flip and the walls.
+      the coin); the <b>BTC TREND</b> and <b>MSTR TREND</b> tabs are daily
+      histories of where spot has sat relative to that market's flip and
+      walls.
     </p>
     <p>
       <span class="lbl">How to read it &mdash;</span> above zero is long
@@ -157,19 +166,20 @@
       (PW)</span>, the most negative. Walls attract and then repel price, so
       they read as range edges. This is a naive dealer model (dealers
       assumed long calls, short puts), so trust the <em>levels and walls</em>
-      more than the sign. On the TREND tab a <code>MP &Delta;</code> in the
-      title cross-checks our flip against Coinglass's max-pain level.
+      more than the sign. On the BTC TREND tab a <code>MP &Delta;</code> in
+      the title cross-checks our flip against Coinglass's max-pain level.
     </p>
     <p>
       <span class="lbl">The title number &mdash;</span>
       <code>GEX $M/1% &middot; spot &lt;price&gt;</code> (net dealer gamma
-      in $M per 1% move, and spot); the TREND title carries flip distance,
-      the current gamma-regime run length, and the max-pain delta.
+      in $M per 1% move, and spot); a TREND title carries flip distance,
+      the current gamma-regime run length, and (on BTC TREND) the max-pain
+      delta.
     </p>
     <p>
       <span class="lbl">Cadence &mdash;</span> published bi-hourly. Deribit
       open interest is live; CBOE quotes are ~15 min delayed and OPRA open
-      interest is previous-day. The TREND tab gains one point per day from
+      interest is previous-day. The TREND tabs gain one point per day from
       the 08:15 GEX snapshot (options data cannot be backfilled).
     </p>
     <p>
@@ -232,7 +242,7 @@
   <hr>
 
   <section id="lppl">
-    <h2>LPPL <span class="tag">regime falsification</span></h2>
+    <h2>LPPL <span class="tabs">tabs: LPPL / SHADOW</span></h2>
     <p>
       <span class="lbl">What it shows &mdash;</span> the
       <span class="term">LPPL-as-regime</span> claim holds that BTC's log
@@ -269,6 +279,22 @@
       STRESSED / FALSIFIED</span>; if either the trend or the envelope test
       reads -1 the verdict is capped at STRESSED, and if both do it is
       FALSIFIED outright.
+    </p>
+    <p>
+      <span class="lbl">The SHADOW tab &mdash;</span> a second tab on this
+      card shows six <em>frozen-vs-shadow</em> diagnostics, one per row:
+      the statistic's name, its current (<span class="term">frozen</span>)
+      value, an arrow, a candidate (<span class="term">shadow</span>)
+      revision, and a one-phrase verdict &mdash; all readable without
+      hover. The six are a density-honest trend number, the 1-year/2-year
+      forecast scores, the anti-bubble damping condition, the fair
+      like-for-like fit improvement, the oscillation p-value under a
+      fat-tailed noise model, and the envelope's freeze bound. Hover any
+      row for a plain-language explanation of what it measures and which
+      pre-registered decision item (D9-a..g) it feeds. These are additive,
+      report-only numbers during the soak &mdash; they change no verdict or
+      weight yet; owner rulings after the soak decide, per item, whether a
+      shadow number becomes the headline.
     </p>
     <p>
       <span class="lbl">Cadence &mdash;</span> published bi-hourly; the tests
@@ -334,25 +360,29 @@
   <hr>
 
   <section id="vol">
-    <h2>Volatility <span class="tabs">tabs: SURFACE / SPREAD / BASIS</span></h2>
+    <h2>Volatility <span class="tabs">surface [BTC/MSTR] + basis, and a separate spread card</span></h2>
     <p>
       <span class="lbl">What it shows &mdash;</span> where GEX says how
-      dealers are positioned, this card says what the market <em>pays</em>
-      for volatility. <b>SURFACE</b> is BTC's implied-vol term structure
-      from Deribit &mdash; ATM IV (the at-the-money level) at three tenors,
-      plus the <span class="term">25-delta risk reversal (RR25)</span>
-      (call IV minus put IV) and the <span class="term">25-delta butterfly
-      (FLY25)</span>. <b>SPREAD</b> is MSTR's ATM IV minus BTC's, tenor by
-      tenor &mdash; the live price of treasury-company leverage. <b>BASIS</b>
-      is the annualized basis of Deribit's dated futures over spot, per
-      expiry, plus the OI-weighted perpetual funding rate.
+      dealers are positioned, these cards say what the market <em>pays</em>
+      for volatility. The <b>Volatility</b> card stacks two things: a
+      <span class="term">surface</span> section, tabbed <b>BTC</b> /
+      <b>MSTR</b>, showing that market's implied-vol term structure from
+      Deribit &mdash; ATM IV (the at-the-money level) at three tenors, plus
+      the <span class="term">25-delta risk reversal (RR25)</span> (call IV
+      minus put IV) and the <span class="term">25-delta butterfly
+      (FLY25)</span> &mdash; and, beneath it, the <span class="term">basis</span>:
+      the annualized basis of Deribit's dated futures over spot, per expiry,
+      plus the OI-weighted perpetual funding rate. A separate
+      <b>MSTR-BTC spread</b> card shows MSTR's ATM IV minus BTC's, tenor by
+      tenor (7 / 14 / 21 / 45 / 90d) &mdash; the live price of
+      treasury-company leverage &mdash; with its own trend stacked beneath.
     </p>
     <p>
       <span class="lbl">How to read it &mdash;</span> a negative RR25 means
       the market pays up for downside &mdash; puts cost more than calls
       (fear); a rising FLY25 means fatter tails. A positive MSTR&minus;BTC
       spread is what the option market charges for MSTR's leverage right
-      now. On BASIS, positive basis and positive funding mean the market
+      now. In the basis section, positive basis and positive funding mean the market
       pays to be long (contango, leverage demand); a flip negative is
       deleveraging or fear. These readings are descriptive only &mdash;
       there are no thresholds and no scores here.
