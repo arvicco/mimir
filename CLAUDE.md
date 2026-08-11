@@ -84,7 +84,7 @@ same commit (`rake health` fails on registry drift).
    a gate checklist in BACKLOG.md or a chat summary; keep the runbook
    current as gate scope evolves. **Owner steps run ONLY in ~/Dev/mimir
    or a browser** (owner ruling 2026-08-11: no worktree/obscure paths in
-   gate work) -- any step that needs the phase worktree is the loop's
+   gate work) -- any step needing branch-side build/prep is the loop's
    job, done before the handoff; the runbook says "ask the loop", not
    "cd somewhere".
 
@@ -196,13 +196,16 @@ same commit (`rake health` fails on registry drift).
 
 ## Current phase
 
-Phase 9 (LPPL statistics revision, branch phase-9, worktree
-.worktrees/phase-9; Gate 8 closed 2026-08-10 -- PR #9 + hotfix #10,
-deployed + live-verified, 26 keys). Spec = the SBI consolidated
-review; packets M9-1..11 + decision items D9-a..g in docs/BACKLOG.md;
-Gate 9 = docs/Gate-9-runbook.md. SHADOW-FIRST: verdict-affecting
-changes ship as additive report-only fields and flip only on owner
-rulings (Golden Rule 4). BTCo stays FROZEN (2026-08-10 ruling).
-Stage A tiering; visual work follows .claude/skills/mimir-design;
-deploys and launchd changes are HUMAN actions. Update this line at
-each gate.
+Phase 9 merged 2026-08-11 (LPPL statistics revision; PR #11 -- 27 KV
+keys deployed and live-verified: index + 11 producers + 2 history
+tails + 13 chart specs). Dev is plain phase branches off main;
+worktrees are BANNED (rake health enforces). Next: the SHADOW-tab soak
+and the pre-registered decision items D9-a..g (owner rulings after the
+soak), then phase-10 scoping. SHADOW-FIRST: verdict-affecting changes
+ship as additive report-only fields and flip only on owner rulings
+(Golden Rule 4). BTCo stays FROZEN (2026-08-10 ruling). Production
+agents run the app-managed live clone + data home under ~/Library/
+Application Support/mimir; `rake ops:install` (migration + launchd
+install) is a HUMAN action, pending until the owner runs it. Stage A
+tiering; visual work follows .claude/skills/mimir-design; deploys and
+launchd changes are HUMAN actions. Update this line at each gate.

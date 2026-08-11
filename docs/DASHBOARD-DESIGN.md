@@ -1,5 +1,10 @@
 # Dashboard design (Phase 4)
 
+> HISTORICAL (Phase 4 spec, superseded by .claude/skills/mimir-design).
+> That skill is now the authoritative design system; this file is kept
+> as the Phase-4 record of the original dashboard layout decisions and
+> does not reflect the later GEX/vol and LPPL-shadow cards.
+
 The spec M4-2/M4-3 implement against. Constraints come from
 `.claude/skills/mimir-design/SKILL.md` (owner rulings, Gate 3 rounds
 1-4) -- nothing here overrides that file; this doc only adds the

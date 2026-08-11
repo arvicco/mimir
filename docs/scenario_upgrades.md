@@ -1,11 +1,12 @@
 # scenario_upgrades.md -- Mimir scenario suite v2
 
-> STATUS 2026-07-12: reconciled into the phase plan as Phase 9 -- see
-> docs/DEV-PROPOSALS.md "Reconciliation" section (WINS on conflict).
-> Probe-amended build order: U1 -> U4 (start early, longest parallel
-> run) -> U3/U6 monitors -> U7; U2 cohort and U5 squeeze are BLOCKED
-> on Coinglass tier (decision item D9-a) -- their data (LTH/STH
-> family, liquidation topology) is not served on our plan.
+> STATUS 2026-08-11: DEFERRED, UNSCHEDULED. Phase 9 became the LPPL
+> statistics revision, not this scenario-v2 work -- these modules did
+> NOT ship and remain an unscheduled candidate (docs/DEV-PROPOSALS.md).
+> The earlier reconciliation note and build order below are historical:
+> U1 -> U4 (start early) -> U3/U6 monitors -> U7, with U2 cohort and U5
+> squeeze blocked on Coinglass tier (their LTH/STH and liquidation-
+> topology data is not served on our plan).
 
 Upgrades and new tests derived from the 2026-07-05 reassessment. Each of
 the four novel theories from that analysis becomes a **pre-registered,

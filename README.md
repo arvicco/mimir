@@ -71,9 +71,11 @@ computed off Deribit's own mark IV; funding is percent per 8h
 (verified against Binance). `gex_trend.rb` reads
 `data/gex_history/`; the vol surface snapshots daily into
 `data/vol_history/` via the same 08:15 agent. On the dashboard these
-render as a fifth "Volatility" card ([SURFACE][SPREAD][BASIS] tabs)
-and a [TREND] tab on the GEX card -- live after the next gate's
-merge + deploy, not before.
+render as two cards -- a "Volatility" card (the surface tabbed
+[BTC][MSTR] with the futures/funding basis stacked below) and a
+separate MSTR-vs-BTC IV-spread card (the current spread with its trend
+stacked beneath) -- plus [BTC TREND] and [MSTR TREND] tabs on the GEX
+card. All live since the Phase 8 deploy.
 
 ## Scenario composite
 
@@ -131,6 +133,16 @@ staged history against the organically recorded days field-by-field.
 `rake lppl:promote` performs the one-shot write into the live ledger
 and fit history (diff, one prompt, timestamped backups) -- it is
 interactive-only (refuses CI and non-TTY), a deliberate human step.
+
+On the dashboard the LPPL card carries a second **SHADOW** tab beside
+the regime chart: six frozen-vs-shadow diagnostics -- each row shows
+the current ("frozen") statistic, an arrow, and a candidate ("shadow")
+revision, and hovers to a plain-language explanation of what it
+measures and which pre-registered decision item (D9-a..g) it feeds. The
+shadow values are additive, report-only fields riding the same
+`lppl:latest` payload; they change no verdict or weight during the
+soak. Owner rulings after the soak decide, per item, whether a shadow
+statistic becomes the headline.
 
 ## BTCo treasury analyser — FROZEN
 
@@ -210,9 +222,10 @@ carry the token or payloads.
 
 ## Chart specs + offline preview
 
-The publish run also builds five pre-rendered chart specs
-(`v1:chart:gex_profile / gex_mstr / scenario_strip / lppl_regime /
-btco_table`) --
+The publish run also builds thirteen pre-rendered chart specs under
+`v1:chart:` (`gex_btc / gex_mstr / gex_btc_trend / gex_mstr_trend /
+scenario_strip / lppl_regime / lppl_shadow / btco_table / vol_surface /
+vol_surface_mstr / vol_spread / vol_spread_trend / vol_basis`) --
 each payload is a complete ECharts option the dashboard renders with
 one `setOption` call. Review them offline:
 
@@ -251,11 +264,16 @@ static dashboard renders the pre-built chart specs.
   `wrangler secret put` and no code change. Tested with the node built-in
   runner (`rake web:test`, zero npm).
 - **Dashboard** (`web/index.html` + shared `web/render.js`): a same-origin
-  loader over the Worker -- per-key chips, live age tickers (the badge
-  ticks up second-by-second and recolours green/amber/red from each
+  loader over the Worker -- per-key dot badges, live age tickers (each
+  dot ticks up second-by-second and recolours green/amber/red from each
   envelope's `generated_at`/`ttl_hint_s`), a healthz-aware failure banner,
-  the chart cards in a 2x2 grid (the two GEX charts share one card as
-  [BTC][MSTR] tabs), and the BTCo sortable table.
+  the chart cards in a 3x2 grid (the GEX card is
+  [BTC][MSTR][BTC TREND][MSTR TREND] tabs, the LPPL card [LPPL][SHADOW],
+  and volatility is a surface+basis card plus a separate IV-spread
+  card), and the BTCo sortable table. The staleness badges are dot-only
+  (hover a dot for its key and last publish time); legend terms (CW/PW,
+  ATM IV, RR25) and the scenario module names carry the same hover
+  glossary explanations.
 - **Deploy** (`rake deploy`, **owner-run**): pre-flight (wrangler + CF_*
   env + clean tree + green gate), generate the live `wrangler.toml` from
   the committed template with the namespace id from `CLOUDFLARE_KV_NAMESPACE_ID`,
@@ -335,8 +353,8 @@ real neutral day.
   cross-ref, signal scorecard, ntfy push alerts, deterministic
   filing-iXBRL parser (M7-13). Scenario history seeding/replay.
 - IV rank / percentiles on the vol card: needs weeks of
-  `data/vol_history/` accumulation first (snapshotting starts when
-  phase-8 merges).
+  `data/vol_history/` accumulation first (snapshotting has been active
+  since Gate 8; the ranks become buildable once enough days accrue).
 - Queue-tail hardening: Cloudflare Access (email OTP / service tokens)
   in front of the Worker host -- console work, post-v1.
 
