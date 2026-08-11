@@ -1718,7 +1718,7 @@ Goal: the D9 rulings need the shadow-vs-frozen comparison VISIBLE
 Acceptance: rake green; additive contract tests; screenshot-verified
       against the design skill (density, no clipping, no collisions).
 
-## M9-12 · Production runtime separation -- kill the worktree era  [tier: fable spec + opus impl -- ops/deploy change, launchd install is HUMAN] [status: ready] [deps: --]
+## M9-12 · Production runtime separation -- kill the worktree era  [tier: fable spec + opus impl -- ops/deploy change, launchd install is HUMAN] [status: done -- code + tests + docs; the live-runtime CLONE and the launchd install/migration are the owner's Gate-9 actions (3a)] [deps: --]
 Goal: owner rulings 2026-08-11: development uses plain git branches in
       ~/Dev/mimir like any normal project; the ONLY reason worktrees
       ever existed was that the launchd agents execute from the dev
