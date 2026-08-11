@@ -167,7 +167,7 @@ never override into the inversion.
 (text); puts/negative `#c63939` / `#ef6b6b`; flip/bound lines amber
 `#e6a23c`; stress bands green→amber→orange→red.
 
-## Self-review before any owner handoff (DEV-LOOP.md step 6b)
+## Self-review before any owner handoff (.docs/DEV-LOOP.md step 6b)
 
 You design blind unless you look. After any visual change:
 
