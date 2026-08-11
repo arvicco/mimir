@@ -267,7 +267,11 @@ function applyTerms(chart, option, meta, host) {
   if (!meta || !meta.terms || !option) return;
   var terms = meta.terms;
   // (1) drawn legend items -- ECharts' own legend.tooltip, our styled block.
-  chart.setOption({ legend: { tooltip: {
+  // ONLY when the option already SHOWS a legend: merging a legend object
+  // into a legend-less chart CREATES one (default show:true) -- observed
+  // 2026-08-11 as a phantom "composite/modules" legend colliding with the
+  // scenario title (owner report).
+  if (option.legend && option.legend.show !== false) chart.setOption({ legend: { tooltip: {
     show: true, confine: true,
     backgroundColor: "#232933", borderColor: "#3a424e", borderWidth: 1,
     textStyle: { color: "#ccd3dc", fontSize: 12 },
@@ -478,7 +482,19 @@ function buildChartInstance(env, key, meta, legendHost) {
   // (below-the-fold) container -- the callback owns containment now.
   chart.setOption({ tooltip: { position: tooltipPosition(div), confine: false } });
   if (meta && meta.tooltip_formatter && FORMATTERS[meta.tooltip_formatter]) {
-    chart.setOption({ tooltip: { formatter: FORMATTERS[meta.tooltip_formatter] } });
+    var fmtTip = { formatter: FORMATTERS[meta.tooltip_formatter] };
+    if (meta.tooltip_formatter === "lppl_shadow") {
+      // this formatter's block is written light-on-dark (house bubble
+      // colors); ECharts' default white tooltip made it unreadable
+      // (owner report 2026-08-11) -- give it the house dark chrome
+      fmtTip.backgroundColor = "#232933";
+      fmtTip.borderColor = "#3a424e";
+      fmtTip.borderWidth = 1;
+      fmtTip.textStyle = { color: "#ccd3dc", fontSize: 12 };
+      fmtTip.extraCssText = "border-radius:8px;padding:10px 14px;" +
+                            "box-shadow:0 6px 24px rgba(0,0,0,.45);max-width:340px;white-space:normal;";
+    }
+    chart.setOption({ tooltip: fmtTip });
   }
   if (meta && meta.legend_widget && WIDGETS[meta.legend_widget]) {
     WIDGETS[meta.legend_widget](host, chart, env.payload, meta);

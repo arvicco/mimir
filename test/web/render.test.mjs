@@ -354,6 +354,7 @@ test('applyTerms wires a legend tooltip: known items render the block, unknown b
   const e = env('chart:vs', '2026-08-10T16:00:00Z',
     { desc: 'd', axes: { x: 'x', y: 'y' }, help: 'h', terms: { RR25: 'risk reversal text' } },
     [{ name: 'RR25' }]);
+  e.payload.legend = { data: ['RR25'] }; // the option SHOWS a legend
   R.buildChartCard(e, 'chart:vs');
   const inst = echarts.instances[echarts.instances.length - 1];
   const legOpt = inst._opts.find((o) => o.legend && o.legend.tooltip);
@@ -401,4 +402,30 @@ test('a term-carrying category axis gets triggerEvent + a viewport popover (scen
   assert.equal(pop.style.display, 'block');
   inst._on.mouseout.forEach((f) => f({ componentType: 'yAxis' }));
   assert.equal(pop.style.display, 'none');
+});
+
+test('applyTerms never creates a legend on a legend-less chart (phantom-legend regression)', () => {
+  // 2026-08-11 owner report: the scenario chart (no legend in its option)
+  // grew a phantom "composite/modules" legend colliding with the title,
+  // because merging {legend:{tooltip}} CREATES a default-shown legend.
+  const { R, echarts } = loadRender();
+  const e = env('chart:scn', '2026-08-10T16:00:00Z',
+    { desc: 'd', axes: { x: 'x', y: 'y' }, help: 'h', terms: { macro: 'macro text' } },
+    [{ name: 'composite' }]);
+  R.buildChartCard(e, 'chart:scn'); // payload has NO legend key
+  const inst = echarts.instances[echarts.instances.length - 1];
+  assert.ok(!inst._opts.some((o) => o.legend),
+            'no legend setOption may be recorded for a legend-less option');
+});
+
+test('the lppl_shadow formatter tooltip carries dark house chrome (contrast regression)', () => {
+  const { R, echarts } = loadRender();
+  const e = env('chart:lppl_shadow', '2026-08-10T16:00:00Z',
+    { desc: 'd', axes: { x: 'x', y: 'y' }, help: 'h', tooltip_formatter: 'lppl_shadow' },
+    [{ name: 'rows' }]);
+  R.buildChartCard(e, 'chart:lppl_shadow');
+  const inst = echarts.instances[echarts.instances.length - 1];
+  const tip = inst._opts.map((o) => o.tooltip).filter(Boolean).pop();
+  assert.equal(tip.backgroundColor, '#232933', 'dark bubble background');
+  assert.equal(tip.textStyle.color, '#ccd3dc', 'light text on dark');
 });
