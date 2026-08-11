@@ -337,7 +337,8 @@ class TestChartSpecs < Minitest::Test
   def test_gex_profile_marklines_flip_and_walls
     marks = first_bar(build('gex_btc'))['markLine']['data']
     labels = marks.map { |m| m['label']['formatter'] }
-    assert_equal %w[flip CW PW], labels # the fixture payload has all three
+    # spot added 2026-08-11 (owner parity ruling: MSTR tab had it, BTC lacked it)
+    assert_equal %w[spot flip CW PW], labels
     marks.each { |m| assert_match(/\A\d+(\.\d)?k\z/, m['xAxis']) } # snapped to category
   end
 

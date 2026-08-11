@@ -2,6 +2,8 @@
 
 One line per completed packet: date · packet · commit · notes.
 
+2026-08-11 · M9-16 · (with M9-15 push) · Spot line added to the BTC GEX profile (parity with MSTR, owner request at the Gate 9 preview); label at the bottom line-end after the top-position first attempt collided with flip -- caught in self-review screenshots. MSTR banding untouched.
+
 2026-08-11 · M9-15 · de968c0 · Glossary hover explanations via a sixth additive renderer hook, meta.terms = { TERM => plain explanation } (owner Gate-9 ruling). Wired in render.js to the fitting surface: drawn ECharts legends (legend.tooltip + styled formatter -- ATM IV/RR25/FLY25, spread/MSTR/BTC, 7d..90d, spot/flip/CW/PW), the scenario module scoreboard (canvas axis labels -> triggerEvent + a viewport-fixed styled popover), and the gex_cp venue widget (per-venue CSS bubble). Owner-approved texts verbatim. terms rides meta only -> no golden drift (asserted); 27 written/0 skip, key count unchanged. Playwright drove CW/RR25/macro/DERI hovers (all render the lppl_shadow-style block, all in-viewport, console clean). Skill file records the hook in the same commit.
 2026-08-11 · M9-14 · (with M9-13 push) · Same-day repair for the vol_spread daily history row -- owner caught the null Aug-11 point at the Gate 9 preview; root cause: the 00:48Z first tick had a transient Deribit failure and the once-per-day date guard froze it. Later runs now replace today's row when strictly more spreads are non-null; never downgrades; atomic rewrite. Live row heals at the first post-deploy tick.
 
