@@ -1717,3 +1717,33 @@ Goal: the D9 rulings need the shadow-vs-frozen comparison VISIBLE
       panel content changes; goldens re-blessed PROVISIONAL.
 Acceptance: rake green; additive contract tests; screenshot-verified
       against the design skill (density, no clipping, no collisions).
+
+## M9-12 · Production runtime separation -- kill the worktree era  [tier: fable spec + opus impl -- ops/deploy change, launchd install is HUMAN] [status: ready] [deps: --]
+Goal: owner rulings 2026-08-11: development uses plain git branches in
+      ~/Dev/mimir like any normal project; the ONLY reason worktrees
+      ever existed was that the launchd agents execute from the dev
+      checkout. Separate them:
+      (a) Runtime code copy at ~/Library/Application Support/mimir/live
+          -- a clone kept on the DEPLOYED commit, updated by rake
+          deploy (fetch + checkout --detach <pushed deployed sha>)
+          before the deploy's publish runs; never edited by hand.
+      (b) Data home at ~/Library/Application Support/mimir/data --
+          BTC_DATA_DIR for all agents (env.rb has supported this since
+          Phase 1), so code checkouts are stateless. One-time
+          migration at install: decommissioning inventory of every
+          file the agents read/write today (scripts/lppl/data,
+          scripts/scenario/data, data/gex_history, data/vol_history,
+          data/vol_spread, data/source_cache, capstruct state), each
+          mapped to its new path, copied, verified non-empty; the
+          inventory printed for the owner.
+      (c) ops plists/wrappers exec from the live copy with BTC_DATA_DIR
+          set; rake ops:install renders them; the INSTALL is the
+          owner's one action (Golden Rule 3).
+      (d) rake deploy pre-flight gains: live-copy sync step + refuses
+          if the deployed sha is not pushed. Gate runbooks stop caring
+          what branch ~/Dev/mimir has checked out.
+Acceptance: rake green; deploy dry-run shows the sync step; ops:install
+      renders live-copy paths; agents' next ticks run from the live
+      copy and append to the SAME (migrated) histories -- outcome
+      check: history files gain a row post-switch with no gap; dev
+      tree switches branches with zero production effect.
