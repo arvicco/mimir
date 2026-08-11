@@ -45,6 +45,11 @@ EXPECT (design-skill surface review, LPPL card only):
   inside the viewport (hover the bottom `freeze` row — the tooltip flips
   ABOVE the pointer). Console clean.
 - The default tab is LPPL (SHADOW is never the landing tab).
+- **M9-15 glossary hovers** (other cards): on the GEX card's **BTC TREND**
+  tab hover the **CW** legend entry, on the Volatility card hover **RR25**,
+  on the Scenario card hover the **macro** module name — each explains
+  itself in a sentence or two (the same styled block), staying inside the
+  viewport; the GEX card's venue toggles (DERI/IBIT/…) do the same on hover.
 
 Note: the preview shows the LIVE-cache numbers above; the committed golden
 pins the FIXTURE numbers (frozen impr 43.5→27.9, p .19→.24, mean/eval
