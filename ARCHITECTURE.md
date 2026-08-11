@@ -74,11 +74,12 @@ mimir/
     chart_specs.rb           ECharts option builders (pure functions)
     publish.rb               orchestrator: run/read suites -> envelope -> KV
   web/
-    wrangler.toml            Worker + KV binding config
-    worker.js                ~40 lines: route, KV read, headers, auth
-    public/index.html        dashboard shell
-    public/app.js            generic spec loader + staleness badges
+    wrangler.toml            Worker + KV binding + [assets] serving web/
+    worker.mjs               ~40 lines: route, KV read, headers, auth
+    index.html               production dashboard shell
+    render.js                shared spec loader + staleness badges
     preview.html             offline harness: renders specs from local files
+    guide.html               hand-authored dashboard reading guide
   test/
     test_helper.rb           minitest bootstrap (stdlib), fixture helpers
     unit/                    pure-function tests (math, parsing, specs)
@@ -94,23 +95,54 @@ artifacts to `$BTC_DATA_DIR/<suite>/` so a checkout stays clean. Status
 lines stay in /tmp (tmux-facing); btco's `capstruct/` is a committed
 audit trail, not runtime data.
 
+In production the scheduled agents do NOT run from the dev checkout.
+`rake deploy` and `rake ops:install` provision an app-managed home
+under `~/Library/Application Support/mimir` (M9-12): a `live/` git
+clone the launchd agents exec from (brought onto the deployed sha by
+`rake deploy`) and a `data/` data home that `BTC_DATA_DIR` points at
+(migrated once, interactively, by `rake ops:install`). Dev happens in
+`~/Dev/mimir` on plain phase branches; git worktrees are banned and
+`rake health` fails on any extra worktree sitting on the owner's
+filesystem (owner ruling 2026-08-11).
+
 ## 4. Data contracts
 
 ### 4.1 KV keys (versioned, flat)
 
-| key                      | producer                    | cadence  | ~size |
-|--------------------------|-----------------------------|----------|-------|
-| v1:index                 | publish.rb                  | each run | <1 KB |
-| v1:gex:combined          | gex_btc_combined.rb --json  | 15-30 m  | 4 KB  |
-| v1:scenario:latest       | scenario.rb --json          | 30 m     | 2 KB  |
-| v1:scenario:history      | tail(90d) of history jsonl  | 30 m     | 20 KB |
-| v1:lppl:latest           | lppl.rb --json              | daily    | 3 KB  |
-| v1:lppl:ledger           | tail(365d) of ledger.jsonl  | daily    | 40 KB |
-| v1:btco:latest           | btco.rb --json              | hourly   | 4 KB  |
-| v1:chart:gex_profile     | chart_specs.rb              | w/ gex   | 8 KB  |
-| v1:chart:scenario_strip  | chart_specs.rb              | w/ scn   | 6 KB  |
-| v1:chart:lppl_regime     | chart_specs.rb              | daily    | 15 KB |
-| v1:chart:btco_table      | chart_specs.rb              | w/ btco  | 6 KB  |
+27 keys total: `v1:index`, 13 data keys (11 producers + 2 trailing-
+window tails), and 13 chart specs. One bi-hourly publish writes them
+all; a chart is written only if every input it reads was collected this
+run (else it keep-last-goods).
+
+| key                        | producer                          | cadence   | ~size |
+|----------------------------|-----------------------------------|-----------|-------|
+| v1:index                   | publish.rb                        | each run  | <1 KB |
+| v1:gex:combined            | gex_btc_combined.rb --json        | bi-hourly | 4 KB  |
+| v1:gex:mstr                | gex_us.rb MSTR --json             | bi-hourly | 3 KB  |
+| v1:gex:trend               | gex_trend.rb --json               | bi-hourly | 8 KB  |
+| v1:gex:check               | gex_check.rb --json               | bi-hourly | 2 KB  |
+| v1:scenario:latest         | scenario.rb --json                | bi-hourly | 2 KB  |
+| v1:scenario:history        | tail(90d) of history jsonl        | bi-hourly | 20 KB |
+| v1:lppl:latest             | lppl.rb --json --skip-update      | bi-hourly | 3 KB  |
+| v1:lppl:ledger             | tail(365d) of ledger.jsonl        | bi-hourly | 40 KB |
+| v1:btco:latest             | btco.rb --json                    | bi-hourly | 4 KB  |
+| v1:vol:latest              | vol.rb --json                     | bi-hourly | 3 KB  |
+| v1:vol:mstr                | vol_mstr.rb --json                | bi-hourly | 3 KB  |
+| v1:vol:spread              | vol_spread.rb --json              | bi-hourly | 2 KB  |
+| v1:basis:latest            | basis.rb --json                   | bi-hourly | 3 KB  |
+| v1:chart:gex_btc           | chart_specs.rb (gex:combined)     | w/ gex    | 8 KB  |
+| v1:chart:gex_mstr          | chart_specs.rb (gex:mstr)         | w/ gex    | 6 KB  |
+| v1:chart:gex_btc_trend     | chart_specs.rb (gex:trend+check)  | w/ gex    | 8 KB  |
+| v1:chart:gex_mstr_trend    | chart_specs.rb (gex:trend)        | w/ gex    | 6 KB  |
+| v1:chart:scenario_strip    | chart_specs.rb (scenario)         | w/ scn    | 6 KB  |
+| v1:chart:lppl_regime       | chart_specs.rb (lppl:latest)      | daily     | 15 KB |
+| v1:chart:lppl_shadow       | chart_specs.rb (lppl:latest)      | daily     | 4 KB  |
+| v1:chart:btco_table        | chart_specs.rb (btco:latest)      | w/ btco   | 6 KB  |
+| v1:chart:vol_surface       | chart_specs.rb (vol:latest)       | w/ vol    | 5 KB  |
+| v1:chart:vol_surface_mstr  | chart_specs.rb (vol:mstr)         | w/ vol    | 5 KB  |
+| v1:chart:vol_spread        | chart_specs.rb (vol:spread)       | w/ vol    | 4 KB  |
+| v1:chart:vol_spread_trend  | chart_specs.rb (vol:spread)       | w/ vol    | 5 KB  |
+| v1:chart:vol_basis         | chart_specs.rb (basis:latest)     | w/ vol    | 4 KB  |
 
 Full ledgers/history stay local (backtest data); only trailing windows are
 published.
@@ -241,12 +273,14 @@ BEFORE any new feature work. Stage 0 runs interactively with the owner.
 
 ### Phase 3 -- chart specs
 - `publish/chart_specs.rb`, pure functions `payload -> ECharts option`:
-  1. `gex_profile`: per-strike bars (put/call split), flip + wall
+  1. `gex_profile` (the builder fn; its key was renamed `chart:gex_btc`
+     at M8-18): per-strike bars (put/call split), flip + wall
      markLines, per-venue toggle, BTC axis.
   2. `scenario_strip`: composite time series from history tail + current
      module score heat-strip.
   3. `lppl_regime`: log price vs trend + damping envelope bands, trough
-     projection marker, BF sparkline, percentile/Z panel.
+     projection marker, a cumulative log predictive-score differential
+     sparkline (log10; formerly the "Bayes factor"), percentile/Z panel.
   4. `btco_table`: universe table (sortable columns via ECharts dataset)
      + stress gauge; STALE/placeholder rows visually flagged.
 - Golden-file tests: generated spec JSON diffed against
@@ -289,9 +323,9 @@ mostly autonomous; ingest is owner-interactive and moves back.)
   recorded days byte-identically before any historical write
   (owner-blessed one-shot, backup first). Import beats recompute
   wherever pre-handoff ledger files exist (D7-b).
-- `v1:gex_mstr:latest` + `v1:chart:gex_mstr` published (additive index
-  growth); card tab widget in the gex_profile quadrant (4th renderer
-  hook -- owner ruling D7-c required, options presented first).
+- `v1:gex:mstr` + `v1:chart:gex_mstr` published (additive index
+  growth); card tab widget on the GEX card (4th renderer hook -- owner
+  ruling D7-c required, options presented first).
 - **Gate 6:** replay verification reviewed; backfilled ledger blessed;
   MSTR tab visual review. Soak week reviewed here if complete.
 
@@ -309,26 +343,36 @@ mostly autonomous; ingest is owner-interactive and moves back.)
   KV free-tier usage reviewed (if not already at Gate 6); **tag v1**.
   Everything after is v1.x.
 
-### Phase 8 -- Coinglass groundwork + module upgrades (docs/improvements.md)
-- `lib/btc/coinglass.rb` + per-endpoint TTL file cache + tier probe
-  (fail-soft "requires higher tier"), then A1 etf_flows source swap,
-  B1 liqmap.rb, A2 cohort upgrade, A3/A4 premium/funding upgrades --
-  detail-only / parallel-run behind the research gate; scenario history
-  seeded from history endpoints where sources permit. New ENV
-  `COINGLASS_API_KEY`; every endpoint registered in health SOURCES.
-- **Gate 8:** parallel-run evidence reviewed; source registry green.
+### Phase 8 -- GEX / volatility family (SHIPPED; Gate 8 closed 2026-08-10)
+What actually shipped (branch phase-8, PR #9 + hotfix #10): the
+GEX/volatility instrument family -- the `gex:mstr`, `gex:trend`,
+`gex:check`, `vol:latest`, `vol:mstr`, `vol:spread` and `basis:latest`
+producers and their chart specs (the GEX card's [BTC TREND][MSTR TREND]
+tabs, the Volatility surface+basis card, and the IV-spread card). All
+fail-soft. 26 keys live at Gate 8 close; Phase 9's LPPL-shadow spec
+took the surface to 27.
+- SUPERSEDED roadmap (docs/improvements.md): the original Phase 8 was
+  Coinglass groundwork + scenario module upgrades (a `coinglass.rb`
+  tier probe, A1/A2/A3/A4 source swaps, B1 liqmap). That work did NOT
+  ship; it stays an unscheduled candidate in docs/DEV-PROPOSALS.md.
 
-### Phase 9 -- scenario v2 hypothesis modules (docs/scenario_upgrades.md)
-- U1/U2 first, U4 early (longest parallel run), U3/U5/U6 monitors, U7
-  housekeeping; all enter scenario.rb at weight 0 with pre-registered
-  kill criteria; every weight/threshold change is a batched research
-  decision adjudicated against ledger evidence.
-- **Gate 9:** research-decision review of the proposal table.
+### Phase 9 -- LPPL statistics revision (SHIPPED; merged 2026-08-11)
+What actually shipped (branch phase-9, PR #11): a revision of the LPPL
+suite's statistics surfaced as the LPPL card's SHADOW tab -- six
+additive, report-only frozen-vs-shadow diagnostics, each feeding a
+pre-registered decision item (D9-a..g) the owner rules after a soak. No
+verdict or weight changed at merge (SHADOW-FIRST). It also ended the
+worktree era: production agents now exec from the app-managed live
+clone + data home (M9-12). 27 keys live at merge.
+- SUPERSEDED roadmap (docs/scenario_upgrades.md): the original Phase 9
+  was scenario-v2 hypothesis modules (U1..U7 entering at weight 0).
+  That work did NOT ship; it stays an unscheduled candidate in
+  docs/DEV-PROPOSALS.md.
 
 ### Phase 10 -- dashboard round 2
 - new chart specs (flow_decay_curve, cohort_panel, expiry_timeline,
   macro_clock, liq_topology) + the parked D4-a LPPL price panel; the
-  dashboard outgrows four quadrants -- full layout pass under the
+  dashboard outgrows the 3x2 grid -- full layout pass under the
   mimir-design skill.
 - **Gate 10:** visual review; goldens blessed.
 
