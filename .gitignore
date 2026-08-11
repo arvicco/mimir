@@ -22,6 +22,10 @@ scripts/btco/universe.json.bak-*
 # OS noise
 .DS_Store
 
+# worktrees live INSIDE the repo (owner ruling 2026-08-11: sibling
+# mimir-phaseX folders are an anti-pattern; rake health enforces this)
+.worktrees/
+
 # editor
 *.swp
 
