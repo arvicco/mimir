@@ -108,6 +108,53 @@ class TestVolSpreadContract < Minitest::Test
     end
   end
 
+  # ---- daily history: same-day repair (M9-14) ------------------------------
+  #
+  # The day's first tick lands at 00:45Z; a transient leg failure there used
+  # to freeze null spreads for the whole day (observed live 2026-08-11). A
+  # later run with strictly more non-null spreads replaces today's row; a
+  # worse run never downgrades it.
+  def test_history_same_day_repair_replaces_a_poisoned_row
+    Dir.mktmpdir('mimir-vol-spread-repair') do |dir|
+      seed_today_row(dir, spreads: [nil, nil, nil, nil, nil])
+      run_json('scripts/vol_spread.rb', '--json', env: spread_env('BTC_DATA_DIR' => dir))
+      rows = read_history(dir)
+      assert_equal 1, rows.size, 'repair must replace, not append'
+      assert_equal 5, rows.first['tenors'].count { |t| t['spread_atm'] },
+                   'the healthy run must repair the poisoned row'
+    end
+  end
+
+  def test_history_same_day_repair_never_downgrades
+    Dir.mktmpdir('mimir-vol-spread-nodown') do |dir|
+      seed_today_row(dir, spreads: [0.44, 0.41, 0.39, 0.34, 0.4])
+      run_script('scripts/vol_spread.rb', '--json',
+                 env: spread_env('BTC_DATA_DIR' => dir,
+                                 'FAKE_HTTP_DENY' => 'deribit.com'))
+      rows = read_history(dir)
+      assert_equal 1, rows.size
+      assert_equal 5, rows.first['tenors'].count { |t| t['spread_atm'] },
+                   'a one-legged run must not downgrade a full row'
+      assert_equal 0.44, rows.first['tenors'].first['spread_atm']
+    end
+  end
+
+  def seed_today_row(dir, spreads:)
+    hist = File.join(dir, 'vol_spread')
+    FileUtils.mkdir_p(hist)
+    row = { 'date' => FAKE_NOW_STR[0, 10], 'ts' => FAKE_NOW_STR,
+            'tenors' => [7, 14, 21, 45, 90].each_with_index.map do |d, i|
+              { 'tenor_d' => d, 'spread_atm' => spreads[i],
+                'mstr_atm' => spreads[i] && 0.7, 'btc_atm' => spreads[i] && 0.3 }
+            end }
+    File.write(File.join(hist, 'history.jsonl'), JSON.generate(row) + "\n")
+  end
+
+  def read_history(dir)
+    File.readlines(File.join(dir, 'vol_spread', 'history.jsonl'))
+        .map(&:strip).reject(&:empty?).map { |l| JSON.parse(l) }
+  end
+
   # ---- fail-soft 1: CBOE MSTR denied -> MSTR leg null, BTC alive, exit 0 ---
 
   def test_cboe_mstr_down_mstr_null_btc_alive

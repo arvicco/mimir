@@ -43,13 +43,100 @@
 #     first.
 #     The renderer builds the card from the first group member it loads
 #     and attaches the rest; each key keeps its own header liveness dot.
-# All four are part of the chart contract; add a hook only with an owner
-# ruling.
+#   meta['terms'] -- M9-15, owner ruling 2026-08-11: a { TERM => plain
+#     explanation } glossary. The renderer gives each named abbreviation /
+#     module a hover explanation (the SAME styled block as lppl_shadow) on
+#     three surfaces -- drawn ECharts legends (legend.tooltip), the scenario
+#     module scoreboard (canvas axis labels), and the gex_cp venue widget
+#     (CSS bubble). ADDITIVE: it rides meta only, so the chart OPTION and its
+#     golden are byte-identical; an unknown term simply gets no tooltip.
+# All are part of the chart contract; add a hook only with an owner ruling.
 #
 # No IO, no ENV, no network in this file.
 
 module Publish
   module Charts
+    # ---- glossary terms (M9-15, owner ruling 2026-08-11) ---------------
+    # Owner-approved plain-language explanations, shipped verbatim, carried
+    # in meta['terms'] (the 'terms' hook). Keyed by the exact user-visible
+    # token the renderer sees -- a drawn legend item's name, a scenario
+    # module's `mod`, or a gex_cp venue label. Defined ABOVE the CHARTS
+    # literal so the hash can reference them at load. Shared maps (the two
+    # GEX trend tabs, the two vol surfaces) are declared once.
+    GEX_TREND_TERMS = {
+      'spot' => 'The current market price. On the trend chart: its daily closing path.',
+      'flip' => 'The gamma flip: the price level where dealers\' net gamma crosses ' \
+                'zero. Above it their hedging dampens moves; below it their hedging ' \
+                'amplifies moves. Price near the flip = unstable ground.',
+      'CW' => 'Call wall: the strike with the largest concentration of call gamma. ' \
+              'Often acts as short-term resistance -- dealer hedging leans against ' \
+              'price rising through it.',
+      'PW' => 'Put wall: the strike with the largest concentration of put gamma. ' \
+              'Often acts as short-term support -- dealer hedging leans against ' \
+              'price falling through it.'
+    }.freeze
+
+    # gex_cp venue widget (gex_btc): Deribit plus the five US spot-ETF chains.
+    GEX_VENUE_TERMS = {
+      'DERI' => 'Deribit -- the dominant offshore BTC options exchange (coin-settled).',
+      'IBIT' => 'US spot-ETF option chain (BlackRock iShares), cash-settled, ' \
+                'CBOE delayed quotes.',
+      'FBTC' => 'US spot-ETF option chain (Fidelity), cash-settled, CBOE delayed quotes.',
+      'BITB' => 'US spot-ETF option chain (Bitwise), cash-settled, CBOE delayed quotes.',
+      'ARKB' => 'US spot-ETF option chain (ARK 21Shares), cash-settled, ' \
+                'CBOE delayed quotes.',
+      'GBTC' => 'US spot-ETF option chain (Grayscale), cash-settled, CBOE delayed quotes.'
+    }.freeze
+
+    VOL_SURFACE_TERMS = {
+      'ATM IV' => 'At-the-money implied volatility: the market\'s priced-in ' \
+                  'expectation of how much the underlying will move, annualized. ' \
+                  '30% means options are priced for roughly +-30% over a year.',
+      'RR25' => '25-delta risk reversal: the implied-vol difference between ' \
+                'similarly out-of-the-money calls and puts. Negative = downside ' \
+                'protection costs more (the market fears falls more than rallies).',
+      'FLY25' => '25-delta butterfly: how much more the wings (far strikes) cost ' \
+                 'than the middle. Higher = the market pays up for tail scenarios ' \
+                 'in either direction.'
+    }.freeze
+
+    VOL_SPREAD_TERMS = {
+      'spread' => 'MSTR\'s at-the-money implied vol minus BTC\'s, in vol points. ' \
+                  'The option market\'s live price of MSTR\'s leverage on top of BTC.',
+      'MSTR' => 'The MSTR single-name leg\'s own at-the-money implied vol, so you ' \
+                'can see which side moved the spread.',
+      'BTC' => 'The BTC Deribit leg\'s own at-the-money implied vol, so you can ' \
+               'see which side moved the spread.'
+    }.freeze
+
+    # vol_spread_trend tenor legends: one series per requested tenor.
+    VOL_SPREAD_TREND_TERMS = [7, 14, 21, 45, 90].to_h { |n|
+      ["#{n}d", "The #{n}-day spread series: each day's MSTR-minus-BTC " \
+                "at-the-money vol gap at the #{n}-day option tenor."]
+    }.freeze
+
+    # scenario_strip module scoreboard: the seven module names (their `mod`).
+    SCENARIO_TERMS = {
+      'etf_flows' => 'Net money flowing into/out of the US spot-Bitcoin ETFs over ' \
+                     'the last five trading days vs the five before. +1 accelerating ' \
+                     'inflows, -1 accelerating outflows.',
+      'funding_basis' => 'Perp funding and futures basis together -- the cost of ' \
+                         'leveraged long exposure. +1 cheap/washed-out leverage ' \
+                         '(contrarian support), -1 overheated leverage.',
+      'cb_premium' => 'Coinbase premium: US spot price vs offshore. Positive = US ' \
+                      'buyers paying up (institutional demand); -1 persistent discount.',
+      'macro' => 'Macro liquidity from Fed data (balance sheet, reverse repo, TGA): ' \
+                 'is dollar liquidity expanding or draining? +1 expanding, -1 draining.',
+      'hash_ribbons' => 'Miner capitulation/recovery signal from hashrate moving ' \
+                        'averages. +1 = miners recovering after capitulation ' \
+                        '(historically a strong bottom marker).',
+      'onchain_value' => 'MVRV: market value vs the average on-chain cost basis. ' \
+                         '+1 = holders underwater historically deep (accumulation ' \
+                         'zone), -1 = extreme unrealized profit.',
+      'stables' => 'Total stablecoin supply trend -- dry powder that can rotate ' \
+                   'into BTC. +1 growing, -1 shrinking.'
+    }.freeze
+
     # meta (additive envelope field, 2026-07-05): METHODOLOGY-grade
     # hover help rendered by preview.html/the dashboard -- desc for the
     # title bubble, axes + help behind the info affordance.
@@ -80,6 +167,9 @@ module Publish
           # HTML, neither of which a JSON option can express
           'tooltip_formatter' => 'gex_levels',
           'legend_widget' => 'gex_cp',
+          # M9-15: the (p) VENUE (c) widget's venue labels get CSS hover
+          # explanations (Deribit + the five US spot-ETF chains).
+          'terms' => GEX_VENUE_TERMS,
           # tab-group hook (M6-4, owner ruling D7-c 2026-07-06; extended M8-18
           # 2026-08-10): the GEX card is now four tabs --
           # [BTC][MSTR][BTC TREND][MSTR TREND]. tab_pos is explicit because the
@@ -139,7 +229,10 @@ module Publish
                     'not a real neutral print.',
           # renderer hook: half-height card (owner review 2026-07-05 --
           # the strip was vertically stretched at full quadrant height)
-          'height' => 250
+          'height' => 250,
+          # M9-15: each module name on the scoreboard axis explains itself
+          # (canvas label -> styled popover; keys are the module `mod`s).
+          'terms' => SCENARIO_TERMS
         }
       },
       'lppl_regime' => {
@@ -162,7 +255,39 @@ module Publish
                     'ratio panel, zero line on BF; the pin marks the latest ' \
                     'ratio. Read the SIGN and drift of BF, not its absolute ' \
                     'size; a trough note appears over Z only when the fit ' \
-                    'names an interior bottom.'
+                    'names an interior bottom. The Phase-9 shadow diagnostics ' \
+                    'live on the SHADOW tab of this card.',
+          # M9-13 (owner ruling 2026-08-11): the LPPL panels reclaim their
+          # full width; the shadow diagnostics move to a SHADOW tab on the
+          # SAME card (tab_group 'lppl'). LPPL is tab_pos 0 (the default tab).
+          'tab_group' => 'lppl', 'tab_label' => 'LPPL', 'tab_pos' => 0
+        }
+      },
+      # M9-13: the Phase-9 shadow fields, once a right-margin scoreboard on
+      # lppl_regime, are now their own chart -- the SHADOW tab of the LPPL
+      # card. Six frozen-vs-shadow checks as full-width readable rows, each
+      # with an owner-approved plain-language hover explanation (the
+      # 'lppl_shadow' registry formatter). Reads lppl:latest (same payload
+      # as lppl_regime); a missing shadow field drops its row (fail-soft).
+      'lppl_shadow' => {
+        inputs: %w[payload_lppl_latest.json], fn: :lppl_shadow,
+        meta: {
+          'desc' => 'Phase-9 SHADOW diagnostics: each of six frozen LPPL ' \
+                    'numbers shown beside the honest "shadow" recomputation ' \
+                    'that a standing decision item (D9-b/c/e/f/g) is weighing ' \
+                    'for adoption. Report-only during the soak -- none of these ' \
+                    'changes the verdict yet; they exist so the owner can rule ' \
+                    'with the numbers, and their meaning, in front of them ' \
+                    '(METHODOLOGY.md).',
+          'axes' => { 'x' => 'none -- a diagnostics table, not a plot',
+                      'y' => 'one row per check: the frozen value, an arrow, ' \
+                             'the shadow value, and a one-phrase verdict' },
+          'help' => 'Each row is frozen -> shadow with an inline verdict; ' \
+                    'hover a row for the full plain-language explanation of ' \
+                    'what the number means and which ruling it feeds. A ' \
+                    'missing shadow field hides its row.',
+          'tooltip_formatter' => 'lppl_shadow',
+          'tab_group' => 'lppl', 'tab_label' => 'SHADOW', 'tab_pos' => 1
         }
       },
       'btco_table' => {
@@ -221,7 +346,9 @@ module Publish
           # tab_pos 0, so the renderer collapses them into one tabbed
           # section; tab_label names the button (BTC leads, lower CARD_ORDER).
           'tab_group' => 'vol', 'group_style' => 'stack', 'tab_pos' => 0,
-          'tab_label' => 'BTC', 'height' => 235
+          'tab_label' => 'BTC', 'height' => 235,
+          # M9-15: the ATM IV / RR25 / FLY25 legend items explain themselves.
+          'terms' => VOL_SURFACE_TERMS
         }
       },
       # M8-17: the MSTR vol surface -- same builder body as vol_surface, an
@@ -250,7 +377,9 @@ module Publish
           # same tab_pos 0 as vol_surface so the renderer tabs the two into
           # one section; MSTR is the second tab (BTC leads by CARD_ORDER).
           'tab_group' => 'vol', 'group_style' => 'stack', 'tab_pos' => 0,
-          'tab_label' => 'MSTR', 'height' => 235
+          'tab_label' => 'MSTR', 'height' => 235,
+          # M9-15: same skew-legend glossary as the BTC surface.
+          'terms' => VOL_SURFACE_TERMS
         }
       },
       'vol_spread' => {
@@ -274,7 +403,9 @@ module Publish
           # trend below (vol_spread_trend, tab_pos 1) -- group_style 'stack',
           # height = half a card, exactly like the vol_surface/vol_basis card.
           'tab_group' => 'volspread', 'group_style' => 'stack', 'tab_pos' => 0,
-          'height' => 235
+          'height' => 235,
+          # M9-15: the spread / MSTR / BTC leg legend items explain themselves.
+          'terms' => VOL_SPREAD_TERMS
         }
       },
       'vol_spread_trend' => {
@@ -295,7 +426,9 @@ module Publish
                     'The chart starts nearly empty and grows a point per day.',
           # stacked below vol_spread (owner ruling 2026-08-10) -- half a card.
           'tab_group' => 'volspread', 'group_style' => 'stack', 'tab_pos' => 1,
-          'height' => 235
+          'height' => 235,
+          # M9-15: each per-tenor spread-series legend (7d..90d) explains itself.
+          'terms' => VOL_SPREAD_TREND_TERMS
         }
       },
       'vol_basis' => {
@@ -344,7 +477,9 @@ module Publish
           # joins the existing GEX card (D7-c) as the third tab after
           # [BTC](pos 1) and [MSTR](pos 2); pos 3 keeps [BTC TREND] before
           # [MSTR TREND](pos 4).
-          'tab_group' => 'gex', 'tab_label' => 'BTC TREND', 'tab_pos' => 3
+          'tab_group' => 'gex', 'tab_label' => 'BTC TREND', 'tab_pos' => 3,
+          # M9-15: the spot / flip / CW / PW legend items explain themselves.
+          'terms' => GEX_TREND_TERMS
         }
       },
       # M8-18 (owner ruling 2026-08-10): the daily MSTR GEX trend. Reads the
@@ -372,7 +507,9 @@ module Publish
                     'run length. Sparse history reads as filled dots; a day with ' \
                     'no MSTR capture is an honest gap.',
           # fourth tab of the GEX card, after [BTC TREND](pos 3).
-          'tab_group' => 'gex', 'tab_label' => 'MSTR TREND', 'tab_pos' => 4
+          'tab_group' => 'gex', 'tab_label' => 'MSTR TREND', 'tab_pos' => 4,
+          # M9-15: same spot / flip / CW / PW glossary as the BTC trend tab.
+          'terms' => GEX_TREND_TERMS
         }
       }
     }.freeze
@@ -530,6 +667,14 @@ module Publish
     def mark_lines(gex, levels)
       c = gex['combined'] || {}
       lines = []
+      # spot line added 2026-08-11 (owner: the BTC tab lacked it while the
+      # MSTR tab had one -- an M3-1-era omission, not a design choice)
+      if gex['btc_spot']
+        lines << { 'xAxis' => nearest_label(levels, gex['btc_spot']),
+                   'label' => { 'formatter' => 'spot', 'position' => 'start',
+                              'offset' => [0, -14] }, # bottom end, nudged above the tick row (labels-never-collide rule)
+                   'lineStyle' => { 'color' => '#c9ccd1', 'type' => 'solid', 'width' => 1 } }
+      end
       if c['gamma_flip']
         lines << { 'xAxis' => nearest_label(levels, c['gamma_flip']),
                    'label' => { 'formatter' => 'flip' },
@@ -864,6 +1009,233 @@ module Publish
           { 'name' => 'Z', 'type' => 'line', 'xAxisIndex' => 2, 'yAxisIndex' => 2,
             'showSymbol' => true, 'symbol' => 'circle', 'symbolSize' => 7, 'data' => z }
         ]
+      }
+    end
+
+    # ---- M9-13: LPPL shadow diagnostics (SHADOW tab) ------------------
+    #
+    # Gate-9 feedback (owner ruling 2026-08-11): the Phase-9 shadow fields
+    # no longer eat the LPPL panels' right margin. They move to the SHADOW
+    # tab of the LPPL card (tab_group 'lppl') and render at FULL card width
+    # as six readable frozen-vs-shadow rows -- stat name, frozen value, an
+    # arrow, the shadow value, and a one-phrase verdict, all visible WITHOUT
+    # hover. Each row also carries an owner-approved plain-language
+    # explanation (LPPL_SHADOW_EXPLAIN, verbatim) that the 'lppl_shadow'
+    # registry formatter shows on hover -- numbers alone were "an
+    # incomprehensible mess of random numbers" (owner). Values flow
+    # additively through lppl:latest (same payload as lppl_regime); a
+    # missing shadow field drops its ROW (fail-soft, never a null drawn).
+    # No verdict/score/analytics semantics change -- report-only during the
+    # soak, each row naming the decision item it feeds (D9-b/c/e/f/g).
+
+    # Owner-approved plain-language hover text, keyed by row stat. VERBATIM
+    # (owner ruling 2026-08-11) -- do not paraphrase; the renderer's
+    # lppl_shadow formatter shows the matching entry for the hovered row.
+    # These describe the METHOD, so they cite representative live numbers;
+    # the per-row frozen/shadow VALUES beside them come from the payload.
+    LPPL_SHADOW_EXPLAIN = {
+      'mean/eval' =>
+        'The average forecast-score gap per evaluation: power law vs its ' \
+        'best rival, in log10. Negative = rivals beat the power law that ' \
+        'day. Unlike the headline sum (about -460), this number does not ' \
+        'grow just because we evaluate more often -- it is the honest size ' \
+        'of the effect. -1.26 means that on an average day the best rival ' \
+        'gave about 18x higher probability to what actually happened. Feeds ' \
+        'ruling D9-b (make this the primary trend number?).',
+      '365/730' =>
+        'The same per-evaluation score at 1-year and 2-year forecast ' \
+        'horizons. These do NOT count toward the verdict yet. Negative at ' \
+        '365d (power law still loses), positive at 730d (power law WINS at ' \
+        'two years) -- matching published research that short horizons ' \
+        'favor naive models and long horizons favor the power law. Feeds ' \
+        'ruling D9-c (should long horizons enter the score?).',
+      'damping' =>
+        'An anti-bubble shape test from the Sornette school: the ' \
+        'oscillations of a genuine damped anti-bubble decay with a damping ' \
+        'ratio of at least 1. Today\'s fit scores 0.41 -- it does NOT ' \
+        'qualify as a genuine damped anti-bubble under the standard ' \
+        'condition, even though it passes the suite\'s four original ' \
+        'filters. Report-only for now. Feeds ruling D9-e (should this gate ' \
+        'the fit verdict?).',
+      'impr' =>
+        'How much better the LPPLS curve fits the post-peak decline than a ' \
+        'plain decay curve. The frozen 29.2% was measured with an unfair ' \
+        'advantage: the plain curve got a coarser parameter search. 27.9% ' \
+        'is the fair, like-for-like number -- the LPPLS fit still wins, ' \
+        'just honestly. The fair search also fixes a bias that pushed the ' \
+        'plain curve\'s peak date to the edge of its search grid. Feeds ' \
+        'ruling D9-e.',
+      'p(osc)' =>
+        'The probability that the log-periodic wobble in the data is just ' \
+        'noise. Under the simple noise model (frozen): 0.38. Under a ' \
+        'realistic model with fat tails and volatility clustering (shadow): ' \
+        '0.24. Both are far above the usual 0.05 bar -- the wobble is NOT ' \
+        'statistically proven, and the suite is right to say so. Feeds ' \
+        'ruling D9-f (which noise model is the headline?).',
+      'freeze' =>
+        'The envelope\'s support bound. 0.439 is today\'s live value, ' \
+        'recomputed daily against a trend that keeps drifting as new data ' \
+        'arrives. 0.358 is what the bound would be if it had been frozen at ' \
+        'the 2022 low, as a stricter rule would demand. The gap between ' \
+        'them is how much the drifting trend flatters the \'envelope ' \
+        'intact\' reading. Feeds ruling D9-g (freeze each cycle\'s bound?).'
+    }.freeze
+
+    # ".24" not "0.24" -- probabilities/ratios read compact (design ruling).
+    def lppl_compact(value, dp)
+      format("%.#{dp}f", value.to_f).sub(/\A(-?)0\./, '\1.')
+    end
+
+    # One hash per PRESENT shadow check (a missing field drops its row),
+    # top-to-bottom order. Each: stat (row name + explanation key), frozen
+    # and shadow display strings, and a one-phrase verdict. Values are
+    # scaled/compacted at build time per the design system.
+    def lppl_shadow_rows(latest)
+      trend = lppl_detail(latest, 'trend') || {}
+      env   = lppl_detail(latest, 'envelope') || {}
+      fit   = lppl_detail(latest, 'fit') || {}
+      lp    = lppl_detail(latest, 'logperiodic') || {}
+      rows  = []
+
+      # (D9-b) density-honest trend: frozen headline BF sum vs the
+      # per-evaluation mean summed across the three headline horizons.
+      ph = trend['per_horizon']
+      if ph.is_a?(Hash) && trend['bf']
+        means = %w[30 90 180].map { |h| ph.dig(h, 'mean_per_eval') }
+        unless means.any?(&:nil?)
+          rows << { 'stat' => 'mean/eval', 'frozen' => format('%.2f', trend['bf']),
+                    'shadow' => format('%.2f', means.sum), 'verdict' => 'rivals win' }
+        end
+      end
+
+      # (D9-c) report-only long horizons: the 365d/730d per-eval means.
+      pl = trend['per_horizon_long']
+      if pl.is_a?(Hash)
+        a = pl.dig('365', 'mean_per_eval')
+        b = pl.dig('730', 'mean_per_eval')
+        if a && b
+          rows << { 'stat' => '365/730', 'frozen' => format('%+.2f', a),
+                    'shadow' => format('%+.2f', b),
+                    'verdict' => b > 0 ? 'wins at 2y' : 'still loses' }
+        end
+      end
+
+      # (D9-e) fit damping condition D against its threshold: frozen shows
+      # the requirement, shadow the observed ratio.
+      if (d = fit['damping'])
+        thr = fit['damping_ref_threshold'] || 1.0
+        rows << { 'stat' => 'damping', 'frozen' => format('>=%g', thr),
+                  'shadow' => format('%.2f', d),
+                  'verdict' => d < thr ? 'not met' : 'qualifies' }
+      end
+
+      # (D9-e) frozen RMSE improvement vs the fair, like-for-like one.
+      if (iv = fit['improvement_v2']) && (fr = fit['rmse_impr_pct'])
+        rows << { 'stat' => 'impr', 'frozen' => format('%.1f%%', fr),
+                  'shadow' => format('%.1f%%', iv),
+                  'verdict' => iv > 0 ? 'still wins' : 'no edge' }
+      end
+
+      # (D9-f) AR(1) vs GARCH bootstrap p-value for the oscillation.
+      if (pv = lp['p_value_v2']) && (fp = lp['p_value'])
+        rows << { 'stat' => 'p(osc)', 'frozen' => lppl_compact(fp, 2),
+                  'shadow' => lppl_compact(pv, 2),
+                  'verdict' => pv <= 0.05 ? 'significant' : 'still noise' }
+      end
+
+      # (D9-g) live envelope bound vs the pre-trough freeze candidate.
+      if (fc = env['freeze_candidate']) && (bd = env['bound'])
+        rows << { 'stat' => 'freeze', 'frozen' => lppl_compact(bd, 3),
+                  'shadow' => lppl_compact(fc, 3),
+                  'verdict' => bd > fc ? 'drift flatters' : 'no drift' }
+      end
+
+      rows
+    end
+
+    # The SHADOW tab: six frozen-vs-shadow checks as full-width readable
+    # rows. A single grid over a hidden 0..1 value x-axis and a 6-slot
+    # category y-axis (positions only; labels hidden). The visible text is
+    # four label-only scatter columns at fixed x -- stat name, frozen value
+    # (right-aligned), an amber arrow, and the shadow value + verdict -- so
+    # the whole row sits INSIDE the plot and an axis-trigger tooltip fires
+    # anywhere on it. The stat-name column's data carry the row's frozen/
+    # shadow/verdict/explanation so the 'lppl_shadow' formatter can render
+    # the owner-approved hover block. With no shadow fields (fail-soft) the
+    # card shows the title and an 'awaiting shadow fields' note.
+    def lppl_shadow(latest)
+      rows = lppl_shadow_rows(latest)
+
+      titles = [{ 'text' => format('Shadow diagnostics · %d checks', rows.size),
+                  'textStyle' => { 'fontSize' => 13 } }]
+      titles << { 'text' => rows.empty? ? 'awaiting shadow fields' :
+                    'frozen → shadow · hover a row for what it means',
+                  'top' => 26, 'left' => 8,
+                  'textStyle' => { 'fontSize' => 11, 'fontWeight' => 'normal',
+                                   'color' => '#8a93a0' } }
+
+      cats = rows.each_index.to_a # 0..n-1, one slot per row (top = first)
+
+      # a label-only scatter column: one datum per row at fixed x, its label
+      # the row's `field` string. `extra` (a proc) stashes per-datum data
+      # the tooltip formatter reads (only the stat-name column carries it).
+      col = lambda do |name, x, field, align, color, weight = 'normal'|
+        {
+          'name' => name, 'type' => 'scatter', 'xAxisIndex' => 0, 'yAxisIndex' => 0,
+          'symbolSize' => 0, 'silent' => true, 'animation' => false,
+          'data' => rows.each_index.map do |i|
+            item = { 'value' => [x, i],
+                     'label' => { 'show' => true, 'position' => 'inside',
+                                  'align' => align, 'formatter' => rows[i][field],
+                                  'fontSize' => 12, 'fontWeight' => weight,
+                                  'color' => color } }
+            if name == 'stat'
+              item['title']       = rows[i]['stat']
+              item['frozen']      = rows[i]['frozen']
+              item['shadow']      = rows[i]['shadow']
+              item['verdict']     = rows[i]['verdict']
+              item['explanation'] = LPPL_SHADOW_EXPLAIN[rows[i]['stat']]
+            end
+            item
+          end
+        }
+      end
+
+      series = []
+      unless rows.empty?
+        series << col.call('stat', 0.01, 'stat', 'left', '#e6e9ec', 'bold')
+        series << col.call('frozen', 0.44, 'frozen', 'right', '#9aa0a6')
+        series << {
+          'name' => 'arrow', 'type' => 'scatter', 'xAxisIndex' => 0, 'yAxisIndex' => 0,
+          'symbolSize' => 0, 'silent' => true, 'animation' => false,
+          'data' => cats.map { |i| { 'value' => [0.49, i],
+                                     'label' => { 'show' => true, 'position' => 'inside',
+                                                  'align' => 'center', 'formatter' => '→',
+                                                  'fontSize' => 12, 'color' => '#e6a23c' } } }
+        }
+        series << col.call('shadow', 0.53, 'shadow', 'left', '#e6e9ec')
+        series << col.call('verdict', 0.74, 'verdict', 'left', '#8a93a0')
+      end
+
+      {
+        'backgroundColor' => 'transparent',
+        'title' => titles,
+        # axis trigger on the category rows: hovering anywhere on a row
+        # fires the tooltip. confine:true + fontSize 11 satisfy the frozen
+        # tooltip contract; the renderer swaps in the never-clip position
+        # callback and the lppl_shadow formatter at runtime.
+        'tooltip' => { 'trigger' => 'axis', 'confine' => true,
+                       'textStyle' => { 'fontSize' => 11 },
+                       'axisPointer' => { 'type' => 'shadow' } },
+        'grid' => [{ 'left' => 10, 'right' => 10, 'top' => 52, 'bottom' => 18 }],
+        'xAxis' => [{ 'type' => 'value', 'min' => 0, 'max' => 1, 'show' => false }],
+        'yAxis' => [{
+          'type' => 'category', 'inverse' => true, 'data' => cats,
+          'boundaryGap' => true,
+          'axisLabel' => { 'show' => false }, 'axisLine' => { 'show' => false },
+          'axisTick' => { 'show' => false }, 'splitLine' => { 'show' => false }
+        }],
+        'series' => series
       }
     end
 

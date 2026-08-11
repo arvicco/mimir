@@ -26,6 +26,18 @@
 # Forward output: projected trough date/level from extrapolating the fitted
 # curve up to +400d (reported 'none<=+400d' if the minimum sits on the
 # boundary -- itself a strike against the anti-bubble reading).
+#
+# Report-only diagnostics (M9-5, additive --json, NOT gating -- flip is D9-e):
+#   b_negative            -- fitted B < 0, the standard LPPLS sign restriction
+#                            the four-filter pass does not currently impose
+#   damping               -- D = m|B| / (omega|C|) (4dp; nil when C absent)
+#   damping_ref_threshold -- 1.0, the Sornette-school condition D >= 1;
+#                            reference-only, wired into NOTHING today.
+#   null_v2 {tc, rmse, at_grid_edge}, improvement_v2 (M9-6) -- the RMSE
+#                            improvement re-measured against a symmetric null
+#                            (Lppl.power_decay_fit_v2: refined pass + RMSE tc
+#                            selection). Shadow of rmse_impr_pct; the frozen
+#                            figure is untouched. Flip is D9-e/D9-f.
 
 require_relative 'common'
 
@@ -113,9 +125,27 @@ rmse = Math.sqrt(best[:sse] / best[:n])
 a, b, c1, c2 = best[:coef]
 cmag = Math.sqrt(c1 * c1 + c2 * c2)
 
+# Report-only diagnostics (M9-5): B<0 sign restriction + damping condition.
+# Additive next to the four filters, NOT wired into pass/fail or the score
+# (that flip is decision item D9-e). See Lppl.fit_report_flags.
+rflags = Lppl.fit_report_flags(best[:m], b, best[:w], cmag)
+
 # null: pure power decay
 null = Lppl.power_decay_fit(p, i_peak)
 impr = null ? (1.0 - rmse / null[:rmse]) * 100 : nil
+
+# Symmetric-null SHADOW (M9-6): the same LPPLS RMSE measured against the
+# refined, RMSE-selected null (Lppl.power_decay_fit_v2). Report-only next to
+# rmse_impr_pct -- neither the frozen null nor the frozen improvement figure
+# above is touched. impr_v2 uses the identical (1 - rmse/null_rmse)*100
+# definition. Flip to headline is decision item D9-e/D9-f after soak.
+null_v2  = Lppl.power_decay_fit_v2(p, i_peak)
+impr_v2  = null_v2 ? (1.0 - rmse / null_v2[:rmse]) * 100 : nil
+null_v2_field = null_v2 && {
+  'tc' => (Lppl::GENESIS + null_v2[:tc] * 86_400).strftime('%Y-%m-%d'),
+  'rmse' => null_v2[:rmse].round(4),
+  'at_grid_edge' => null_v2[:at_grid_edge]
+}
 
 # ---- filters -----------------------------------------------------------------
 tau_min = 3.0
@@ -200,4 +230,9 @@ Lppl.report(NAME, score,
               'trough_px' => (interior ? trough_px : nil),
               'filters' => filters.inspect,
               'rmse_impr_pct' => impr && impr.round(1),
-              'trough_std_days' => tstd)
+              'trough_std_days' => tstd,
+              'b_negative' => rflags[:b_negative],
+              'damping' => rflags[:damping],
+              'damping_ref_threshold' => Lppl::DAMPING_REF_THRESHOLD,
+              'null_v2' => null_v2_field,
+              'improvement_v2' => impr_v2 && impr_v2.round(1))

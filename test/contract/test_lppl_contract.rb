@@ -67,8 +67,11 @@ class TestLpplContract < Minitest::Test
     self.class.build_prices
   end
 
+  # LPPL_SIMS_V2 shrinks logperiodic's M9-7 AR(1)+GARCH shadow bootstrap (1000
+  # sims by default, ~20s) to a handful so the contract suite -- and every
+  # aggregator run that spawns logperiodic without flags -- stays fast.
   def lppl_env(root = DATA_ROOT)
-    { 'BTC_DATA_DIR' => root }
+    { 'BTC_DATA_DIR' => root, 'LPPL_SIMS_V2' => '5' }
   end
 
   # F-9: exactly one stdout line in --json mode, parsing as one object.
@@ -83,12 +86,17 @@ class TestLpplContract < Minitest::Test
   # test file -> [required detail keys, optional detail keys (nil-dropped
   # or run-dependent), extra argv]
   TESTS = {
-    'trend'       => [%w[bf bf_by_horizon eval_points_1y], %w[bootstrap], []],
-    'envelope'    => [%w[ratio bound floor trough_ratios trend_today
-                         days_below_strong days_below_floor], [], []],
-    'fit'         => [%w[omega m tc_date filters],
-                      %w[trough_date trough_px rmse_impr_pct trough_std_days], []],
-    'logperiodic' => [%w[omega_peak p_value ar1_rho n_resid], [], %w[--sims 5]],
+    'trend'       => [%w[bf bf_by_horizon per_horizon per_horizon_long pl_lp1
+                         delta_ln_age eval_points_1y],
+                      %w[bootstrap], []],
+    'envelope'    => [%w[ratio bound floor freeze_candidate trough_ratios
+                         trend_today days_below_strong days_below_floor], [], []],
+    'fit'         => [%w[omega m tc_date filters b_negative damping_ref_threshold],
+                      %w[trough_date trough_px rmse_impr_pct trough_std_days
+                         damping null_v2 improvement_v2], []],
+    'logperiodic' => [%w[omega_peak p_value ar1_rho n_resid
+                         p_value_v2 sims_v2 garch runtime_v2_s], [],
+                      %w[--sims 5 --sims-v2 5]],
     'percentile'  => [%w[z pct_emp pct_gauss trend_px exponent ratio_to_trend
                          record prior_min_z prior_min_date days_le_p01
                          days_le_p05 envelope_pos envelope_neg], [], []]
@@ -116,16 +124,124 @@ class TestLpplContract < Minitest::Test
     end
   end
 
+  # M9-1: per_horizon is an additive density-invariant view -- one entry per
+  # horizon, each carrying {sum, mean_per_eval, n_evals}. The legacy bf /
+  # bf_by_horizon keys ride alongside unchanged.
+  def test_trend_per_horizon_shape
+    j = module_json('trend')
+    ph = j['per_horizon']
+    assert_kind_of Hash, ph
+    assert_equal %w[180 30 90], ph.keys.sort
+    ph.each_value do |h|
+      assert_equal %w[mean_per_eval n_evals sum], h.keys.sort
+      assert_kind_of Numeric, h['sum']
+      assert_kind_of Integer, h['n_evals']
+    end
+  end
+
+  # M9-8: the 365/730 long horizons ride in a SEPARATE additive map, each entry
+  # the same {sum, mean_per_eval, n_evals} shape plus report_only:true. They
+  # never touch per_horizon (pinned above) or the score.
+  def test_trend_per_horizon_long_shape
+    j  = module_json('trend')
+    ph = j['per_horizon_long']
+    assert_kind_of Hash, ph
+    assert_equal %w[365 730], ph.keys.sort
+    ph.each_value do |h|
+      assert_equal %w[mean_per_eval n_evals report_only sum], h.keys.sort
+      assert_equal true, h['report_only']
+      assert_kind_of Numeric, h['sum']
+      assert_kind_of Integer, h['n_evals']
+    end
+  end
+
+  # M9-9: the PL+LP1 rival rides in its own additive section pl_lp1{per_horizon,
+  # omega, clock}, report-only. It never touches per_horizon (pinned above), bf,
+  # or the score. The clock label carries the SBI ln(age)-vs-ln(tau) caution.
+  def test_trend_pl_lp1_shape
+    j = module_json('trend')
+    s = j['pl_lp1']
+    assert_kind_of Hash, s
+    assert_equal %w[clock omega per_horizon], s.keys.sort
+    assert_kind_of Numeric, s['omega']
+    assert_match(/ln\(age\)/, s['clock'])
+    assert_equal %w[180 30 90], s['per_horizon'].keys.sort
+    s['per_horizon'].each_value do |h|
+      assert_equal %w[mean_per_eval n_evals report_only sum], h.keys.sort
+      assert_equal true, h['report_only']
+      assert_kind_of Numeric, h['sum']
+    end
+  end
+
+  # M9-9 stage 1: lp1_check.rb is a standalone research script (not in publish)
+  # -- a --json smoke test that it runs offline and emits the characterization
+  # fields, including the ln(age) clock caveat.
+  def test_lp1_check_json_smoke
+    out, err, st = run_script('scripts/lppl/lp1_check.rb', '--json', env: lppl_env)
+    assert st.success?, "lp1_check exit #{st.exitstatus}: #{err}"
+    d = JSON.parse(out)
+    assert_contract_keys %w[clock mode_r2 n name peak_omega peak_power], d, 'lp1_check'
+    assert_kind_of Numeric, d['peak_omega']
+    assert_kind_of Numeric, d['mode_r2']
+    assert_match(/ln\(age\)/, d['clock'])
+  end
+
+  # M9-5: report-only fit diagnostics ride additively next to the frozen
+  # four-filter verdict -- b_negative (bool, always present) and
+  # damping_ref_threshold (the reference-only constant 1.0). damping itself is
+  # nil-droppable (absent when C is zero). None of them touch the score.
+  def test_fit_report_only_flags_shape
+    j = module_json('fit')
+    assert_includes [true, false], j['b_negative']
+    assert_equal 1.0, j['damping_ref_threshold']
+    assert_kind_of Numeric, j['damping'] if j.key?('damping')
+  end
+
+  # M9-6: the symmetric-null SHADOW rides additively -- null_v2 {tc, rmse,
+  # at_grid_edge} and improvement_v2 -- next to the frozen rmse_impr_pct, which
+  # must remain present and untouched. Both v2 fields are nil-droppable.
+  def test_fit_symmetric_null_v2_shape
+    j = module_json('fit')
+    if j.key?('null_v2')
+      nv = j['null_v2']
+      assert_equal %w[at_grid_edge rmse tc], nv.keys.sort
+      assert_kind_of Numeric, nv['rmse']
+      assert_includes [true, false], nv['at_grid_edge']
+      assert_match(/\A\d{4}-\d{2}-\d{2}\z/, nv['tc'])
+      assert_kind_of Numeric, j['improvement_v2']
+    end
+  end
+
+  # M9-7: the AR(1)+GARCH bootstrap SHADOW rides additively next to the frozen
+  # AR(1) p_value -- p_value_v2, sims_v2, a garch{...} block, and a measured
+  # runtime_v2_s. The frozen p_value / ar1_rho are untouched.
+  def test_logperiodic_garch_shadow_shape
+    j = module_json('logperiodic', '--sims', '5', '--sims-v2', '5')
+    assert_kind_of Numeric, j['p_value']      # frozen AR(1) still present
+    assert_kind_of Numeric, j['p_value_v2']
+    assert_equal 5, j['sims_v2']
+    assert_kind_of Numeric, j['runtime_v2_s']
+    g = j['garch']
+    assert_equal %w[alpha ar1 beta fitted omega], g.keys.sort
+    assert_includes [true, false], g['fitted']
+    %w[alpha ar1 beta omega].each { |k| assert_kind_of Numeric, g[k] }
+  end
+
   # ---- aggregator ------------------------------------------------------
 
   STATUS_RE = %r{\ALPPL (REGIME-INTACT|SUPPORTED|INDETERMINATE|STRESSED|FALSIFIED) [+-]\d+\.\d\d BF\S+ r\S+ trough \S+ w\S+ p\S+ Z\S+@\S+\z}
 
   def test_aggregator_json_contract
     j = run_json('scripts/lppl/lppl.rb', '--json', '--skip-update', env: lppl_env)
-    assert_contract_keys %w[composite status_line tests ts verdict], j, 'lppl.rb'
+    assert_contract_keys %w[composite omega_xcheck status_line tests
+                            trough_stability ts verdict], j, 'lppl.rb'
     assert_kind_of Float, j['composite']
     assert_includes VERDICTS, j['verdict']
     assert_match STATUS_RE, j['status_line']
+    # M9-3: omega cross-check rides along additively -- two independent omega
+    # estimates and their gap; trough_stability is a first-class field.
+    assert_contract_keys %w[delta fit_omega ls_omega], j['omega_xcheck'], 'omega_xcheck'
+    assert j.key?('trough_stability'), 'trough_stability first-class field absent'
 
     assert_equal TESTS.keys.sort, j['tests'].map { |t| t['name'] }.sort
     j['tests'].each do |t|
@@ -148,7 +264,8 @@ class TestLpplContract < Minitest::Test
     j = run_json('scripts/lppl/lppl.rb', '--json', '--skip-update',
                  env: lppl_env(root).merge('FAKE_NOW' => '2026-07-20T00:00:00Z'))
     assert_equal true, j['stale_input']
-    assert_contract_keys %w[composite stale_input status_line tests ts verdict], j,
+    assert_contract_keys %w[composite omega_xcheck stale_input status_line tests
+                            trough_stability ts verdict], j,
                          'lppl.rb --json (stale)'
   ensure
     FileUtils.rm_rf(root) if root
@@ -162,7 +279,8 @@ class TestLpplContract < Minitest::Test
 
     j = run_json('scripts/lppl/lppl.rb', '--json', '--skip-update',
                  '--as-of', '2026-07-03', env: lppl_env)
-    assert_contract_keys %w[as_of composite status_line tests ts verdict], j,
+    assert_contract_keys %w[as_of composite omega_xcheck status_line tests
+                            trough_stability ts verdict], j,
                          'lppl.rb --as-of'
     assert_equal '2026-07-03', j['as_of']
     assert_equal '2026-07-03T00:00:00Z', Time.iso8601(j['ts']).iso8601

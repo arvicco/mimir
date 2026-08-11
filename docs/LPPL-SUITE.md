@@ -43,10 +43,17 @@ precision is punished harder than one that missed by 10% while honestly
 claiming plus-or-minus 20%. That grading rule is called the *log score*.
 
 The grades accumulate over years of daily predictions. The headline
-number -- the **Bayes factor** -- is simply the running score
-differential, expressed as odds. BF +1.0 means the accumulated evidence
-favors the global power law 10-to-1 over its best rival; BF -1.0 means
+number -- the **cumulative log predictive-score differential** (formerly
+called the "Bayes factor") -- is simply the running score differential in
+log10 units, readable as odds: +1.0 means the accumulated evidence
+favors the global power law 10-to-1 over its best rival; -1.0 means
 10-to-1 against.
+
+One honesty caveat travels with it: because the number is a *sum* over
+evaluation days, its magnitude scales with how many days the cache holds
+(a weekly-stride cache reads ~7x smaller than a daily one over the same
+year), so read its **sign** and its **per-evaluation-point mean**, never
+the raw total, when comparing across periods.
 
 This is the component that can genuinely kill the theory, because there
 is no arguing with a model that keeps losing a fair forecasting contest
@@ -104,7 +111,9 @@ anti-bubble reading.
 Historically, each cycle's bottom has landed *less* far below the trend
 line than the previous one: roughly 60% below, then 55%, then 50%.
 LPPL-as-regime says this damping continues, so this cycle should bottom
-*above* the last cycle's ratio.
+*above* the last cycle's ratio. Treat this as a **descriptive cycle
+heuristic**, not a statistical test -- with only three troughs it
+describes a pattern rather than proving one.
 
 The test is deliberately simple, because only three historical data
 points support the claim. Each day it computes the price-to-trend ratio

@@ -757,6 +757,22 @@
         "symbol": "none",
         "data": [
           {
+            "xAxis": "62k",
+            "label": {
+              "formatter": "spot",
+              "position": "start",
+              "offset": [
+                0,
+                -14
+              ]
+            },
+            "lineStyle": {
+              "color": "#c9ccd1",
+              "type": "solid",
+              "width": 1
+            }
+          },
+          {
             "xAxis": "61k",
             "label": {
               "formatter": "flip"

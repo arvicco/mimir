@@ -40,7 +40,7 @@
 # - STATUS (frozen --tmux contract): /tmp/publish.status carries
 #   `PUB DRY|LIVE <published>/<expected> keys HH:MM UTC` where
 #   expected = producers + tails + charts + 1 (the index) = n/26
-#   (11 producers + 2 tails + 12 charts + index). Pinned in the tests.
+#   (11 producers + 2 tails + 13 charts + index). Pinned in the tests.
 #   ADDITIVE (M7-5, 2026-07-07 frozen-evidence incident): when a PUBLISHED
 #   tail's newest entry is older than STALE_EVIDENCE_H (30h), the line gains
 #   a trailing ` OLD:<key>[,<key>...]` marker (TAILS order), e.g.
