@@ -97,6 +97,34 @@ var FORMATTERS = {
       out.push(n + ": " + span(G, fm(v.C)) + " " + span(R, fm(v.P)));
     });
     return out.join("<br>");
+  },
+
+  // lppl_shadow (M9-13): the SHADOW tab's per-row hover. The row's stat
+  // name (bold), then "frozen <val> -> shadow <val>  <verdict>", then the
+  // owner-approved plain-language paragraph -- all carried IN the option
+  // on the row's `stat`-column datum (renderer stays dumb; payload stays
+  // JSON). Axis trigger hands us every series at the hovered row; we pull
+  // the one datum that carries `explanation`. Wrapped so a long paragraph
+  // never runs off the screen (the universal position callback then keeps
+  // the whole block inside the viewport).
+  lppl_shadow: function (params) {
+    if (!params || !params.length) return "";
+    var d = null;
+    for (var i = 0; i < params.length; i += 1) {
+      if (params[i].data && params[i].data.explanation) { d = params[i].data; break; }
+    }
+    if (!d) return "";
+    function esc(s) {
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+    var A = "#e6a23c", dim = "#9aa0a6";
+    var line = '<span style="color:' + dim + '">frozen</span> ' + esc(d.frozen) +
+               ' <span style="color:' + A + '">&rarr;</span> ' +
+               '<span style="color:' + dim + '">shadow</span> ' + esc(d.shadow) +
+               '  <b>' + esc(d.verdict) + "</b>";
+    return '<div style="max-width:320px;white-space:normal;line-height:1.5">' +
+           "<b>" + esc(d.title) + "</b><br>" + line +
+           '<div style="margin-top:6px;color:#c7ccd1">' + esc(d.explanation) + "</div></div>";
   }
 };
 
@@ -117,8 +145,9 @@ var WIDGETS = {
   // A venue absent from the payload (filtered as insignificant) leaves its
   // slot collapsed; rows stay in order. The venue universe is exactly these
   // six (Deribit + the five US spot-ETF chains), so nothing is ever dropped.
-  gex_cp: function (card, chart, option) {
+  gex_cp: function (card, chart, option, meta) {
     var ORDER = [["IBIT", "FBTC", "BITB"], ["DERI", "ARKB", "GBTC"]];
+    var terms = (meta && meta.terms) || {}; // M9-15: per-venue CSS bubbles
     var sides = {}; // venue LABEL (may carry a stale '!') -> {C, P} series names
     (option.series || []).forEach(function (s) {
       var m = /^(.*) ([CP])$/.exec(s.name || "");
@@ -183,6 +212,17 @@ var WIDGETS = {
         });
         cell.appendChild(document.createTextNode(" "));
         var c = piece("(c)", "cp-c", function () { setTo([sides[v].C], !sel[sides[v].C]); });
+        // M9-15 (owner ruling 2026-08-11): the venue label gets an instant CSS
+        // bubble (the house hover pattern, never native title=) explaining what
+        // the chain is. Keyed by the BASE venue (a stale 'DERI!' still resolves
+        // to the DERI text). Text node -- no HTML injection from meta.
+        var term = terms[v.replace(/!$/, "")];
+        if (term) {
+          var bub = document.createElement("span");
+          bub.className = "cp-bub";
+          bub.textContent = term;
+          cell.appendChild(bub);
+        }
         cells.push({ v: v, p: p, c: c, name: name });
         rowEl.appendChild(cell);
       });
@@ -191,6 +231,110 @@ var WIDGETS = {
     card.appendChild(box);
   }
 };
+
+// ---- glossary terms hook (M9-15, owner ruling 2026-08-11) ---------------
+// Sanctioned deviation #6 (chart_specs.rb header): meta.terms = { TERM ->
+// explanation } gives hover explanations to abbreviations / module names,
+// the SAME styled block as the lppl_shadow tooltip. Render-layer only -- it
+// mutates the built option copy (like tooltipPosition / the dark theme); the
+// JSON payload and the goldens never change. Surfaces:
+//   1. drawn ECharts legends -> legend.tooltip (native), our styled formatter;
+//   2. category-axis tick labels that ARE terms (the scenario module
+//      scoreboard, canvas) -> triggerEvent on that axis + a viewport-fixed
+//      styled popover. ECharts has no native tooltip for a lone axis label,
+//      and its axis-trigger tooltip cannot render one label's own text, so the
+//      renderer shows the house instant bubble (never a native title=).
+//   3. the gex_cp venue widget (HTML) -> a CSS bubble, built in the widget.
+// An unknown name gets no tooltip.
+function escTerm(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function termsBlock(term, text) {
+  return '<div style="max-width:320px;white-space:normal;line-height:1.5">' +
+         "<b>" + escTerm(term) + "</b>" +
+         '<div style="margin-top:6px;color:#c7ccd1">' + escTerm(text) + "</div></div>";
+}
+function termsFormatter(terms) {
+  return function (p) {
+    var name = p && p.name;
+    return (name && terms[name]) ? termsBlock(name, terms[name]) : "";
+  };
+}
+
+// Attach meta.terms to a built chart. `host` is the chart div (the popover's
+// parent). No-op unless meta.terms is present.
+function applyTerms(chart, option, meta, host) {
+  if (!meta || !meta.terms || !option) return;
+  var terms = meta.terms;
+  // (1) drawn legend items -- ECharts' own legend.tooltip, our styled block.
+  // ONLY when the option already SHOWS a legend: merging a legend object
+  // into a legend-less chart CREATES one (default show:true) -- observed
+  // 2026-08-11 as a phantom "composite/modules" legend colliding with the
+  // scenario title (owner report).
+  if (option.legend && option.legend.show !== false) chart.setOption({ legend: { tooltip: {
+    show: true, confine: true,
+    backgroundColor: "#232933", borderColor: "#3a424e", borderWidth: 1,
+    textStyle: { color: "#ccd3dc", fontSize: 12 },
+    extraCssText: "border-radius:8px;padding:10px 14px;box-shadow:0 6px 24px rgba(0,0,0,.45);",
+    formatter: termsFormatter(terms)
+  } } });
+  // (2) a category axis whose EVERY tick label is itself a term (the scenario
+  // module scoreboard). Nothing else matches -- date/price/tenor axes carry
+  // no term labels -- so this fires only where intended.
+  ["xAxis", "yAxis"].forEach(function (dim) {
+    var axes = option[dim];
+    if (!axes) return;
+    if (!Array.isArray(axes)) axes = [axes];
+    axes.forEach(function (ax, ai) {
+      var data = ax && ax.data;
+      if (!data || !data.length) return;
+      if (!data.every(function (v) { return terms[v]; })) return;
+      wireAxisTerms(chart, dim, ai, data, terms, host);
+    });
+  });
+}
+
+// Enable label events on the term-carrying axis (render-time triggerEvent,
+// index-matched partial merge so the rest of the axis is untouched) and show
+// a viewport-fixed styled popover on a label hover. position:fixed + the
+// event's clientX/Y keeps the never-clip math in viewport space; the popover
+// is pointer-events:none so it never steals the hover.
+function wireAxisTerms(chart, dim, axisIndex, data, terms, host) {
+  var patch = [];
+  for (var i = 0; i <= axisIndex; i += 1) patch.push({});
+  patch[axisIndex] = { triggerEvent: true };
+  var opt = {}; opt[dim] = patch;
+  chart.setOption(opt);
+
+  var pop = document.createElement("div");
+  pop.className = "terms-pop";
+  pop.style.display = "none";
+  host.appendChild(pop);
+
+  chart.on("mouseover", function (ev) {
+    if (!ev || ev.componentType !== dim) return;
+    var name = ev.value;
+    if (!terms[name] || data.indexOf(name) < 0) return;
+    var oe = ev.event && ev.event.event; // zrender event -> raw DOM event
+    var cx = oe ? oe.clientX : 0, cy = oe ? oe.clientY : 0;
+    pop.innerHTML = termsBlock(name, terms[name]); // owner-authored, escaped
+    pop.style.left = (cx + 14) + "px";
+    pop.style.top = (cy + 14) + "px";
+    pop.style.display = "block";
+    requestAnimationFrame(function () {
+      var r = pop.getBoundingClientRect();
+      var vw = window.innerWidth || Infinity, vh = window.innerHeight || Infinity;
+      if (r.width && r.right > vw) pop.style.left = Math.max(4, cx - r.width - 14) + "px";
+      if (r.height && r.bottom > vh) pop.style.top = Math.max(4, cy - r.height - 14) + "px";
+    });
+  });
+  function hide(ev) {
+    if (ev && ev.componentType && ev.componentType !== dim) return;
+    pop.style.display = "none";
+  }
+  chart.on("mouseout", hide);
+  chart.on("globalout", function () { pop.style.display = "none"; });
+}
 
 // ---- one chart card ---------------------------------------------------
 var charts = []; // live echarts instances, for resize
@@ -338,11 +482,24 @@ function buildChartInstance(env, key, meta, legendHost) {
   // (below-the-fold) container -- the callback owns containment now.
   chart.setOption({ tooltip: { position: tooltipPosition(div), confine: false } });
   if (meta && meta.tooltip_formatter && FORMATTERS[meta.tooltip_formatter]) {
-    chart.setOption({ tooltip: { formatter: FORMATTERS[meta.tooltip_formatter] } });
+    var fmtTip = { formatter: FORMATTERS[meta.tooltip_formatter] };
+    if (meta.tooltip_formatter === "lppl_shadow") {
+      // this formatter's block is written light-on-dark (house bubble
+      // colors); ECharts' default white tooltip made it unreadable
+      // (owner report 2026-08-11) -- give it the house dark chrome
+      fmtTip.backgroundColor = "#232933";
+      fmtTip.borderColor = "#3a424e";
+      fmtTip.borderWidth = 1;
+      fmtTip.textStyle = { color: "#ccd3dc", fontSize: 12 };
+      fmtTip.extraCssText = "border-radius:8px;padding:10px 14px;" +
+                            "box-shadow:0 6px 24px rgba(0,0,0,.45);max-width:340px;white-space:normal;";
+    }
+    chart.setOption({ tooltip: fmtTip });
   }
   if (meta && meta.legend_widget && WIDGETS[meta.legend_widget]) {
-    WIDGETS[meta.legend_widget](host, chart, env.payload);
+    WIDGETS[meta.legend_widget](host, chart, env.payload, meta);
   }
+  applyTerms(chart, env.payload, meta, div); // M9-15 glossary hover hook
   charts.push(chart);
   return { div: div, chart: chart };
 }
@@ -738,7 +895,8 @@ var CARD_ORDER = ["chart:gex_btc", "chart:gex_mstr", "chart:gex_btc_trend",
                   "chart:gex_mstr_trend",
                   "chart:vol_surface", "chart:vol_surface_mstr", "chart:vol_basis",
                   "chart:vol_spread", "chart:vol_spread_trend",
-                  "chart:scenario_strip", "chart:lppl_regime", "chart:btco_table"];
+                  "chart:scenario_strip", "chart:lppl_regime", "chart:lppl_shadow",
+                  "chart:btco_table"];
 function cardRank(key) {
   var i = CARD_ORDER.indexOf(key);
   return i === -1 ? CARD_ORDER.length : i;
@@ -885,7 +1043,7 @@ function forgetGroup(groupId) {
 // rev: bump on EVERY render.js change; `MimirRender.rev` in the console
 // answers "which renderer is this tab actually running?" after deploys.
 window.MimirRender = {
-  rev: "m8-18-dot-badges",
+  rev: "m9-15-terms",
   staleClass: staleClass,
   hhmm: hhmm,
   liveHeader: liveHeader,
@@ -902,5 +1060,7 @@ window.MimirRender = {
   forgetGroup: forgetGroup,
   charts: charts,
   FORMATTERS: FORMATTERS,
-  WIDGETS: WIDGETS
+  WIDGETS: WIDGETS,
+  termsBlock: termsBlock,
+  applyTerms: applyTerms
 };

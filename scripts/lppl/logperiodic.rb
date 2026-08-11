@@ -14,6 +14,17 @@
 #   score  0  in between
 #
 #   ruby logperiodic.rb [--sims N]   # default 100 bootstrap sims
+#
+# SHADOW second null (M9-7, report-only -- flip is D9-f): an AR(1)+GARCH(1,1)
+# parametric bootstrap. The frozen AR(1) test above matches only lag-1
+# autocorrelation + variance and Lomb-Scargles the simulated noise directly;
+# the shadow additionally (a) matches GARCH(1,1) volatility clustering by
+# conditional MLE and (b) re-fits the power-decay null on EACH simulated price
+# path (the frozen path skips the refit), so p_value_v2 carries the
+# refit-and-look-elsewhere variance the AR(1) p-value ignores. Additive fields
+# p_value_v2 / sims_v2 / garch{...} / runtime_v2_s; the AR(1) fields are
+# untouched. Default 1000 sims (~20s on the real cache); --sims-v2 N overrides,
+# and LPPL_SIMS_V2 shrinks the default for the test suite.
 
 require_relative 'common'
 require_relative '../../lib/btc/util'
@@ -21,6 +32,9 @@ require_relative '../../lib/btc/util'
 NAME = 'logperiodic'
 
 SIMS = (BTC::Util.arg('--sims') || 100).to_i
+# SHADOW AR(1)+GARCH bootstrap sim count (M9-7). Default 1000; --sims-v2 N or
+# the LPPL_SIMS_V2 env (used by the test suite) override it.
+SIMS_V2 = (BTC::Util.arg('--sims-v2') || ENV['LPPL_SIMS_V2'] || 1000).to_i
 
 begin
   p = Lppl.load_prices
@@ -74,8 +88,23 @@ score = if pval <= 0.05 && w_peak >= 6.0 && w_peak <= 13.0
           0
         end
 
+# ---- SHADOW: AR(1)+GARCH(1,1) parametric bootstrap (M9-7) ---------------------
+# Report-only, wired into NOTHING above (score/verdict unchanged). Measured
+# runtime rides along so cron cost is visible.
+t_v2 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+boot = Lppl.arma_garch_pvalue(p, i_peak, null, obs_max, GRID, SIMS_V2, Random.new(42))
+runtime_v2 = (Process.clock_gettime(Process::CLOCK_MONOTONIC) - t_v2).round(2)
+
 Lppl.report(NAME, score,
               format('LS peak omega %.1f, power %.1f, p = %.3f (AR(1) rho %.2f, %d sims)',
                      w_peak, obs_max, pval, rho, SIMS),
               'omega_peak' => w_peak.round(2), 'p_value' => pval.round(3),
-              'ar1_rho' => rho.round(3), 'n_resid' => n)
+              'ar1_rho' => rho.round(3), 'n_resid' => n,
+              'p_value_v2' => boot[:p_value].round(3),
+              'sims_v2' => boot[:sims],
+              'garch' => { 'ar1' => boot[:garch][:ar1].round(4),
+                           'omega' => boot[:garch][:omega].round(6),
+                           'alpha' => boot[:garch][:alpha].round(4),
+                           'beta' => boot[:garch][:beta].round(4),
+                           'fitted' => boot[:garch][:fitted] },
+              'runtime_v2_s' => runtime_v2)

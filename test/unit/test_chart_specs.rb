@@ -59,6 +59,13 @@ class TestChartSpecs < Minitest::Test
     assert_equal 'gex_cp', metas['gex_btc']['legend_widget'] # (p) DERI (c)
     # hooks are opt-in: nobody else declares them
     assert_nil metas['lppl_regime']['tooltip_formatter']
+    # M9-13 (owner ruling 2026-08-11): the shadow diagnostics move off the
+    # LPPL panels onto a SHADOW tab of the same card. lppl_regime is the
+    # default tab (pos 0); lppl_shadow (pos 1) carries the row-hover formatter.
+    assert_equal 'lppl_shadow', metas['lppl_shadow']['tooltip_formatter']
+    assert_equal %w[lppl LPPL 0], metas['lppl_regime'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
+    assert_equal %w[lppl SHADOW 1], metas['lppl_shadow'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
+    assert_nil metas['lppl_shadow']['height'] # a tab, not a stacked half
     assert_nil metas['btco_table']['height']
     assert_nil metas['scenario_strip']['legend_widget']
     # gex_mstr carries no drawn-legend/tooltip hooks: its single net-GEX
@@ -75,9 +82,9 @@ class TestChartSpecs < Minitest::Test
     assert_equal 'gex', metas['gex_mstr']['tab_group']
     assert_equal 'MSTR', metas['gex_mstr']['tab_label']
     assert_equal 2, metas['gex_mstr']['tab_pos']
-    # scenario/lppl/btco stay solo cards
+    # scenario/btco stay solo cards; LPPL is a two-tab card (M9-13)
     assert_nil metas['scenario_strip']['tab_group']
-    assert_nil metas['lppl_regime']['tab_group']
+    assert_equal 'lppl', metas['lppl_regime']['tab_group']
     assert_nil metas['btco_table']['tab_group']
     # M8-6 as amended 2026-08-10 (owner rulings): vol_surface + vol_basis
     # share the 'vol' card as ONE CARD, TWO STACKED HALF-HEIGHT charts
@@ -330,7 +337,8 @@ class TestChartSpecs < Minitest::Test
   def test_gex_profile_marklines_flip_and_walls
     marks = first_bar(build('gex_btc'))['markLine']['data']
     labels = marks.map { |m| m['label']['formatter'] }
-    assert_equal %w[flip CW PW], labels # the fixture payload has all three
+    # spot added 2026-08-11 (owner parity ruling: MSTR tab had it, BTC lacked it)
+    assert_equal %w[spot flip CW PW], labels
     marks.each { |m| assert_match(/\A\d+(\.\d)?k\z/, m['xAxis']) } # snapped to category
   end
 
@@ -605,9 +613,14 @@ class TestChartSpecs < Minitest::Test
   end
 
   def test_lppl_three_panels_ratio_bf_z
+    # M9-13: the shadow scoreboard left lppl_regime; it is once again the
+    # three full-width evidence panels, tight right margin, whole-card link.
     opt = build('lppl_regime')
     assert_equal 3, opt['grid'].size
     assert_equal %w[ratio log10\ BF Z], opt['series'].map { |s| s['name'] }
+    assert_equal 24, opt['grid'].first['right'] # full-width panels, tight margin
+    assert_equal [{ 'xAxisIndex' => 'all' }], opt['axisPointer']['link']
+    refute opt['series'].any? { |s| s['name'] == 'shadow' }
     # each panel bound to its own grid via matching axis indices
     opt['series'].each_with_index do |s, i|
       assert_equal i, s['xAxisIndex']
@@ -656,6 +669,95 @@ class TestChartSpecs < Minitest::Test
     refute title.key?('subtext')
     assert_equal 13, title['textStyle']['fontSize']
     assert_equal 'LPPL STRESSED +0.00', title['text']
+  end
+
+  # ---- M9-13 shadow diagnostics (the SHADOW tab) -----------------------
+
+  def shadow_stat_series(opt)
+    opt['series'].find { |s| s['name'] == 'stat' }
+  end
+
+  def test_lppl_shadow_six_rows_frozen_shadow_verdict
+    opt = build('lppl_shadow')
+    # one grid, hidden value x + category y with a slot per row
+    assert_equal 1, opt['grid'].size
+    yax = opt['yAxis'].first
+    assert_equal 'category', yax['type']
+    assert_equal (0..5).to_a, yax['data'] # 6 slots, labels hidden
+    assert_equal false, yax['axisLabel']['show']
+    # title carries the honest check count (fontSize 13)
+    assert_equal 'Shadow diagnostics · 6 checks', opt['title'].first['text']
+    assert_equal 13, opt['title'].first['textStyle']['fontSize']
+    # the visible columns and their build-time-scaled values, in order
+    stat = shadow_stat_series(opt)
+    assert_equal 0, stat['symbolSize']
+    assert_equal true, stat['silent']
+    assert_equal %w[mean/eval 365/730 damping impr p(osc) freeze],
+                 stat['data'].map { |d| d['title'] }
+    assert_equal ['-427.34', '-0.11', '>=1', '43.5%', '.19', '.435'],
+                 stat['data'].map { |d| d['frozen'] }
+    assert_equal ['-1.17', '+0.15', '0.41', '27.9%', '.24', '.358'],
+                 stat['data'].map { |d| d['shadow'] }
+    assert_equal ['rivals win', 'wins at 2y', 'not met', 'still wins',
+                  'still noise', 'drift flatters'],
+                 stat['data'].map { |d| d['verdict'] }
+  end
+
+  def test_lppl_shadow_rows_carry_owner_explanations
+    stat = shadow_stat_series(build('lppl_shadow'))
+    # every row's hover text is the verbatim owner-approved paragraph,
+    # keyed by stat, and names the ruling it feeds
+    stat['data'].each do |d|
+      assert_equal Publish::Charts::LPPL_SHADOW_EXPLAIN[d['title']], d['explanation']
+    end
+    mean = stat['data'].find { |d| d['title'] == 'mean/eval' }
+    assert_match(/Feeds ruling D9-b/, mean['explanation'])
+    assert_match(/18x higher probability/, mean['explanation'])
+  end
+
+  def test_lppl_shadow_axis_tooltip_contract
+    # frozen tooltip contract: confine true + fontSize 11 (renderer swaps
+    # in the never-clip position + lppl_shadow formatter at runtime), and
+    # axis trigger so hovering anywhere on a row fires it
+    tip = build('lppl_shadow')['tooltip']
+    assert_equal 'axis', tip['trigger']
+    assert_equal true, tip['confine']
+    assert_equal 11, tip['textStyle']['fontSize']
+  end
+
+  def test_lppl_shadow_row_absent_when_field_missing
+    lat = JSON.parse(JSON.generate(lppl_latest))
+    fld = ->(n) { lat['tests'].find { |t| t['name'] == n }['detail'] }
+    fld.call('envelope').delete('freeze_candidate') # drops the freeze row
+    fld.call('logperiodic').delete('p_value_v2')     # drops the p(osc) row
+    stat = shadow_stat_series(Publish::Charts.lppl_shadow(lat))
+    assert_equal 4, stat['data'].size # 6 rows minus the two dropped
+    titles = stat['data'].map { |d| d['title'] }
+    refute_includes titles, 'freeze'
+    refute_includes titles, 'p(osc)'
+    # the title's check count follows the surviving rows
+    assert_equal 'Shadow diagnostics · 4 checks',
+                 Publish::Charts.lppl_shadow(lat)['title'].first['text']
+  end
+
+  def test_lppl_shadow_degrades_gracefully_with_no_shadow_fields
+    lat = JSON.parse(JSON.generate(lppl_latest))
+    td = ->(n) { lat['tests'].find { |t| t['name'] == n }['detail'] }
+    %w[per_horizon per_horizon_long].each { |k| td.call('trend').delete(k) }
+    td.call('envelope').delete('freeze_candidate')
+    %w[damping improvement_v2].each { |k| td.call('fit').delete(k) }
+    td.call('logperiodic').delete('p_value_v2')
+    opt = Publish::Charts.lppl_shadow(lat)
+    assert_empty opt['series'] # no rows -> nothing drawn (fail-soft)
+    assert_equal 'Shadow diagnostics · 0 checks', opt['title'].first['text']
+    assert_equal 'awaiting shadow fields', opt['title'].last['text']
+    assert_equal opt, JSON.parse(JSON.generate(opt)) # still JSON-safe
+  end
+
+  def test_lppl_compact_strips_leading_zero
+    assert_equal '.24', Publish::Charts.lppl_compact(0.238, 2)
+    assert_equal '-.11', Publish::Charts.lppl_compact(-0.108, 2)
+    assert_equal '1.40', Publish::Charts.lppl_compact(1.4, 2)
   end
 
   # ---- btco_table structure --------------------------------------------

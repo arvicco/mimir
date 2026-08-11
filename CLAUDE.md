@@ -82,7 +82,11 @@ same commit (`rake health` fails on registry drift).
    steps with full copy-pasteable commands, real URLs/links, and an
    EXPECT line per step; background quarantined at the end. Never bury
    a gate checklist in BACKLOG.md or a chat summary; keep the runbook
-   current as gate scope evolves.
+   current as gate scope evolves. **Owner steps run ONLY in ~/Dev/mimir
+   or a browser** (owner ruling 2026-08-11: no worktree/obscure paths in
+   gate work) -- any step that needs the phase worktree is the loop's
+   job, done before the handoff; the runbook says "ask the loop", not
+   "cd somewhere".
 
 ### Self-review checklist
 - [ ] Ruby 3.3-compatible (`rake compat` clean; no 3.4+/4.x-only constructs)
@@ -169,6 +173,15 @@ same commit (`rake health` fails on registry drift).
   they cover. Never commit `data/`, `*.status`, fixtures containing
   secrets, or `.env`.
 - Do not rewrite published history; do not tag -- tags are gate actions.
+- **Branches only -- no worktrees** (owner rulings 2026-08-11): mimir
+  is developed like any normal project, one checkout at ~/Dev/mimir,
+  branches switched in place. If the loop ever needs a parallel tree
+  it is loop-internal, lives in agent scratch space (/tmp), is removed
+  the moment its need ends, and is never mentioned in owner-facing
+  docs or summaries. `rake health` fails on any worktree found on the
+  owner's filesystem or outliving its merged branch. (Prerequisite
+  M9-12: production agents run from their own runtime copy, so the
+  dev checkout's branch never matters to production.)
 
 ## Repo map (details in ARCHITECTURE.md section 3)
 
@@ -183,18 +196,13 @@ same commit (`rake health` fails on registry drift).
 
 ## Current phase
 
-Phase 8 (branch phase-8; Gate 7 closed 2026-08-10 -- PR #8 merged,
-v1 tagged at 03cac84, deployed and live-verified). **BTCo
-development is FROZEN (owner ruling 2026-08-10, pending a rethink)**:
-no BTCo packets, no ingest work, no universe edits; code and tests
-stay. Owner rulings 2026-08-10: BTCo table stays VISIBLE (as a
-rethink reminder), the daily btco-alert agent STOPS, dashboard
-auto-refresh gets BUILT (pre-Gate-8 packet). Gate 8 = vol/GEX family
-(M8-1..M8-10 built) + pre-gate hardening; runbook
-docs/Gate-8-runbook.md. After Gate 8: Phase 9 (LPPL statistics
-revision from the SBI review; every verdict-affecting change is a
-Golden-Rule-4 decision item). Stage A tiering (DEV-LOOP.md section
-2): Fable orchestrates/reviews, Opus/Sonnet write most code in
-isolated worktrees. Visual work follows .claude/skills/mimir-design;
-deploys and launchd changes are HUMAN actions (Golden Rule 3).
-Update this line at each gate.
+Phase 9 (LPPL statistics revision, branch phase-9, worktree
+.worktrees/phase-9; Gate 8 closed 2026-08-10 -- PR #9 + hotfix #10,
+deployed + live-verified, 26 keys). Spec = the SBI consolidated
+review; packets M9-1..11 + decision items D9-a..g in docs/BACKLOG.md;
+Gate 9 = docs/Gate-9-runbook.md. SHADOW-FIRST: verdict-affecting
+changes ship as additive report-only fields and flip only on owner
+rulings (Golden Rule 4). BTCo stays FROZEN (2026-08-10 ruling).
+Stage A tiering; visual work follows .claude/skills/mimir-design;
+deploys and launchd changes are HUMAN actions. Update this line at
+each gate.

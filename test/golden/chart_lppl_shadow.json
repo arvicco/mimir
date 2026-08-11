@@ -1,0 +1,605 @@
+{
+  "backgroundColor": "transparent",
+  "title": [
+    {
+      "text": "Shadow diagnostics · 6 checks",
+      "textStyle": {
+        "fontSize": 13
+      }
+    },
+    {
+      "text": "frozen → shadow · hover a row for what it means",
+      "top": 26,
+      "left": 8,
+      "textStyle": {
+        "fontSize": 11,
+        "fontWeight": "normal",
+        "color": "#8a93a0"
+      }
+    }
+  ],
+  "tooltip": {
+    "trigger": "axis",
+    "confine": true,
+    "textStyle": {
+      "fontSize": 11
+    },
+    "axisPointer": {
+      "type": "shadow"
+    }
+  },
+  "grid": [
+    {
+      "left": 10,
+      "right": 10,
+      "top": 52,
+      "bottom": 18
+    }
+  ],
+  "xAxis": [
+    {
+      "type": "value",
+      "min": 0,
+      "max": 1,
+      "show": false
+    }
+  ],
+  "yAxis": [
+    {
+      "type": "category",
+      "inverse": true,
+      "data": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "boundaryGap": true,
+      "axisLabel": {
+        "show": false
+      },
+      "axisLine": {
+        "show": false
+      },
+      "axisTick": {
+        "show": false
+      },
+      "splitLine": {
+        "show": false
+      }
+    }
+  ],
+  "series": [
+    {
+      "name": "stat",
+      "type": "scatter",
+      "xAxisIndex": 0,
+      "yAxisIndex": 0,
+      "symbolSize": 0,
+      "silent": true,
+      "animation": false,
+      "data": [
+        {
+          "value": [
+            0.01,
+            0
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "mean/eval",
+            "fontSize": 12,
+            "fontWeight": "bold",
+            "color": "#e6e9ec"
+          },
+          "title": "mean/eval",
+          "frozen": "-427.34",
+          "shadow": "-1.17",
+          "verdict": "rivals win",
+          "explanation": "The average forecast-score gap per evaluation: power law vs its best rival, in log10. Negative = rivals beat the power law that day. Unlike the headline sum (about -460), this number does not grow just because we evaluate more often -- it is the honest size of the effect. -1.26 means that on an average day the best rival gave about 18x higher probability to what actually happened. Feeds ruling D9-b (make this the primary trend number?)."
+        },
+        {
+          "value": [
+            0.01,
+            1
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "365/730",
+            "fontSize": 12,
+            "fontWeight": "bold",
+            "color": "#e6e9ec"
+          },
+          "title": "365/730",
+          "frozen": "-0.11",
+          "shadow": "+0.15",
+          "verdict": "wins at 2y",
+          "explanation": "The same per-evaluation score at 1-year and 2-year forecast horizons. These do NOT count toward the verdict yet. Negative at 365d (power law still loses), positive at 730d (power law WINS at two years) -- matching published research that short horizons favor naive models and long horizons favor the power law. Feeds ruling D9-c (should long horizons enter the score?)."
+        },
+        {
+          "value": [
+            0.01,
+            2
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "damping",
+            "fontSize": 12,
+            "fontWeight": "bold",
+            "color": "#e6e9ec"
+          },
+          "title": "damping",
+          "frozen": ">=1",
+          "shadow": "0.41",
+          "verdict": "not met",
+          "explanation": "An anti-bubble shape test from the Sornette school: the oscillations of a genuine damped anti-bubble decay with a damping ratio of at least 1. Today's fit scores 0.41 -- it does NOT qualify as a genuine damped anti-bubble under the standard condition, even though it passes the suite's four original filters. Report-only for now. Feeds ruling D9-e (should this gate the fit verdict?)."
+        },
+        {
+          "value": [
+            0.01,
+            3
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "impr",
+            "fontSize": 12,
+            "fontWeight": "bold",
+            "color": "#e6e9ec"
+          },
+          "title": "impr",
+          "frozen": "43.5%",
+          "shadow": "27.9%",
+          "verdict": "still wins",
+          "explanation": "How much better the LPPLS curve fits the post-peak decline than a plain decay curve. The frozen 29.2% was measured with an unfair advantage: the plain curve got a coarser parameter search. 27.9% is the fair, like-for-like number -- the LPPLS fit still wins, just honestly. The fair search also fixes a bias that pushed the plain curve's peak date to the edge of its search grid. Feeds ruling D9-e."
+        },
+        {
+          "value": [
+            0.01,
+            4
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "p(osc)",
+            "fontSize": 12,
+            "fontWeight": "bold",
+            "color": "#e6e9ec"
+          },
+          "title": "p(osc)",
+          "frozen": ".19",
+          "shadow": ".24",
+          "verdict": "still noise",
+          "explanation": "The probability that the log-periodic wobble in the data is just noise. Under the simple noise model (frozen): 0.38. Under a realistic model with fat tails and volatility clustering (shadow): 0.24. Both are far above the usual 0.05 bar -- the wobble is NOT statistically proven, and the suite is right to say so. Feeds ruling D9-f (which noise model is the headline?)."
+        },
+        {
+          "value": [
+            0.01,
+            5
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "freeze",
+            "fontSize": 12,
+            "fontWeight": "bold",
+            "color": "#e6e9ec"
+          },
+          "title": "freeze",
+          "frozen": ".435",
+          "shadow": ".358",
+          "verdict": "drift flatters",
+          "explanation": "The envelope's support bound. 0.439 is today's live value, recomputed daily against a trend that keeps drifting as new data arrives. 0.358 is what the bound would be if it had been frozen at the 2022 low, as a stricter rule would demand. The gap between them is how much the drifting trend flatters the 'envelope intact' reading. Feeds ruling D9-g (freeze each cycle's bound?)."
+        }
+      ]
+    },
+    {
+      "name": "frozen",
+      "type": "scatter",
+      "xAxisIndex": 0,
+      "yAxisIndex": 0,
+      "symbolSize": 0,
+      "silent": true,
+      "animation": false,
+      "data": [
+        {
+          "value": [
+            0.44,
+            0
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "right",
+            "formatter": "-427.34",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#9aa0a6"
+          }
+        },
+        {
+          "value": [
+            0.44,
+            1
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "right",
+            "formatter": "-0.11",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#9aa0a6"
+          }
+        },
+        {
+          "value": [
+            0.44,
+            2
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "right",
+            "formatter": ">=1",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#9aa0a6"
+          }
+        },
+        {
+          "value": [
+            0.44,
+            3
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "right",
+            "formatter": "43.5%",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#9aa0a6"
+          }
+        },
+        {
+          "value": [
+            0.44,
+            4
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "right",
+            "formatter": ".19",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#9aa0a6"
+          }
+        },
+        {
+          "value": [
+            0.44,
+            5
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "right",
+            "formatter": ".435",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#9aa0a6"
+          }
+        }
+      ]
+    },
+    {
+      "name": "arrow",
+      "type": "scatter",
+      "xAxisIndex": 0,
+      "yAxisIndex": 0,
+      "symbolSize": 0,
+      "silent": true,
+      "animation": false,
+      "data": [
+        {
+          "value": [
+            0.49,
+            0
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "→",
+            "fontSize": 12,
+            "color": "#e6a23c"
+          }
+        },
+        {
+          "value": [
+            0.49,
+            1
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "→",
+            "fontSize": 12,
+            "color": "#e6a23c"
+          }
+        },
+        {
+          "value": [
+            0.49,
+            2
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "→",
+            "fontSize": 12,
+            "color": "#e6a23c"
+          }
+        },
+        {
+          "value": [
+            0.49,
+            3
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "→",
+            "fontSize": 12,
+            "color": "#e6a23c"
+          }
+        },
+        {
+          "value": [
+            0.49,
+            4
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "→",
+            "fontSize": 12,
+            "color": "#e6a23c"
+          }
+        },
+        {
+          "value": [
+            0.49,
+            5
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "→",
+            "fontSize": 12,
+            "color": "#e6a23c"
+          }
+        }
+      ]
+    },
+    {
+      "name": "shadow",
+      "type": "scatter",
+      "xAxisIndex": 0,
+      "yAxisIndex": 0,
+      "symbolSize": 0,
+      "silent": true,
+      "animation": false,
+      "data": [
+        {
+          "value": [
+            0.53,
+            0
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "-1.17",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#e6e9ec"
+          }
+        },
+        {
+          "value": [
+            0.53,
+            1
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "+0.15",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#e6e9ec"
+          }
+        },
+        {
+          "value": [
+            0.53,
+            2
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "0.41",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#e6e9ec"
+          }
+        },
+        {
+          "value": [
+            0.53,
+            3
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "27.9%",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#e6e9ec"
+          }
+        },
+        {
+          "value": [
+            0.53,
+            4
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": ".24",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#e6e9ec"
+          }
+        },
+        {
+          "value": [
+            0.53,
+            5
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": ".358",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#e6e9ec"
+          }
+        }
+      ]
+    },
+    {
+      "name": "verdict",
+      "type": "scatter",
+      "xAxisIndex": 0,
+      "yAxisIndex": 0,
+      "symbolSize": 0,
+      "silent": true,
+      "animation": false,
+      "data": [
+        {
+          "value": [
+            0.74,
+            0
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "rivals win",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#8a93a0"
+          }
+        },
+        {
+          "value": [
+            0.74,
+            1
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "wins at 2y",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#8a93a0"
+          }
+        },
+        {
+          "value": [
+            0.74,
+            2
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "not met",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#8a93a0"
+          }
+        },
+        {
+          "value": [
+            0.74,
+            3
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "still wins",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#8a93a0"
+          }
+        },
+        {
+          "value": [
+            0.74,
+            4
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "still noise",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#8a93a0"
+          }
+        },
+        {
+          "value": [
+            0.74,
+            5
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "drift flatters",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#8a93a0"
+          }
+        }
+      ]
+    }
+  ]
+}

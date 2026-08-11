@@ -16,6 +16,15 @@
         "ts": "2026-07-06T14:48:54Z",
         "bf": -427.34,
         "bf_by_horizon": "{30 => -210.02, 90 => -144.7, 180 => -72.62}",
+        "per_horizon": {
+          "30": { "sum": -210.02, "mean_per_eval": -0.577, "n_evals": 364 },
+          "90": { "sum": -144.7, "mean_per_eval": -0.3975, "n_evals": 364 },
+          "180": { "sum": -72.62, "mean_per_eval": -0.1995, "n_evals": 364 }
+        },
+        "per_horizon_long": {
+          "365": { "sum": -40.33, "mean_per_eval": -0.1108, "n_evals": 364, "report_only": true },
+          "730": { "sum": 56.13, "mean_per_eval": 0.1542, "n_evals": 364, "report_only": true }
+        },
         "eval_points_1y": 365
       }
     },
@@ -32,6 +41,7 @@
         "ratio": 0.472,
         "bound": 0.435,
         "floor": 0.435,
+        "freeze_candidate": 0.358,
         "trough_ratios": "0.544 -> 0.579 -> 0.435",
         "trend_today": 134800,
         "days_below_strong": 0,
@@ -53,7 +63,12 @@
         "tc_date": "2025-09-07",
         "filters": "{\"m_interior\" => true, \"omega_band\" => true, \"oscillations\" => true, \"amp_bounded\" => true}",
         "rmse_impr_pct": 43.5,
-        "trough_std_days": 0.7
+        "trough_std_days": 0.7,
+        "b_negative": true,
+        "damping": 0.4132,
+        "damping_ref_threshold": 1.0,
+        "null_v2": { "tc": "2025-09-14", "rmse": 0.0789, "at_grid_edge": false },
+        "improvement_v2": 27.9
       }
     },
     {
@@ -69,7 +84,9 @@
         "omega_peak": 8.5,
         "p_value": 0.188,
         "ar1_rho": 0.961,
-        "n_resid": 260
+        "n_resid": 260,
+        "p_value_v2": 0.238,
+        "sims_v2": 1000
       }
     },
     {

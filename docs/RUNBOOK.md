@@ -82,18 +82,31 @@ pre-flight inspects.
 
 ## 2. Install the launchd agents
 
-Installs all four agents -- `com.mimir.publish` (bi-hourly publisher),
-`com.mimir.gex-snapshot` (daily 08:15 snapshot), `com.mimir.btco-alert`
-(daily 07:45 new-filing discovery alert, section 10), and
+Installs all three agents -- `com.mimir.publish` (bi-hourly publisher),
+`com.mimir.gex-snapshot` (daily 08:15 snapshot), and
 `com.mimir.suite-history` (daily 06:45 evidence-trail advance, section 11)
--- with one
-interactive command. Requires section 1 done. `rake ops:install` does the pre-flight,
-renders each plist's `__REPO__` into `~/Library/LaunchAgents`, boots each
-agent (bootout-then-bootstrap if already loaded), verifies the program
-line, and -- per agent -- offers to kickstart the first run and POLLS its
-log for the completion marker + summary (no `sleep`, no eyeballing). The
-manual `sed`/`launchctl`/`sleep` sequence it replaces is kept in the
-Background section ("Manual fallback") for reference only.
+-- with one interactive command. (`com.mimir.btco-alert` was retired
+2026-08-10 when BTCo froze.) Requires section 1 AND a completed
+`rake deploy` (which creates the live runtime, below). `rake ops:install`
+does the pre-flight, runs the one-time data migration, renders each
+plist's `__REPO__` into `~/Library/LaunchAgents`, boots each agent
+(bootout-then-bootstrap if already loaded), verifies the program line,
+and -- per agent -- offers to kickstart the first run and POLLS its log
+for the completion marker + summary (no `sleep`, no eyeballing).
+
+**Runtime separation (M9-12).** The agents do NOT run from `$REPO`. The
+program line points at the app-managed live clone
+`~/Library/Application Support/mimir/live` (a plain clone `rake deploy`
+parks on the deployed, pushed commit), and their `BTC_DATA_DIR` is
+`~/Library/Application Support/mimir/data`. So `$REPO` is a normal git
+folder -- switch branches, run tests -- with zero effect on production.
+The pre-flight's `live runtime` row fails with `run rake deploy first`
+if the clone is absent. On first install the migration step prints a
+`source -> destination -> file count` inventory for every data suite and,
+on your `y`, copies the existing histories from `$REPO` into the data
+home (skip-if-destination-newer, idempotent). Make sure
+`~/.config/mimir/env` does NOT pin `BTC_DATA_DIR` to the old in-tree
+path -- the wrappers default it to the data home only when unset.
 
 **2.1 Run the installer and answer the prompts.**
 

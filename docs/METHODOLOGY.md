@@ -109,6 +109,8 @@ recent difficulty adjustments; realized price vs spot.
 
 `composite = sum(weight * score) / 12`, mapped to:
 `<= -0.40 FLUSH | <= -0.10 LEAN-FLUSH | < +0.10 NEUTRAL | < +0.40 BASE | >= +0.40 RECOVERY`.
+The composite is an **evidence index**, not a probability -- a bounded
+weighted vote over the modules, read by band, never as an "N% chance".
 
 A reading of `LEAN-FLUSH -0.17` with only hash and stables negative is
 a *mild* tilt -- two slow gauges leaning bearish, fast gauges neutral.
@@ -143,34 +145,42 @@ Gaussian log-score:
 - `pl_recent` -- power law on the trailing 3y ("the trend has bent"),
 - `rw` -- random walk with sqrt(h)-scaled variance (no trend info).
 
-**Displayed:** `trailing-1y log10 BF (pl_full vs best rival)` plus the
-per-horizon split. BF = sum over the trailing year of
-(pl_full's log-score - the best rival's), in log10 units: BF +2 means
+**Displayed:** `trailing-1y cum. log predictive-score differential
+(log10) pl_full vs best rival` (formerly the "Bayes factor") plus the
+per-horizon split. The differential = sum over the trailing year of
+(pl_full's log-score - the best rival's), in log10 units: +2 means
 the year's data was 100:1 more likely under the global power law than
 under its best rival; negative means the rival explains the year
 better. Score: +1 above +1.0, -1 below -1.0.
 
-**Interpretation:** this is the suite's designated falsifier. A BF of
--425 is not a subtle reading -- it says the trailing year is
-astronomically better described by "the trend bent" (or a random walk)
-than by the genesis-anchored power law. When trend is -1, the overall
-verdict is capped at STRESSED no matter how pretty the oscillation
-looks, and FALSIFIED if the envelope breaks too.
+**Interpretation:** this is the suite's designated falsifier. A
+differential of -425 is not a subtle reading -- it says the trailing
+year is astronomically better described by "the trend bent" (or a random
+walk) than by the genesis-anchored power law. When trend is -1, the
+overall verdict is capped at STRESSED no matter how pretty the
+oscillation looks, and FALSIFIED if the envelope breaks too.
 
-**Magnitude caveats:** (1) BF sums per-day evidence, so its size scales
-with the number of cached evaluation points -- the first run bootstraps
-weekly (magnitudes ~7x smaller) and later runs densify to daily; sign
-and per-horizon pattern are comparable, raw magnitude across cache
-densities is not. (2) The model's predictive variances ignore parameter
-uncertainty (documented simplification), which inflates |BF| when price
-sits far outside the fitted channel. Read the sign and the trend of the
-BF over the ledger, not the absolute number.
+**Magnitude caveats:** (1) the differential SUMS per-day evidence, so its
+size scales with the number of cached evaluation points -- the first run
+bootstraps weekly (magnitudes ~7x smaller) and later runs densify to
+daily; sign and per-horizon pattern are comparable, raw magnitude across
+cache densities is not. The additive `per_horizon.mean_per_eval` field
+(differential ÷ eval-point count) IS density-invariant -- a controlled
+reproduction (SBI 3.1) on our own cache found the trailing-1y sum falling
+7x (-459 over 364 daily points → -67 over 52 weekly-stride points) while
+the per-eval mean held steady (~-1.26 vs ~-1.28). (2) The model's
+predictive variances ignore parameter uncertainty (documented
+simplification), which inflates the magnitude when price sits far outside
+the fitted channel. Read the sign and the ledger trend of the
+differential, not the absolute number.
 
 ### Test 2 · envelope (wt 3) -- is trough damping intact?
 
-The regime claims trough depth ratios (price/trend at cycle lows) damp
-monotonically: ~0.40 (2015) -> ~0.45 (2018) -> ~0.50 (2022), so this
-cycle must bottom ABOVE the 2022 ratio.
+This is a **descriptive cycle heuristic**, not a statistical test: only
+three historical troughs support it, so it describes a pattern rather
+than proving one. The regime claims trough depth ratios (price/trend at
+cycle lows) damp monotonically: ~0.40 (2015) -> ~0.45 (2018) -> ~0.50
+(2022), so this cycle must bottom ABOVE the 2022 ratio.
 
 **Displayed:** `price/trend 0.464 vs bound 0.434 (floor 0.434)` --
 today's ratio, the strong bound (last cycle's trough ratio) and the
@@ -182,7 +192,11 @@ after >= 45 consecutive days below 0.95x bound (strong form broken) or
 >= 30 days below 0.95x floor (claim dead in any form).
 
 **Interpretation:** watch the two day-counters, not the ratio alone; a
-brief poke below the bound is expected texture, persistence is falsification.
+brief poke below the bound is expected texture, persistence is
+falsification. `--json` also carries `freeze_candidate` (report-only):
+the strong bound as it would read if frozen against the trend as of the
+2022 trough, rather than drifting with today's re-estimated trend --
+previewing the D9-g freeze rule without changing the score.
 
 ### Test 3 · fit (wt 2) -- does a qualified anti-bubble LPPLS fit exist?
 
@@ -233,10 +247,11 @@ ambiguous** -- deepest value ever vs first out-of-sample failure -- so
 this test carries no verdict weight; its score encodes what
 *disambiguates*:
 
-**Displayed:** `Z -1.82 -> emp pctile 0.19% (gauss 3.43%); 18d at <=1st pct, 38d at <=5th; NEW RECORD low (prior -1.73 on 2022-12-31)`
-- trust the **empirical** percentile (rank among all history); the
-  Gaussian number is printed only for comparison with the published
-  method -- at Z ~ -2 the fat tails dominate (0.19% vs 3.43% here).
+**Displayed:** `Z -1.82 -> emp pctile 0.19% (Gaussian ref 3.43%); 18d at <=1st pct, 38d at <=5th; NEW RECORD low (prior -1.73 on 2022-12-31)`
+- the **empirical** percentile (rank among all history) is the primary
+  reading; the Gaussian number is a **reference only**, printed for
+  comparison with the published method -- at Z ~ -2 the fat tails
+  dominate (0.19% vs 3.43% here) and the empirical rank is the honest one.
 - score -1 after >= 60 consecutive days at/below the 1st empirical
   percentile (mean reversion failing = evidence against the
   distribution itself); +1 if an extreme (<= 5th pctile) printed within
@@ -252,7 +267,12 @@ this test carries no verdict weight; its score encodes what
 `composite = (3*trend + 3*envelope + 2*fit + 2*logperiodic) / 10`, then
 `>= +0.50 REGIME-INTACT | >= +0.15 SUPPORTED | > -0.15 INDETERMINATE |
 > -0.50 STRESSED | else FALSIFIED`, with overrides: trend AND envelope
-both -1 -> FALSIFIED outright; either one -1 -> capped at STRESSED.
+both -1 -> FALSIFIED outright; either one -1 -> capped at STRESSED. The
+composite is an **evidence index**, not a probability -- a bounded
+weighted vote read by band, never an "N% chance the regime holds". A
+secondary self-check rides in `--json`: `omega_xcheck` compares the two
+independent oscillation-frequency estimates (fit's LPPLS grid ~8.6 vs
+logperiodic's Lomb-Scargle peak ~8.5); agreement is soft corroboration.
 
 ### Worked example (the run above)
 
@@ -262,19 +282,20 @@ composite = (3*-1 + 3*+1 + 0 + 0) / 10 = 0.00 -> INDETERMINATE band,
 capped to STRESSED because trend = -1.
 ```
 Read: *the two heavyweight tests disagree head-on* -- out-of-sample
-forecasting says the global trend is dead (BF hugely negative), while
+forecasting says the global trend is dead (differential hugely negative), while
 the damping envelope says price sits exactly where a damped trough
 should hold (0.464 >= 0.434, zero days below). The oscillation is
 well-shaped (4/4) but not statistically significant and refuses to
 project a bottom, and the valuation monitor just printed the deepest
 age-adjusted reading ever. This is the "model under maximal live test"
-configuration: the next weeks of the envelope counters and the BF trend
-decide which heavyweight wins.
+configuration: the next weeks of the envelope counters and the
+differential's trend decide which heavyweight wins.
 
 ### Status line
 
 `LPPL STRESSED +0.00 BF-425.5 r0.46 trough --/-- w8.6 p0.31 Z-1.8@0.2%!`
-= verdict, composite, trend BF, envelope ratio, fit's projected trough
+= verdict, composite, the `BF` token (the trend differential, unchanged
+abbreviation), envelope ratio, fit's projected trough
 date/level (`--/--` = none interior), fit omega, logperiodic p-value,
 percentile Z @ empirical percentile, `!` = record low.
 
@@ -327,7 +348,7 @@ aggregate leverage, count of stale entries.
 | tool | +1 | 0 | -1 |
 |---|---|---|---|
 | scenario modules | per-module thresholds (section 2 table) | neutral / source down | per-module thresholds |
-| lppl trend | trailing BF >= +1.0 | in between | BF <= -1.0 |
+| lppl trend | trailing differential >= +1.0 | in between | differential <= -1.0 |
 | lppl envelope | ratio >= strong bound | stressed, persistence not met | persistence broken (45d/30d) |
 | lppl fit | 4/4 filters (minus downgrades) | 3/4 or downgraded | <= 2/4 filters |
 | lppl logperiodic | p <= 0.05 and omega in [6,13] | in between | p > 0.50 |

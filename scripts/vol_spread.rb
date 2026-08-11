@@ -14,9 +14,11 @@
 #   BTC::Env.data_dir('vol_spread','data/vol_spread')/history.jsonl -- the
 #   per-tenor ATM spread term structure, so the trend chart can accumulate
 #   over time. The append is date-guarded (skip when the file's last row is
-#   already today's date), so same-day re-runs are idempotent (like
-#   ops/gex_snapshot.rb). A row is written whenever at least one leg is live
-#   (both-legs-failed exits above); null legs are honest gaps in the row.
+#   already today's date) -- BUT a later same-day run that carries strictly
+#   more non-null spreads REPLACES today's row (M9-14 same-day repair: the
+#   00:45Z first tick must not freeze a transient leg failure for the whole
+#   day). Never downgrades. A row is written whenever at least one leg is
+#   live (both-legs-failed exits above); null legs are honest gaps.
 #   Row schema:
 #     {"date":"YYYY-MM-DD","ts":ISO8601,
 #      "tenors":[{"tenor_d":7,"spread_atm":0.46,"mstr_atm":0.77,"btc_atm":0.31},...]}
@@ -177,36 +179,46 @@ spread_rows = TARGETS.map do |target_d|
     spread_atm: spread_atm&.round(4) }
 end
 
-# ---- daily history: one row per UTC day (append-only jsonl) -----------------
-# At least one leg is live here (both-legs-failed exited above), so the row is
-# always worth keeping; null legs stay null (honest gaps). The date guard makes
-# same-day re-runs idempotent (ops/gex_snapshot.rb pattern).
+# ---- daily history: one row per UTC day (repairable jsonl) ------------------
+# At least one leg is live here (both-legs-failed exited above). The day's
+# FIRST run writes the row; a LATER same-day run REPLACES it only when it
+# carries strictly more non-null spread values (M9-14: the day's first tick
+# is 00:45Z, and a single transient leg failure there used to poison the
+# whole day's data point -- observed live 2026-08-11, Deribit down at
+# 00:48Z froze five null spreads for the day while eleven later ticks had
+# real data). Never downgrades; the rewrite is same-dir-tmp + rename so a
+# crash cannot corrupt the file.
 hist_dir  = BTC::Env.data_dir('vol_spread', 'data/vol_spread')
 hist_file = File.join(hist_dir, 'history.jsonl')
 today     = now.strftime('%Y-%m-%d')
 
-last_history_date = lambda do
-  return nil unless File.file?(hist_file)
-
-  last = nil
-  File.foreach(hist_file) { |l| s = l.strip; last = s unless s.empty? }
-  last && (JSON.parse(last)['date'] rescue nil)
-end
-
-if last_history_date.call != today
-  FileUtils.mkdir_p(hist_dir)
-  File.open(hist_file, 'a') do |f|
-    f.puts JSON.generate(
-      'date'   => today,
-      'ts'     => now.iso8601,
-      'tenors' => spread_rows.map do |sr|
-        { 'tenor_d'    => sr[:tenor_d],
-          'spread_atm' => sr[:spread_atm],
-          'mstr_atm'   => sr[:mstr][:atm_iv],
-          'btc_atm'    => sr[:btc][:atm_iv] }
-      end
-    )
+new_row = {
+  'date'   => today,
+  'ts'     => now.iso8601,
+  'tenors' => spread_rows.map do |sr|
+    { 'tenor_d'    => sr[:tenor_d],
+      'spread_atm' => sr[:spread_atm],
+      'mstr_atm'   => sr[:mstr][:atm_iv],
+      'btc_atm'    => sr[:btc][:atm_iv] }
   end
+}
+spread_count = ->(row) { row['tenors'].to_a.count { |t| t['spread_atm'] } }
+
+lines    = File.file?(hist_file) ? File.readlines(hist_file).map(&:strip).reject(&:empty?) : []
+last_row = lines.last && (JSON.parse(lines.last) rescue nil)
+
+if last_row && last_row['date'] == today
+  if spread_count.call(new_row) > spread_count.call(last_row)
+    tmp = "#{hist_file}.tmp-#{Process.pid}"
+    File.open(tmp, 'w') do |f|
+      lines[0...-1].each { |l| f.puts l }
+      f.puts JSON.generate(new_row)
+    end
+    File.rename(tmp, hist_file)
+  end
+else
+  FileUtils.mkdir_p(hist_dir)
+  File.open(hist_file, 'a') { |f| f.puts JSON.generate(new_row) }
 end
 
 # Trailing 120 rows, trimmed to {date, tenors[{tenor_d, spread_atm}]} for the

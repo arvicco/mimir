@@ -47,7 +47,8 @@ task :health do
         BTC::Health.scan_frozen(libs) +
         BTC::Health.registry_integrity(Dir.pwd) +
         BTC::Health.scan_sri(pages) +
-        BTC::Health.scan_ops('ops')
+        BTC::Health.scan_ops('ops') +
+        BTC::Health.scan_worktrees
 
   if bad.empty?
     puts "health: OK (#{scripts.size + libs.size} files, " \

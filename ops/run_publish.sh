@@ -21,7 +21,10 @@
 #                   and may prepend to PATH. NEVER echoed by this wrapper.
 #   MIMIR_RUBY      ruby interpreter to exec (default: `ruby` on PATH).
 #                   Set when the target ruby is not first on launchd's PATH.
-#   HOME            locates the default env file and the log directory.
+#   BTC_DATA_DIR    runtime data root (default: the app-managed data home
+#                   $HOME/Library/Application Support/mimir/data, M9-12). An
+#                   explicit value (env file or environment) is honored.
+#   HOME            locates the default env file, the data home, and the logs.
 #
 # CAVEATS
 #   - Secrets live ONLY in the env file. This wrapper never prints env
@@ -57,6 +60,11 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 set -a
 . "$ENV_FILE"
 set +a
+
+# M9-12: production agents run from the app-managed live clone with a
+# stable data home, so the dev checkout is stateless. Default BTC_DATA_DIR
+# to that data home; an explicit value (env file or environment) wins.
+export BTC_DATA_DIR="${BTC_DATA_DIR:-$HOME/Library/Application Support/mimir/data}"
 
 cd "$REPO_DIR"
 

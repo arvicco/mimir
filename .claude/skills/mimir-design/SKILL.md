@@ -19,19 +19,28 @@ another. When a new ruling lands, add it here in the same commit.
   text/axis/legend colors the theme already tunes — the light-theme
   defaults (near-black titles, inactive-brighter-than-active legends)
   are exactly what the owner rejected.
-- Exactly five renderer hooks exist, declared in envelope meta:
+- Exactly six renderer hooks exist, declared in envelope meta:
   `tooltip_formatter` (a NAME in the renderer's formatter registry),
   `height` (card pixels), `legend_widget` (a NAME in the renderer's
   HTML widget registry; the spec ships `legend.show=false` but keeps
   `legend.data` so ECharts still owns selection state and the widget
   drives it via legend actions), `tab_group` (+ `tab_label` /
   `tab_pos`; charts sharing a group render into ONE card as tabs --
-  owner ruling D7-c 2026-07-06, the GEX card), and `group_style:
+  owner ruling D7-c 2026-07-06, the GEX card), `group_style:
   'stack'` (owner ruling 2026-08-10: a tab_group rendered as ONE card
   with every member ALWAYS visible, stacked vertically by tab_pos,
   each member keeping its own head/badge/bubble at meta.height -- the
-  vol_surface + vol_basis card). Add a new hook only with an owner
-  ruling.
+  vol_surface + vol_basis card), and `terms` (owner ruling 2026-08-11,
+  M9-15: a `{ TERM => plain explanation }` glossary. The renderer gives
+  each named abbreviation / module name a hover explanation -- the SAME
+  styled block as the lppl_shadow tooltip -- on the surface that fits
+  its rendering: drawn ECharts legends via `legend.tooltip`, the
+  scenario module scoreboard's canvas axis labels via `triggerEvent`
+  plus a viewport-fixed styled popover, the gex_cp venue widget via a
+  CSS bubble. ADDITIVE meta only: the chart OPTION and its golden are
+  byte-identical, so a `terms` addition never drifts a golden; an
+  unknown term simply gets no tooltip. Never a native `title=`). Add a
+  new hook only with an owner ruling.
 
 - Card placement (owner ruling 2026-08-10): the dashboard is a 3x2
   grid -- row 1 GEX · Volatility(stacked) · Vol-Spread, row 2

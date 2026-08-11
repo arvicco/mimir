@@ -11,7 +11,9 @@
 #   fit          wt 2   does a qualified, stable anti-bubble LPPLS fit exist?
 #   logperiodic  wt 2   is the oscillation statistically real?
 #
-# Verdict bands on the weighted composite in [-1, +1]:
+# The weighted composite is an EVIDENCE INDEX, not a probability: a bounded
+# [-1, +1] weighted vote over the tests, read by band, never as "N% chance".
+# Verdict bands:
 #   >= +0.50 REGIME-INTACT | >= +0.15 SUPPORTED | > -0.15 INDETERMINATE
 #   > -0.50 STRESSED | else FALSIFIED
 # Overrides: trend AND envelope both -1 -> FALSIFIED outright;
@@ -42,6 +44,13 @@
 # lines / --json consumers stay valid. M8-9's repair reads the --json
 # marker to decide whether a stale ledger tail can be healed same-day.
 # Marker only -- the composite/verdict math is unchanged (Golden Rule 4).
+#
+# OMEGA CROSS-CHECK (M9-3, additive). --json also carries omega_xcheck
+# {fit_omega, ls_omega, delta} -- the suite's two independent estimates of the
+# oscillation frequency (fit.rb's LPPLS grid vs logperiodic.rb's Lomb-Scargle
+# peak) and their gap -- plus trough_stability (fit.rb's projected-trough std
+# over recent history, null until enough --history runs accumulate). Additive
+# report-only fields; the verdict math is unchanged.
 #
 # Ruby >= 2.5, stdlib only.
 
@@ -151,6 +160,19 @@ last_px      = price_cache_last_date
 expected_px  = (Time.utc(ts.year, ts.month, ts.day) - 86_400).strftime('%Y-%m-%d')
 stale_input  = last_px.nil? || last_px < expected_px
 
+# M9-3 (additive, report-only): the suite estimates the log-periodic angular
+# frequency omega TWICE and never surfaced that they agree -- fit.rb's LPPLS
+# grid optimum vs logperiodic.rb's Lomb-Scargle peak. Cross-check them so a
+# divergence (two methods disagreeing on the oscillation) is visible. And lift
+# fit.rb's trough-projection stability (std of the projected trough over recent
+# --history runs) to a first-class top-level field. Both are additive markers;
+# the composite/verdict math is unchanged (Golden Rule 4).
+fit_omega = d['fit']['omega']
+ls_omega  = d['logperiodic']['omega_peak']
+omega_xcheck = { 'fit_omega' => fit_omega, 'ls_omega' => ls_omega,
+                 'delta' => (fit_omega && ls_omega ? (fit_omega - ls_omega).round(2) : nil) }
+trough_stability = d['fit']['trough_std_days']
+
 if ARGV.include?('--history')
   require 'fileutils'
   FileUtils.mkdir_p(File.dirname(LEDGER))
@@ -188,7 +210,9 @@ end
 
 if ARGV.include?('--json')
   out = { ts: ts.iso8601, composite: composite.round(3),
-          verdict: verdict, status_line: line, tests: results }
+          verdict: verdict, status_line: line, tests: results,
+          omega_xcheck: omega_xcheck,      # M9-3 additive cross-check
+          trough_stability: trough_stability } # M9-3 additive (null until history)
   out[:as_of] = AS_OF.strftime('%Y-%m-%d') if AS_OF # additive; absent when live
   out[:stale_input] = true if stale_input # M8-8 additive; absent when fresh
   puts JSON.pretty_generate(out)

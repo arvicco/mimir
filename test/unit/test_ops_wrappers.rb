@@ -50,6 +50,7 @@ class TestOpsWrapper < Minitest::Test
         {
           echo "PUBLISH_DRY_RUN=${PUBLISH_DRY_RUN:-}"
           echo "MARKER_VAR=${MARKER_VAR:-}"
+          echo "BTC_DATA_DIR=${BTC_DATA_DIR:-}"
           echo "PWD=$(pwd)"
         } > "#{dump_file}"
         exit 3
@@ -68,10 +69,36 @@ class TestOpsWrapper < Minitest::Test
       assert_includes dump, 'PUBLISH_DRY_RUN=0', 'wrapper must force a LIVE publish'
       assert_includes dump, 'MARKER_VAR=sourced-marker-42', 'env file must be sourced'
       assert_includes dump, "PWD=#{ROOT}", 'publisher must run from the repo root'
+      # M9-12: with no override, BTC_DATA_DIR defaults to the app data home.
+      assert_includes dump, "BTC_DATA_DIR=#{home}/Library/Application Support/mimir/data",
+                      'wrapper must default BTC_DATA_DIR to the app data home'
 
       log = File.join(home, 'Library', 'Logs', 'mimir', 'publish.log')
       assert File.file?(log), 'the publish log must be created under HOME'
       assert_match(/^=== run_publish /, File.read(log), 'log must open with the run marker')
+    end
+  end
+
+  # M9-12: an explicit BTC_DATA_DIR in the env file (or environment) wins
+  # over the app-data-home default -- the wrapper only fills it when unset.
+  def test_env_file_btc_data_dir_override_is_honored
+    Dir.mktmpdir do |home|
+      env_file  = File.join(home, 'env')
+      dump_file = File.join(home, 'dump.txt')
+      stub      = File.join(home, 'stub_ruby')
+      custom    = File.join(home, 'custom-data')
+
+      File.write(env_file, "BTC_DATA_DIR=#{custom}\n")
+      File.write(stub, <<~SH)
+        #!/bin/bash
+        echo "BTC_DATA_DIR=${BTC_DATA_DIR:-}" > "#{dump_file}"
+        exit 0
+      SH
+      FileUtils.chmod(0o755, stub)
+
+      run_wrapper('HOME' => home, 'MIMIR_ENV_FILE' => env_file, 'MIMIR_RUBY' => stub)
+      assert_includes File.read(dump_file), "BTC_DATA_DIR=#{custom}",
+                      'an explicit BTC_DATA_DIR must be honored, not overwritten'
     end
   end
 end

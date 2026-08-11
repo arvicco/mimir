@@ -174,15 +174,22 @@ re-publishing, never by rollback.
 
 **What `rake deploy` actually does**: (1) pre-flight -- wrangler
 present, `CLOUDFLARE_*` env set (printed as `set`/`MISSING`, values
-never echoed), tree clean, `rake` gate green; (2) writes
-`wrangler.generated.toml` from the committed `wrangler.toml`
-template, filling the KV namespace id from env and the worker name
-from `DEPLOY_NAME` -- at the REPO ROOT, because wrangler resolves the
-config's relative paths (`main`, `[assets]`) from the config file's
-own directory; the file is gitignored by name so real ids are never
-committable; (3) runs `wrangler deploy -c` that file -- wrangler
-authenticates from the inherited env; (4) probes the deployed host.
-It refuses under CI and is deny-listed for the loop.
+never echoed), tree clean, `rake` gate green; (1b) live-runtime sync
+(M9-12) -- REFUSE unless the deployed HEAD is pushed to origin, then
+bring the app-managed clone at `~/Library/Application Support/mimir/live`
+onto that exact commit (clone from the local repo if absent, pointing
+its origin at the real remote URL; else fetch + `checkout --detach`);
+prints `live runtime -> <sha7>`. (2) writes `wrangler.generated.toml`
+from the committed `wrangler.toml` template, filling the KV namespace id
+from env and the worker name from `DEPLOY_NAME` -- at the REPO ROOT,
+because wrangler resolves the config's relative paths (`main`,
+`[assets]`) from the config file's own directory; the file is gitignored
+by name so real ids are never committable; (3) runs `wrangler deploy -c`
+that file -- wrangler authenticates from the inherited env; (4) the
+data publish runs FROM the live clone with `BTC_DATA_DIR` pinned at the
+data home (same code + data as the scheduled agents); (5) probes the
+deployed host. It refuses under CI and is deny-listed for the loop.
+Dry run (`DEPLOY_DRY_RUN=1`) prints the sync plan and mutates nothing.
 
 **Env reference**: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`,
 `CLOUDFLARE_KV_NAMESPACE_ID` (all required; never printed),

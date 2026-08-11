@@ -1556,3 +1556,217 @@ on index.html -- badge bubble on hover AND keyboard focus ("age 2m16s · ttl
 1800s · 19:31Z"), venue (p) toggle flips off, all four GEX tabs render a live
 canvas, vol surface MSTR tab still swaps, console clean. NOT live until the
 phase-8 gate merges + deploys.
+
+---
+
+## Phase 9 -- LPPL statistics revision (branch: phase-9, worktree
+## ~/Dev/mimir-phase9; spec = the SBI consolidated review 2026-07-31)
+
+Owner-approved 2026-08-11 ("Let's go P9"). The reviewed math stays; the
+statistics one level up get honest. EVERY verdict-affecting change runs
+SHADOW-FIRST: new numbers as additive fields next to the frozen ones,
+soak, then an explicit owner ruling flips gating. Golden Rule 4 applies
+to every packet here. Local working notes: .docs/lppl-improvements.md.
+
+## M9-1 · Trend statistic honesty  [tier: opus -- Fable spec+review; wording + additive fields, no scoring change] [status: done -- aa2d1a7; rename + per_horizon; SBI-3.1 reproduction: full 364pts diff -459.14 vs thinned 52pts -66.65 (6.89x sum drop for 7x point drop; per-eval mean ~-1.26 vs -1.28, invariant) -- feeds D9-b] [deps: --]
+Goal: (a) rename in headers/tmux wording/docs: "cumulative log
+      predictive-score differential", never "Bayes factor"; bayes-named
+      --json keys stay (deprecated in comments), additive new keys.
+      (b) per-horizon reporting always: additive fields
+      per_horizon:{h:{sum,mean_per_eval,n_evals}}; never lead with the
+      cross-horizon sum. (c) REPRODUCE the SBI section-3.1 cache-density
+      sensitivity offline (thinned copy of trend_scores.csv, --skip-update)
+      and record the result in the packet -- it feeds decision item D9-b
+      (normalization + uncertainty estimator choice).
+Acceptance: rake green; contracts additive+tested; METHODOLOGY.md and
+      LPPL-SUITE.md wording updated; reproduction result documented.
+
+## M9-2 · Percentile monitor: empirical primary  [tier: opus -- presentation reorder, weight stays 0] [status: done -- fbe0a0b; empirical was already the lead number, so this makes the Gaussian's reference-only status explicit (header, "Gaussian ref" headline label, METHODOLOGY); no field/scoring change; chart title carries no percentile so no golden re-bless] [deps: --]
+Goal: pct_emp becomes the primary displayed number (Gaussian as
+      reference only) in table/tmux/chart title paths; weight REMAINS 0
+      (two reviews independently call that prudent). No new fields
+      needed (both already emitted).
+Acceptance: rake green; goldens re-blessed if the chart title changes;
+      METHODOLOGY wording updated.
+
+## M9-3 · Evidence-index labeling + omega cross-check  [tier: opus -- additive surfacing; the refusal RULE is a decision item, not code] [status: done -- 2ff4920; "evidence index (not a probability)" in lppl.rb/METHODOLOGY/README/guide.html (scenario+lppl); lppl --json += omega_xcheck{fit_omega,ls_omega,delta} (real 8.7/8.5/0.2) + trough_stability first-class; contract tests same commit; D9-a already filed] [deps: --]
+Goal: (a) user-facing language: the composite is an "evidence index",
+      not a probability (tmux/table/README/METHODOLOGY/guide.html).
+      (b) additive --json: omega_xcheck {fit_omega, ls_omega, delta}
+      (the suite never surfaces that its two frequency estimates agree,
+      8.6 vs 8.5 -- SBI flagged this as a missed self-check) and
+      trough_stability as a first-class field. (c) file D9-a.
+Acceptance: rake green; additive contract tests; chart/goldens updated
+      where titles change.
+
+## M9-4 · Envelope language + freeze rule prep  [tier: sonnet -- wording + one report-only field] [status: done -- 2dc4fa1; "descriptive cycle heuristic" wording (envelope.rb/METHODOLOGY/LPPL-SUITE/guide.html) + additive freeze_candidate (2022 bound vs trend frozen at the 2022 trough; real 0.358 vs live drifting bound 0.439); contract same commit; feeds D9-g] [deps: --]
+Goal: "descriptive cycle heuristic" language everywhere user-facing;
+      additive field freeze_candidate (the bound as it would be if
+      frozen pre-trough, report-only). The actual freeze-rule flip is
+      decision item D9-g.
+Acceptance: rake green; additive + tested.
+
+## M9-5 · Fit filters: B<0 + damping (report-only)  [tier: fable -- semantics-adjacent: the filters that will later gate verdicts] [status: done -- bd8a898; additive fit --json b_negative + damping=m|B|/(omega|C|) + damping_ref_threshold 1.0, wired into NOTHING (not filters, not score); pure Lppl.fit_report_flags w/ exact-value unit tests either side of each condition. Real cache: b_negative=true (sign restriction met), damping=0.4132 (< 1.0 -- damping condition NOT met). Frozen fields byte-identical (score -1, omega 8.7, m 0.05, 3/4 filters). Gating flip = D9-e] [deps: --]
+Goal: fit.rb computes and REPORTS (additive fields, no gating):
+      b_negative (bool) and damping = m*|B|/(omega*|C|) with the
+      standard threshold marked. Exact-value tests on synthetic fits
+      either side of each condition. Gating flip = D9-e after soak.
+Acceptance: rake green; additive + tested; dashboard fit card may show
+      the two flags dimly (design-skill pass if so).
+
+## M9-6 · Symmetric null optimization (shadow)  [tier: fable -- changes what the RMSE-improvement figure means] [status: done -- ccae0c7; new Lppl.power_decay_fit_v2 (refined pass + RMSE-selected tc, orig power_decay_fit byte-identical, characterization-pinned); fit --json += null_v2{tc,rmse,at_grid_edge} + improvement_v2. Real cache -- ARTIFACT CLEARED: orig null tc pinned at +10d edge (rmse .0804) -> v2 tc -22d, at_grid_edge=false (rmse .0789); frozen rmse_impr 29.2% -> honest improvement_v2 27.9%. Feeds D9-e/D9-f] [deps: M9-5]
+Goal: power_decay_fit gets the same coarse+refined pass as the LPPLS
+      fit; tc selected on RMSE (or fixed row set), never raw SSE across
+      tc-dependent windows. SHADOW: emit null_rmse_v2/improvement_v2
+      next to the current figures; both soak side by side. SBI observed
+      the null tc pinned at its +10d grid edge -- the shadow fields
+      should show that artifact disappearing.
+Acceptance: rake green; additive + tested; old numbers untouched.
+
+## M9-7 · Bootstrap null upgrade (shadow)  [tier: fable -- stdlib statistics; runtime budget matters] [status: done -- e2dc9dd; stdlib AR(1)+GARCH(1,1) parametric bootstrap (pure-Ruby Nelder-Mead MLE, fallback+fitted:false, per-sim power-decay refit through the real pipeline), 1000 sims, seeded. logperiodic --json += p_value_v2/sims_v2/garch{...}/runtime_v2_s; frozen AR(1) path byte-identical. Real cache: AR(1) p=0.376 -> GARCH v2 p=0.238 (both non-significant, garch fitted=true a=.202 b=.600), runtime 18.22s (<120s budget, DEFAULT stays 1000; --sims-v2/LPPL_SIMS_V2 override). Feeds D9-f] [deps: --]
+Goal: ARMA-GARCH parametric bootstrap for logperiodic.rb (stdlib-only;
+      no FFT needed), >=1000 sims, burn-in, per-sim re-fit through the
+      power-decay null. SHADOW field p_value_v2 next to the AR(1)
+      p-value. Deterministic seed in tests (Random.new(42)). Budget the
+      cron runtime (nightly-only if needed -- document the choice).
+      IAAFT (needs pure-Ruby FFT) only if ARMA-GARCH proves
+      insufficient -- separate packet, not this one.
+Acceptance: rake green; shadow field additive + tested; runtime
+      measured and recorded in the packet.
+
+## M9-8 · Long horizons 365/730d (report-only)  [tier: opus -- mechanical extension; whether they SCORE is D9-c] [status: done -- d2a03da; separate trend_scores_long.csv + additive per_horizon_long (parallel map, report_only:true, per_horizon 30/90/180 byte-identical); excluded from +-1 band + score. Real cache (trailing-1y, 53 evals): differential climbs with horizon and FLIPS POSITIVE at 730d -- 365d mean/eval -0.1093, 730d +0.1598 (vs 30d -0.61/90d -0.43/180d -0.22) -- power law loses short-term, WINS at 24mo, matching published evidence. Earliest eval 2017-01-01 (EVAL0-bound, arithmetic confirmed). Backfill 3013 rows ~1.1ms compute (O(1) RangeReg), steady-state ~0.003ms/day. Feeds D9-c] [deps: M9-1]
+Goal: trend.rb evaluates h=365 and h=730 alongside 30/90/180 --
+      REPORT-ONLY (excluded from the +-1 band until D9-c). Backfill is
+      free (retrospective evaluation from the price cache; expect a
+      one-time cache rebuild cost -- measure it). Per-horizon fields
+      from M9-1 carry them. Published evidence says the power law wins
+      at 12-24mo -- the report-only soak shows whether OUR data agrees
+      before any scoring ruling.
+Acceptance: rake green; cache append remains crash-safe; additive
+      fields tested; runtime measured.
+
+## M9-9 · PL+LP1 rival (characterize, then shadow)  [tier: fable -- the deepest hypothesis change in the phase] [status: done -- d085814; stage-1 lp1_check.rb (research script, not in publish): full-history power law in ln(age), Lomb-Scargle peak omega 8.70, single-mode R^2 34.3% -- reproduces SBI (8.75, ~35%). stage-2 trend rival pl_lp1 ([1,ln age,cos,sin] rigid omega, prefix-sum Lppl::PlLp1Reg), separate trend_scores_lp1.csv + additive pl_lp1{per_horizon,omega,clock}, NEVER in best-rival max/bf. DEEPEST FINDING (raw per-eval mean logscore, 53 evals): pl_full vs pl_lp1 -- 30d -0.8085/-0.8037, 90d -0.8208/-0.8398, 180d -0.8336/-0.8700: the mode explains 34% IN-SAMPLE variance yet adds ~nothing out-of-sample and slightly HURTS at long h -- descriptive artifact, not predictive. ln(age) omega labelled NOT comparable to post-peak ln(tau) omega throughout. Frozen fields byte-identical. Feeds D9-d] [deps: M9-8]
+Goal: stage 1 CHARACTERIZE: reproduce the SBI empirical check on our
+      own data -- Lomb-Scargle of full-history trend residuals in
+      ln(age); record peak omega and explained variance (SBI: omega
+      8.75, 35%). Stage 2 SHADOW: add pl_lp1 (power law + ONE rigid
+      log-periodic mode in ln age) to the trend rival set, report-only
+      per-horizon scores. NEVER conflate ln(age) omega with the
+      post-peak ln(tau) omega (different clocks -- SBI's own caution;
+      label both everywhere). Adoption into the verdict = D9-d.
+Acceptance: rake green; stage-1 numbers recorded; shadow fields
+      additive + tested; deterministic.
+
+## M9-10 · Log-time reporting  [tier: sonnet -- one additive field] [status: done -- 54db48e; additive delta_ln_age on trend --json (ln(age_end)-ln(age_start) of the trailing-1y window, 4dp; real 0.0584 at age ~17.6y); contract same commit; eval-schedule change stays out of scope] [deps: --]
+Goal: additive delta_ln_age field on trend output (the 1y window at
+      age ~17.5y spans ~0.057 in the model's natural clock). The
+      evaluation-schedule change itself is out of scope (revisit after
+      the M9-8 soak).
+Acceptance: rake green; additive + tested.
+
+## Decision items -- Phase 9 (filed at elaboration, owner rules later)
+- D9-a Composite refusal + dead-module weight: refuse a composite when
+  a weight-3 module fails? Remove dead modules from the denominator
+  (SBI C8: outages currently drift the regime toward NEUTRAL)? Both
+  change verdict behavior on bad days.
+- D9-b Trend normalization: per-evaluation-point mean as headline +
+  which uncertainty estimator (Newey-West vs block bootstrap) -- ruled
+  AFTER M9-1's cache-density reproduction. DATA READY: per_horizon.
+  mean_per_eval live on trend --json since M9-1 (aa2d1a7).
+- D9-c Do 365/730d horizons enter the +-1 scoring band, and with what
+  thresholds? Ruled after the M9-8 report-only soak. DATA READY:
+  per_horizon_long live on trend --json since M9-8 (d2a03da) -- the
+  differential flips positive at 730d.
+- D9-d PL+LP1 rival adoption: changes what "trend against the power
+  law" MEANS (pure-PL test -> coupled-scale-invariance test). Ruled
+  after M9-9 stage-2 soak. DATA READY: pl_lp1 section live on trend
+  --json since M9-9 (d085814) -- pl_lp1 ~ties pl_full out-of-sample
+  (34% in-sample variance, ~zero predictive gain).
+- D9-e Flip B<0/damping/symmetric-null from report-only to gating
+  (fit verdict changes). After M9-5/6 soak. DATA READY: fit --json
+  b_negative/damping (M9-5 bd8a898) + null_v2/improvement_v2 (M9-6
+  ccae0c7) -- the null tc grid-edge artifact clears under v2.
+- D9-f Which bootstrap p-value becomes headline. After M9-7 soak.
+  DATA READY: logperiodic --json p_value_v2 (AR(1)+GARCH) live since
+  M9-7 (e2dc9dd) -- v2 p 0.238 vs AR(1) 0.376, both non-significant.
+- D9-g Envelope freeze rule (freeze each cycle's bound before the
+  subsequent trough). After M9-4.
+
+## GATE 9 -- see docs/Gate-9-runbook.md (owner ruling 2026-07-11: gate
+## instructions live in a dedicated runbook, not here)
+All shadow fields live on the dashboard next to their frozen
+originals (M9-11, the LPPL card's "shadow" scoreboard); a soak long
+enough for the owner to compare (shadow fields append daily with the
+04:45 suite-history run); the D9-* rulings made with data in front of
+them; flips applied as separate reviewed packets; v1.1 tag.
+
+## M9-11 · Surface the shadow numbers on the LPPL card  [tier: opus -- mimir-design bound; additive payload/meta + goldens PROVISIONAL] [status: done -- 41dc59a; compact "shadow" scoreboard top-right of the lppl_regime card (4th grid, row names on the category y-axis like the scenario module strip, values as labels on a silent invisible scatter, out of the crosshair). Six rows from lppl:latest, defensively read (missing shadow field drops its ROW; NO shadow fields -> byte-identical pre-M9-11 three-panel card): mean/eval = sum of per_horizon.{30,90,180}.mean_per_eval (D9-b, real -1.26 = the density-honest headline), 365/730 = per_horizon_long means (D9-c, +0.16 at 730d), damping = fit.damping vs damping_ref_threshold (D9-e), impr = rmse_impr_pct->improvement_v2 (D9-e), p(osc) = p_value->p_value_v2 (D9-f), freeze = envelope.bound->freeze_candidate (D9-g). Compact/scaled at build time (leading-zero strip, -> arrow). Card help gains one sentence per row naming its D9 item; trough note moved left to clear the column. Fixture extended additively w/ realistic synthetic shadow values (per_horizon sums match frozen bf_by_horizon; noted in payloads/README). Golden chart_lppl_regime PROVISIONAL, screenshot-reviewed at 1440px (no clipping/collisions); no other golden diffs. Contract additive-only, full rake green. Gate-9-runbook.md written.] [deps: M9-1..10]
+Goal: the D9 rulings need the shadow-vs-frozen comparison VISIBLE
+      during the soak. LPPL card gains a compact right-side scoreboard
+      (side-panels-right ruling) titled "shadow", one line per
+      comparison, frozen value then shadow value:
+        mean/eval  -1.26        (the density-honest trend reading)
+        365d/730d  -0.11/+0.16  (report-only long horizons)
+        damping    0.41 (<1)    (fit anti-bubble condition, report-only)
+        impr       29.2>27.9%   (frozen vs symmetric-null improvement)
+        p(osc)     .38>.24      (AR(1) vs GARCH bootstrap p)
+        freeze     .439>.358    (live bound vs freeze candidate)
+      Values come additively through the lppl:latest payload the
+      publish already carries into chart:lppl_regime; hover help
+      explains each line and names its decision item. No verdict or
+      panel content changes; goldens re-blessed PROVISIONAL.
+Acceptance: rake green; additive contract tests; screenshot-verified
+      against the design skill (density, no clipping, no collisions).
+
+## M9-12 · Production runtime separation -- kill the worktree era  [tier: fable spec + opus impl -- ops/deploy change, launchd install is HUMAN] [status: done -- code + tests + docs; the live-runtime CLONE and the launchd install/migration are the owner's Gate-9 actions (3a)] [deps: --]
+Goal: owner rulings 2026-08-11: development uses plain git branches in
+      ~/Dev/mimir like any normal project; the ONLY reason worktrees
+      ever existed was that the launchd agents execute from the dev
+      checkout. Separate them:
+      (a) Runtime code copy at ~/Library/Application Support/mimir/live
+          -- a clone kept on the DEPLOYED commit, updated by rake
+          deploy (fetch + checkout --detach <pushed deployed sha>)
+          before the deploy's publish runs; never edited by hand.
+      (b) Data home at ~/Library/Application Support/mimir/data --
+          BTC_DATA_DIR for all agents (env.rb has supported this since
+          Phase 1), so code checkouts are stateless. One-time
+          migration at install: decommissioning inventory of every
+          file the agents read/write today (scripts/lppl/data,
+          scripts/scenario/data, data/gex_history, data/vol_history,
+          data/vol_spread, data/source_cache, capstruct state), each
+          mapped to its new path, copied, verified non-empty; the
+          inventory printed for the owner.
+      (c) ops plists/wrappers exec from the live copy with BTC_DATA_DIR
+          set; rake ops:install renders them; the INSTALL is the
+          owner's one action (Golden Rule 3).
+      (d) rake deploy pre-flight gains: live-copy sync step + refuses
+          if the deployed sha is not pushed. Gate runbooks stop caring
+          what branch ~/Dev/mimir has checked out.
+Acceptance: rake green; deploy dry-run shows the sync step; ops:install
+      renders live-copy paths; agents' next ticks run from the live
+      copy and append to the SAME (migrated) histories -- outcome
+      check: history files gain a row post-switch with no gap; dev
+      tree switches branches with zero production effect.
+
+## M9-13 · Gate-9 feedback -- SHADOW tab + hover explanations  [tier: opus -- mimir-design bound; additive KV key (+1) + goldens PROVISIONAL] [status: done -- Gate-9 preview feedback (owner ruling 2026-08-11): (1) the M9-11 shadow scoreboard must NOT eat the LPPL panels' right margin -- the three panels get their full width back; (2) every shadow number needs a genuinely good hover explanation ("right now it's incomprehensible mess of random numbers"). Reverted lppl_regime to its byte-identical pre-M9-11 three-panel form (golden re-blessed == 41dc59a^) + gave it tab_group 'lppl' (tab_label LPPL, tab_pos 0 = default). New chart:lppl_shadow (fn :lppl_shadow, tab_group 'lppl' / SHADOW / tab_pos 1) renders the six checks as full-width readable rows -- stat (bold), frozen, amber ->, shadow, one-phrase verdict (rivals win / wins at 2y / not met / still wins / still noise / drift flatters), all visible WITHOUT hover. Per-row hover: new 'lppl_shadow' registry formatter (precedent gex_levels) shows bold stat + "frozen .. -> shadow ..  <verdict>" + the owner-approved plain-language paragraph (VERBATIM, LPPL_SHADOW_EXPLAIN const; carried IN the option on the row's stat-column datum -- renderer stays dumb, payload stays JSON). Axis-trigger tooltip fires anywhere on a row; the universal never-clip position callback keeps a 320px block inside the viewport (Playwright bottom-row check: freeze row flips ABOVE the pointer, TOOLTIP_IN_VIEWPORT=true). Bookkeeping: 26->27 keys everywhere (pipeline expected, PRODUCERS, index.html PUB LIVE string, CSP hash refresh, Gate-9-runbook EXPECT/KV arithmetic), CARD_ORDER gains chart:lppl_shadow after chart:lppl_regime, fixture reused (already carries shadow fields). Goldens: chart_lppl_regime re-blessed (== pre-M9-11) + new chart_lppl_shadow, both PROVISIONAL; no other golden diffs. Full rake green (742 runs); PUBLISH_DRY_RUN=1 -> 27 written, 0 skip; screenshot-reviewed at 1440px (LPPL tab full-width panels, SHADOW tab six readable rows, hover block legible + confined).] [deps: M9-11]
+
+## M9-14 · vol_spread same-day history repair  [tier: fable -- live-found data bug at the Gate 9 preview] [status: done 2026-08-11]
+Found by the owner: the spread trend showed today with null values. The
+daily history row is written at the day's FIRST tick (00:45Z) and was
+then locked; Deribit failed transiently at 00:48Z on 2026-08-11 and
+froze five null spreads for the whole day while eleven later ticks had
+real data. Fix: a later same-day run REPLACES today's row when it has
+strictly more non-null spreads (never downgrades; tmp+rename rewrite).
+The poisoned live row heals at the first post-deploy tick. Contract
+tests: repair path + no-downgrade path.
+
+## M9-15 · Gate-9 feedback -- glossary tooltips  [tier: opus -- mimir-design bound; additive meta, NO golden drift] [status: done -- de968c0; Gate-9 preview feedback (owner ruling 2026-08-11): abbreviations and module names across the dashboard need hover explanations "similar to what was done in lppl_shadow -- more context for user" (named: CW, PW, ATM IV, RR25, and the scenario module names). New SIXTH renderer hook meta['terms'] = { TERM => plain explanation }, wired in render.js to the surface that fits each term's rendering: drawn ECharts legends via legend.tooltip + a styled formatter (vol_surface/_mstr ATM IV/RR25/FLY25; vol_spread spread/MSTR/BTC; vol_spread_trend 7d..90d; gex_btc_trend/gex_mstr_trend spot/flip/CW/PW); the scenario module scoreboard (canvas y-axis labels) via render-time triggerEvent on that axis + a position:fixed styled popover that flips off the viewport edge (ECharts has no native tooltip for a lone axis label); the gex_cp venue widget (HTML) via an instant CSS bubble per venue (Deribit + the five US spot-ETF chains, stale 'DERI!' resolves to its base term). Same styled block as lppl_shadow (bold term + wrapped paragraph); texts owner-approved VERBATIM (const maps GEX_TREND_TERMS / GEX_VENUE_TERMS / VOL_SURFACE_TERMS / VOL_SPREAD_TERMS / VOL_SPREAD_TREND_TERMS / SCENARIO_TERMS in chart_specs.rb). terms rides meta ONLY -- the chart OPTION and every golden are byte-identical (existing golden harness asserts it; NO golden diffed). Tests: 4 new render.js unit tests (termsBlock escaping, gex_cp venue bubbles + stale resolution, legend.tooltip formatter known/unknown, scenario axis triggerEvent + popover show/hide); stub extended to record setOption/on. Not attached (no hover surface, still covered by the card info bubble): vol_basis basis/funding (no legend; axis-name/title are canvas) and the standalone "GEX" term (no legend item carries it). Full rake green (744 runs); PUBLISH_DRY_RUN=1 -> 27 written, 0 skip (key count UNCHANGED); Playwright drove CW (BTC TREND legend), RR25 (vol surface legend), macro (scenario scoreboard, bottom-row, in-viewport) and DERI (venue widget) hovers -- all render the block, all in-viewport, console clean bar the pre-existing favicon 404; skill file records the sixth hook in the same commit.] [deps: M9-13]
+
+## M9-16 · Gate 9 feedback: spot line on the BTC GEX tab  [tier: fable] [status: done 2026-08-11]
+Owner: the BTC profile lacked the grey spot line the MSTR tab has -- an
+M3-1-era omission, never a design choice. Added with the spot label at
+the BOTTOM end of the line, nudged above the tick row (the top band is
+owned by flip/CW/PW per the Gate-6 banding; a top-position spot label
+collided with flip on first render, caught by screenshot). MSTR tab
+unchanged (its Gate-6 banding ruling holds). Golden re-blessed
+PROVISIONAL.
