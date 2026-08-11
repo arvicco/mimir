@@ -2,6 +2,8 @@
 
 One line per completed packet: date · packet · commit · notes.
 
+2026-08-11 · Gate 9 · owner preview PASSED · Owner reviewed the full preview (shadow tab + hover explanations, glossary terms, spot line, review fixes) and blessed the goldens: chart_lppl_regime, chart_lppl_shadow, chart_gex_btc lose PROVISIONAL status. PR opened; merge/deploy/ops:install are the owner's runbook steps 3-4.
+
 2026-08-11 · Gate-9 review fixes · -- · Two owner-caught regressions from the M9-13/15 tooltip work: (1) applyTerms merged {legend:{tooltip}} into legend-less charts, CREATING a default-shown phantom legend that collided with the scenario title -- now wires only where the option already shows a legend; (2) the lppl_shadow formatter block (light-on-dark text) rendered on ECharts' default white tooltip, unreadable -- now carries the house dark chrome. Both pinned by web regression tests; verified by screenshot + real hover.
 
 2026-08-11 · M9-16 · (with M9-15 push) · Spot line added to the BTC GEX profile (parity with MSTR, owner request at the Gate 9 preview); label at the bottom line-end after the top-position first attempt collided with flip -- caught in self-review screenshots. MSTR banding untouched.
