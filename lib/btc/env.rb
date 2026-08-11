@@ -30,6 +30,26 @@ module BTC
       !(base.nil? || base.empty?)
     end
 
+    # Runtime separation (M9-12): production agents and the deploy-time
+    # publish run from an APP-MANAGED clone kept on the deployed commit
+    # (live_dir), with all runtime data under data_home. That makes the
+    # dev checkout stateless -- its branch never matters to production.
+    # Both live under ~/Library/Application Support/mimir; +home+ is
+    # injectable so the whole layout can be exercised under a tmp HOME.
+    # These resolve PATHS only (no IO); creating/cloning them is the job
+    # of `rake deploy` (live_dir) and `rake ops:install` (data_home).
+    def app_support(home = Dir.home)
+      File.join(home, 'Library', 'Application Support', 'mimir')
+    end
+
+    def live_dir(home = Dir.home)
+      File.join(app_support(home), 'live')
+    end
+
+    def data_home(home = Dir.home)
+      File.join(app_support(home), 'data')
+    end
+
     # Scrub secrets from a string bound for output: credential-looking
     # query params by pattern, plus the literal values of SECRET_ENV
     # (some APIs, e.g. FRED, only accept keys as query params, so URLs
