@@ -3,63 +3,71 @@
 Phase 9 is the SBI-review LPPL statistics revision. Every wave-1/2 change
 was SHADOW-first: each new statistic ships ADDITIVE and report-only, next
 to its frozen original, so no verdict/score/threshold/weight moved (Golden
-Rule 4). M9-11 makes those shadow numbers VISIBLE — a compact "shadow"
-scoreboard on the LPPL card — so the D9-* rulings can be made with the
-frozen-vs-shadow comparison in front of you during the soak.
+Rule 4). M9-11 made those shadow numbers VISIBLE; M9-13 (owner ruling
+2026-08-11, at this preview) moved them off the LPPL panels' right margin
+onto a **SHADOW tab** of the same card — the three LPPL panels get their
+full width back, and every shadow number gets a plain-language hover
+explanation — so the D9-* rulings can be made with the frozen-vs-shadow
+comparison, and its meaning, in front of you during the soak.
 
 Five steps, in order. Each says exactly what to run/open and what you
 should see (EXPECT). If an EXPECT fails, stop and tell the loop — don't
 improvise past a failed step. Background is at the end; you don't need it
 to run the gate.
 
-## 1. Preview eyeball — the shadow scoreboard
+## 1. Preview eyeball — the SHADOW tab
 
 Ask the loop: **"serve the gate preview"** (all branch-side prep is the loop's
 job; owner ruling 2026-08-11: you never touch paths outside ~/Dev/mimir).
 
 Open http://localhost:8000/web/preview.html and look at the **LPPL card**.
+Its head now carries a **[LPPL][SHADOW]** tab pair.
 
 EXPECT (design-skill surface review, LPPL card only):
-- A compact right-side block titled **shadow**, top-right, six rows, each
-  frozen value then its shadow value:
+- Default tab **LPPL**: the three evidence panels (ratio / log10 BF / Z)
+  at FULL card width — the pre-M9-11 form, no right-hand column, no
+  clipping, the ratio pin (`0.472`) intact.
+- Click **SHADOW**: title `Shadow diagnostics · 6 checks`, subtitle
+  `frozen → shadow · hover a row for what it means`, then six readable
+  rows — stat name (bold), frozen value, an amber `→`, the shadow value,
+  and a one-phrase verdict — all visible WITHOUT hover:
   ```
-  shadow
-  mean/eval  -1.26          (density-honest trend; ≈ the frozen BF panel,
-                             per-eval instead of a density-inflated sum)
-  365/730    -0.11/+0.16    (report-only long horizons; +0.16 = the power
-                             law winning at 24mo)
-  damping    0.41 (<1)      (fit anti-bubble condition, unmet)
-  impr       29.2→27.9%     (frozen vs symmetric-null RMSE improvement)
-  p(osc)     .38→.24        (AR(1) vs GARCH bootstrap p; both > .05)
-  freeze     .439→.358      (live envelope bound vs pre-trough candidate)
+  mean/eval  -461.34 →  -1.26   rivals win
+  365/730     -0.11  → +0.15     wins at 2y
+  damping      >=1   →  0.42     not met
+  impr        28.9%  → 27.6%     still wins
+  p(osc)       .40   →  .25      still noise
+  freeze       .439  →  .358     drift flatters
   ```
-- Row names right-aligned, values left-aligned in the column; the `→`
-  arrows and the leading-zero-stripped numbers (`.38`, `.439`) render.
-- No clipping at the card's right edge, no collision with the ratio pin
-  (`0.472`) or the three panels; the three evidence panels keep their
-  height. Console clean.
-- Hover the card's ⓘ: the help bubble now ends with one sentence per row
-  naming its decision item (mean/eval → D9-b, 365/730 → D9-c, damping +
-  impr → D9-e, p(osc) → D9-f, freeze → D9-g).
+- Hover any SHADOW row: a block opens with the bold stat name, the
+  `frozen … → shadow …  <verdict>` line, then a plain-language paragraph
+  explaining the number and naming its decision item. It must stay fully
+  inside the viewport (hover the bottom `freeze` row — the tooltip flips
+  ABOVE the pointer). Console clean.
+- The default tab is LPPL (SHADOW is never the landing tab).
 
 Note: the preview shows the LIVE-cache numbers above; the committed golden
 pins the FIXTURE numbers (frozen impr 43.5→27.9, p .19→.24, mean/eval
--1.17), which differ deliberately — the fixture predates the real values.
+-427.34→-1.17), which differ deliberately — the fixture predates the real
+values. The hover paragraphs quote representative live numbers verbatim
+(owner-approved), independent of the row's own frozen/shadow values.
 
-## 2. Bless the golden
+## 2. Bless the goldens
 
-Only `chart_lppl_regime.json` should move (M9-11 touched no other chart).
+Exactly TWO goldens should move: `chart_lppl_regime.json` reverts to its
+pre-M9-11 three-panel content, and the NEW `chart_lppl_shadow.json`
+appears. No other chart changed.
 
 ```
-rake golden:approve                 # deterministic; regenerates all 12 from fixtures
-git status --short test/golden/     # EXPECT: only M test/golden/chart_lppl_regime.json
+rake golden:approve                 # deterministic; regenerates all 13 from fixtures
+git status --short test/golden/     # EXPECT: M chart_lppl_regime.json + ?? chart_lppl_shadow.json
 rake                                # EXPECT: compat OK, health OK, test 0 failures
 ```
 
-EXPECT: exactly one golden shows as modified. If any OTHER golden diffs,
-STOP — a chart changed that shouldn't have.
+EXPECT: only those two goldens differ. If any OTHER golden diffs, STOP —
+a chart changed that shouldn't have.
 
-(The loop already blessed this golden PROVISIONAL in the M9-11 feat
+(The loop already blessed both goldens PROVISIONAL in the M9-13 feat
 commit; this step is your formal re-bless after looking at step 1.)
 
 ## 3. Merge and deploy (your actions; loop verifies CI first)
@@ -90,10 +98,11 @@ EXPECT from the deploy — TWO new lines from the M9-12 live-runtime sync:
 - `publishing data from live runtime .../mimir/live (BTC_DATA_DIR=.../mimir/data)`
   — the publish runs from the app-managed copy, not your dev folder.
 
-EXPECT from the deploy's publish: **`PUB LIVE 26/26 keys`** — the key
-count is UNCHANGED (Phase 9 added only report-only --json fields and one
-card's right-hand column; no new KV key). If you see anything other than
-26/26, stop.
+EXPECT from the deploy's publish: **`PUB LIVE 27/27 keys`** — one MORE
+than before Phase 9. M9-13 adds exactly one new KV key, `chart:lppl_shadow`
+(the SHADOW tab is its own chart sharing the LPPL card); the frozen
+analytics --json fields are otherwise unchanged. If you see anything other
+than 27/27, stop.
 
 You do NOT need to leave any particular branch checked out afterward:
 from M9-12 on, the launchd agents run from the live runtime copy, so
@@ -128,7 +137,7 @@ EXPECT, in order:
   `program = .../Library/Application Support/mimir/live/ops/run_*.sh`
   (the live copy, NOT `~/Dev/mimir`). Answer `y` to each
   `kickstart <label> now?`; EXPECT the publish `run` row →
-  `publish LIVE: 26 written …` and its `status file` row → `PUB LIVE 26/26 …`.
+  `publish LIVE: 27 written …` and its `status file` row → `PUB LIVE 27/27 …`.
 
 NOTE (data continuity): migration copies your EXISTING histories into the
 data home before the agents' next tick, so the ledger / scenario history
@@ -153,23 +162,23 @@ Open: https://mimir-cd12ef34.neromontanero.workers.dev
 (Hard-reload — Cmd+Shift+R — a tab left open shows old data.)
 
 EXPECT:
-- The **LPPL card** now renders the `shadow` scoreboard with REAL,
-  live-cache values (roughly the step-1 numbers, drifting daily), beside
-  the unchanged three-panel evidence plot. The verdict, composite and
-  panels are byte-for-byte what they were pre-deploy — only the right
-  column is new.
+- The **LPPL card** now carries the **[LPPL][SHADOW]** tab pair. The LPPL
+  tab is the three-panel evidence plot at full width — verdict, composite
+  and panels byte-for-byte what they were pre-deploy. The SHADOW tab shows
+  the six rows with REAL, live-cache values (roughly the step-1 numbers,
+  drifting daily); hover a row for its explanation.
 - Cross-check one row against the payload, not against the render:
   ```
   curl -s https://mimir-cd12ef34.neromontanero.workers.dev/api/v1/lppl:latest \
     | ruby -rjson -e 'd=JSON.parse(STDIN.read)["payload"]; f=d["tests"].find{|t|t["name"]=="fit"}["detail"]; puts "impr #{f["rmse_impr_pct"]} -> #{f["improvement_v2"]}"'
   ```
-  EXPECT: the two numbers match the card's `impr` row.
+  EXPECT: the two numbers match the SHADOW tab's `impr` row.
 - Every card badge is a bare dot; hover the LPPL badge for age/ttl.
-- Header dot cluster all green after the next bi-hourly tick; 26 keys.
+- Header dot cluster all green after the next bi-hourly tick; 27 keys.
 
 Soak note (what to watch over the following days): the shadow fields are
 appended once a day by the **04:45 suite-history run** (the same append
-that grows the ledger/scenario history). So the scoreboard's numbers
+that grows the ledger/scenario history). So the SHADOW tab's numbers
 should show a NEWER reading each day than the day before — that day-over-
 day movement of frozen-vs-shadow is exactly the evidence the D9 rulings
 need. If a row's numbers are identical for several days, the daily append
@@ -178,13 +187,13 @@ is not landing; check `~/Library/Logs/mimir/publish.log`.
 ## 5. The D9 decisions — where each one's evidence now lives
 
 Rule each of these with the data in front of you. Five of the seven are
-on the LPPL card's `shadow` scoreboard (row → field); two (D9-a, D9-d)
+on the LPPL card's **SHADOW tab** (row → field); two (D9-a, D9-d)
 are not on the card — their evidence is in `lppl:latest` --json / a
 research script, noted below. All fields are additive and report-only:
 nothing is gating until you rule it so.
 
 - **D9-a — composite refusal + dead-module weight.** NOT on the
-  scoreboard (it changes verdict behavior on OUTAGE days, not a shadow
+  SHADOW tab (it changes verdict behavior on OUTAGE days, not a shadow
   statistic). Evidence: the blind-day mechanics (M8-8/9/10) — a fully
   unavailable day forces the composite to 0 and the scenario strip greys
   that point; `lppl.rb`'s composite still divides by the full weight
@@ -197,7 +206,7 @@ nothing is gating until you rule it so.
 - **D9-c — do 365/730d horizons enter the scoring band?** Row `365/730`
   = `trend.detail.per_horizon_long.{365,730}.mean_per_eval` (packet M9-8,
   d2a03da). The differential flips POSITIVE at 730d.
-- **D9-d — PL+LP1 rival adoption.** NOT on the scoreboard (it changes
+- **D9-d — PL+LP1 rival adoption.** NOT on the SHADOW tab (it changes
   what "trend vs the power law" MEANS, not a single comparison). Evidence:
   `trend.detail.pl_lp1{per_horizon,omega,clock}` (packet M9-9, d085814) —
   the coupled log-periodic mode ~ties pure PL out-of-sample (34% in-sample
@@ -228,16 +237,21 @@ Golden Rule 4 was held end-to-end: post-wave trend/fit/logperiodic frozen
 --json fields are byte-identical to the pre-wave recording; the shadow
 numbers sit BESIDE them, never replacing them.
 
-M9-11 (this gate's packet): the LPPL card gained a right-side `shadow`
-scoreboard (side-panels-right ruling). The six rows come additively
-through the `lppl:latest` payload the publish already carries into
-`chart:lppl_regime`; the builder reads them DEFENSIVELY — a missing
-shadow field drops that row, and a payload with no shadow fields at all
-degrades the card to its pre-M9-11 three-panel form. No verdict, panel or
-score content changed. Fixture `payload_lppl_latest.json` was extended
-additively with realistic synthetic shadow values (noted in
-`test/fixtures/payloads/README.md`); the golden is PROVISIONAL until your
-step-2 re-bless.
+M9-11 first surfaced the six shadow checks as a right-side scoreboard on
+`chart:lppl_regime`. M9-13 (this gate's final surfacing packet, owner
+ruling 2026-08-11) reverts that: `lppl_regime` is once again the pre-M9-11
+three-panel card, and the checks move to a new `chart:lppl_shadow` — the
+**SHADOW tab** of the same card (`tab_group 'lppl'`, LPPL is tab_pos 0 /
+default). The rows read at full width — stat, frozen, `→`, shadow, verdict
+— and each carries an owner-approved plain-language hover explanation via
+the `lppl_shadow` renderer formatter (numbers alone were an
+"incomprehensible mess"). Both charts read the `lppl:latest` payload the
+publish already carries; the shadow builder reads DEFENSIVELY — a missing
+shadow field drops that row. No verdict, panel or score content changed;
+the only KV delta is the new `chart:lppl_shadow` key (26 → 27). Fixture
+`payload_lppl_latest.json` carries the synthetic shadow values (noted in
+`test/fixtures/payloads/README.md`); both goldens are PROVISIONAL until
+your step-2 re-bless.
 
 Preview gotcha (bit us here and at M8-6/M8-17): a stale `rake preview`
 server left running from another checkout silently
@@ -245,8 +259,9 @@ keeps answering port 8000 and serves ITS old artifacts — a screenshot
 then shows the pre-change card. Use a fresh `PORT=`, or check
 `lsof -nP -iTCP:8000 -sTCP:LISTEN` before trusting a shot.
 
-KV quota (Gate 5 carry-over, still comfortable): 26 keys × 12 runs/day
-≈ 312 writes/day, ~30% of the free tier. Unchanged by Phase 9.
+KV quota (Gate 5 carry-over, still comfortable): 27 keys × 12 runs/day
+≈ 324 writes/day, ~32% of the free tier. Phase 9 adds one key
+(`chart:lppl_shadow`).
 
 This file supersedes the GATE 9 sketch in docs/BACKLOG.md (owner ruling
 2026-07-11: gate instructions always live in a dedicated
