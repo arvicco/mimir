@@ -97,6 +97,34 @@ var FORMATTERS = {
       out.push(n + ": " + span(G, fm(v.C)) + " " + span(R, fm(v.P)));
     });
     return out.join("<br>");
+  },
+
+  // lppl_shadow (M9-13): the SHADOW tab's per-row hover. The row's stat
+  // name (bold), then "frozen <val> -> shadow <val>  <verdict>", then the
+  // owner-approved plain-language paragraph -- all carried IN the option
+  // on the row's `stat`-column datum (renderer stays dumb; payload stays
+  // JSON). Axis trigger hands us every series at the hovered row; we pull
+  // the one datum that carries `explanation`. Wrapped so a long paragraph
+  // never runs off the screen (the universal position callback then keeps
+  // the whole block inside the viewport).
+  lppl_shadow: function (params) {
+    if (!params || !params.length) return "";
+    var d = null;
+    for (var i = 0; i < params.length; i += 1) {
+      if (params[i].data && params[i].data.explanation) { d = params[i].data; break; }
+    }
+    if (!d) return "";
+    function esc(s) {
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+    var A = "#e6a23c", dim = "#9aa0a6";
+    var line = '<span style="color:' + dim + '">frozen</span> ' + esc(d.frozen) +
+               ' <span style="color:' + A + '">&rarr;</span> ' +
+               '<span style="color:' + dim + '">shadow</span> ' + esc(d.shadow) +
+               '  <b>' + esc(d.verdict) + "</b>";
+    return '<div style="max-width:320px;white-space:normal;line-height:1.5">' +
+           "<b>" + esc(d.title) + "</b><br>" + line +
+           '<div style="margin-top:6px;color:#c7ccd1">' + esc(d.explanation) + "</div></div>";
   }
 };
 
@@ -738,7 +766,8 @@ var CARD_ORDER = ["chart:gex_btc", "chart:gex_mstr", "chart:gex_btc_trend",
                   "chart:gex_mstr_trend",
                   "chart:vol_surface", "chart:vol_surface_mstr", "chart:vol_basis",
                   "chart:vol_spread", "chart:vol_spread_trend",
-                  "chart:scenario_strip", "chart:lppl_regime", "chart:btco_table"];
+                  "chart:scenario_strip", "chart:lppl_regime", "chart:lppl_shadow",
+                  "chart:btco_table"];
 function cardRank(key) {
   var i = CARD_ORDER.indexOf(key);
   return i === -1 ? CARD_ORDER.length : i;
