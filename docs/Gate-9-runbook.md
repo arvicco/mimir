@@ -14,15 +14,10 @@ to run the gate.
 
 ## 1. Preview eyeball — the shadow scoreboard
 
-```
-cd ~/Dev/mimir/.worktrees/phase-9
-rsync -a ~/Dev/mimir/scripts/lppl/data/ scripts/lppl/data/        # cached inputs (gitignored)
-rsync -a ~/Dev/mimir/scripts/scenario/data/ scripts/scenario/data/
-PUBLISH_DRY_RUN=1 ruby publish/publish.rb                          # EXPECT: 26 written, 0 skipped
-PORT=8011 rake preview      # 8000 may be squatted by the main-repo server; use a fresh port
-```
+Ask the loop: **"serve the gate preview"** (all branch-side prep is the loop's
+job; owner ruling 2026-08-11: you never touch paths outside ~/Dev/mimir).
 
-Open http://localhost:8011/web/preview.html and look at the **LPPL card**.
+Open http://localhost:8000/web/preview.html and look at the **LPPL card**.
 
 EXPECT (design-skill surface review, LPPL card only):
 - A compact right-side block titled **shadow**, top-right, six rows, each
@@ -69,12 +64,6 @@ commit; this step is your formal re-bless after looking at step 1.)
 
 ## 3. Merge and deploy (your actions; loop verifies CI first)
 
-After the merge lands, remove the phase worktree in the same sitting
-(owner ruling 2026-08-11: a stale worktree after its phase ends is an
-anti-pattern; `rake health` fails until it is gone):
-```
-cd ~/Dev/mimir && git worktree remove .worktrees/phase-9
-```
 
 
 Open the PR:
@@ -195,7 +184,7 @@ additively with realistic synthetic shadow values (noted in
 step-2 re-bless.
 
 Preview gotcha (bit us here and at M8-6/M8-17): a stale `rake preview`
-server left running from ANOTHER worktree (e.g. ~/Dev/mimir) silently
+server left running from another checkout silently
 keeps answering port 8000 and serves ITS old artifacts — a screenshot
 then shows the pre-change card. Use a fresh `PORT=`, or check
 `lsof -nP -iTCP:8000 -sTCP:LISTEN` before trusting a shot.

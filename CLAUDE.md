@@ -82,7 +82,11 @@ same commit (`rake health` fails on registry drift).
    steps with full copy-pasteable commands, real URLs/links, and an
    EXPECT line per step; background quarantined at the end. Never bury
    a gate checklist in BACKLOG.md or a chat summary; keep the runbook
-   current as gate scope evolves.
+   current as gate scope evolves. **Owner steps run ONLY in ~/Dev/mimir
+   or a browser** (owner ruling 2026-08-11: no worktree/obscure paths in
+   gate work) -- any step that needs the phase worktree is the loop's
+   job, done before the handoff; the runbook says "ask the loop", not
+   "cd somewhere".
 
 ### Self-review checklist
 - [ ] Ruby 3.3-compatible (`rake compat` clean; no 3.4+/4.x-only constructs)
@@ -169,10 +173,15 @@ same commit (`rake health` fails on registry drift).
   they cover. Never commit `data/`, `*.status`, fixtures containing
   secrets, or `.env`.
 - Do not rewrite published history; do not tag -- tags are gate actions.
-- **Worktrees live INSIDE the repo** at `.worktrees/<branch>` (gitignored)
-  -- sibling `~/Dev/mimir-phaseX` folders are a banned anti-pattern, and
-  a worktree whose branch has merged is removed at the gate that merged
-  it (owner rulings 2026-08-11; `rake health` enforces both).
+- **Branches only -- no worktrees** (owner rulings 2026-08-11): mimir
+  is developed like any normal project, one checkout at ~/Dev/mimir,
+  branches switched in place. If the loop ever needs a parallel tree
+  it is loop-internal, lives in agent scratch space (/tmp), is removed
+  the moment its need ends, and is never mentioned in owner-facing
+  docs or summaries. `rake health` fails on any worktree found on the
+  owner's filesystem or outliving its merged branch. (Prerequisite
+  M9-12: production agents run from their own runtime copy, so the
+  dev checkout's branch never matters to production.)
 
 ## Repo map (details in ARCHITECTURE.md section 3)
 

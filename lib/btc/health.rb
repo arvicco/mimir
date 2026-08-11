@@ -281,21 +281,24 @@ module BTC
       bad
     end
 
-    # Worktree discipline (owner rulings 2026-08-11). Two anti-patterns:
-    #   (a) a worktree OUTSIDE the main checkout (sibling ~/Dev/mimir-phaseX
-    #       folders; the convention is .worktrees/, gitignored), and
-    #   (b) a STALE worktree left behind after its phase ended (its branch
-    #       already merged into main) -- the phase-8 one rotted for a month.
-    # check_worktrees is pure (offline-testable); scan_worktrees gathers the
-    # git state and returns [] where git/worktrees are absent (CI checkout).
-    def check_worktrees(porcelain, merged_branches)
+    # Worktree discipline (owner rulings 2026-08-11): worktrees are the
+    # loop's INTERNAL, EPHEMERAL tooling -- they live in agent scratch
+    # space (/tmp), are removed the moment their need ends, and must
+    # NEVER appear on the owner's filesystem or in owner-facing docs.
+    # Flagged: (a) any extra worktree under a home directory (persistent
+    # pollution -- the ~/Dev/mimir-phaseX folders, or anything like
+    # them), and (b) any extra worktree whose branch is already merged
+    # into main (stale -- the need ended; phase-8's rotted a month).
+    # check_worktrees is pure (offline-testable); scan_worktrees gathers
+    # the git state and returns [] where git is absent (CI checkout).
+    def check_worktrees(porcelain, merged_branches, home = Dir.home)
       bad = []
       entries = porcelain.split(/\n\n+/).map(&:strip).reject(&:empty?)
-      # git lists the MAIN checkout first -- that anchors "inside the repo"
-      # no matter which worktree the gate runs from
+      # git lists the MAIN checkout first; it is the one sanctioned tree
       main = File.expand_path(entries.first[/^worktree (.+)$/, 1].to_s)
       return [] if main.empty?
 
+      home = File.expand_path(home)
       entries.each do |entry|
         path   = entry[/^worktree (.+)$/, 1]
         branch = entry[/^branch refs\/heads\/(.+)$/, 1]
@@ -304,13 +307,14 @@ module BTC
         path = File.expand_path(path)
         next if path == main # the main checkout itself
 
-        unless path.start_with?(main + File::SEPARATOR)
-          bad << "worktree: #{path} is outside the repo (anti-pattern, owner " \
-                 'ruling 2026-08-11) -- git worktree move it under .worktrees/'
+        if path == home || path.start_with?(home + File::SEPARATOR)
+          bad << "worktree: #{path} sits on the owner's filesystem " \
+                 '(anti-pattern, owner ruling 2026-08-11) -- worktrees are ' \
+                 'loop-internal and live in agent scratch space (/tmp) only'
         end
         if branch && merged_branches.include?(branch)
           bad << "worktree: #{path} (branch #{branch}) is STALE -- the branch " \
-                 'is merged into main; the phase ended, git worktree remove it'
+                 'is merged into main; the need ended, git worktree remove it'
         end
       end
       bad
