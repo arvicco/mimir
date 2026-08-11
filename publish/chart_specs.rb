@@ -43,13 +43,100 @@
 #     first.
 #     The renderer builds the card from the first group member it loads
 #     and attaches the rest; each key keeps its own header liveness dot.
-# All four are part of the chart contract; add a hook only with an owner
-# ruling.
+#   meta['terms'] -- M9-15, owner ruling 2026-08-11: a { TERM => plain
+#     explanation } glossary. The renderer gives each named abbreviation /
+#     module a hover explanation (the SAME styled block as lppl_shadow) on
+#     three surfaces -- drawn ECharts legends (legend.tooltip), the scenario
+#     module scoreboard (canvas axis labels), and the gex_cp venue widget
+#     (CSS bubble). ADDITIVE: it rides meta only, so the chart OPTION and its
+#     golden are byte-identical; an unknown term simply gets no tooltip.
+# All are part of the chart contract; add a hook only with an owner ruling.
 #
 # No IO, no ENV, no network in this file.
 
 module Publish
   module Charts
+    # ---- glossary terms (M9-15, owner ruling 2026-08-11) ---------------
+    # Owner-approved plain-language explanations, shipped verbatim, carried
+    # in meta['terms'] (the 'terms' hook). Keyed by the exact user-visible
+    # token the renderer sees -- a drawn legend item's name, a scenario
+    # module's `mod`, or a gex_cp venue label. Defined ABOVE the CHARTS
+    # literal so the hash can reference them at load. Shared maps (the two
+    # GEX trend tabs, the two vol surfaces) are declared once.
+    GEX_TREND_TERMS = {
+      'spot' => 'The current market price. On the trend chart: its daily closing path.',
+      'flip' => 'The gamma flip: the price level where dealers\' net gamma crosses ' \
+                'zero. Above it their hedging dampens moves; below it their hedging ' \
+                'amplifies moves. Price near the flip = unstable ground.',
+      'CW' => 'Call wall: the strike with the largest concentration of call gamma. ' \
+              'Often acts as short-term resistance -- dealer hedging leans against ' \
+              'price rising through it.',
+      'PW' => 'Put wall: the strike with the largest concentration of put gamma. ' \
+              'Often acts as short-term support -- dealer hedging leans against ' \
+              'price falling through it.'
+    }.freeze
+
+    # gex_cp venue widget (gex_btc): Deribit plus the five US spot-ETF chains.
+    GEX_VENUE_TERMS = {
+      'DERI' => 'Deribit -- the dominant offshore BTC options exchange (coin-settled).',
+      'IBIT' => 'US spot-ETF option chain (BlackRock iShares), cash-settled, ' \
+                'CBOE delayed quotes.',
+      'FBTC' => 'US spot-ETF option chain (Fidelity), cash-settled, CBOE delayed quotes.',
+      'BITB' => 'US spot-ETF option chain (Bitwise), cash-settled, CBOE delayed quotes.',
+      'ARKB' => 'US spot-ETF option chain (ARK 21Shares), cash-settled, ' \
+                'CBOE delayed quotes.',
+      'GBTC' => 'US spot-ETF option chain (Grayscale), cash-settled, CBOE delayed quotes.'
+    }.freeze
+
+    VOL_SURFACE_TERMS = {
+      'ATM IV' => 'At-the-money implied volatility: the market\'s priced-in ' \
+                  'expectation of how much the underlying will move, annualized. ' \
+                  '30% means options are priced for roughly +-30% over a year.',
+      'RR25' => '25-delta risk reversal: the implied-vol difference between ' \
+                'similarly out-of-the-money calls and puts. Negative = downside ' \
+                'protection costs more (the market fears falls more than rallies).',
+      'FLY25' => '25-delta butterfly: how much more the wings (far strikes) cost ' \
+                 'than the middle. Higher = the market pays up for tail scenarios ' \
+                 'in either direction.'
+    }.freeze
+
+    VOL_SPREAD_TERMS = {
+      'spread' => 'MSTR\'s at-the-money implied vol minus BTC\'s, in vol points. ' \
+                  'The option market\'s live price of MSTR\'s leverage on top of BTC.',
+      'MSTR' => 'The MSTR single-name leg\'s own at-the-money implied vol, so you ' \
+                'can see which side moved the spread.',
+      'BTC' => 'The BTC Deribit leg\'s own at-the-money implied vol, so you can ' \
+               'see which side moved the spread.'
+    }.freeze
+
+    # vol_spread_trend tenor legends: one series per requested tenor.
+    VOL_SPREAD_TREND_TERMS = [7, 14, 21, 45, 90].to_h { |n|
+      ["#{n}d", "The #{n}-day spread series: each day's MSTR-minus-BTC " \
+                "at-the-money vol gap at the #{n}-day option tenor."]
+    }.freeze
+
+    # scenario_strip module scoreboard: the seven module names (their `mod`).
+    SCENARIO_TERMS = {
+      'etf_flows' => 'Net money flowing into/out of the US spot-Bitcoin ETFs over ' \
+                     'the last five trading days vs the five before. +1 accelerating ' \
+                     'inflows, -1 accelerating outflows.',
+      'funding_basis' => 'Perp funding and futures basis together -- the cost of ' \
+                         'leveraged long exposure. +1 cheap/washed-out leverage ' \
+                         '(contrarian support), -1 overheated leverage.',
+      'cb_premium' => 'Coinbase premium: US spot price vs offshore. Positive = US ' \
+                      'buyers paying up (institutional demand); -1 persistent discount.',
+      'macro' => 'Macro liquidity from Fed data (balance sheet, reverse repo, TGA): ' \
+                 'is dollar liquidity expanding or draining? +1 expanding, -1 draining.',
+      'hash_ribbons' => 'Miner capitulation/recovery signal from hashrate moving ' \
+                        'averages. +1 = miners recovering after capitulation ' \
+                        '(historically a strong bottom marker).',
+      'onchain_value' => 'MVRV: market value vs the average on-chain cost basis. ' \
+                         '+1 = holders underwater historically deep (accumulation ' \
+                         'zone), -1 = extreme unrealized profit.',
+      'stables' => 'Total stablecoin supply trend -- dry powder that can rotate ' \
+                   'into BTC. +1 growing, -1 shrinking.'
+    }.freeze
+
     # meta (additive envelope field, 2026-07-05): METHODOLOGY-grade
     # hover help rendered by preview.html/the dashboard -- desc for the
     # title bubble, axes + help behind the info affordance.
@@ -80,6 +167,9 @@ module Publish
           # HTML, neither of which a JSON option can express
           'tooltip_formatter' => 'gex_levels',
           'legend_widget' => 'gex_cp',
+          # M9-15: the (p) VENUE (c) widget's venue labels get CSS hover
+          # explanations (Deribit + the five US spot-ETF chains).
+          'terms' => GEX_VENUE_TERMS,
           # tab-group hook (M6-4, owner ruling D7-c 2026-07-06; extended M8-18
           # 2026-08-10): the GEX card is now four tabs --
           # [BTC][MSTR][BTC TREND][MSTR TREND]. tab_pos is explicit because the
@@ -139,7 +229,10 @@ module Publish
                     'not a real neutral print.',
           # renderer hook: half-height card (owner review 2026-07-05 --
           # the strip was vertically stretched at full quadrant height)
-          'height' => 250
+          'height' => 250,
+          # M9-15: each module name on the scoreboard axis explains itself
+          # (canvas label -> styled popover; keys are the module `mod`s).
+          'terms' => SCENARIO_TERMS
         }
       },
       'lppl_regime' => {
@@ -253,7 +346,9 @@ module Publish
           # tab_pos 0, so the renderer collapses them into one tabbed
           # section; tab_label names the button (BTC leads, lower CARD_ORDER).
           'tab_group' => 'vol', 'group_style' => 'stack', 'tab_pos' => 0,
-          'tab_label' => 'BTC', 'height' => 235
+          'tab_label' => 'BTC', 'height' => 235,
+          # M9-15: the ATM IV / RR25 / FLY25 legend items explain themselves.
+          'terms' => VOL_SURFACE_TERMS
         }
       },
       # M8-17: the MSTR vol surface -- same builder body as vol_surface, an
@@ -282,7 +377,9 @@ module Publish
           # same tab_pos 0 as vol_surface so the renderer tabs the two into
           # one section; MSTR is the second tab (BTC leads by CARD_ORDER).
           'tab_group' => 'vol', 'group_style' => 'stack', 'tab_pos' => 0,
-          'tab_label' => 'MSTR', 'height' => 235
+          'tab_label' => 'MSTR', 'height' => 235,
+          # M9-15: same skew-legend glossary as the BTC surface.
+          'terms' => VOL_SURFACE_TERMS
         }
       },
       'vol_spread' => {
@@ -306,7 +403,9 @@ module Publish
           # trend below (vol_spread_trend, tab_pos 1) -- group_style 'stack',
           # height = half a card, exactly like the vol_surface/vol_basis card.
           'tab_group' => 'volspread', 'group_style' => 'stack', 'tab_pos' => 0,
-          'height' => 235
+          'height' => 235,
+          # M9-15: the spread / MSTR / BTC leg legend items explain themselves.
+          'terms' => VOL_SPREAD_TERMS
         }
       },
       'vol_spread_trend' => {
@@ -327,7 +426,9 @@ module Publish
                     'The chart starts nearly empty and grows a point per day.',
           # stacked below vol_spread (owner ruling 2026-08-10) -- half a card.
           'tab_group' => 'volspread', 'group_style' => 'stack', 'tab_pos' => 1,
-          'height' => 235
+          'height' => 235,
+          # M9-15: each per-tenor spread-series legend (7d..90d) explains itself.
+          'terms' => VOL_SPREAD_TREND_TERMS
         }
       },
       'vol_basis' => {
@@ -376,7 +477,9 @@ module Publish
           # joins the existing GEX card (D7-c) as the third tab after
           # [BTC](pos 1) and [MSTR](pos 2); pos 3 keeps [BTC TREND] before
           # [MSTR TREND](pos 4).
-          'tab_group' => 'gex', 'tab_label' => 'BTC TREND', 'tab_pos' => 3
+          'tab_group' => 'gex', 'tab_label' => 'BTC TREND', 'tab_pos' => 3,
+          # M9-15: the spot / flip / CW / PW legend items explain themselves.
+          'terms' => GEX_TREND_TERMS
         }
       },
       # M8-18 (owner ruling 2026-08-10): the daily MSTR GEX trend. Reads the
@@ -404,7 +507,9 @@ module Publish
                     'run length. Sparse history reads as filled dots; a day with ' \
                     'no MSTR capture is an honest gap.',
           # fourth tab of the GEX card, after [BTC TREND](pos 3).
-          'tab_group' => 'gex', 'tab_label' => 'MSTR TREND', 'tab_pos' => 4
+          'tab_group' => 'gex', 'tab_label' => 'MSTR TREND', 'tab_pos' => 4,
+          # M9-15: same spot / flip / CW / PW glossary as the BTC trend tab.
+          'terms' => GEX_TREND_TERMS
         }
       }
     }.freeze

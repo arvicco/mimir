@@ -201,7 +201,18 @@
     font-size: 11px; line-height: 1.25; user-select: none;
   }
   .cp-row { display: flex; justify-content: flex-end; gap: 10px; white-space: nowrap; }
-  .cp-cell { white-space: nowrap; }
+  .cp-cell { white-space: nowrap; position: relative; }
+  /* M9-15: per-venue glossary bubble (instant CSS hover, never native title=).
+     Opens DOWNWARD from the top-right widget, right-anchored so it grows
+     leftward and never clips at the card edge. */
+  .cp-bub {
+    display: none; position: absolute; right: 0; top: calc(100% + 4px);
+    z-index: 60; width: max-content; max-width: 250px; text-align: left;
+    background: #232933; border: 1px solid #3a424e; border-radius: 8px;
+    padding: 8px 12px; font-size: 12px; font-weight: 400; line-height: 1.5;
+    color: #ccd3dc; box-shadow: 0 6px 24px rgba(0,0,0,.45); white-space: normal;
+  }
+  .cp-cell:hover .cp-bub, .cp-cell:focus-within .cp-bub { display: block; }
   /* Reset the real <button> (render.js) back to inline text -- keyboard
      operable but identical to the old <span>. */
   .cp {
@@ -213,6 +224,16 @@
   .cp-c { color: #2fbf8f; }
   .cp-v { color: #d7dce3; font-weight: 600; }
   .cp.off { color: #4a515c; }
+  /* M9-15: the scenario module-name glossary popover (canvas axis labels
+     can't host a CSS child, so render.js positions this in viewport space
+     from the hover's clientX/Y and flips it so it never clips). pointer-
+     events:none -- info only. */
+  .terms-pop {
+    display: none; position: fixed; z-index: 60; max-width: 340px;
+    background: #232933; border: 1px solid #3a424e; border-radius: 8px;
+    padding: 10px 14px; font-size: 12px; line-height: 1.55; color: #ccd3dc;
+    box-shadow: 0 6px 24px rgba(0,0,0,.45); white-space: normal; pointer-events: none;
+  }
   /* BTCo universe table (M4-7): a compact full-width strip appended below
      the four charts (grid-column 1 / -1). Borderless except a 1px row
      separator; mono tabular numerals at 11px; click-to-sort headers are

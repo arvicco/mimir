@@ -83,9 +83,11 @@ function makeEcharts() {
     instances,
     init(div) {
       const inst = {
-        div, _resizes: 0,
-        setOption() {}, resize() { this._resizes += 1; },
-        on() {}, dispatchAction() {}
+        div, _resizes: 0, _opts: [], _on: {},
+        setOption(o) { this._opts.push(o); },   // M9-15: recorded so the
+        resize() { this._resizes += 1; },        // legend/axis wiring is testable
+        on(type, fn) { (this._on[type] || (this._on[type] = [])).push(fn); },
+        dispatchAction() {}
       };
       instances.push(inst); return inst;
     },
@@ -96,7 +98,7 @@ function makeEcharts() {
 // Load a FRESH copy of render.js (its GROUPS/charts module state is
 // per-load) against fresh stubs, returning { R, echarts }.
 function loadRender() {
-  const window = { innerHeight: 1000 };
+  const window = { innerHeight: 1000, innerWidth: 1400 };
   const document = { createElement: makeEl, createTextNode: makeTextNode };
   const echarts = makeEcharts();
   const raf = (cb) => { cb(); return 1; }; // synchronous: resize-on-reveal is observable
@@ -318,4 +320,85 @@ test('a non-grouped chart still builds a fresh, tab-less card', () => {
   assert.equal(c1.querySelectorAll('.tabbar').length, 0);
   assert.equal(c1.dataset.key, 'chart:lppl_regime');
   assert.equal(c1.querySelectorAll('.chart').length, 1);
+});
+
+// ---- M9-15: the glossary 'terms' hook (owner ruling 2026-08-11) ----------
+// meta.terms gives abbreviations / module names a hover explanation on three
+// surfaces. The visual proof is the Playwright pass; these pin the render-
+// layer wiring (payload/goldens are untouched -- an additive meta channel).
+
+test('termsBlock renders the styled block (bold term + wrapped text) and escapes HTML', () => {
+  const { R } = loadRender();
+  const html = R.termsBlock('CW', 'call <wall> & support');
+  assert.match(html, /<b>CW<\/b>/);
+  assert.match(html, /call &lt;wall&gt; &amp; support/, 'text is escaped, not raw HTML');
+});
+
+test('gex_cp venue cells carry a glossary CSS bubble; a stale label resolves to its base term', () => {
+  const { R } = loadRender();
+  const btc = env('chart:gex_btc', '2026-07-06T16:00:00Z',
+    { desc: 'BTC gex', axes: { x: 'x', y: 'y' }, help: 'h',
+      tooltip_formatter: 'gex_levels', legend_widget: 'gex_cp',
+      tab_group: 'gex', tab_label: 'BTC', tab_pos: 1,
+      terms: { DERI: 'Deribit desc', IBIT: 'iShares desc' } },
+    [{ name: 'DERI C' }, { name: 'DERI P' }, { name: 'IBIT! C' }, { name: 'IBIT! P' }]);
+  const card = R.buildChartCard(btc, 'chart:gex_btc');
+  const bubs = card.querySelectorAll('.cp-bub');
+  assert.equal(bubs.length, 2, 'one bubble per present venue that has a term');
+  assert.deepEqual(bubs.map((b) => b.textContent).sort(),
+                   ['Deribit desc', 'iShares desc'], 'DERI + stale IBIT! both resolve');
+});
+
+test('applyTerms wires a legend tooltip: known items render the block, unknown blank out', () => {
+  const { R, echarts } = loadRender();
+  const e = env('chart:vs', '2026-08-10T16:00:00Z',
+    { desc: 'd', axes: { x: 'x', y: 'y' }, help: 'h', terms: { RR25: 'risk reversal text' } },
+    [{ name: 'RR25' }]);
+  R.buildChartCard(e, 'chart:vs');
+  const inst = echarts.instances[echarts.instances.length - 1];
+  const legOpt = inst._opts.find((o) => o.legend && o.legend.tooltip);
+  assert.ok(legOpt, 'a legend.tooltip setOption was recorded');
+  assert.equal(legOpt.legend.tooltip.show, true);
+  const fmt = legOpt.legend.tooltip.formatter;
+  assert.match(fmt({ name: 'RR25' }), /<b>RR25<\/b>/);
+  assert.match(fmt({ name: 'RR25' }), /risk reversal text/);
+  assert.equal(fmt({ name: 'nope' }), '', 'unknown legend item -> no tooltip content');
+});
+
+test('a term-carrying category axis gets triggerEvent + a viewport popover (scenario scoreboard)', () => {
+  const { R, echarts } = loadRender();
+  const scn = {
+    key: 'chart:scenario_strip', generated_at: '2026-08-10T16:00:00Z', ttl_hint_s: 1800,
+    meta: { desc: 'd', axes: { x: 'x', y: 'y' }, help: 'h',
+            terms: { macro: 'Macro liquidity text', stables: 'Stablecoin text' } },
+    payload: { yAxis: [{ type: 'value' }, { type: 'category', data: ['macro', 'stables'] }],
+               series: [] }
+  };
+  const card = R.buildChartCard(scn, 'chart:scenario_strip');
+  const inst = echarts.instances[echarts.instances.length - 1];
+  const axOpt = inst._opts.find((o) => o.yAxis && o.yAxis[1] && o.yAxis[1].triggerEvent);
+  assert.ok(axOpt, 'triggerEvent enabled on the module (term-carrying) axis');
+  const pop = card.querySelector('.terms-pop');
+  assert.ok(pop, 'a popover element exists');
+  assert.equal(pop.style.display, 'none', 'hidden until a label is hovered');
+
+  // hover the 'macro' module label
+  inst._on.mouseover.forEach((f) => f(
+    { componentType: 'yAxis', value: 'macro', event: { event: { clientX: 20, clientY: 30 } } }));
+  assert.equal(pop.style.display, 'block');
+  assert.match(pop.innerHTML, /<b>macro<\/b>/);
+  assert.match(pop.innerHTML, /Macro liquidity text/);
+
+  // a non-term value on the same axis does not open it
+  pop.style.display = 'none';
+  inst._on.mouseover.forEach((f) => f(
+    { componentType: 'yAxis', value: 'composite', event: { event: { clientX: 1, clientY: 1 } } }));
+  assert.equal(pop.style.display, 'none', 'a non-term axis label is ignored');
+
+  // leaving the label hides it
+  inst._on.mouseover.forEach((f) => f(
+    { componentType: 'yAxis', value: 'stables', event: { event: { clientX: 5, clientY: 5 } } }));
+  assert.equal(pop.style.display, 'block');
+  inst._on.mouseout.forEach((f) => f({ componentType: 'yAxis' }));
+  assert.equal(pop.style.display, 'none');
 });
