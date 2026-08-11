@@ -31,6 +31,45 @@ class TestBtcEnv < Minitest::Test
   end
 end
 
+# M9-12: runtime-separation path helpers (pure; no IO). live_dir is the
+# app-managed clone the agents/deploy run from; data_home is the
+# BTC_DATA_DIR for production. Both sit under ~/Library/Application
+# Support/mimir and take an injectable home.
+class TestBtcEnvRuntimeLayout < Minitest::Test
+  HOME = '/Users/tester'
+  SUPPORT = '/Users/tester/Library/Application Support/mimir'
+
+  def test_app_support_under_home
+    assert_equal SUPPORT, BTC::Env.app_support(HOME)
+  end
+
+  def test_live_dir_is_the_clone_under_app_support
+    assert_equal "#{SUPPORT}/live", BTC::Env.live_dir(HOME)
+  end
+
+  def test_data_home_is_the_data_dir_under_app_support
+    assert_equal "#{SUPPORT}/data", BTC::Env.data_home(HOME)
+  end
+
+  def test_helpers_default_to_real_home
+    assert_equal BTC::Env.app_support(Dir.home), BTC::Env.app_support
+    assert_equal BTC::Env.live_dir(Dir.home), BTC::Env.live_dir
+    assert_equal BTC::Env.data_home(Dir.home), BTC::Env.data_home
+  end
+
+  # data_home is exactly what data_dir('<suite>', ...) lands on once
+  # BTC_DATA_DIR points at it -- the layout the migration must match.
+  def test_data_home_matches_the_data_dir_seam_layout
+    old = ENV['BTC_DATA_DIR']
+    ENV['BTC_DATA_DIR'] = BTC::Env.data_home(HOME)
+    assert_equal "#{SUPPORT}/data/gex_history",
+                 BTC::Env.data_dir('gex_history', 'data/gex_history')
+    assert_equal "#{SUPPORT}/data/lppl", BTC::Env.data_dir('lppl', 'scripts/lppl/data')
+  ensure
+    old.nil? ? ENV.delete('BTC_DATA_DIR') : ENV['BTC_DATA_DIR'] = old
+  end
+end
+
 class TestBtcEnvRedact < Minitest::Test
   def test_redacts_credential_query_params
     assert_equal 'x?api_key=[REDACTED]&limit=6',
