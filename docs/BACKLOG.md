@@ -575,7 +575,7 @@ Acceptance: checklist is executable as written; README honest about
       stays); rake green; phase ends with the Gate 5 handoff summary,
       not an action.
 
-## M5-5 · Daily GEX snapshot writer  [tier: sonnet -- small injectable-runner script following the established BTC::Deploy pattern, deterministic test oracle; two failures bump to opus] [status: ready] [deps: --]
+## M5-5 · Daily GEX snapshot writer  [tier: sonnet -- small injectable-runner script following the established BTC::Deploy pattern, deterministic test oracle; two failures bump to opus] [status: done -- the 08:15 snapshot agent dumps dated gex_btc_combined + gex_us JSON to the data dir; feeds the GEX/vol trend charts] [deps: --]
 Goal: `ops/gex_snapshot.rb` -- stdlib one-shot with an injectable
       runner (pattern: lib/btc/deploy.rb): runs
       `ruby scripts/gex_btc_combined.rb --json` and
@@ -822,7 +822,7 @@ Goal: render chart:gex_mstr per D7-c ruling (Option A): card TABS in
 Acceptance: per ruling; liveHeader dot appears for the new chart key;
       goldens/screenshots reviewed; rake + web:test green.
 
-## M6-5 · README + Gate 6 prep  [tier: fable] [status: todo] [deps: M6-1..4]
+## M6-5 · README + Gate 6 prep  [tier: fable] [status: done -- README replay/backfill/tabs capabilities + the Gate 6 checklist shipped with the phase-6 merge (PR #7)] [deps: M6-1..4]
 Goal: README updated for replay + MSTR capabilities (honest about the
       ledger being backfilled-then-blessed, not organically grown);
       Gate 6 checklist written concretely: stage-B diff review +
@@ -981,7 +981,7 @@ M7-13. Soft health entry; per-CIK SourceCache. Also fixed: the flow
 harness leaked SourceCache writes into the real data/source_cache/
 (BTC_DATA_DIR now sandboxed in run_ingest).
 
-## M7-13 · deterministic filing-iXBRL parser  [tier: fable design, opus impl] [status: elaborated 2026-07-08, awaiting owner go]
+## M7-13 · deterministic filing-iXBRL parser  [tier: fable design, opus impl] [status: FROZEN 2026-08-10 -- BTCo development stopped (owner ruling); elaborated 2026-07-08 but never built]
 The research's biggest de-risking win, NOT yet built: parse each
 filing's inline-XBRL instance for (a) per-class dei cover counts
 (multi-class filers -- closes the M7-12 gap for MSTR/ASST) and (b)
@@ -1016,18 +1016,15 @@ exact commands). First live run: engine + definitions CONFIRMED
 against externals (ASST matches exactly; MSTR -6.4% fully explained,
 dominant = share count 350.4M Apr cover vs tracker 371.6M Jul-6 --
 ATMs outrun quarterly covers); every remaining oddity now has a named
-cause. M7-15b (todo): AI research layer -- dossier + web research per
-ticker for the fields no structured source covers (cash!, non-BTC
-business value, pref/convert terms); expected to formalize the "add
-cash to the model" decision.
+cause. M7-15b (FROZEN 2026-08-10 -- BTCo development stopped, owner
+ruling): AI research layer -- dossier + web research per ticker for the
+fields no structured source covers (cash!, non-BTC business value,
+pref/convert terms); would have formalized the "add cash to the model"
+decision.
 
-## D8-f · 3350 price source  [RESOLVED 2026-07-10 -- owner: "3350.T is literally on Yahoo"]
-stooq's quote API is dead upstream (F-17); the recomposed 3350 entry
-carries no manual_px -> Metaplanet has NO dashboard row despite real
-data. Options: (a) manual_px + an owner refresh routine; (b) small
-packet: btco.rb prices 3350 from the StrategyTracker feed's USD
-stockPrice (source already registered; adds a btco runtime dependency
-on a third-party tracker). Owner picks.
+## D8-f · 3350 price source  [RESOLVED 2026-07-10]
+Consolidated into "## Decision items -- Phase 8" below (full text moved
+there; M7-16 references D8-f, so this pointer stays).
 
 ## M7-16 · baseline-reset + per-field freshness gate  [tier: fable] [status: applied 6/8 2026-07-10 -- MSTR/XXI/DJT/ASST/BLSH/ABTC grounded; NAKA + 3350 remain] [owner-ruled]
 THE PROCESS (owner ruling 2026-07-10, verbatim intent): "We need a
@@ -1152,12 +1149,24 @@ Effect on plans:
 - Focus shifts to: Gate 7 (reduced scope) -> Gate 8 (vol/GEX family,
   already built on phase-8) -> Phase 9 (LPPL statistics revision).
 
-## GATE 7 CHECKLIST -- moved to docs/Gate-7-runbook.md (owner ruling
-2026-07-11: gate instructions always live in a dedicated
-Gate-N-runbook.md, fully specific -- commands, links, EXPECT lines).
-Run that file on/after the July 13 soak review.
+## Gate 7 (human) -- checklist in docs/Gate-7-runbook.md  [status: CLOSED 2026-08-10 -- PR #8, v1 tag 03cac84, deployed + verified]
+Gate instructions live in a dedicated Gate-N-runbook.md (owner ruling
+2026-07-11: fully specific -- commands, links, EXPECT lines). Closed at
+reduced scope after the BTCo freeze; see the OWNER RULINGS block below.
 
-## Decision items -- Phase 7
+## Decision items -- Phase 8
+(All D8-* items consolidated here, owner ruling -- were scattered across
+the Phase-7 packets and a standalone D8-f block.)
+- D8-e Divergence-alert wiring (filed 2026-07-08 as an M7-11 follow-up):
+  wire the ref-ahead-of-model divergence (an aggregator showing more BTC
+  than our model) into the daily btco-alert as a discovery trigger -- an
+  ING token contract change, owner must rule. FROZEN 2026-08-10 with the
+  BTCo development stop -- the btco-alert agent is retired (M8-11), so
+  this is moot until the rethink.
+- D8-f 3350 price source: **RESOLVED 2026-07-10 -- owner: "3350.T is
+  literally on Yahoo"** -- Metaplanet's row is now priced via the Yahoo
+  chart API (e48ce84); stooq's dead quote API (F-17) had left it with no
+  dashboard row. (Referenced by M7-16 above.)
 - D8-g Blind-zero history rows (filed 2026-07-13 after the overnight
   outage): when EVERY scenario module is fail-soft-unavailable, the
   daily suite-history append still writes composite 0.0/NEUTRAL with
@@ -1384,7 +1393,7 @@ Three rulings from the decide step:
    resurrect it.
 3. Dashboard auto-refresh: BUILD (packet M8-13).
 
-## M8-11 · Pre-Gate-8 hardening + btco-alert retirement  [tier: fable -- small cross-cutting fixes from the SBI review] [status: ready] [deps: --]
+## M8-11 · Pre-Gate-8 hardening + btco-alert retirement  [tier: fable -- small cross-cutting fixes from the SBI review] [status: done 2026-08-10 -- C5 atomic prices write, C6 as-of write guard, C8 subprocess timeouts; btco-alert plist dropped from ops:install and guide prose corrected] [deps: --]
 Goal: (a) C5: atomic write for scripts/lppl/prices.rb (tmp+rename,
       same pattern as backfill.rb) -- a crash mid-write must not
       corrupt the price cache cron depends on. (b) C6: lppl.rb refuses
@@ -1557,10 +1566,14 @@ on index.html -- badge bubble on hover AND keyboard focus ("age 2m16s · ttl
 canvas, vol surface MSTR tab still swaps, console clean. NOT live until the
 phase-8 gate merges + deploys.
 
+## Gate 8 (human) -- checklist in docs/Gate-8-runbook.md  [status: CLOSED 2026-08-10 -- PR #9 + hotfix #10, deployed + live-verified, 26 keys]
+The GEX/volatility family live on the dashboard (six cards, 3x2 grid,
+dot-only badges); goldens re-blessed at the preview review.
+
 ---
 
-## Phase 9 -- LPPL statistics revision (branch: phase-9, worktree
-## ~/Dev/mimir-phase9; spec = the SBI consolidated review 2026-07-31)
+## Phase 9 -- LPPL statistics revision (branch: phase-9; spec = the
+## SBI consolidated review 2026-07-31)
 
 Owner-approved 2026-08-11 ("Let's go P9"). The reviewed math stays; the
 statistics one level up get honest. EVERY verdict-affecting change runs
@@ -1770,3 +1783,9 @@ owned by flip/CW/PW per the Gate-6 banding; a top-position spot label
 collided with flip on first render, caught by screenshot). MSTR tab
 unchanged (its Gate-6 banding ruling holds). Golden re-blessed
 PROVISIONAL.
+
+## Gate 9 (human) -- checklist in docs/Gate-9-runbook.md  [status: CLOSED 2026-08-11 -- PR #11, 27 keys deployed + live-verified]
+LPPL statistics revision merged: the SHADOW tab (six frozen-vs-shadow
+report-only diagnostics feeding D9-a..g), the glossary hovers, and the
+worktree-era retirement (M9-12). Goldens re-blessed at the preview
+review. Next: the shadow soak, then the D9-a..g owner rulings.
