@@ -17,6 +17,13 @@
 #      green (the last two skippable together via DEPLOY_SKIP_CHECKS=1).
 #      In DRY RUN the table is informational (never blocks): a dev box
 #      without wrangler / a dirty tree still proves the pipeline.
+#   1b. sync live runtime (M9-12) -- REFUSE unless the deployed HEAD is
+#      pushed to origin, then bring the app-managed clone at
+#      BTC::Env.live_dir onto that exact sha (clone from the local repo
+#      if absent, pointing origin at the real remote URL; fetch +
+#      checkout --detach <sha>). Production agents and this deploy's own
+#      publish run FROM that clone, so the dev checkout stays stateless.
+#      DRY RUN prints the sync plan and mutates nothing.
 #   2. generate config -- substitute CLOUDFLARE_KV_NAMESPACE_ID into the
 #      committed wrangler.toml template, write wrangler.generated.toml
 #      AT THE REPO ROOT (gitignored by name): wrangler resolves main /
@@ -49,6 +56,7 @@
 require 'json'
 require 'time'
 require 'fileutils'
+require 'shellwords'
 require_relative 'env'
 require_relative 'http'
 
@@ -273,6 +281,104 @@ module BTC
       [false, e.class.name]
     end
 
+    # ---- live runtime sync (M9-12) -------------------------------------
+
+    # HEAD sha of the repo the deploy runs from. -> [ok, sha_string].
+    def head_sha(runner)
+      ok, out = runner.call(%w[git rev-parse HEAD])
+      [ok, out.to_s.strip]
+    end
+
+    # Is +sha+ reachable from an origin remote-tracking ref? `git push`
+    # updates origin/<branch> locally, so right after a push this is true
+    # without any network -- exactly the "push, then deploy" flow. A commit
+    # only on a local branch has no origin/* ref containing it.
+    def head_pushed?(runner, sha)
+      ok, out = runner.call(['git', 'branch', '-r', '--contains', sha])
+      ok && out.to_s.lines.any? { |l| l.strip.start_with?('origin/') }
+    end
+
+    # URL of the dev repo's origin -- baked into the live clone as its own
+    # origin so future `git -C LIVE fetch origin` reaches the real remote
+    # (the clone itself is seeded from the fast local path). -> [ok, url].
+    def origin_url_of(runner)
+      ok, out = runner.call(%w[git remote get-url origin])
+      [ok, out.to_s.strip]
+    end
+
+    # The ordered git steps that bring the live clone onto +sha+. Absent
+    # clone: seed from the local repo (fast, offline) then repoint origin
+    # at the real URL; always fetch (verifies remote connectivity) then
+    # detach onto the exact deployed sha. Pure -- returns [{cmd:, label:}].
+    def sync_steps(sha:, live:, local_repo:, origin_url:, live_present:)
+      steps = []
+      unless live_present
+        steps << { cmd: ['git', 'clone', local_repo, live], label: "clone live runtime from #{local_repo}" }
+        steps << { cmd: ['git', '-C', live, 'remote', 'set-url', 'origin', origin_url], label: "point origin at #{origin_url}" }
+      end
+      steps << { cmd: ['git', '-C', live, 'fetch', 'origin'], label: 'fetch origin' }
+      steps << { cmd: ['git', '-C', live, 'checkout', '--detach', sha], label: "checkout --detach #{sha[0, 7]}" }
+      steps
+    end
+
+    # The deploy's own publish runs FROM the live clone (its cwd), with
+    # BTC_DATA_DIR pinned at the data home -- same code + data as the
+    # scheduled agents. sh -c so the recorded runner still handles it and
+    # the spaced "Application Support" path is quoted safely.
+    def publish_from_live_command(live)
+      ['/bin/sh', '-c', "cd #{live.shellescape} && exec ruby publish/publish.rb"]
+    end
+
+    # Refuse-if-unpushed + bring the live clone onto the deployed sha.
+    # Every git call goes through the injected runner (no real git in
+    # tests). DRY prints the plan and mutates nothing. Returns the live
+    # path. Raises Error on an unpushed HEAD or a failed sync step.
+    def sync_live(runner:, io:, home:, repo:, dry:)
+      live = BTC::Env.live_dir(home)
+
+      ok, sha = head_sha(runner)
+      if !ok || sha.empty?
+        raise Error, 'could not resolve HEAD (git rev-parse failed)' unless dry
+
+        io.puts ''
+        io.puts 'live runtime sync (dry run): HEAD unresolved by this runner -- plan skipped.'
+        return live
+      end
+      short = sha[0, 7]
+
+      pushed       = head_pushed?(runner, sha)
+      live_present = File.directory?(File.join(live, '.git'))
+      ourl_ok, ourl = origin_url_of(runner)
+      steps = sync_steps(sha: sha, live: live, local_repo: repo,
+                         origin_url: ourl.to_s, live_present: live_present)
+
+      if dry
+        io.puts ''
+        io.puts format('live runtime sync plan (dry run) -> %s', live)
+        io.puts(pushed ? format('  HEAD %s is pushed to origin', short)
+                       : format('  WARNING: HEAD %s is NOT on origin -- a real deploy REFUSES until pushed', short))
+        steps.each { |s| io.puts format('  would run: %s', BTC::Env.redact(s[:cmd].join(' '))) }
+        io.puts format('  would sync: live runtime -> %s', short)
+        return live
+      end
+
+      unless pushed
+        raise Error, format('refusing to deploy: HEAD %s is not pushed to origin -- push the ' \
+                            'deployed commit first (git push), then re-run', short)
+      end
+      raise Error, 'could not read origin URL (git remote get-url origin failed)' unless ourl_ok
+
+      steps.each do |s|
+        sok, sout = runner.call(s[:cmd])
+        next if sok
+
+        raise Error, format('live runtime sync failed at "%s": %s', s[:label],
+                            BTC::Env.redact(sout.to_s).lines.first.to_s.strip)
+      end
+      io.puts format('live runtime -> %s', short)
+      live
+    end
+
     # ---- orchestrator --------------------------------------------------
 
     def print_table(io, title, rows)
@@ -286,7 +392,8 @@ module BTC
     # refusal, blocking pre-flight failure, missing config, deploy failure,
     # or an undiscoverable host -- the rake task turns those into aborts.
     def run(env: ENV, runner: method(:run_cmd), http: BTC::Http, io: $stdout,
-            now: Time.now.utc, template_path: TEMPLATE_PATH, out_path: GENERATED_PATH)
+            now: Time.now.utc, template_path: TEMPLATE_PATH, out_path: GENERATED_PATH,
+            home: Dir.home, repo: Dir.pwd)
       raise Error, ci_refusal_message if ci?(env)
 
       dry  = truthy(env['DEPLOY_DRY_RUN'])
@@ -299,6 +406,12 @@ module BTC
 
         io.puts 'pre-flight has warnings; continuing (dry run does not block).'
       end
+
+      # Bring the app-managed live clone onto the deployed sha (refuses an
+      # unpushed HEAD) BEFORE wrangler/publish, so the publish below and the
+      # scheduled agents all run the exact released commit.
+      live      = sync_live(runner: runner, io: io, home: home, repo: repo, dry: dry)
+      data_home = BTC::Env.data_home(home)
 
       path = generate_config(env: env, template_path: template_path, out_path: out_path)
       io.puts format('generated config: %s (gitignored; namespace id from CLOUDFLARE_KV_NAMESPACE_ID)', path)
@@ -345,9 +458,9 @@ module BTC
       # code-only pushes; cron owns routine publishing from Phase 5.
       unless truthy(env['DEPLOY_SKIP_PUBLISH'])
         io.puts ''
-        io.puts 'publishing data: PUBLISH_DRY_RUN=0 ruby publish/publish.rb'
-        pub_ok, pub_out = runner.call(%w[ruby publish/publish.rb],
-                                      { 'PUBLISH_DRY_RUN' => '0' })
+        io.puts format('publishing data from live runtime %s (BTC_DATA_DIR=%s)', live, data_home)
+        pub_ok, pub_out = runner.call(publish_from_live_command(live),
+                                      { 'PUBLISH_DRY_RUN' => '0', 'BTC_DATA_DIR' => data_home })
         io.puts BTC::Env.redact(pub_out.to_s).lines.last(3).join
         raise Error, 'publish failed -- the worker is deployed but KV data was not refreshed' unless pub_ok
       end

@@ -36,6 +36,24 @@ class TestBtcDeploy < Minitest::Test
     end
   end
 
+  SHA = 'deadbeefcafefeed0badc0ffee1234567890abcd'
+
+  # Recording runner for a full (non-dry) deploy: answers the M9-12 live
+  # sync git probes (HEAD sha, pushed?, origin URL) as a pushed HEAD, lets
+  # every mutating git/clone/fetch/checkout succeed, and returns the
+  # workers.dev URL on `wrangler deploy`.
+  def git_aware_runner(calls, pushed: true)
+    lambda do |cmd, overrides = {}|
+      calls << { cmd: cmd, env: overrides }
+      return [true, SHA] if cmd == %w[git rev-parse HEAD]
+      return [true, pushed ? "  origin/main\n  origin/phase-9\n" : "  fix/local-only\n"] if cmd[0, 3] == %w[git branch -r]
+      return [true, 'git@github.com:arvicco/mimir.git'] if cmd == %w[git remote get-url origin]
+      return [true, cmd[1] == 'deploy' ? 'https://mimir.acct.workers.dev' : 'wrangler 4.0.0'] if cmd[0] == 'wrangler'
+
+      [true, '']
+    end
+  end
+
   # ---- CI refusal ----------------------------------------------------
 
   def test_run_refuses_under_ci
@@ -313,41 +331,48 @@ class TestBtcDeploy < Minitest::Test
       out  = File.join(dir, 'data', 'wrangler.generated.toml')
       File.write(tmpl, %(id = "#{BTC::Deploy::PLACEHOLDER}"\n))
       calls = []
-      runner = lambda do |cmd, overrides = {}|
-        calls << { cmd: cmd, env: overrides }
-        [true, cmd[1] == 'deploy' ? 'https://mimir.acct.workers.dev' : 'wrangler 4.0.0']
-      end
       code = BTC::Deploy.run(env: ENV_OK.merge('DEPLOY_SKIP_CHECKS' => '1'),
-                             runner: runner, io: StringIO.new, now: now,
-                             template_path: tmpl, out_path: out)
+                             runner: git_aware_runner(calls), io: StringIO.new, now: now,
+                             template_path: tmpl, out_path: out, home: dir, repo: dir)
       assert_equal 0, code
-      dep = calls.find { |c| c[:cmd][1] == 'deploy' }
+      dep = calls.find { |c| c[:cmd].first == 'wrangler' && c[:cmd][1] == 'deploy' }
       assert_equal({ 'CF_API_TOKEN' => nil }, dep[:env])
       refute dep[:env].key?('CLOUDFLARE_API_TOKEN'),
              'canonical token name must pass through untouched'
     end
   end
 
+  # The publish step now runs FROM the live clone (sh -c cd LIVE) with
+  # BTC_DATA_DIR pinned at the data home (M9-12).
+  def publish_call(calls)
+    calls.find { |c| c[:cmd][0] == '/bin/sh' && c[:cmd][2].to_s.include?('ruby publish/publish.rb') }
+  end
+
   def test_real_deploy_publishes_data_before_smoke
     # Deploy means LIVE, data included (owner ruling): a real publish
-    # runs between wrangler deploy and the smoke probes.
-    calls, code = run_real_deploy
+    # runs between wrangler deploy and the smoke probes, from the live clone.
+    calls, code, home = run_real_deploy
     assert_equal 0, code
-    pub = calls.find { |c| c[:cmd] == %w[ruby publish/publish.rb] }
+    pub = publish_call(calls)
     refute_nil pub, 'publish step missing'
-    assert_equal({ 'PUBLISH_DRY_RUN' => '0' }, pub[:env])
+    assert_equal '0', pub[:env]['PUBLISH_DRY_RUN']
+    assert_equal BTC::Env.data_home(home), pub[:env]['BTC_DATA_DIR']
+    assert_equal BTC::Deploy.publish_from_live_command(BTC::Env.live_dir(home)), pub[:cmd],
+                 'publish must cd into the live clone (spaced path shell-escaped)'
     # ordering: wrangler deploy strictly before publish
-    ideploy = calls.index { |c| c[:cmd][1] == 'deploy' }
+    ideploy = calls.index { |c| c[:cmd].first == 'wrangler' && c[:cmd][1] == 'deploy' }
     assert_operator ideploy, :<, calls.index(pub)
   end
 
   def test_deploy_skip_publish_flag_skips_the_publish_step
-    calls, code = run_real_deploy(extra_env: { 'DEPLOY_SKIP_PUBLISH' => '1' })
+    calls, code, = run_real_deploy(extra_env: { 'DEPLOY_SKIP_PUBLISH' => '1' })
     assert_equal 0, code
-    assert_nil calls.find { |c| c[:cmd] == %w[ruby publish/publish.rb] }
+    assert_nil publish_call(calls)
   end
 
   # Shared harness: full run with fake transport + recording runner.
+  # Returns [calls, exit_code, home] -- home is the tmp HOME the live clone
+  # and data home were resolved under.
   def run_real_deploy(extra_env: {})
     now = Time.utc(2026, 7, 5, 12, 0, 0)
     gen = (now - 60).iso8601
@@ -363,14 +388,10 @@ class TestBtcDeploy < Minitest::Test
       out  = File.join(dir, 'data', 'wrangler.generated.toml')
       File.write(tmpl, %(id = "#{BTC::Deploy::PLACEHOLDER}"\n))
       calls = []
-      runner = lambda do |cmd, overrides = {}|
-        calls << { cmd: cmd, env: overrides }
-        [true, cmd[1] == 'deploy' ? 'https://mimir.acct.workers.dev' : 'ok']
-      end
       code = BTC::Deploy.run(env: ENV_OK.merge('DEPLOY_SKIP_CHECKS' => '1').merge(extra_env),
-                             runner: runner, io: StringIO.new, now: now,
-                             template_path: tmpl, out_path: out)
-      return [calls, code]
+                             runner: git_aware_runner(calls), io: StringIO.new, now: now,
+                             template_path: tmpl, out_path: out, home: dir, repo: dir)
+      return [calls, code, dir]
     end
   end
 
@@ -434,5 +455,112 @@ class TestBtcDeploy < Minitest::Test
     assert BTC::Deploy.verdict_missing(404, '').first
     refute BTC::Deploy.verdict_missing(200, '').first
     refute BTC::Deploy.verdict_missing(nil, '').first
+  end
+
+  # ---- M9-12 live runtime sync --------------------------------------
+
+  def git_calls(calls)
+    calls.map { |c| c[:cmd] }.select { |c| c.first == 'git' }
+  end
+
+  def test_pushed_predicate_reads_origin_tracking_refs
+    yes = ->(_c, _o = {}) { [true, "  origin/main\n  origin/phase-9\n"] }
+    no  = ->(_c, _o = {}) { [true, "  fix/local-only\n"] }
+    assert BTC::Deploy.head_pushed?(yes, SHA)
+    refute BTC::Deploy.head_pushed?(no, SHA)
+    refute BTC::Deploy.head_pushed?(->(_c, _o = {}) { [false, ''] }, SHA)
+  end
+
+  def test_sync_steps_absent_clone_seeds_from_local_then_repoints_and_detaches
+    steps = BTC::Deploy.sync_steps(sha: SHA, live: '/L', local_repo: '/dev/mimir',
+                                   origin_url: 'git@github.com:arvicco/mimir.git', live_present: false)
+    cmds = steps.map { |s| s[:cmd] }
+    assert_equal ['git', 'clone', '/dev/mimir', '/L'], cmds[0]
+    assert_equal %w[git -C /L remote set-url origin git@github.com:arvicco/mimir.git], cmds[1]
+    assert_equal %w[git -C /L fetch origin], cmds[2]
+    assert_equal ['git', '-C', '/L', 'checkout', '--detach', SHA], cmds[3]
+  end
+
+  def test_sync_steps_present_clone_only_fetches_and_detaches
+    steps = BTC::Deploy.sync_steps(sha: SHA, live: '/L', local_repo: '/dev/mimir',
+                                   origin_url: 'x', live_present: true)
+    cmds = steps.map { |s| s[:cmd] }
+    assert_equal 2, cmds.size, 'a present clone must not re-clone or repoint origin'
+    assert_equal %w[git -C /L fetch origin], cmds[0]
+    assert_equal ['git', '-C', '/L', 'checkout', '--detach', SHA], cmds[1]
+  end
+
+  def test_sync_live_refuses_unpushed_head_before_any_mutation
+    Dir.mktmpdir do |home|
+      calls = []
+      e = assert_raises(BTC::Deploy::Error) do
+        BTC::Deploy.sync_live(runner: git_aware_runner(calls, pushed: false),
+                              io: StringIO.new, home: home, repo: home, dry: false)
+      end
+      assert_match(/not pushed to origin/, e.message)
+      assert_match(/#{SHA[0, 7]}/, e.message)
+      # no clone / fetch / checkout may have run
+      refute(git_calls(calls).any? { |c| %w[clone fetch checkout].include?(c[1]) || c[3] == 'fetch' })
+    end
+  end
+
+  def test_sync_live_absent_clone_runs_full_sequence_and_prints_marker
+    Dir.mktmpdir do |home|
+      calls = []
+      io = StringIO.new
+      live = BTC::Deploy.sync_live(runner: git_aware_runner(calls), io: io,
+                                   home: home, repo: '/dev/mimir', dry: false)
+      assert_equal BTC::Env.live_dir(home), live
+      seq = git_calls(calls).map { |c| c[0, 2] == %w[git -C] ? c[3] : c[1] }
+      # rev-parse, branch(pushed?), remote get-url, clone, remote set-url, fetch, checkout
+      assert_includes seq, 'clone'
+      assert_includes seq, 'fetch'
+      assert_includes seq, 'checkout'
+      assert_operator seq.index('clone'), :<, seq.index('checkout')
+      assert_includes io.string, "live runtime -> #{SHA[0, 7]}"
+    end
+  end
+
+  def test_sync_live_present_clone_skips_clone
+    Dir.mktmpdir do |home|
+      FileUtils.mkdir_p(File.join(BTC::Env.live_dir(home), '.git'))
+      calls = []
+      BTC::Deploy.sync_live(runner: git_aware_runner(calls), io: StringIO.new,
+                            home: home, repo: '/dev/mimir', dry: false)
+      refute(git_calls(calls).any? { |c| c[1] == 'clone' }, 'a present clone must not be re-cloned')
+      assert(git_calls(calls).any? { |c| c[3] == 'checkout' })
+    end
+  end
+
+  def test_sync_live_dry_prints_plan_and_mutates_nothing
+    Dir.mktmpdir do |home|
+      calls = []
+      io = StringIO.new
+      BTC::Deploy.sync_live(runner: git_aware_runner(calls, pushed: false), io: io,
+                            home: home, repo: '/dev/mimir', dry: true)
+      assert_includes io.string, 'sync plan (dry run)'
+      assert_includes io.string, 'would run: git clone /dev/mimir'
+      assert_includes io.string, 'NOT on origin' # unpushed is a warning in dry, not a raise
+      # dry mutates nothing: only read-only probes ran, no clone/fetch/checkout
+      refute(git_calls(calls).any? { |c| %w[clone fetch checkout].include?(c[1]) || %w[fetch checkout].include?(c[3].to_s) })
+    end
+  end
+
+  def test_sync_live_raises_on_failed_sync_step
+    Dir.mktmpdir do |home|
+      runner = lambda do |cmd, _o = {}|
+        return [true, SHA] if cmd == %w[git rev-parse HEAD]
+        return [true, "  origin/main\n"] if cmd[0, 3] == %w[git branch -r]
+        return [true, 'url'] if cmd == %w[git remote get-url origin]
+        return [false, 'fatal: could not read from remote'] if cmd[3] == 'fetch'
+
+        [true, '']
+      end
+      e = assert_raises(BTC::Deploy::Error) do
+        BTC::Deploy.sync_live(runner: runner, io: StringIO.new, home: home, repo: '/dev/mimir', dry: false)
+      end
+      assert_match(/live runtime sync failed/, e.message)
+      assert_match(/fetch origin/, e.message)
+    end
   end
 end
