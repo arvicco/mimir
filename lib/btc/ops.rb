@@ -81,6 +81,24 @@ module BTC
        timeout: 660, kind: :history]
     ].freeze
 
+    # One-time data migration (M9-12): every runtime dir the agents read
+    # or write, mapped [suite_key, dev-tree relative path]. The suite_key
+    # is EXACTLY what BTC::Env.data_dir('<suite>', ...) appends to the data
+    # home, so a copy into data_home/<suite> lands where the agents look
+    # once BTC_DATA_DIR points there. This is the full inventory of the
+    # data_dir call sites in scripts/ + ops/ + publish/ (grep-verified);
+    # btco's capstruct/ is a COMMITTED audit trail (travels with the clone,
+    # env.rb's deliberate exception) and /tmp status files are ephemeral --
+    # neither is migrated.
+    MIGRATION_SUITES = [
+      ['lppl',         File.join('scripts', 'lppl', 'data')],
+      ['scenario',     File.join('scripts', 'scenario', 'data')],
+      ['gex_history',  File.join('data', 'gex_history')],
+      ['vol_history',  File.join('data', 'vol_history')],
+      ['vol_spread',   File.join('data', 'vol_spread')],
+      ['source_cache', File.join('data', 'source_cache')]
+    ].freeze
+
     module_function
 
     # ---- ENV / mode helpers (pure) -------------------------------------
@@ -123,9 +141,105 @@ module BTC
       "gui/#{uid}"
     end
 
-    def gex_history_dir(repo, env)
+    # Where the gex-snapshot agent's dated files land. The wrappers pin
+    # BTC_DATA_DIR at the data home (M9-12), so verification/status look
+    # under data_home/gex_history -- honoring an explicit BTC_DATA_DIR in
+    # THIS process only as a test/override seam.
+    def gex_history_dir(home, env)
       base = env['BTC_DATA_DIR']
-      base && !base.empty? ? File.join(base, 'gex_history') : File.join(repo, 'data', 'gex_history')
+      base && !base.empty? ? File.join(base, 'gex_history') : File.join(BTC::Env.data_home(home), 'gex_history')
+    end
+
+    # ---- data migration (M9-12) ----------------------------------------
+
+    # Files under a source dir, as sorted paths relative to it ([] if the
+    # dir is absent). Pure listing -- the planner and the copier share it.
+    def migration_source_files(src)
+      return [] unless Dir.exist?(src)
+
+      Dir.glob('**/*', base: src).select { |f| File.file?(File.join(src, f)) }.sort
+    end
+
+    # Never clobber newer data: skip when the destination exists and is at
+    # least as new as the source (cp preserves mtime, so a re-run of an
+    # already-migrated file skips -- the migration is idempotent).
+    def migration_skip?(sfile, dfile)
+      File.exist?(dfile) && File.mtime(dfile) >= File.mtime(sfile)
+    end
+
+    # Plan (apply:false) or perform (apply:true) the dev-tree -> data_home
+    # copy for every suite. Returns one row hash per suite with the file
+    # count and the copy/skip/error breakdown -- the inventory table's data.
+    # apply:false is a pure dry plan (no IO writes); apply:true copies,
+    # honoring skip-if-destination-newer per file.
+    def migration_rows(repo:, data_home:, apply:)
+      MIGRATION_SUITES.map do |suite, rel|
+        src   = File.join(repo, rel)
+        dest  = File.join(data_home, suite)
+        files = migration_source_files(src)
+        copied = skipped = errors = 0
+        files.each do |rf|
+          sfile = File.join(src, rf)
+          dfile = File.join(dest, rf)
+          if migration_skip?(sfile, dfile)
+            skipped += 1
+            next
+          end
+          unless apply
+            copied += 1
+            next
+          end
+          begin
+            FileUtils.mkdir_p(File.dirname(dfile))
+            FileUtils.cp(sfile, dfile, preserve: true)
+            copied += 1
+          rescue SystemCallError
+            errors += 1
+          end
+        end
+        { suite: suite, source: src, dest: dest, files: files.size,
+          copied: copied, skipped: skipped, errors: errors, present: Dir.exist?(src) }
+      end
+    end
+
+    def print_migration_table(io, rows)
+      io.puts 'migration inventory (dev tree -> data home):'
+      rows.each do |r|
+        detail = if r[:present]
+                   format('%3d file(s), %d to copy / %d skip%s', r[:files], r[:copied], r[:skipped],
+                          r[:errors].positive? ? format(' / %d ERROR', r[:errors]) : '')
+                 else
+                   '(no source dir -- nothing to migrate)'
+                 end
+        io.puts format('  %-13s %s', r[:suite], detail)
+        io.puts format('    %s -> %s', r[:source], r[:dest])
+      end
+    end
+
+    # Interactive migration step inside install: print the inventory,
+    # then (only when something needs copying) confirm and apply.
+    def migrate_install(repo:, home:, io:, input:)
+      data_home = BTC::Env.data_home(home)
+      io.puts ''
+      io.puts format('one-time data migration -> %s', data_home)
+      planned = migration_rows(repo: repo, data_home: data_home, apply: false)
+      print_migration_table(io, planned)
+
+      pending = planned.sum { |r| r[:copied] }
+      if pending.zero?
+        io.puts 'nothing to migrate (destination already current) -- skipping.'
+        return
+      end
+
+      unless ask?(io, input, format('copy %d file(s) into the data home now? [y/N]', pending))
+        io.puts 'migration skipped -- agents will use the data home as-is (re-run install to migrate).'
+        return
+      end
+
+      applied = migration_rows(repo: repo, data_home: data_home, apply: true)
+      io.puts format('migrated: %d copied, %d skipped (newer at destination), %d error(s).',
+                     applied.sum { |r| r[:copied] }, applied.sum { |r| r[:skipped] },
+                     applied.sum { |r| r[:errors] })
     end
 
     # ---- pre-flight ----------------------------------------------------
@@ -170,6 +284,21 @@ module BTC
       problems = BTC::Health.scan_ops(File.join(repo, 'ops'))
       rows << ['ops/ audit (scan_ops)', problems.empty? ? 'clean' : format('%d problem(s)', problems.size), problems.empty?]
 
+      # M9-12: the agents exec from the app-managed live clone, so it must
+      # exist (rake deploy creates/syncs it) and carry each wrapper.
+      live      = BTC::Env.live_dir(home)
+      live_git  = File.directory?(File.join(live, '.git'))
+      live_wraps = AGENTS.all? { |_, wrapper, _| File.exist?(File.join(live, 'ops', wrapper)) }
+      live_ok = live_git && live_wraps
+      live_detail = if live_ok
+                      "present #{live}"
+                    elsif !live_git
+                      "MISSING (#{live}) -- run rake deploy first to create the live runtime"
+                    else
+                      "incomplete (#{live}/ops missing a wrapper) -- re-run rake deploy"
+                    end
+      rows << ['live runtime', live_detail, live_ok]
+
       lc_ok, = runner.call(['which', 'launchctl'])
       rows << ['launchctl', lc_ok ? 'present' : 'MISSING (not on PATH)', !!lc_ok]
 
@@ -186,6 +315,11 @@ module BTC
         io.puts 'pre-flight failed -- fix the FAIL rows above before installing.'
         return 1
       end
+
+      # One-time data migration into the data home BEFORE the agents go
+      # live, so their first tick continues the SAME histories (Golden Rule
+      # 3: interactive, owner-confirmed; idempotent, skip-if-newer).
+      migrate_install(repo: repo, home: home, io: io, input: input)
 
       rows = []
       AGENTS.each do |agent|
@@ -206,10 +340,15 @@ module BTC
       label, wrapper, opts = agent
       rows = []
       svc          = service(uid, label)
-      wrapper_path = File.join(repo, 'ops', wrapper)
+      # M9-12: the program line points at the app-managed LIVE clone, not
+      # the dev checkout -- the plist template (read from the dev tree,
+      # identical to LIVE at the deployed commit) has its __REPO__ filled
+      # with the live path.
+      live         = BTC::Env.live_dir(home)
+      wrapper_path = File.join(live, 'ops', wrapper)
 
       template = File.read(File.join(repo, 'ops', "#{label}.plist"))
-      rendered = template.gsub(REPO_PLACEHOLDER, repo)
+      rendered = template.gsub(REPO_PLACEHOLDER, live)
       installed = File.join(home, 'Library', 'LaunchAgents', "#{label}.plist")
       FileUtils.mkdir_p(File.dirname(installed))
       File.write(installed, rendered)
@@ -267,7 +406,7 @@ module BTC
       when :publish
         rows << publish_status_row(label, status_path, clock)
       when :snapshot
-        rows << snapshot_file_row(label, repo, env, clock)
+        rows << snapshot_file_row(label, home, env, clock)
       end
       rows
     end
@@ -336,8 +475,8 @@ module BTC
 
     # Report today's dated snapshot file if present (the log summary line
     # also names it; this confirms it landed on disk).
-    def snapshot_file_row(label, repo, env, clock)
-      dir  = gex_history_dir(repo, env)
+    def snapshot_file_row(label, home, env, clock)
+      dir  = gex_history_dir(home, env)
       date = clock.call.utc.strftime('%Y-%m-%d')
       path = File.join(dir, "#{date}.json")
       exist = File.exist?(path)
@@ -378,7 +517,7 @@ module BTC
         rows << ['status file', "missing (#{status_path})", true]
       end
 
-      dir    = gex_history_dir(repo, env)
+      dir    = gex_history_dir(home, env)
       newest = Dir.glob(File.join(dir, '*.json')).map { |f| File.basename(f) }.sort.last
       rows << ['newest gex snapshot', newest || "none yet (#{dir})", true]
 
