@@ -77,7 +77,7 @@ same commit (`rake health` fails on registry drift).
    what the tools can do today.
 6. **STOP at gates.** Phase boundaries and anything listed in Golden Rule
    3 end your turn with a handoff summary, not an action.
-7. **Gate instructions live in `docs/Gate-N-runbook.md`** (owner ruling
+7. **Gate instructions live in `.docs/Gate-N-runbook.md`** (owner ruling
    2026-07-11), one file per gate, written for a human runner: numbered
    steps with full copy-pasteable commands, real URLs/links, and an
    EXPECT line per step; background quarantined at the end. Never bury
@@ -105,7 +105,7 @@ same commit (`rake health` fails on registry drift).
       the 3.3 authority
 
 ### Verification discipline (owner-ruled 2026-07-07, after the
-### frozen-evidence incident -- docs/WORKLOG.md that date)
+### frozen-evidence incident -- .docs/WORKLOG.md that date)
 1. **Outcome-first.** No "done / green / proven live" claim without at
    least one check at the outermost user-visible surface, asserting the
    outcome against a reference INDEPENDENT of the system under test.
@@ -129,7 +129,7 @@ same commit (`rake health` fails on registry drift).
    execution ("if a duty matters enough to schedule, its outcome
    matters enough to monitor"). See ops/publish_health.rb's OLD flag
    and the daily evidence agent.
-5. **Surface review = the full checklist** in docs/DEV-LOOP.md section
+5. **Surface review = the full checklist** in .docs/DEV-LOOP.md section
    6b (elements present and filled, order/placement, per-chart data
    recency vs cadence, no NaN/null/empty renders, cross-element
    consistency, designed failure states shown honestly, interactions
@@ -166,7 +166,7 @@ same commit (`rake health` fails on registry drift).
 ## Git conventions
 
 - Work happens on phase branches (`phase-0`, `phase-1`, ...) pushed to
-  origin; `main` is owner-merged at gates (see docs/DEV-LOOP.md).
+  origin; `main` is owner-merged at gates (see .docs/DEV-LOOP.md).
 - Conventional commits: `feat:`, `fix:`, `test:`, `refactor:`, `docs:`,
   `chore:`; imperative subject <= 72 chars; body explains WHY.
 - One logical change per commit; tests in the same commit as the code
