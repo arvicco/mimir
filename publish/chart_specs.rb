@@ -162,7 +162,15 @@ module Publish
                     'ratio panel, zero line on BF; the pin marks the latest ' \
                     'ratio. Read the SIGN and drift of BF, not its absolute ' \
                     'size; a trough note appears over Z only when the fit ' \
-                    'names an interior bottom.'
+                    'names an interior bottom. Right: the shadow scoreboard, ' \
+                    'each Phase-9 shadow field beside its frozen original -- ' \
+                    'mean/eval, the density-honest per-evaluation trend mean ' \
+                    '(D9-b); 365/730, the report-only long-horizon means ' \
+                    '(D9-c); damping, the fit anti-bubble condition, and impr, ' \
+                    'frozen vs symmetric-null RMSE improvement (both D9-e); ' \
+                    'p(osc), AR(1) vs GARCH bootstrap p (D9-f); freeze, the ' \
+                    'live envelope bound vs its pre-trough freeze candidate ' \
+                    '(D9-g). A missing shadow field hides its row.'
         }
       },
       'btco_table' => {
@@ -793,6 +801,13 @@ module Publish
       env     = lppl_detail(latest, 'envelope') || {}
       fit     = lppl_detail(latest, 'fit') || {}
 
+      # M9-11: the Phase-9 shadow fields become a right-side scoreboard.
+      # With no shadow fields the card degrades to its pre-M9-11 form --
+      # tight right margin, three panels, the whole-card axisPointer link.
+      rows  = lppl_shadow_rows(latest)
+      right = rows.empty? ? 24 : 152
+      link  = rows.empty? ? [{ 'xAxisIndex' => 'all' }] : [{ 'xAxisIndex' => [0, 1, 2] }]
+
       ratio_series = {
         'name' => 'ratio', 'type' => 'line', 'xAxisIndex' => 0, 'yAxisIndex' => 0,
         'showSymbol' => true, 'symbol' => 'circle', 'symbolSize' => 7, # a 1-entry ledger must still show as a filled dot
@@ -812,19 +827,21 @@ module Publish
       }]
       note = trough_note(fit)
       if note
-        titles << { 'text' => note, 'top' => '70%', 'right' => 24,
+        # left-anchored over the Z panel: the shadow scoreboard now owns
+        # the right margin, so a right-flush note would collide with it.
+        titles << { 'text' => note, 'top' => '62%', 'left' => 66,
                     'textStyle' => { 'fontSize' => 11, 'fontWeight' => 'normal',
                                      'color' => '#6b7178' } }
       end
 
-      {
+      opt = {
         # the renderer inits with the ECharts DARK THEME (professionally
         # tuned text/legend/axis colors incl. dim-inactive legend states);
         # transparent bg lets the card surface show through
         'backgroundColor' => 'transparent',
         'title' => titles.size == 1 ? titles.first : titles,
         'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 }, 'axisPointer' => { 'type' => 'cross' } },
-        'axisPointer' => { 'link' => [{ 'xAxisIndex' => 'all' }] },
+        'axisPointer' => { 'link' => link },
         # three panels under a one-line title. M8-18 R7 + follow-up (owner
         # rulings 2026-08-10): denser, and ONE date axis for the whole card --
         # the panels are time-synchronized, so the two upper grids hide their
@@ -832,9 +849,9 @@ module Publish
         # grid draws dates; the freed pixels go into panel heights (23->25%)
         # and tighter gaps.
         'grid' => [
-          { 'left' => 60, 'right' => 24, 'top' => 40, 'height' => '25%' },
-          { 'left' => 60, 'right' => 24, 'top' => '34%', 'height' => '25%' },
-          { 'left' => 60, 'right' => 24, 'top' => '61%', 'height' => '25%' }
+          { 'left' => 60, 'right' => right, 'top' => 40, 'height' => '25%' },
+          { 'left' => 60, 'right' => right, 'top' => '34%', 'height' => '25%' },
+          { 'left' => 60, 'right' => right, 'top' => '61%', 'height' => '25%' }
         ],
         'xAxis' => [
           { 'type' => 'time', 'gridIndex' => 0, 'axisLabel' => { 'show' => false },
@@ -865,6 +882,116 @@ module Publish
             'showSymbol' => true, 'symbol' => 'circle', 'symbolSize' => 7, 'data' => z }
         ]
       }
+      lppl_attach_shadow(opt, rows)
+      opt
+    end
+
+    # ---- M9-11 shadow scoreboard --------------------------------------
+    #
+    # The Phase-9 shadow fields (waves 1-2) surface as a compact right-side
+    # scoreboard on the LPPL card: one row per shadow-vs-frozen comparison
+    # (frozen value then shadow value) so the D9 rulings can be made with
+    # the numbers in front of the owner during the soak. Values flow
+    # additively through the lppl:latest payload the publish already
+    # carries into chart:lppl_regime. Read DEFENSIVELY -- a missing shadow
+    # field drops that ROW (fail-soft; never a null drawn), and with no
+    # shadow fields at all the card degrades to its pre-M9-11 three-panel
+    # form (see lppl_regime's `right`/`link`). Numbers are scaled/compacted
+    # at build time per the design system (leading-zero strip, a '->' arrow
+    # glyph for frozen -> shadow). Each row names its decision item in the
+    # card help (D9-b/c/e/f/g).
+
+    # ".24" not "0.24" -- probabilities/ratios read compact (design ruling).
+    def lppl_compact(value, dp)
+      format("%.#{dp}f", value.to_f).sub(/\A(-?)0\./, '\1.')
+    end
+
+    # [label, value] pairs for PRESENT shadow fields only (a missing field
+    # drops its row). Order = top-to-bottom on the card.
+    def lppl_shadow_rows(latest)
+      trend = lppl_detail(latest, 'trend') || {}
+      env   = lppl_detail(latest, 'envelope') || {}
+      fit   = lppl_detail(latest, 'fit') || {}
+      lp    = lppl_detail(latest, 'logperiodic') || {}
+      rows  = []
+
+      # (D9-b) density-honest trend: the per-evaluation-point mean summed
+      # across the three headline horizons -- the density-invariant analog
+      # of the frozen trailing-1y BF the BF panel already draws.
+      ph = trend['per_horizon']
+      if ph.is_a?(Hash)
+        means = %w[30 90 180].map { |h| ph.dig(h, 'mean_per_eval') }
+        rows << ['mean/eval', format('%.2f', means.sum)] unless means.any?(&:nil?)
+      end
+
+      # (D9-c) report-only long horizons: the 365d/730d per-eval means.
+      pl = trend['per_horizon_long']
+      if pl.is_a?(Hash)
+        a = pl.dig('365', 'mean_per_eval')
+        b = pl.dig('730', 'mean_per_eval')
+        rows << ['365/730', format('%+.2f/%+.2f', a, b)] if a && b
+      end
+
+      # (D9-e) fit damping condition D = m|B|/(omega|C|) against its
+      # threshold -- '<1' means the anti-bubble damping condition is unmet.
+      if (d = fit['damping'])
+        thr = fit['damping_ref_threshold'] || 1.0
+        rel = d < thr ? '<' : "≥"
+        rows << ['damping', format('%.2f (%s%g)', d, rel, thr)]
+      end
+
+      # (D9-e) frozen RMSE improvement vs the symmetric-null improvement.
+      if (iv = fit['improvement_v2']) && (fr = fit['rmse_impr_pct'])
+        rows << ['impr', format("%.1f→%.1f%%", fr, iv)]
+      end
+
+      # (D9-f) AR(1) vs GARCH bootstrap p-value for the oscillation.
+      if (pv = lp['p_value_v2']) && (fp = lp['p_value'])
+        rows << ['p(osc)', "#{lppl_compact(fp, 2)}→#{lppl_compact(pv, 2)}"]
+      end
+
+      # (D9-g) live envelope bound vs the pre-trough freeze candidate.
+      if (fc = env['freeze_candidate']) && (bd = env['bound'])
+        rows << ['freeze', "#{lppl_compact(bd, 3)}→#{lppl_compact(fc, 3)}"]
+      end
+
+      rows
+    end
+
+    # Append the shadow scoreboard (a 4th grid on the right) to a built
+    # lppl_regime option, in place. No-op when there are no shadow rows so
+    # the card degrades to its pre-M9-11 three-panel form. The row NAMES
+    # ride the category y-axis (right-aligned in the gutter, like the
+    # scenario module strip); the VALUES are per-datum labels on an
+    # invisible scatter, left-anchored at x=0 in the column. 'silent' + the
+    # excluded axisPointer link keep the column out of the crosshair.
+    def lppl_attach_shadow(opt, rows)
+      return opt if rows.empty?
+
+      # a COMPACT block top-right (density beats airy, owner ruling): the
+      # rows cluster below the 'shadow' header rather than spreading full
+      # height, so they read as one scoreboard and never imply a row is an
+      # annotation of the panel beside it.
+      opt['grid'] << { 'right' => 10, 'width' => 78, 'top' => 62, 'height' => 176 }
+      opt['xAxis'] << { 'type' => 'value', 'gridIndex' => 3, 'min' => 0, 'max' => 1,
+                        'show' => false }
+      opt['yAxis'] << {
+        'type' => 'category', 'gridIndex' => 3, 'inverse' => true,
+        'data' => rows.map(&:first), 'name' => 'shadow', 'nameLocation' => 'start',
+        'nameGap' => 12, 'nameTextStyle' => { 'color' => '#8a93a0', 'fontSize' => 11 },
+        'axisLine' => { 'show' => false }, 'axisTick' => { 'show' => false },
+        'axisLabel' => { 'interval' => 0, 'fontSize' => 11, 'color' => '#9aa0a6' }
+      }
+      opt['series'] << {
+        'name' => 'shadow', 'type' => 'scatter', 'xAxisIndex' => 3, 'yAxisIndex' => 3,
+        'symbolSize' => 0, 'silent' => true,
+        'data' => rows.each_index.map do |i|
+          { 'value' => [0, i],
+            'label' => { 'show' => true, 'position' => 'right', 'align' => 'left',
+                         'formatter' => rows[i][1], 'fontSize' => 11, 'color' => '#c7ccd1' } }
+        end
+      }
+      opt
     end
 
     # [ts, value] pairs for a ledger field, dropping entries whose value is

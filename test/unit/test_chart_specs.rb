@@ -300,7 +300,9 @@ class TestChartSpecs < Minitest::Test
     # rotated mid-axis placement in the left gutter cannot
     y0 = build('scenario_strip')['yAxis'].first
     assert_equal %w[middle 44], [y0['nameLocation'], y0['nameGap'].to_s]
-    build('lppl_regime')['yAxis'].each do |y|
+    # the three value panels; the M9-11 shadow scoreboard's category axis
+    # (name 'shadow') rides the axis end, not the gutter -- excluded here.
+    build('lppl_regime')['yAxis'].select { |y| y['type'] == 'value' }.each do |y|
       assert_equal 'middle', y['nameLocation'], y['name']
     end
   end
@@ -606,10 +608,11 @@ class TestChartSpecs < Minitest::Test
 
   def test_lppl_three_panels_ratio_bf_z
     opt = build('lppl_regime')
-    assert_equal 3, opt['grid'].size
-    assert_equal %w[ratio log10\ BF Z], opt['series'].map { |s| s['name'] }
+    # the three evidence panels are the first three grids/series; the
+    # M9-11 shadow scoreboard rides a 4th grid to their right (below).
+    assert_equal %w[ratio log10\ BF Z], opt['series'].first(3).map { |s| s['name'] }
     # each panel bound to its own grid via matching axis indices
-    opt['series'].each_with_index do |s, i|
+    opt['series'].first(3).each_with_index do |s, i|
       assert_equal i, s['xAxisIndex']
       assert_equal i, s['yAxisIndex']
     end
@@ -656,6 +659,62 @@ class TestChartSpecs < Minitest::Test
     refute title.key?('subtext')
     assert_equal 13, title['textStyle']['fontSize']
     assert_equal 'LPPL STRESSED +0.00', title['text']
+  end
+
+  # ---- M9-11 shadow scoreboard -----------------------------------------
+
+  def test_lppl_shadow_scoreboard_rows_from_latest
+    opt = build('lppl_regime')
+    sb  = opt['series'].find { |s| s['name'] == 'shadow' }
+    refute_nil sb, 'shadow scoreboard series present'
+    # one invisible scatter datum per row, out of the crosshair
+    assert_equal 'scatter', sb['type']
+    assert_equal 0, sb['symbolSize']
+    assert_equal true, sb['silent']
+    # its own 4th grid + category y-axis carrying the row names, titled
+    assert_equal 4, opt['grid'].size
+    yax = opt['yAxis'][sb['yAxisIndex']]
+    assert_equal 'category', yax['type']
+    assert_equal 'shadow', yax['name']
+    assert_equal %w[mean/eval 365/730 damping impr p(osc) freeze], yax['data']
+    # values are compacted/scaled at build time (leading-zero strip, arrow)
+    vals = sb['data'].map { |d| d['label']['formatter'] }
+    assert_equal ['-1.17', '-0.11/+0.15', '0.41 (<1)', '43.5→27.9%',
+                  '.19→.24', '.435→.358'], vals
+  end
+
+  def test_lppl_shadow_row_absent_when_field_missing
+    lat = JSON.parse(JSON.generate(lppl_latest))
+    fld = ->(n) { lat['tests'].find { |t| t['name'] == n }['detail'] }
+    fld.call('envelope').delete('freeze_candidate') # drops the freeze row
+    fld.call('logperiodic').delete('p_value_v2')     # drops the p(osc) row
+    sb = Publish::Charts.lppl_regime(lat, lppl_ledger)['series']
+         .find { |s| s['name'] == 'shadow' }
+    names = sb['data'].size
+    assert_equal 4, names # 6 rows minus the two dropped
+    formatters = sb['data'].map { |d| d['label']['formatter'] }
+    refute formatters.any? { |f| f.include?('.435') || f.include?('.24') }
+  end
+
+  def test_lppl_degrades_to_three_panels_without_shadow_fields
+    lat = JSON.parse(JSON.generate(lppl_latest))
+    # strip every shadow field -> the pre-M9-11 card (no column, tight margin)
+    td = ->(n) { lat['tests'].find { |t| t['name'] == n }['detail'] }
+    %w[per_horizon per_horizon_long].each { |k| td.call('trend').delete(k) }
+    td.call('envelope').delete('freeze_candidate')
+    %w[damping improvement_v2].each { |k| td.call('fit').delete(k) }
+    td.call('logperiodic').delete('p_value_v2')
+    opt = Publish::Charts.lppl_regime(lat, lppl_ledger)
+    assert_equal 3, opt['grid'].size
+    refute opt['series'].any? { |s| s['name'] == 'shadow' }
+    assert_equal 24, opt['grid'].first['right'] # tight margin restored
+    assert_equal [{ 'xAxisIndex' => 'all' }], opt['axisPointer']['link']
+  end
+
+  def test_lppl_compact_strips_leading_zero
+    assert_equal '.24', Publish::Charts.lppl_compact(0.238, 2)
+    assert_equal '-.11', Publish::Charts.lppl_compact(-0.108, 2)
+    assert_equal '1.40', Publish::Charts.lppl_compact(1.4, 2)
   end
 
   # ---- btco_table structure --------------------------------------------

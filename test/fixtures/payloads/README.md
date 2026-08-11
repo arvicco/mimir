@@ -13,6 +13,18 @@ into `payload_<key>.json` here.
 
 ## Hand-added synthetic rows (not from the recorded set)
 
+- `payload_lppl_latest.json` (M9-11) was extended with the Phase-9
+  **shadow fields** the recorded 2026-07-06 run predates, so the
+  `lppl_regime` golden exercises the right-side shadow scoreboard. Added
+  additively (frozen fields untouched): `trend.detail.per_horizon` +
+  `per_horizon_long` (mean_per_eval per horizon), `envelope.detail.
+  freeze_candidate`, `fit.detail.b_negative`/`damping`/
+  `damping_ref_threshold`/`null_v2`/`improvement_v2`, and
+  `logperiodic.detail.p_value_v2`/`sims_v2`. Values are realistic and
+  internally consistent (per_horizon sums match the frozen
+  `bf_by_horizon`); they are synthetic, not a live capture. Keep them on
+  any refresh (re-add, or regenerate from a real `lppl.rb --json` cache).
+
 - `payload_scenario_history.json` carries a trailing **synthetic blind
   row** (`2026-07-07`, `"blind": true`, composite 0.0) so the M8-10
   scenario_strip golden exercises the hollow/grey blind-day marker. The
