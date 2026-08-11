@@ -280,6 +280,7 @@ var PRODUCERS = {
   gex_mstr_trend: "gex_trend.rb",
   scenario_strip: "scenario.rb",
   lppl_regime:    "lppl.rb",
+  lppl_shadow:    "lppl.rb",
   btco_table:     "btco.rb",
   vol_surface:    "vol.rb",
   vol_surface_mstr: "vol_mstr.rb",
@@ -638,7 +639,7 @@ function startAutoRefresh() {
     eb.style.display = "block";
     eb.textContent = "The published index lists no chart:* keys -- KV holds a publish " +
                      "older than the chart pipeline. Run: PUBLISH_DRY_RUN=0 ruby publish/publish.rb " +
-                     "(expect PUB LIVE 26/26), then reload.";
+                     "(expect PUB LIVE 27/27), then reload.";
   }
   for (var i = 0; i < chartKeys.length; i += 1) {
     await loadChart(chartKeys[i]);

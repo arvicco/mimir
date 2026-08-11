@@ -19,38 +19,28 @@
   "axisPointer": {
     "link": [
       {
-        "xAxisIndex": [
-          0,
-          1,
-          2
-        ]
+        "xAxisIndex": "all"
       }
     ]
   },
   "grid": [
     {
       "left": 60,
-      "right": 152,
+      "right": 24,
       "top": 40,
       "height": "25%"
     },
     {
       "left": 60,
-      "right": 152,
+      "right": 24,
       "top": "34%",
       "height": "25%"
     },
     {
       "left": 60,
-      "right": 152,
+      "right": 24,
       "top": "61%",
       "height": "25%"
-    },
-    {
-      "right": 10,
-      "width": 78,
-      "top": 62,
-      "height": 176
     }
   ],
   "xAxis": [
@@ -83,13 +73,6 @@
     {
       "type": "time",
       "gridIndex": 2
-    },
-    {
-      "type": "value",
-      "gridIndex": 3,
-      "min": 0,
-      "max": 1,
-      "show": false
     }
   ],
   "yAxis": [
@@ -113,37 +96,6 @@
       "name": "Z",
       "nameLocation": "middle",
       "nameGap": 44
-    },
-    {
-      "type": "category",
-      "gridIndex": 3,
-      "inverse": true,
-      "data": [
-        "mean/eval",
-        "365/730",
-        "damping",
-        "impr",
-        "p(osc)",
-        "freeze"
-      ],
-      "name": "shadow",
-      "nameLocation": "start",
-      "nameGap": 12,
-      "nameTextStyle": {
-        "color": "#8a93a0",
-        "fontSize": 11
-      },
-      "axisLine": {
-        "show": false
-      },
-      "axisTick": {
-        "show": false
-      },
-      "axisLabel": {
-        "interval": 0,
-        "fontSize": 11,
-        "color": "#9aa0a6"
-      }
     }
   ],
   "series": [
@@ -280,100 +232,6 @@
           "2026-07-06T04:54:06Z",
           -1.78
         ]
-      ]
-    },
-    {
-      "name": "shadow",
-      "type": "scatter",
-      "xAxisIndex": 3,
-      "yAxisIndex": 3,
-      "symbolSize": 0,
-      "silent": true,
-      "data": [
-        {
-          "value": [
-            0,
-            0
-          ],
-          "label": {
-            "show": true,
-            "position": "right",
-            "align": "left",
-            "formatter": "-1.17",
-            "fontSize": 11,
-            "color": "#c7ccd1"
-          }
-        },
-        {
-          "value": [
-            0,
-            1
-          ],
-          "label": {
-            "show": true,
-            "position": "right",
-            "align": "left",
-            "formatter": "-0.11/+0.15",
-            "fontSize": 11,
-            "color": "#c7ccd1"
-          }
-        },
-        {
-          "value": [
-            0,
-            2
-          ],
-          "label": {
-            "show": true,
-            "position": "right",
-            "align": "left",
-            "formatter": "0.41 (<1)",
-            "fontSize": 11,
-            "color": "#c7ccd1"
-          }
-        },
-        {
-          "value": [
-            0,
-            3
-          ],
-          "label": {
-            "show": true,
-            "position": "right",
-            "align": "left",
-            "formatter": "43.5→27.9%",
-            "fontSize": 11,
-            "color": "#c7ccd1"
-          }
-        },
-        {
-          "value": [
-            0,
-            4
-          ],
-          "label": {
-            "show": true,
-            "position": "right",
-            "align": "left",
-            "formatter": ".19→.24",
-            "fontSize": 11,
-            "color": "#c7ccd1"
-          }
-        },
-        {
-          "value": [
-            0,
-            5
-          ],
-          "label": {
-            "show": true,
-            "position": "right",
-            "align": "left",
-            "formatter": ".435→.358",
-            "fontSize": 11,
-            "color": "#c7ccd1"
-          }
-        }
       ]
     }
   ]
