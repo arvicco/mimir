@@ -83,13 +83,69 @@ rake deploy        # interactive; includes one real publish
 git tag v1.1 && git push origin v1.1
 ```
 
+EXPECT from the deploy — TWO new lines from the M9-12 live-runtime sync:
+- `live runtime -> <sha7>` where `<sha7>` is the first 7 chars of the
+  `main` commit you just deployed (the deploy REFUSES if that commit is
+  not pushed to origin — `git push` first if it stops here).
+- `publishing data from live runtime .../mimir/live (BTC_DATA_DIR=.../mimir/data)`
+  — the publish runs from the app-managed copy, not your dev folder.
+
 EXPECT from the deploy's publish: **`PUB LIVE 26/26 keys`** — the key
 count is UNCHANGED (Phase 9 added only report-only --json fields and one
 card's right-hand column; no new KV key). If you see anything other than
 26/26, stop.
 
-Then put the working tree back on main so the launchd agents run the
-released code.
+You do NOT need to leave any particular branch checked out afterward:
+from M9-12 on, the launchd agents run from the live runtime copy, so
+`~/Dev/mimir` is a normal git folder whose branch never affects
+production.
+
+## 3a. Switch production to the live runtime (M9-12, one time)
+
+This is the ONE step that moves the launchd agents off your dev folder
+and onto the app-managed copy, and migrates their data. It is safe and
+atomic: until you run it, the agents keep running exactly as today.
+
+```
+cd ~/Dev/mimir
+rake ops:install        # interactive; refuses under CI / without a TTY
+```
+
+EXPECT, in order:
+- a `pre-flight:` table of `[ok ]` rows, INCLUDING a new
+  `live runtime` row → `present .../Library/Application Support/mimir/live`
+  (if it says `MISSING … run rake deploy first`, you skipped step 3 —
+  go back).
+- a `migration inventory (dev tree -> data home):` table — one line per
+  suite (`lppl`, `scenario`, `gex_history`, `vol_history`, `vol_spread`,
+  `source_cache`) showing `N file(s), N to copy / 0 skip` and the
+  `source -> destination` mapping. Answer `y` to
+  `copy N file(s) into the data home now?`.
+  EXPECT: `migrated: N copied, 0 skipped, 0 error(s).`
+- a `verification:` table where every row is `[PASS]`, for the THREE
+  agents (`com.mimir.publish`, `com.mimir.gex-snapshot`,
+  `com.mimir.suite-history`) — each `plist`/`bootstrap` row now shows
+  `program = .../Library/Application Support/mimir/live/ops/run_*.sh`
+  (the live copy, NOT `~/Dev/mimir`). Answer `y` to each
+  `kickstart <label> now?`; EXPECT the publish `run` row →
+  `publish LIVE: 26 written …` and its `status file` row → `PUB LIVE 26/26 …`.
+
+NOTE (data continuity): migration copies your EXISTING histories into the
+data home before the agents' next tick, so the ledger / scenario history
+/ snapshot files keep growing with no gap. One caveat: the step-3 deploy
+publish above ran before this migration, so for that single publish the
+history-derived charts read empty; the kickstarted publish here (and
+every scheduled one after) reads the full migrated tails. If you want to
+avoid even that one-publish blip, run step 3 as
+`DEPLOY_SKIP_PUBLISH=1 rake deploy` (creates the live copy, no publish),
+then this step, then a plain `rake deploy` to publish from the populated
+data home.
+
+IMPORTANT: after this step, make sure `~/.config/mimir/env` does NOT pin
+`BTC_DATA_DIR` to the old in-tree path — the wrappers default it to the
+data home only when it is unset (an explicit value still wins). Comment
+out any `BTC_DATA_DIR=...` line there, or set it to
+`$HOME/Library/Application Support/mimir/data`.
 
 ## 4. Live dashboard verification (the outcome check)
 

@@ -275,21 +275,34 @@ checklist, rollback, and AUTH_TOKEN activation -- are in
 host, so there is no separate Pages step and the API is same-origin by
 construction.
 
-## Ops layer (installed on gold since 2026-07-08; 4 launchd agents)
+## Ops layer (installed on gold since 2026-07-08; 3 launchd agents)
 
-Four managed agents run unattended: `com.mimir.publish` (bi-hourly
-live publisher), `com.mimir.gex-snapshot` (08:15, dated archive of
-both GEX outputs under `data/gex_history/` -- options data cannot be
-backfilled), `com.mimir.suite-history` (06:45, the daily lppl/scenario
-`--history` appends -- content freshness, guarded by the `PUB! ... OLD`
-flag when published tails stop moving >30h), and `com.mimir.btco-alert`
-(07:45, new-filing discovery -> `ING n!` status token). Status surfaces:
-the tmux one-liner (`publish_health.rb`: green fresh / yellow amber /
-red stale / OLD content-stall / `PUB ?` fail-soft). `rake health`
-audits everything offline. Installation on a NEW box stays an owner
-action (Golden Rule 3) via the interactive tasks: `rake ops:install`
-/ `ops:status` / `ops:uninstall` (TTY-gated, refuse under CI) +
-`rake ops:tmux` for the status-bar token. Procedures: `docs/RUNBOOK.md`.
+Three managed agents run unattended: `com.mimir.publish` (bi-hourly
+live publisher), `com.mimir.gex-snapshot` (08:15, dated archive of both
+GEX outputs -- options data cannot be backfilled), and
+`com.mimir.suite-history` (06:45, the daily lppl/scenario `--history`
+appends -- content freshness, guarded by the `PUB! ... OLD` flag when
+published tails stop moving >30h). (`com.mimir.btco-alert` was retired
+2026-08-10 when BTCo froze.) Status surfaces: the tmux one-liner
+(`publish_health.rb`: green fresh / yellow amber / red stale / OLD
+content-stall / `PUB ?` fail-soft). `rake health` audits everything
+offline. Installation on a NEW box stays an owner action (Golden Rule
+3) via the interactive tasks: `rake ops:install` / `ops:status` /
+`ops:uninstall` (TTY-gated, refuse under CI) + `rake ops:tmux` for the
+status-bar token. Procedures: `docs/RUNBOOK.md`.
+
+Runtime separation (M9-12). The agents do NOT run from your dev folder.
+`rake deploy` keeps an app-managed copy of the code at
+`~/Library/Application Support/mimir/live` -- a plain clone parked on the
+deployed commit (refreshed each deploy; refuses if the commit isn't
+pushed) -- and all runtime data lives under
+`~/Library/Application Support/mimir/data` (the agents' `BTC_DATA_DIR`).
+So your `~/Dev/mimir` is an ordinary git checkout: switch branches, run
+tests, leave it dirty -- production is untouched. The one-time
+`rake ops:install` prints a migration inventory and copies existing
+histories from the dev tree into the data home, then renders the launchd
+plists to point at the live copy. Until you run that install, the agents
+keep running exactly as before -- the switch is atomic at install.
 
 Data-integrity guard (M8-8/9/10, after the 2026-07-13 blind-zero
 incident). Corrupted daily artifacts are marked at write time: a

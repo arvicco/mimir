@@ -5,8 +5,9 @@
   (XML comments forbid a double hyphen, so this block uses colons/parens.)
 
   INSTALL (HUMAN action, Golden Rule 3; full steps in docs/RUNBOOK.md):
-    Substitute the __REPO__ placeholder with the absolute repo path, e.g.
-      sed "s#__REPO__#$HOME/Dev/mimir#g" ops/com.mimir.publish.plist \
+    Substitute __REPO__ with the app-managed live runtime path (M9-12;
+    NOT the dev checkout; agents run from the live clone), e.g.
+      sed "s#__REPO__#$HOME/Library/Application Support/mimir/live#g" ops/com.mimir.publish.plist \
         > ~/Library/LaunchAgents/com.mimir.publish.plist
     then:
       launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mimir.publish.plist
