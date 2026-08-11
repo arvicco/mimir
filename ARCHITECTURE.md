@@ -53,8 +53,9 @@ mimir/
                              at every gate (honest about what works today)
   ARCHITECTURE.md            this file
   CLAUDE.md                  Claude Code project instructions
-  docs/DEV-LOOP.md           how the implementation loop runs (stages,
-                             model tiering, gates)
+  .docs/                     internal process docs (dev loop, backlog,
+                             worklog, proposals, gate runbooks) --
+                             gitignored, local to the dev machine
   Rakefile                   test / lint / compat / fixture tasks
   .gitignore                 data dirs, secrets, *.status
   .env.example               required environment variables
@@ -219,7 +220,7 @@ tools can do today, honestly), and a human approves before the next
 phase. Deploy-touching steps are always executed by the human, never by
 tooling.
 
-Phases 0-1 are **Stage 0: legacy hardening** (see docs/DEV-LOOP.md).
+Phases 0-1 are **Stage 0: legacy hardening** (see .docs/DEV-LOOP.md).
 The existing tools grew without TDD and some are new and barely used;
 they are inventoried, documented, fully tested, reviewed, and refactored
 BEFORE any new feature work. Stage 0 runs interactively with the owner.
@@ -351,10 +352,10 @@ producers and their chart specs (the GEX card's [BTC TREND][MSTR TREND]
 tabs, the Volatility surface+basis card, and the IV-spread card). All
 fail-soft. 26 keys live at Gate 8 close; Phase 9's LPPL-shadow spec
 took the surface to 27.
-- SUPERSEDED roadmap (docs/improvements.md): the original Phase 8 was
+- SUPERSEDED roadmap (.docs/improvements.md): the original Phase 8 was
   Coinglass groundwork + scenario module upgrades (a `coinglass.rb`
   tier probe, A1/A2/A3/A4 source swaps, B1 liqmap). That work did NOT
-  ship; it stays an unscheduled candidate in docs/DEV-PROPOSALS.md.
+  ship; it stays an unscheduled candidate in .docs/DEV-PROPOSALS.md.
 
 ### Phase 9 -- LPPL statistics revision (SHIPPED; merged 2026-08-11)
 What actually shipped (branch phase-9, PR #11): a revision of the LPPL
@@ -364,10 +365,10 @@ pre-registered decision item (D9-a..g) the owner rules after a soak. No
 verdict or weight changed at merge (SHADOW-FIRST). It also ended the
 worktree era: production agents now exec from the app-managed live
 clone + data home (M9-12). 27 keys live at merge.
-- SUPERSEDED roadmap (docs/scenario_upgrades.md): the original Phase 9
+- SUPERSEDED roadmap (.docs/scenario_upgrades.md): the original Phase 9
   was scenario-v2 hypothesis modules (U1..U7 entering at weight 0).
   That work did NOT ship; it stays an unscheduled candidate in
-  docs/DEV-PROPOSALS.md.
+  .docs/DEV-PROPOSALS.md.
 
 ### Phase 10 -- dashboard round 2
 - new chart specs (flow_decay_curve, cohort_panel, expiry_timeline,

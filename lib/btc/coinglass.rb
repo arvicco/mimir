@@ -18,7 +18,7 @@
 #   fail-soft paths treat it exactly like transport failure.
 #
 # CAVEATS
-#   Our tier was probed 2026-07-08..10 (docs/DEV-PROPOSALS.md): these
+#   Our tier was probed 2026-07-08..10 (.docs/DEV-PROPOSALS.md): these
 #   three endpoints are confirmed served. max-pain REQUIRES the exchange
 #   param ('Required String parameter' 400 otherwise).
 
