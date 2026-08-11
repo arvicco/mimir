@@ -2,6 +2,8 @@
 
 One line per completed packet: date · packet · commit · notes.
 
+2026-08-11 · Gate-9 review fixes · -- · Two owner-caught regressions from the M9-13/15 tooltip work: (1) applyTerms merged {legend:{tooltip}} into legend-less charts, CREATING a default-shown phantom legend that collided with the scenario title -- now wires only where the option already shows a legend; (2) the lppl_shadow formatter block (light-on-dark text) rendered on ECharts' default white tooltip, unreadable -- now carries the house dark chrome. Both pinned by web regression tests; verified by screenshot + real hover.
+
 2026-08-11 · M9-16 · (with M9-15 push) · Spot line added to the BTC GEX profile (parity with MSTR, owner request at the Gate 9 preview); label at the bottom line-end after the top-position first attempt collided with flip -- caught in self-review screenshots. MSTR banding untouched.
 
 2026-08-11 · M9-15 · de968c0 · Glossary hover explanations via a sixth additive renderer hook, meta.terms = { TERM => plain explanation } (owner Gate-9 ruling). Wired in render.js to the fitting surface: drawn ECharts legends (legend.tooltip + styled formatter -- ATM IV/RR25/FLY25, spread/MSTR/BTC, 7d..90d, spot/flip/CW/PW), the scenario module scoreboard (canvas axis labels -> triggerEvent + a viewport-fixed styled popover), and the gex_cp venue widget (per-venue CSS bubble). Owner-approved texts verbatim. terms rides meta only -> no golden drift (asserted); 27 written/0 skip, key count unchanged. Playwright drove CW/RR25/macro/DERI hovers (all render the lppl_shadow-style block, all in-viewport, console clean). Skill file records the hook in the same commit.
