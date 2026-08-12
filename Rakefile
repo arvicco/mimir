@@ -108,7 +108,9 @@ end
 desc 'Serve the repo for web/preview.html review (stdlib TCPServer, localhost only)'
 task :preview do
   require_relative 'lib/btc/preview_server'
-  BTC::PreviewServer.serve(Dir.pwd, (ENV['PORT'] || 8000).to_i)
+  port = (ENV['PORT'] || 8000).to_i
+  puts "preview: open http://localhost:#{port}/web/preview.html  (Ctrl-C stops)"
+  BTC::PreviewServer.serve(Dir.pwd, port)
 end
 
 namespace :lppl do
