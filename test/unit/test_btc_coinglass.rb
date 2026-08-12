@@ -88,6 +88,112 @@ class TestBtcCoinglass < Minitest::Test
     assert_includes calls.first[:url], 'interval=8h'
   end
 
+  # ---- P-6 positioning wrappers: URL/param assembly (M10-2) -----------
+
+  def test_oi_aggregated_history_params_and_unwrap
+    body  = JSON.generate('code' => '0', 'data' => [{ 'time' => 1, 'close' => '1e10' }])
+    calls = stub_transport(body)
+    rows  = with_key { BTC::Coinglass.oi_aggregated_history }
+    assert_equal [{ 'time' => 1, 'close' => '1e10' }], rows
+    assert_includes calls.first[:url], 'futures/open-interest/aggregated-history'
+    assert_includes calls.first[:url], 'symbol=BTC'
+    assert_includes calls.first[:url], 'interval=1d'
+  end
+
+  def test_global_long_short_ratio_sends_required_exchange_and_symbol
+    calls = stub_transport(JSON.generate('code' => '0', 'data' => []))
+    with_key { BTC::Coinglass.global_long_short_ratio }
+    url = calls.first[:url]
+    assert_includes url, 'futures/global-long-short-account-ratio/history'
+    assert_includes url, 'exchange=Binance'
+    assert_includes url, 'symbol=BTCUSDT'
+    assert_includes url, 'interval=1d'
+  end
+
+  def test_top_position_ratio_sends_required_exchange_and_symbol
+    calls = stub_transport(JSON.generate('code' => '0', 'data' => []))
+    with_key { BTC::Coinglass.top_position_ratio }
+    url = calls.first[:url]
+    assert_includes url, 'futures/top-long-short-position-ratio/history'
+    assert_includes url, 'exchange=Binance'
+    assert_includes url, 'symbol=BTCUSDT'
+  end
+
+  def test_taker_buy_sell_history_params
+    calls = stub_transport(JSON.generate('code' => '0', 'data' => []))
+    with_key { BTC::Coinglass.taker_buy_sell_history }
+    assert_includes calls.first[:url], 'futures/taker-buy-sell-volume/history'
+    assert_includes calls.first[:url], 'interval=1d'
+  end
+
+  def test_liquidation_history_sends_required_exchange_list
+    calls = stub_transport(JSON.generate('code' => '0', 'data' => []))
+    with_key { BTC::Coinglass.liquidation_history }
+    url = calls.first[:url]
+    assert_includes url, 'futures/liquidation/aggregated-history'
+    assert_includes url, 'exchange_list=Binance,OKX,Bybit'
+    assert_includes url, 'symbol=BTC'
+  end
+
+  # ---- P-6 positioning fixtures: recorded-shape parse (M10-2) ---------
+  # Assert the row shape M10-3 will consume, against the REAL recorded
+  # 2026-08-12 responses (10 daily rows each, 03..12 Aug 2026).
+
+  def fixture_rows(file)
+    JSON.parse(File.read(File.join(FIX, file)))['data']
+  end
+
+  def test_oi_aggregated_fixture_rows_carry_ohlc
+    rows = fixture_rows('coinglass_oi_aggregated.json')
+    assert_equal 10, rows.size
+    r = rows.last
+    assert r.key?('time')
+    %w[open high low close].each { |k| assert r.key?(k), "OI row missing #{k}" }
+    assert r['close'].to_f.positive?
+  end
+
+  def test_global_long_short_ratio_fixture_rows_carry_time_and_ratio
+    rows = fixture_rows('coinglass_global_ls_ratio.json')
+    assert_equal 10, rows.size
+    r = rows.last
+    assert r.key?('time')
+    assert r.key?('global_account_long_short_ratio')
+    assert r.key?('global_account_long_percent')
+    assert r.key?('global_account_short_percent')
+    assert r['global_account_long_short_ratio'].to_f.positive?
+  end
+
+  def test_top_position_ratio_fixture_rows_carry_time_and_ratio
+    rows = fixture_rows('coinglass_top_position_ratio.json')
+    assert_equal 10, rows.size
+    r = rows.last
+    assert r.key?('time')
+    assert r.key?('top_position_long_short_ratio')
+    assert r.key?('top_position_long_percent')
+    assert r.key?('top_position_short_percent')
+    assert r['top_position_long_short_ratio'].to_f.positive?
+  end
+
+  def test_taker_volume_fixture_rows_carry_buy_and_sell_usd
+    rows = fixture_rows('coinglass_taker_volume.json')
+    assert_equal 10, rows.size
+    r = rows.last
+    assert r.key?('time')
+    assert r.key?('taker_buy_volume_usd')
+    assert r.key?('taker_sell_volume_usd')
+    assert r['taker_buy_volume_usd'].to_f.positive?
+  end
+
+  def test_liquidation_fixture_rows_carry_long_and_short_usd
+    rows = fixture_rows('coinglass_liquidation.json')
+    assert_equal 10, rows.size
+    r = rows.last
+    assert r.key?('time')
+    assert r.key?('aggregated_long_liquidation_usd')
+    assert r.key?('aggregated_short_liquidation_usd')
+    assert r['aggregated_long_liquidation_usd'].to_f >= 0
+  end
+
   def test_nonzero_code_raises_without_echoing_upstream_msg
     stub_transport(JSON.generate('code' => '400',
                                  'msg' => 'Required String parameter secret-ish'))
