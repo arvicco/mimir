@@ -26,7 +26,9 @@ lines, and the caveats -- read it before acting on any output.
 | `scripts/gex.rb` | Deribit BTC/ETH strike-level GEX, gamma flip, walls | mature |
 | `scripts/gex_us.rb` | same for US-listed chains (IBIT, MSTR, ...) via CBOE | mature |
 | `scripts/gex_btc_combined.rb` | cross-venue BTC GEX on one BTC axis | newer, math verified |
-| `scripts/scenario/scenario.rb` | -1/0/+1 regime composite from 7 signals | mature |
+| `scripts/scenario/scenario.rb` | -1/0/+1 regime composite from 7 scored signals (+ positioning at weight 0) | mature |
+| `scripts/scenario/positioning.rb` | crowd positioning: L/S ratios, OI trend, taker flow, liquidations | new; bands WARMUP until 91 days of history |
+| `scripts/scorecard.rb` | track record: our published signals vs realized forward BTC returns | new, report-only |
 | `scripts/lppl/lppl.rb` | LPPL regime verdict from 5 falsification tests | new but rigorous; builds caches on first run |
 | `scripts/btco/btco.rb` | treasury-company metrics + stress score | **seed data is placeholder**; US quotes via CBOE + Frankfurter FX, non-US via `manual_px` |
 | `scripts/btco/ingest.rb` | EDGAR filing -> reviewed universe updates | newest, lightly exercised |
@@ -90,6 +92,17 @@ macro liquidity, hash ribbons, MVRV, stablecoin supply) -> composite in
 [-1, +1] -> FLUSH / LEAN-FLUSH / NEUTRAL / BASE / RECOVERY. The composite
 is an evidence index (a bounded weighted vote read by band), not a
 probability.
+
+An eighth module, `positioning.rb` (Phase 10), rides the table at
+**weight 0** -- it is displayed but cannot move the composite. Five
+crowd-positioning reads from Coinglass (daily, cached 24h): long/short
+account ratio, top-trader ratio, 7-day open-interest change, taker
+buy share, liquidation skew. Each band is the value's percentile in
+its own trailing 90 days (80/20 cutoffs), so a sub-signal honestly
+reports WARMUP until 91 daily values exist. Its score is -1 only on
+the full flush lineup (crowd LONG + OI RISING + longs liquidated), +1
+on the exact mirror, else 0; kill criteria are pre-registered in the
+file header. Needs `COINGLASS_API_KEY`; fails soft without it.
 `macro.rb` needs a free `FRED_API_KEY` (degrades to score 0 without).
 `etf_flows.rb` scrapes farside.co.uk, falling back to the Internet
 Archive snapshot and then CoinGlass (`COINGLASS_API_KEY`, free) -- see
@@ -197,6 +210,25 @@ Metaplanet (3350) has real data but NO dashboard row until its price
 source is decided (D8-f -- stooq died upstream, F-17; `manual_px` or
 tracker-priced).
 
+## Signal scorecard
+
+```
+ruby scripts/scorecard.rb           # track-record table
+ruby scripts/scorecard.rb --json    # machine output (frozen contract)
+```
+
+Scores our own published signals against the BTC returns that actually
+followed (7/30/90-day horizons) from the recorded ledgers -- LPPL back
+to 2025-10, scenario history, daily GEX snapshots. For each signal
+band: n, mean forward return, share of positive outcomes, next to the
+same-window unconditional row as the benchmark. Deliberately modest:
+no significance verdicts, no declared "right" direction per band, and
+a cell renders only with n >= 30 over a span >= twice the horizon --
+short ledgers show an explicit "n too small". Daily h-day returns
+overlap, so `n_eff ~ n/h` in the JSON is the honest evidence count.
+Definitions are the D10-a owner ruling; the engine is
+`lib/btc/scorecard.rb`.
+
 ## Publish pipeline (dry-run today; real publish is a human action)
 
 ```
@@ -204,9 +236,9 @@ PUBLISH_DRY_RUN=1 ruby publish/publish.rb   # DEFAULT: artifact set -> data/publ
 PUBLISH_DRY_RUN=0 ruby publish/publish.rb   # KV PUTs; needs CLOUDFLARE_ACCOUNT_ID/CLOUDFLARE_KV_NAMESPACE_ID/CLOUDFLARE_API_TOKEN
 ```
 
-Runs the ten producers (the four suites, MSTR dealer gamma, and the
-five Phase-8A volatility/positioning tools), wraps every payload in
-the frozen envelope
+Runs the twelve producers (the four suites, MSTR dealer gamma, the
+five Phase-8A volatility tools, the positioning module, and the
+scorecard), wraps every payload in the frozen envelope
 (`v/key/generated_at/ttl_hint_s/source/payload`), adds trailing
 history windows (scenario 90d, lppl 365d) and a `v1:index`, and writes
 files (dry) or Cloudflare KV keys (real). A producer that crashes or
@@ -267,10 +299,11 @@ static dashboard renders the pre-built chart specs.
   loader over the Worker -- per-key dot badges, live age tickers (each
   dot ticks up second-by-second and recolours green/amber/red from each
   envelope's `generated_at`/`ttl_hint_s`), a healthz-aware failure banner,
-  the chart cards in a 3x2 grid (the GEX card is
-  [BTC][MSTR][BTC TREND][MSTR TREND] tabs, the LPPL card [LPPL][SHADOW],
-  and volatility is a surface+basis card plus a separate IV-spread
-  card), and the BTCo sortable table. The staleness badges are dot-only
+  the chart cards in a three-row grid (row 1 GEX / Volatility /
+  IV-spread, row 2 Scenario / Positioning / LPPL, row 3 Scorecard /
+  BTCo; the GEX card is [BTC][MSTR][BTC TREND][MSTR TREND] tabs, the
+  LPPL card [LPPL][SHADOW], volatility is a surface+basis card), and
+  the BTCo sortable table. The staleness badges are dot-only
   (hover a dot for its key and last publish time); legend terms (CW/PW,
   ATM IV, RR25) and the scenario module names carry the same hover
   glossary explanations.
@@ -339,19 +372,17 @@ real neutral day.
 
 ## Not implemented yet (roadmap in ARCHITECTURE.md)
 
-- The dashboard does not auto-refresh: a tab left open shows old data
-  until reloaded (the refetch bundle is designed, awaiting an owner
-  go -- it touches pinned ttl values).
 - The model has no `cash` / non-BTC-business fields, so mNAV for
   diversified holders (DJT, BLSH, miners) overstates richness by
   construction -- the M7-15b research question.
 - Phase 8 remaining candidates (owner-approved waves,
   .docs/DEV-PROPOSALS.md; family A -- vol surface, basis, GEX history,
   max-pain cross-check, IV spread -- shipped 2026-07-10/11 as the
-  tools above): Coinglass derivatives-positioning module, CFTC COT,
-  exchange reserves, Kalshi implied probabilities, bubble-index
-  cross-ref, signal scorecard, ntfy push alerts, deterministic
-  filing-iXBRL parser (M7-13). Scenario history seeding/replay.
+  tools above; the positioning module and the signal scorecard
+  shipped in Phase 10): CFTC COT, exchange reserves, Kalshi implied
+  probabilities, bubble-index cross-ref, ntfy push alerts,
+  deterministic filing-iXBRL parser (M7-13). Scenario history
+  seeding/replay.
 - IV rank / percentiles on the vol card: needs weeks of
   `data/vol_history/` accumulation first (snapshotting has been active
   since Gate 8; the ranks become buildable once enough days accrue).
