@@ -55,3 +55,13 @@ into `payload_<key>.json` here.
   `2026-06-30`** so the `vol_spread_trend` golden exercises the gap path
   (a null point, never a zero). The daily history did not exist when the
   set was recorded, so it is hand-added; keep it on any refresh.
+
+- `payload_positioning_latest.json` is a **synthetic** `scripts/scenario/
+  positioning.rb --json` payload (M10-4): 30 daily points across the six
+  additive `series` (oi_close $B, global_ls / top_ls ratios, taker_buy %,
+  long_liq / short_liq $M), generated through the REAL producer helpers
+  (`build_series` + the band methods) so the shape is faithful. Thirty days
+  is under the 91-value band window, so every band is **WARMUP** and the
+  score 0 -- it drives the `chart_positioning` golden's designed WARMUP
+  title AND fills all three panels. Regenerate from real Coinglass history
+  once ≥91 days have accumulated.

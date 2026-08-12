@@ -137,6 +137,21 @@ module Publish
                    'into BTC. +1 growing, -1 shrinking.'
     }.freeze
 
+    # positioning card (M10-4): the panel-2 crowd-ratio legend items each
+    # explain themselves -- what the global (retail) ACCOUNT ratio measures
+    # vs the top-trader POSITION ratio vs the aggressive taker BUY-share.
+    POSITIONING_TERMS = {
+      'global L/S' => 'The global (retail) long/short ACCOUNT ratio on Binance ' \
+                      'BTCUSDT perps: how many accounts are net long vs net short. ' \
+                      'Above 1 = the crowd leans long; extremes are contrarian fuel.',
+      'top L/S' => 'The top-trader long/short POSITION ratio (Binance BTCUSDT ' \
+                   'perps): the "smart money" counterpart, weighted by position ' \
+                   'size rather than account count -- watch it diverge from the crowd.',
+      'taker buy%' => 'The share of aggressive taker volume that hit the BUY side ' \
+                      '(buy / (buy + sell)). Above 50% = takers are lifting offers ' \
+                      '(demand-led); below = hitting bids (supply-led).'
+    }.freeze
+
     # meta (additive envelope field, 2026-07-05): METHODOLOGY-grade
     # hover help rendered by preview.html/the dashboard -- desc for the
     # title bubble, axes + help behind the info affordance.
@@ -542,6 +557,41 @@ module Publish
           # sized to the curated row count (3 ALL rows + their bands + a
           # header row); a category axis spreads the rows to fit.
           'height' => 330
+        }
+      },
+      # M10-4 (P-6, owner ruling D10-c): the crowd-positioning card. Three
+      # stacked panels sharing ONE date axis (the lppl_regime precedent) so a
+      # vertical slice reads the flush set-up at a glance -- OI on top, the
+      # crowd ratios in the middle, opposed liquidation bars at the bottom.
+      # Reads positioning:latest (the module runs at WEIGHT 0 during the soak;
+      # its score is display-only). WARMUP is a designed state, never blank.
+      'positioning' => {
+        inputs: %w[payload_positioning_latest.json], fn: :positioning,
+        meta: {
+          'desc' => 'The derivatives crowd\'s stance in one vertical slice: ' \
+                    'aggregate open interest ($B), the long/short crowd ratios ' \
+                    '(retail account + top-trader position) with aggressive ' \
+                    'taker BUY-share, and the daily liquidation skew. The module ' \
+                    'scores -1 ONLY when the full flush line-up appears (crowd ' \
+                    'long AND OI rising AND longs getting liquidated), +1 on its ' \
+                    'mirror, else 0. It rides at WEIGHT 0 during the soak -- ' \
+                    'shown and charted, never weighted (METHODOLOGY.md).',
+          'axes' => { 'x' => 'time -- one daily reading per UTC date, shared ' \
+                             'across all three panels (hover locks a vertical slice)',
+                      'y' => 'three stacked panels: (top) open interest, $B; ' \
+                             '(mid) L/S ratios left, taker BUY-share % right; ' \
+                             '(bottom) liquidations $M -- longs DOWN (red), ' \
+                             'shorts UP (teal), overlaid on the same day' },
+          'help' => 'Read the panels together at one date: long-crowding + ' \
+                    'rising OI + long liquidations lining up is the flush set-up. ' \
+                    'Filled dots so a sparse/WARMUP history still reads; the ' \
+                    'title shows WARMUP n/91d until 91 daily values have ' \
+                    'accumulated (each band needs a full trailing-90 window). ' \
+                    'Hover a crowd-ratio legend name for what it measures. The ' \
+                    'module is report-only (weight 0) during the soak.',
+          # M9-15 terms hook: the panel-2 crowd-ratio legend items explain
+          # themselves (drawn legend -> legend.tooltip, the house block).
+          'terms' => POSITIONING_TERMS
         }
       }
     }.freeze
@@ -1496,6 +1546,121 @@ module Publish
     def scorecard_scatter(name, data)
       { 'name' => name, 'type' => 'scatter', 'xAxisIndex' => 0, 'yAxisIndex' => 0,
         'symbolSize' => 0, 'silent' => true, 'animation' => false, 'data' => data }
+    end
+
+    # ---- positioning (M10-4) ------------------------------------------
+    #
+    # positioning:latest -> three time-aligned panels sharing ONE date axis
+    # (the lppl_regime precedent, owner ruling D10-c 2026-08-12): OI ($B)
+    # on top, the crowd ratios in the middle (global L/S + top-trader L/S on
+    # the left axis, taker BUY-share % on a right axis), and opposed
+    # liquidation bars at the bottom (longs DOWN in red, shorts UP in teal,
+    # barGap -100% so both sit on the same day -- the gex calls/puts idiom).
+    # The three grids share the same left/right so a vertical slice lines up
+    # across panels: long-crowding + rising OI + long liquidations at one
+    # date IS the flush set-up. WARMUP is a DESIGNED state (title reads
+    # WARMUP n/91d) -- the panels still draw whatever series exist. Values
+    # arrive pre-scaled from the producer, so the axis-trigger tooltip and
+    # the axes need no client formatting.
+    POS_OI    = '#e6a23c' # open interest line -- amber (a neutral level series)
+    POS_GLS   = '#2fbf8f' # global (retail) L/S -- teal
+    POS_TLS   = '#6aa9ff' # top-trader L/S -- blue
+    POS_TAKER = '#d0d5db' # taker BUY-share -- light grey (right axis)
+    POS_LONG  = '#c63939' # liquidated longs (plotted DOWN) -- red bar tone
+    POS_SHORT = '#0f7a5c' # liquidated shorts (plotted UP) -- teal bar tone
+
+    def positioning(doc)
+      series = doc['series'] || {}
+      {
+        'backgroundColor' => 'transparent',
+        'title' => { 'text' => positioning_title(doc), 'textStyle' => { 'fontSize' => 13 } },
+        'tooltip' => { 'trigger' => 'axis', 'confine' => true,
+                       'textStyle' => { 'fontSize' => 11 }, 'axisPointer' => { 'type' => 'cross' } },
+        # one date axis for the whole card: hovering locks a vertical slice
+        # across all three panels (the flush set-up reads at a single date).
+        'axisPointer' => { 'link' => [{ 'xAxisIndex' => 'all' }] },
+        # only the crowd-ratio series carry a drawn legend (they get the terms
+        # hover); OI and the liquidation bars are named by their axes.
+        'legend' => { 'top' => 22, 'data' => ['global L/S', 'top L/S', 'taker buy%'] },
+        # three grids, identical left/right so the panels align exactly (the
+        # two upper panels hide their date furniture; only the bottom draws it).
+        'grid' => [
+          { 'left' => 58, 'right' => 46, 'top' => 48,    'height' => '20%' },
+          { 'left' => 58, 'right' => 46, 'top' => '43%', 'height' => '20%' },
+          { 'left' => 58, 'right' => 46, 'top' => '71%', 'height' => '20%' }
+        ],
+        'xAxis' => [
+          positioning_hidden_time_axis(0),
+          positioning_hidden_time_axis(1),
+          { 'type' => 'time', 'gridIndex' => 2 }
+        ],
+        # panel names ride their axes (rotated, in the gutters) so they never
+        # land in the one-line title row; OI/ratios/taker autoscale (scale
+        # true), the liquidation axis keeps 0 so the opposed bars straddle it.
+        'yAxis' => [
+          { 'type' => 'value', 'gridIndex' => 0, 'name' => 'OI $B', 'scale' => true,
+            'nameLocation' => 'middle', 'nameGap' => 40 },
+          { 'type' => 'value', 'gridIndex' => 1, 'name' => 'L/S', 'scale' => true,
+            'nameLocation' => 'middle', 'nameGap' => 40 },
+          { 'type' => 'value', 'gridIndex' => 1, 'name' => 'buy %', 'scale' => true,
+            'position' => 'right', 'nameLocation' => 'middle', 'nameGap' => 34 },
+          { 'type' => 'value', 'gridIndex' => 2, 'name' => 'liq $M',
+            'nameLocation' => 'middle', 'nameGap' => 40 }
+        ],
+        'series' => [
+          positioning_line('OI $B', series['oi_close'], POS_OI, 0, 0),
+          positioning_line('global L/S', series['global_ls'], POS_GLS, 1, 1),
+          positioning_line('top L/S', series['top_ls'], POS_TLS, 1, 1),
+          positioning_line('taker buy%', series['taker_buy'], POS_TAKER, 1, 2),
+          positioning_liq_bar('long liq $M', series['long_liq'], POS_LONG, down: true),
+          positioning_liq_bar('short liq $M', series['short_liq'], POS_SHORT, down: false)
+        ]
+      }
+    end
+
+    # A time x-axis for an upper panel: all date furniture hidden (only the
+    # bottom panel draws the shared dates), matching lppl_regime.
+    def positioning_hidden_time_axis(grid_index)
+      { 'type' => 'time', 'gridIndex' => grid_index,
+        'axisLabel' => { 'show' => false }, 'axisTick' => { 'show' => false },
+        'axisLine' => { 'show' => false } }
+    end
+
+    # Title: 'Positioning · <+1/0/-1> · crowd <band>', or the honest WARMUP
+    # state 'Positioning · WARMUP n/91d' (n = days of crowd history so far;
+    # a full band needs 91 daily values). WARMUP never blanks the chart.
+    def positioning_title(doc)
+      crowd = doc['crowding'].to_s
+      if crowd == 'WARMUP'
+        n = (doc.dig('series', 'global_ls') || []).size
+        format('Positioning · WARMUP %d/91d', n)
+      else
+        format('Positioning · %s · crowd %s', positioning_score_str(doc['score']), crowd)
+      end
+    end
+
+    # -1/0/+1 with an explicit sign, but a bare '0' (not '+0') for neutral.
+    def positioning_score_str(score)
+      s = score.to_i
+      s.zero? ? '0' : format('%+d', s)
+    end
+
+    # A filled-symbol line for a [date, value] series on a panel (sparse data
+    # must read as clear dots -- design ruling). A nil series draws empty.
+    def positioning_line(name, data, color, x_index, y_index)
+      { 'name' => name, 'type' => 'line', 'xAxisIndex' => x_index, 'yAxisIndex' => y_index,
+        'showSymbol' => true, 'symbol' => 'circle', 'symbolSize' => 6,
+        'itemStyle' => { 'color' => color }, 'lineStyle' => { 'color' => color },
+        'data' => data || [] }
+    end
+
+    # Opposed liquidation bars on panel 3: longs plotted DOWN (negated),
+    # shorts UP, barGap -100% so both sit on the same date. Opposite signs,
+    # so like the gex calls/puts stacks they never cover each other.
+    def positioning_liq_bar(name, data, color, down:)
+      pts = (data || []).map { |date, value| [date, down ? -value : value] }
+      { 'name' => name, 'type' => 'bar', 'xAxisIndex' => 2, 'yAxisIndex' => 3,
+        'barGap' => '-100%', 'itemStyle' => { 'color' => color }, 'data' => pts }
     end
 
     # ---- btco_table (M3-4) --------------------------------------------

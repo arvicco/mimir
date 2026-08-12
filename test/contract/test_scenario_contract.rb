@@ -28,7 +28,9 @@ class TestScenarioContract < Minitest::Test
     'macro'         => ['macro',        'stlouisfed',     []],
     # M10-3: crowd-positioning module; its --json carries the five band
     # fields, and it needs COINGLASS_API_KEY (like macro needs FRED).
-    'positioning'   => ['positioning',  'coinglass',      %w[crowding top_traders oi_7d taker_bias liq_skew]]
+    # M10-4 (additive): + `series`, the trailing daily card series for
+    # v1:chart:positioning (its per-metric shape is pinned in test_positioning.rb).
+    'positioning'   => ['positioning',  'coinglass',      %w[crowding top_traders oi_7d taker_bias liq_skew series]]
   }.freeze
 
   FRED_ENV      = { 'FRED_API_KEY' => 'contract-test-key' }.freeze

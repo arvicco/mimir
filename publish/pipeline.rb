@@ -39,8 +39,8 @@
 #   is attempted. Error text stays redacted (kv_client's pattern).
 # - STATUS (frozen --tmux contract): /tmp/publish.status carries
 #   `PUB DRY|LIVE <published>/<expected> keys HH:MM UTC` where
-#   expected = producers + tails + charts + 1 (the index) = n/29
-#   (12 producers + 2 tails + 14 charts + index). Pinned in the tests.
+#   expected = producers + tails + charts + 1 (the index) = n/31
+#   (13 producers + 2 tails + 15 charts + index). Pinned in the tests.
 #   ADDITIVE (M7-5, 2026-07-07 frozen-evidence incident): when a PUBLISHED
 #   tail's newest entry is older than STALE_EVIDENCE_H (30h), the line gains
 #   a trailing ` OLD:<key>[,<key>...]` marker (TAILS order), e.g.
@@ -93,7 +93,11 @@ module Publish
       # M10-7 (P-19): our own signals' forward-return track record, scored
       # offline from the local ledgers by scripts/scorecard.rb (no network).
       # Descriptive only -- report-only, changes no analytics semantics.
-      ['scorecard:latest', ['ruby', 'scripts/scorecard.rb', '--json'],                 60,  86_400]
+      ['scorecard:latest', ['ruby', 'scripts/scorecard.rb', '--json'],                 60,  86_400],
+      # M10-4 (P-6): the crowd-positioning module -- daily crowd/OI/liquidation
+      # stance. Runs at WEIGHT 0 during the soak (display only); its --json
+      # carries the card series. Daily cadence (24h source-cache ttl).
+      ['positioning:latest', ['ruby', 'scripts/scenario/positioning.rb', '--json'],    60,  86_400]
     ].freeze
 
     # key, suite, in-tree default dir, filename, window_days, ttl_hint_s.

@@ -153,6 +153,127 @@ class TestPositioning < Minitest::Test
     assert_equal 0, P.score('LONG', 'RISING', 'SHORTS-HIT') # crossed lineup
   end
 
+  # ---- card series (M10-4): scaling + gaps ----------------------------
+
+  def series_rows(field_pairs)
+    # field_pairs: [[ms, {field => value, ...}], ...]
+    field_pairs.map { |ms, h| { 'time' => ms }.merge(h) }
+  end
+
+  def test_row_date_is_utc_calendar_day
+    assert_equal '2026-08-12', P.row_date('time' => Time.utc(2026, 8, 12, 6, 30).to_i * 1000)
+  end
+
+  def test_build_series_scales_each_metric_to_its_human_unit
+    ms = ->(d) { Time.utc(2026, 7, d).to_i * 1000 }
+    global = [{ 'time' => ms.(1), 'global_account_long_short_ratio' => 1.573 }]
+    top    = [{ 'time' => ms.(1), 'top_position_long_short_ratio' => 1.246 }]
+    oi     = [{ 'time' => ms.(1), 'close' => '48913507314' }]           # string-typed
+    taker  = [{ 'time' => ms.(1), 'taker_buy_volume_usd' => '60', 'taker_sell_volume_usd' => '40' }]
+    liq    = [{ 'time' => ms.(1), 'aggregated_long_liquidation_usd' => 20_948_550.41,
+                'aggregated_short_liquidation_usd' => 6_077_439.28 }]
+    s = P.build_series(global, top, oi, taker, liq)
+    assert_equal [['2026-07-01', 48.9]], s['oi_close']   # USD -> $B, 1dp
+    assert_equal [['2026-07-01', 1.57]], s['global_ls']  # ratio, 2dp
+    assert_equal [['2026-07-01', 1.25]], s['top_ls']     # ratio, 2dp
+    assert_equal [['2026-07-01', 60.0]], s['taker_buy']  # BUY share %, 1dp
+    assert_equal [['2026-07-01', 20.9]], s['long_liq']   # USD -> $M, 1dp
+    assert_equal [['2026-07-01', 6.1]],  s['short_liq']  # USD -> $M, 1dp
+  end
+
+  def test_taker_buy_pct_is_nil_on_zero_volume_day
+    assert_nil P.taker_buy_pct('taker_buy_volume_usd' => '0', 'taker_sell_volume_usd' => '0')
+    assert_in_delta 75.0, P.taker_buy_pct('taker_buy_volume_usd' => '3', 'taker_sell_volume_usd' => '1'), 1e-9
+  end
+
+  def test_date_series_drops_gap_points_but_keeps_dates
+    ms = ->(d) { Time.utc(2026, 7, d).to_i * 1000 }
+    rows = [{ 'time' => ms.(2) }, { 'time' => ms.(1) }, { 'time' => ms.(3) }] # unordered
+    out = P.date_series(rows) { |r| r['time'] == ms.(2) ? nil : 1.0 } # day 2 is a gap
+    assert_equal [['2026-07-01', 1.0], ['2026-07-03', 1.0]], out # chronological, gap dropped
+  end
+
+  def test_date_series_tails_to_last_120
+    ms = ->(i) { (Time.utc(2026, 1, 1) + i * 86_400).to_i * 1000 }
+    rows = (0...150).map { |i| { 'time' => ms.(i) } }
+    out = P.date_series(rows) { |_r| 1 }
+    assert_equal 120, out.size
+    assert_equal '2026-05-30', out.last.first # last of 0..149 -> Jan1 + 149d
+  end
+
+  # ---- --json run surface: additive `series`, human table unchanged ---
+
+  # Serve each Coinglass endpoint from its recorded fixture (offline).
+  FIX = File.expand_path('..', __dir__) + '/fixtures'
+  CG_FIXTURES = {
+    'open-interest/aggregated-history'       => 'coinglass_oi_aggregated.json',
+    'global-long-short-account-ratio'        => 'coinglass_global_ls_ratio.json',
+    'top-long-short-position-ratio'          => 'coinglass_top_position_ratio.json',
+    'taker-buy-sell-volume'                  => 'coinglass_taker_volume.json',
+    'liquidation/aggregated-history'         => 'coinglass_liquidation.json'
+  }.freeze
+
+  def coinglass_fixture_transport
+    BTC::Http.transport = lambda do |uri, _req, _opts|
+      url = uri.to_s
+      name = CG_FIXTURES.find { |frag, _| url.include?(frag) }&.last or
+        raise "no fixture for #{url}"
+      Struct.new(:code, :body).new('200', File.read(File.join(FIX, name)))
+    end
+  end
+
+  def run_json(argv)
+    old = ARGV.dup
+    ARGV.replace(argv)
+    out, = capture_io { P.run }
+    JSON.parse(out.lines.last)
+  ensure
+    ARGV.replace(old)
+  end
+
+  def test_json_carries_additive_series_and_bands
+    coinglass_fixture_transport
+    Dir.mktmpdir('mimir-pos-json') do |dir|
+      ENV['BTC_DATA_DIR'] = dir
+      doc = with_key { run_json(['--json']) }
+      # the frozen envelope fields survive
+      assert_equal 'positioning', doc['name']
+      assert_includes(-1..1, doc['score'])
+      %w[crowding top_traders oi_7d taker_bias liq_skew].each { |b| assert doc.key?(b) }
+      # 10-row fixtures -> every band WARMUP, score 0
+      assert_equal 'WARMUP', doc['crowding']
+      assert_equal 0, doc['score']
+      # the additive series section: six named [date, value] series
+      s = doc['series']
+      assert_equal %w[oi_close global_ls top_ls taker_buy long_liq short_liq].sort, s.keys.sort
+      s.each_value do |pairs|
+        assert_kind_of Array, pairs
+        pairs.each do |date, value|
+          assert_match(/\A\d{4}-\d{2}-\d{2}\z/, date)
+          assert_kind_of Numeric, value
+        end
+      end
+      assert_equal 10, s['oi_close'].size # trailing tail of the 10-row fixture
+    ensure
+      ENV.delete('BTC_DATA_DIR')
+    end
+  end
+
+  def test_human_table_omits_series
+    coinglass_fixture_transport
+    Dir.mktmpdir('mimir-pos-human') do |dir|
+      ENV['BTC_DATA_DIR'] = dir
+      old = ARGV.dup
+      ARGV.replace([]) # no --json -> aligned table
+      out, = with_key { capture_io { P.run } }
+      refute_includes out, 'series', 'the human table must not dump the series blob'
+      assert_match(/positioning/, out)
+    ensure
+      ARGV.replace(old)
+      ENV.delete('BTC_DATA_DIR')
+    end
+  end
+
   # ---- history append dedup -------------------------------------------
 
   def test_history_appends_once_per_utc_day
