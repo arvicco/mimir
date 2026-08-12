@@ -25,10 +25,24 @@ class TestScenarioContract < Minitest::Test
     'hash_ribbons'  => ['hash_ribbons', 'mempool',        []],
     'onchain_value' => ['onchain',      'coinmetrics',    []],
     'stables'       => ['stables',      'llama.fi',       []],
-    'macro'         => ['macro',        'stlouisfed',     []]
+    'macro'         => ['macro',        'stlouisfed',     []],
+    # M10-3: crowd-positioning module; its --json carries the five band
+    # fields, and it needs COINGLASS_API_KEY (like macro needs FRED).
+    'positioning'   => ['positioning',  'coinglass',      %w[crowding top_traders oi_7d taker_bias liq_skew]]
   }.freeze
 
-  FRED_ENV = { 'FRED_API_KEY' => 'contract-test-key' }.freeze
+  FRED_ENV      = { 'FRED_API_KEY' => 'contract-test-key' }.freeze
+  COINGLASS_ENV = { 'COINGLASS_API_KEY' => 'contract-test-key' }.freeze
+
+  # Env a module needs to reach its (faked) upstream at all: macro needs a
+  # FRED key, positioning a Coinglass key. Everything else runs keyless.
+  def env_for(mod)
+    case mod
+    when 'macro'       then FRED_ENV
+    when 'positioning' then COINGLASS_ENV
+    else {}
+    end
+  end
 
   # F-9: exactly one stdout line in --json mode, parsing as one object.
   def module_json(mod, env: {})
@@ -64,7 +78,7 @@ class TestScenarioContract < Minitest::Test
   MODULES.each do |mod, (name, deny, extras)|
     define_method("test_#{mod}_success_shape") do
       skip_if_fixture_pending(mod)
-      j = module_json(mod, env: mod == 'macro' ? FRED_ENV : {})
+      j = module_json(mod, env: env_for(mod))
       assert_base_shape j, name
       surplus = j.keys - BASE_KEYS - extras
       assert_empty surplus, "#{mod}: unpinned --json fields #{surplus} (frozen contract)"
@@ -72,8 +86,7 @@ class TestScenarioContract < Minitest::Test
     end
 
     define_method("test_#{mod}_fail_soft_shape") do
-      env = { 'FAKE_HTTP_DENY' => deny }
-      env = env.merge(FRED_ENV) if mod == 'macro'
+      env = { 'FAKE_HTTP_DENY' => deny }.merge(env_for(mod))
       # etf_flows: 'farside' also denies the archive proxy (URL contains
       # farside.co.uk); the keyed leg must be off in the test env too.
       env['COINGLASS_API_KEY'] = nil if mod == 'etf_flows'
@@ -109,12 +122,12 @@ class TestScenarioContract < Minitest::Test
   # ---- aggregator ------------------------------------------------------
 
   def test_aggregator_json_contract
-    j = run_json('scripts/scenario/scenario.rb', '--json', env: FRED_ENV)
+    j = run_json('scripts/scenario/scenario.rb', '--json', env: FRED_ENV.merge(COINGLASS_ENV))
     assert_contract_keys %w[composite modules regime ts], j, 'scenario.rb'
     assert_kind_of Float, j['composite']
     assert_includes REGIMES, j['regime']
 
-    assert_equal 7, j['modules'].size
+    assert_equal 8, j['modules'].size # M10-3: +positioning
     # the aggregator keys modules by FILENAME (the F-11 quirks stay module-local)
     assert_equal MODULES.keys.sort, j['modules'].map { |m| m['mod'] }.sort
     j['modules'].each do |m|
@@ -127,20 +140,41 @@ class TestScenarioContract < Minitest::Test
     end
   end
 
+  # M10-3: positioning enters at WEIGHT 0, so the composite must be
+  # byte-identical to the composite of the OTHER modules alone. This
+  # characterizes the invariant on the live fixture set: removing the
+  # weight-0 module cannot change the weighted mean (Golden Rule 4).
+  def test_aggregator_composite_unchanged_by_weight0_positioning
+    j = run_json('scripts/scenario/scenario.rb', '--json', env: FRED_ENV.merge(COINGLASS_ENV))
+    mods = j['modules']
+
+    pos = mods.find { |m| m['mod'] == 'positioning' }
+    assert pos, 'positioning module present'
+    assert_equal 0, pos['w'], 'positioning enters at weight 0'
+
+    recompute = lambda do |list|
+      wsum = list.sum { |m| m['w'] }
+      (list.sum { |m| m['w'] * m['score'] }.to_f / wsum).round(3) # scenario.rb rounds to 3
+    end
+    # composite matches the full weighted mean ...
+    assert_in_delta recompute.call(mods), j['composite'], 1e-9
+    # ... and the SAME value drops out when positioning is excluded.
+    assert_in_delta recompute.call(mods.reject { |m| m['mod'] == 'positioning' }),
+                    j['composite'], 1e-9
+  end
+
   # ---- M8-8: --history line data-integrity markers ---------------------
 
   # Run scenario.rb --history against an isolated data dir; return the
   # single appended JSONL line, parsed. +deny+ is the FAKE_HTTP_DENY value.
   def history_line(deny: nil)
     root = Dir.mktmpdir('mimir-scn-history')
-    env = FRED_ENV.merge('BTC_DATA_DIR' => root,
-                         # a real COINGLASS_API_KEY inherited from the shell
-                         # activates etf_flows' third fallback, whose host is
-                         # not in any deny list -- one live module un-blinds
-                         # the day and the blind/partial expectations flip
-                         # (found 2026-08-10: rake deploy pre-flight runs the
-                         # gate with the owner env sourced). nil = unset.
-                         'COINGLASS_API_KEY' => nil)
+    # positioning needs a Coinglass key to be healthy, so we pin a FAKE one
+    # (overriding any real key the shell sourced -- rake deploy pre-flight
+    # runs the gate with the owner env, found 2026-08-10). The blind test
+    # then denies the Coinglass host explicitly so etf_flows' keyed third
+    # fallback AND positioning both go down (see the deny list below).
+    env = FRED_ENV.merge('BTC_DATA_DIR' => root, **COINGLASS_ENV)
     env['FAKE_HTTP_DENY'] = deny if deny
     _, err, st = run_script('scripts/scenario/scenario.rb', '--json', '--history',
                             env: env)
@@ -166,7 +200,10 @@ class TestScenarioContract < Minitest::Test
   # Blind day: EVERY source denied -> every module fail-soft -> blind:true
   # (and no partial `unavailable` list).
   def test_history_line_blind_when_all_modules_unavailable
-    deny = %w[farside fapi.binance coinbase mempool coinmetrics llama.fi stlouisfed].join(',')
+    # coinglass denies BOTH etf_flows' keyed fallback and positioning's five
+    # endpoints, so with the fake key set every scored module fails soft.
+    deny = %w[farside fapi.binance coinbase mempool coinmetrics llama.fi
+              stlouisfed coinglass].join(',')
     line = history_line(deny: deny)
     assert_equal true, line['blind']
     refute line.key?('unavailable')
@@ -182,11 +219,12 @@ class TestScenarioContract < Minitest::Test
   end
 
   def test_aggregator_tmux_contract
-    _, err, st = run_script('scripts/scenario/scenario.rb', '--tmux', env: FRED_ENV)
+    _, err, st = run_script('scripts/scenario/scenario.rb', '--tmux',
+                            env: FRED_ENV.merge(COINGLASS_ENV))
     assert st.success?, err
     line = File.read('/tmp/scenario.status')
     assert_match(
-      /\ASCN (FLUSH|LEAN-FLUSH|NEUTRAL|BASE|RECOVERY) [+-]\d+\.\d\d etf[+-]\d fnd[+-]\d cbp[+-]\d mac[+-]\d hsh[+-]\d mvrv[+-]\d stb[+-]\d\n\z/,
+      /\ASCN (FLUSH|LEAN-FLUSH|NEUTRAL|BASE|RECOVERY) [+-]\d+\.\d\d etf[+-]\d fnd[+-]\d cbp[+-]\d mac[+-]\d hsh[+-]\d mvrv[+-]\d stb[+-]\d pos[+-]\d\n\z/,
       line
     )
   end
