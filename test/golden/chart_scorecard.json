@@ -1,0 +1,788 @@
+{
+  "backgroundColor": "transparent",
+  "title": {
+    "text": "Scorecard · fwd returns 7/30/90d · n_eff honest",
+    "textStyle": {
+      "fontSize": 13
+    }
+  },
+  "tooltip": {
+    "trigger": "axis",
+    "confine": true,
+    "textStyle": {
+      "fontSize": 11
+    },
+    "axisPointer": {
+      "type": "shadow"
+    }
+  },
+  "grid": [
+    {
+      "left": 10,
+      "right": 10,
+      "top": 34,
+      "bottom": 12
+    }
+  ],
+  "xAxis": [
+    {
+      "type": "value",
+      "min": 0,
+      "max": 1,
+      "show": false
+    }
+  ],
+  "yAxis": [
+    {
+      "type": "category",
+      "inverse": true,
+      "data": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "boundaryGap": true,
+      "axisLabel": {
+        "show": false
+      },
+      "axisLine": {
+        "show": false
+      },
+      "axisTick": {
+        "show": false
+      },
+      "splitLine": {
+        "show": false
+      }
+    }
+  ],
+  "series": [
+    {
+      "name": "header",
+      "type": "scatter",
+      "xAxisIndex": 0,
+      "yAxisIndex": 0,
+      "symbolSize": 0,
+      "silent": true,
+      "animation": false,
+      "data": [
+        {
+          "value": [
+            0.005,
+            0
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "signal",
+            "fontSize": 10,
+            "fontWeight": "normal",
+            "color": "#8a93a0"
+          }
+        },
+        {
+          "value": [
+            0.4,
+            0
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "7d",
+            "fontSize": 10,
+            "fontWeight": "normal",
+            "color": "#8a93a0"
+          }
+        },
+        {
+          "value": [
+            0.64,
+            0
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "30d",
+            "fontSize": 10,
+            "fontWeight": "normal",
+            "color": "#8a93a0"
+          }
+        },
+        {
+          "value": [
+            0.88,
+            0
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "90d",
+            "fontSize": 10,
+            "fontWeight": "normal",
+            "color": "#8a93a0"
+          }
+        }
+      ]
+    },
+    {
+      "name": "label",
+      "type": "scatter",
+      "xAxisIndex": 0,
+      "yAxisIndex": 0,
+      "symbolSize": 0,
+      "silent": true,
+      "animation": false,
+      "data": [
+        {
+          "value": [
+            0.005,
+            1
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "lppl_verdict",
+            "fontSize": 12,
+            "fontWeight": "bold",
+            "color": "#e6e9ec"
+          },
+          "hover": {
+            "title": "lppl_verdict",
+            "signal": "lppl_verdict",
+            "kind": "all",
+            "band": null,
+            "cells": {
+              "7": {
+                "eligible": true,
+                "n": 302,
+                "n_eff": 43.1,
+                "mean_pct": -1.41,
+                "pos_pct": 44.7
+              },
+              "30": {
+                "eligible": true,
+                "n": 279,
+                "n_eff": 9.3,
+                "mean_pct": -5.95,
+                "pos_pct": 43.4
+              },
+              "90": {
+                "eligible": true,
+                "n": 219,
+                "n_eff": 2.4,
+                "mean_pct": -16.08,
+                "pos_pct": 13.7
+              }
+            },
+            "note": "lppl_verdict ALL: the unconditional forward BTC return at each horizon -- the benchmark every band below is read against. Daily h-day returns overlap; n_eff = n/h is the honest count."
+          }
+        },
+        {
+          "value": [
+            0.005,
+            2
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "  STRESSED",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#8a93a0"
+          },
+          "hover": {
+            "title": "STRESSED",
+            "signal": "lppl_verdict",
+            "kind": "band",
+            "band": "STRESSED",
+            "cells": {
+              "7": {
+                "eligible": true,
+                "n": 302,
+                "n_eff": 43.1,
+                "mean_pct": -1.41,
+                "pos_pct": 44.7
+              },
+              "30": {
+                "eligible": true,
+                "n": 279,
+                "n_eff": 9.3,
+                "mean_pct": -5.95,
+                "pos_pct": 43.4
+              },
+              "90": {
+                "eligible": true,
+                "n": 219,
+                "n_eff": 2.4,
+                "mean_pct": -16.08,
+                "pos_pct": 13.7
+              }
+            },
+            "note": "lppl_verdict = STRESSED: forward BTC return on the days this signal read STRESSED, next to the ALL benchmark. Daily h-day returns overlap; n_eff = n/h is the honest count."
+          }
+        },
+        {
+          "value": [
+            0.005,
+            3
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "scenario_regime",
+            "fontSize": 12,
+            "fontWeight": "bold",
+            "color": "#e6e9ec"
+          },
+          "hover": {
+            "title": "scenario_regime",
+            "signal": "scenario_regime",
+            "kind": "all",
+            "band": null,
+            "cells": {
+              "7": {
+                "eligible": true,
+                "n": 31,
+                "n_eff": 4.4,
+                "mean_pct": 0.39,
+                "pos_pct": 61.3
+              },
+              "30": {
+                "eligible": false,
+                "reason": "n too small",
+                "n": 8
+              },
+              "90": {
+                "eligible": false,
+                "reason": "n too small",
+                "n": 0
+              }
+            },
+            "note": "scenario_regime ALL: the unconditional forward BTC return at each horizon -- the benchmark every band below is read against. Daily h-day returns overlap; n_eff = n/h is the honest count."
+          }
+        },
+        {
+          "value": [
+            0.005,
+            4
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "  BASE",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#8a93a0"
+          },
+          "hover": {
+            "title": "BASE",
+            "signal": "scenario_regime",
+            "kind": "band",
+            "band": "BASE",
+            "cells": {
+              "7": {
+                "eligible": true,
+                "n": 12,
+                "n_eff": 1.7,
+                "mean_pct": 1.2,
+                "pos_pct": 75.0
+              },
+              "30": {
+                "eligible": false,
+                "reason": "n too small",
+                "n": 8
+              },
+              "90": {
+                "eligible": false,
+                "reason": "n too small",
+                "n": 0
+              }
+            },
+            "note": "scenario_regime = BASE: forward BTC return on the days this signal read BASE, next to the ALL benchmark. Daily h-day returns overlap; n_eff = n/h is the honest count."
+          }
+        },
+        {
+          "value": [
+            0.005,
+            5
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "  NEUTRAL",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#8a93a0"
+          },
+          "hover": {
+            "title": "NEUTRAL",
+            "signal": "scenario_regime",
+            "kind": "band",
+            "band": "NEUTRAL",
+            "cells": {
+              "7": {
+                "eligible": true,
+                "n": 19,
+                "n_eff": 2.7,
+                "mean_pct": -0.3,
+                "pos_pct": 52.6
+              },
+              "30": {
+                "eligible": false,
+                "reason": "n too small",
+                "n": 8
+              },
+              "90": {
+                "eligible": false,
+                "reason": "n too small",
+                "n": 0
+              }
+            },
+            "note": "scenario_regime = NEUTRAL: forward BTC return on the days this signal read NEUTRAL, next to the ALL benchmark. Daily h-day returns overlap; n_eff = n/h is the honest count."
+          }
+        },
+        {
+          "value": [
+            0.005,
+            6
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "gex_gamma_sign",
+            "fontSize": 12,
+            "fontWeight": "bold",
+            "color": "#e6e9ec"
+          },
+          "hover": {
+            "title": "gex_gamma_sign",
+            "signal": "gex_gamma_sign",
+            "kind": "all",
+            "band": null,
+            "cells": {
+              "7": {
+                "eligible": false,
+                "reason": "n too small",
+                "n": 29
+              },
+              "30": {
+                "eligible": false,
+                "reason": "n too small",
+                "n": 6
+              },
+              "90": {
+                "eligible": false,
+                "reason": "n too small",
+                "n": 0
+              }
+            },
+            "note": "gex_gamma_sign ALL: the unconditional forward BTC return at each horizon -- the benchmark every band below is read against. Daily h-day returns overlap; n_eff = n/h is the honest count."
+          }
+        }
+      ]
+    },
+    {
+      "name": "cells",
+      "type": "scatter",
+      "xAxisIndex": 0,
+      "yAxisIndex": 0,
+      "symbolSize": 0,
+      "silent": true,
+      "animation": false,
+      "data": [
+        {
+          "value": [
+            0.4,
+            1
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "{m|-1.41%}\n{s|44.7% n302}",
+            "rich": {
+              "m": {
+                "color": "#ef6b6b",
+                "fontSize": 12,
+                "fontWeight": "bold",
+                "lineHeight": 15,
+                "align": "center"
+              },
+              "s": {
+                "color": "#8a93a0",
+                "fontSize": 9,
+                "lineHeight": 12,
+                "align": "center"
+              }
+            }
+          }
+        },
+        {
+          "value": [
+            0.64,
+            1
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "{m|-5.95%}\n{s|43.4% n279}",
+            "rich": {
+              "m": {
+                "color": "#ef6b6b",
+                "fontSize": 12,
+                "fontWeight": "bold",
+                "lineHeight": 15,
+                "align": "center"
+              },
+              "s": {
+                "color": "#8a93a0",
+                "fontSize": 9,
+                "lineHeight": 12,
+                "align": "center"
+              }
+            }
+          }
+        },
+        {
+          "value": [
+            0.88,
+            1
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "{m|-16.08%}\n{s|13.7% n219}",
+            "rich": {
+              "m": {
+                "color": "#ef6b6b",
+                "fontSize": 12,
+                "fontWeight": "bold",
+                "lineHeight": 15,
+                "align": "center"
+              },
+              "s": {
+                "color": "#8a93a0",
+                "fontSize": 9,
+                "lineHeight": 12,
+                "align": "center"
+              }
+            }
+          }
+        },
+        {
+          "value": [
+            0.4,
+            2
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "{m|-1.41%}\n{s|44.7% n302}",
+            "rich": {
+              "m": {
+                "color": "#ef6b6b",
+                "fontSize": 12,
+                "fontWeight": "bold",
+                "lineHeight": 15,
+                "align": "center"
+              },
+              "s": {
+                "color": "#8a93a0",
+                "fontSize": 9,
+                "lineHeight": 12,
+                "align": "center"
+              }
+            }
+          }
+        },
+        {
+          "value": [
+            0.64,
+            2
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "{m|-5.95%}\n{s|43.4% n279}",
+            "rich": {
+              "m": {
+                "color": "#ef6b6b",
+                "fontSize": 12,
+                "fontWeight": "bold",
+                "lineHeight": 15,
+                "align": "center"
+              },
+              "s": {
+                "color": "#8a93a0",
+                "fontSize": 9,
+                "lineHeight": 12,
+                "align": "center"
+              }
+            }
+          }
+        },
+        {
+          "value": [
+            0.88,
+            2
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "{m|-16.08%}\n{s|13.7% n219}",
+            "rich": {
+              "m": {
+                "color": "#ef6b6b",
+                "fontSize": 12,
+                "fontWeight": "bold",
+                "lineHeight": 15,
+                "align": "center"
+              },
+              "s": {
+                "color": "#8a93a0",
+                "fontSize": 9,
+                "lineHeight": 12,
+                "align": "center"
+              }
+            }
+          }
+        },
+        {
+          "value": [
+            0.4,
+            3
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "{m|+0.39%}\n{s|61.3% n31}",
+            "rich": {
+              "m": {
+                "color": "#2fbf8f",
+                "fontSize": 12,
+                "fontWeight": "bold",
+                "lineHeight": 15,
+                "align": "center"
+              },
+              "s": {
+                "color": "#8a93a0",
+                "fontSize": 9,
+                "lineHeight": 12,
+                "align": "center"
+              }
+            }
+          }
+        },
+        {
+          "value": [
+            0.64,
+            3
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "--",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#6b7178"
+          }
+        },
+        {
+          "value": [
+            0.88,
+            3
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "--",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#6b7178"
+          }
+        },
+        {
+          "value": [
+            0.4,
+            4
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "{m|+1.20%}\n{s|75.0% n12}",
+            "rich": {
+              "m": {
+                "color": "#2fbf8f",
+                "fontSize": 12,
+                "fontWeight": "bold",
+                "lineHeight": 15,
+                "align": "center"
+              },
+              "s": {
+                "color": "#8a93a0",
+                "fontSize": 9,
+                "lineHeight": 12,
+                "align": "center"
+              }
+            }
+          }
+        },
+        {
+          "value": [
+            0.64,
+            4
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "--",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#6b7178"
+          }
+        },
+        {
+          "value": [
+            0.88,
+            4
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "--",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#6b7178"
+          }
+        },
+        {
+          "value": [
+            0.4,
+            5
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "{m|-0.30%}\n{s|52.6% n19}",
+            "rich": {
+              "m": {
+                "color": "#ef6b6b",
+                "fontSize": 12,
+                "fontWeight": "bold",
+                "lineHeight": 15,
+                "align": "center"
+              },
+              "s": {
+                "color": "#8a93a0",
+                "fontSize": 9,
+                "lineHeight": 12,
+                "align": "center"
+              }
+            }
+          }
+        },
+        {
+          "value": [
+            0.64,
+            5
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "--",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#6b7178"
+          }
+        },
+        {
+          "value": [
+            0.88,
+            5
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "--",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#6b7178"
+          }
+        },
+        {
+          "value": [
+            0.4,
+            6
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "--",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#6b7178"
+          }
+        },
+        {
+          "value": [
+            0.64,
+            6
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "--",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#6b7178"
+          }
+        },
+        {
+          "value": [
+            0.88,
+            6
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "--",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#6b7178"
+          }
+        }
+      ]
+    }
+  ]
+}

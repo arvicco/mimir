@@ -39,8 +39,8 @@
 #   is attempted. Error text stays redacted (kv_client's pattern).
 # - STATUS (frozen --tmux contract): /tmp/publish.status carries
 #   `PUB DRY|LIVE <published>/<expected> keys HH:MM UTC` where
-#   expected = producers + tails + charts + 1 (the index) = n/26
-#   (11 producers + 2 tails + 13 charts + index). Pinned in the tests.
+#   expected = producers + tails + charts + 1 (the index) = n/29
+#   (12 producers + 2 tails + 14 charts + index). Pinned in the tests.
 #   ADDITIVE (M7-5, 2026-07-07 frozen-evidence incident): when a PUBLISHED
 #   tail's newest entry is older than STALE_EVIDENCE_H (30h), the line gains
 #   a trailing ` OLD:<key>[,<key>...]` marker (TAILS order), e.g.
@@ -89,7 +89,11 @@ module Publish
       ['vol:spread',      ['ruby', 'scripts/vol_spread.rb', '--json'],                 90,  1_800],
       ['basis:latest',    ['ruby', 'scripts/basis.rb', '--json'],                      60,  1_800],
       ['gex:trend',       ['ruby', 'scripts/gex_trend.rb', '--json'],                  30,  86_400],
-      ['gex:check',       ['ruby', 'scripts/gex_check.rb', '--json'],                  120, 1_800]
+      ['gex:check',       ['ruby', 'scripts/gex_check.rb', '--json'],                  120, 1_800],
+      # M10-7 (P-19): our own signals' forward-return track record, scored
+      # offline from the local ledgers by scripts/scorecard.rb (no network).
+      # Descriptive only -- report-only, changes no analytics semantics.
+      ['scorecard:latest', ['ruby', 'scripts/scorecard.rb', '--json'],                 60,  86_400]
     ].freeze
 
     # key, suite, in-tree default dir, filename, window_days, ttl_hint_s.
