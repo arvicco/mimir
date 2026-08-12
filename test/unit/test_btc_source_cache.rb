@@ -164,4 +164,51 @@ class TestBtcSourceCache < Minitest::Test
   def test_dir_honours_btc_data_dir_seam
     assert_equal File.join(@dir, 'source_cache'), BTC::SourceCache.dir
   end
+
+  # ---- ttl read-through (M10-1) ---------------------------------------
+
+  def test_ttl_fresh_hit_serves_cache_without_any_transport_call
+    transport
+    BTC::SourceCache.fetch_json('n', 'https://x/y', now: NOW) # seed
+
+    calls = transport # fresh transport records subsequent calls
+    later = NOW + 3600 # 1h < 2h ttl
+    r = BTC::SourceCache.fetch_json('n', 'https://x/y', now: later, ttl: 7200)
+    assert_empty calls, 'ttl-fresh hit must not touch the transport'
+    assert_equal false, r['stale'], 'fresh-by-policy, not a failure fallback'
+    assert_equal NOW.iso8601, r['as_of'], 'cached as_of carried through'
+    assert_equal 62_158.27, r['data']['result']['index_price']
+  end
+
+  def test_ttl_expired_refetches_and_rewrites_cache
+    transport(body: '{"result":{"index_price":1.0}}')
+    BTC::SourceCache.fetch_json('n', 'https://x/y', now: NOW) # seed old value
+
+    calls = transport(body: BODY)
+    later = NOW + 7200 # exactly at ttl -> NOT < ttl -> refetch
+    r = BTC::SourceCache.fetch_json('n', 'https://x/y', now: later, ttl: 7200)
+    refute_empty calls, 'expired ttl must refetch'
+    assert_equal false, r['stale']
+    assert_equal later.iso8601, r['as_of']
+    assert_equal 62_158.27, r['data']['result']['index_price']
+    disk = JSON.parse(File.read(cache_file('n')))
+    assert_equal later.iso8601, disk['fetched_at'], 'cache rewritten on refetch'
+  end
+
+  def test_ttl_nil_default_refetches_even_when_cache_is_fresh
+    # characterization: default behavior (ttl nil) always live-fetches.
+    transport
+    BTC::SourceCache.fetch_json('n', 'https://x/y', now: NOW) # seed
+    calls = transport
+    r = BTC::SourceCache.fetch_json('n', 'https://x/y', now: NOW + 1)
+    refute_empty calls, 'ttl nil must always hit the transport'
+    assert_equal false, r['stale']
+  end
+
+  def test_ttl_with_no_cache_falls_through_to_live_fetch
+    calls = transport
+    r = BTC::SourceCache.fetch_json('never_seen', 'https://x/y', now: NOW, ttl: 7200)
+    refute_empty calls, 'absent cache -> live fetch even with ttl'
+    assert_equal false, r['stale']
+  end
 end
