@@ -19,6 +19,14 @@
 #   ruby positioning.rb --history  # append one row per UTC day to
 #                                  #   <data>/positioning/history.jsonl
 #
+# --json ADDITIVE `series` (M10-4, for v1:chart:positioning): a `series`
+# object carrying trailing 120 daily [date, value] points of six card
+# metrics, each scaled at build time to the unit a human reads (design
+# ruling): oi_close in $B (1dp), global_ls / top_ls ratios (2dp), taker_buy
+# BUY-share in % (1dp), long_liq / short_liq in $M (1dp). A day with no
+# usable input for a metric is an OMITTED point (never a spurious zero).
+# --json only -- the human table stays the five band rows.
+#
 # SEMANTICS (D10-b, FIXED)
 #   Five daily sub-signals, one Coinglass endpoint each (interval 1d).
 #   BAND = today's value placed in the trailing-90-day distribution of its
@@ -75,6 +83,7 @@ module Positioning
   WINDOW = 90         # trailing daily values that define the distribution
   TTL    = 86_400     # 24h source-cache freshness -- one API hit per day
   HI, LO = 80.0, 20.0 # percentile cutoffs (inclusive to the extreme band)
+  SERIES_TAIL = 120   # trailing daily points published to the card (M10-4)
 
   # Linear rank of `value` among `window`: the share of window values
   # STRICTLY BELOW it, in percent (0..100).
@@ -172,19 +181,68 @@ module Positioning
     err.is_a?(BTC::Coinglass::TierGated) ? 'tier-gated' : err.message
   end
 
+  # ---- card series (M10-4): trailing daily [date, value] points ---------
+
+  # UTC calendar date (YYYY-MM-DD) of a row's ms-epoch 'time'.
+  def row_date(row)
+    Time.at(row['time'].to_i / 1000).utc.strftime('%Y-%m-%d')
+  end
+
+  # Trailing-SERIES_TAIL [date, value] pairs for +rows+ (chronological),
+  # value produced by the block; a block returning nil DROPS that point (a
+  # missing day is a gap, never a spurious zero). Empty rows -> [].
+  def date_series(rows)
+    by_time(rows).last(SERIES_TAIL).filter_map do |r|
+      v = yield(r)
+      [row_date(r), v] unless v.nil?
+    end
+  end
+
+  # Taker BUY share as a percent (buy / (buy+sell) * 100, 1dp), or nil when
+  # the day carries no taker volume (a gap, never a false 0/50).
+  def taker_buy_pct(row)
+    buy   = row['taker_buy_volume_usd'].to_f
+    sell  = row['taker_sell_volume_usd'].to_f
+    total = buy + sell
+    return nil unless total.positive?
+
+    (buy / total * 100).round(1)
+  end
+
+  # The six card series, each scaled to its human unit at build time (design
+  # ruling): OI in $B (1dp), the two L/S ratios (2dp), taker BUY-share in %
+  # (1dp), long/short liquidations in $M (1dp).
+  def build_series(global, top, oi, taker, liq)
+    { 'oi_close'  => date_series(oi)     { |r| (r['close'].to_f / 1e9).round(1) },
+      'global_ls' => date_series(global) { |r| r['global_account_long_short_ratio'].to_f.round(2) },
+      'top_ls'    => date_series(top)    { |r| r['top_position_long_short_ratio'].to_f.round(2) },
+      'taker_buy' => date_series(taker)  { |r| taker_buy_pct(r) },
+      'long_liq'  => date_series(liq)    { |r| (r['aggregated_long_liquidation_usd'].to_f / 1e6).round(1) },
+      'short_liq' => date_series(liq)    { |r| (r['aggregated_short_liquidation_usd'].to_f / 1e6).round(1) } }
+  end
+
   # Fetch every sub-signal series through the 24h-cached Coinglass wrappers
-  # and compute the five bands + score. Returns the structured result;
-  # raises on any Coinglass/transport error for the caller to fail soft.
+  # and compute the five bands + score + the card series. Returns the
+  # structured result; raises on any Coinglass/transport error for the
+  # caller to fail soft. Rows are fetched ONCE and shared by the band and
+  # series computations (no double hit).
   def compute
-    crowding    = crowding_band(BTC::Coinglass.global_long_short_ratio(cache: 'cg_global_ls', ttl: TTL))
-    top_traders = top_traders_band(BTC::Coinglass.top_position_ratio(cache: 'cg_top_position', ttl: TTL))
-    oi_7d       = oi7d_band(BTC::Coinglass.oi_aggregated_history(cache: 'cg_oi_aggregated', ttl: TTL))
-    taker_bias  = taker_bias_band(BTC::Coinglass.taker_buy_sell_history(cache: 'cg_taker_volume', ttl: TTL))
-    liq_skew    = liq_skew_band(BTC::Coinglass.liquidation_history(cache: 'cg_liquidation', ttl: TTL))
+    global = BTC::Coinglass.global_long_short_ratio(cache: 'cg_global_ls', ttl: TTL)
+    top    = BTC::Coinglass.top_position_ratio(cache: 'cg_top_position', ttl: TTL)
+    oi     = BTC::Coinglass.oi_aggregated_history(cache: 'cg_oi_aggregated', ttl: TTL)
+    taker  = BTC::Coinglass.taker_buy_sell_history(cache: 'cg_taker_volume', ttl: TTL)
+    liq    = BTC::Coinglass.liquidation_history(cache: 'cg_liquidation', ttl: TTL)
+
+    crowding    = crowding_band(global)
+    top_traders = top_traders_band(top)
+    oi_7d       = oi7d_band(oi)
+    taker_bias  = taker_bias_band(taker)
+    liq_skew    = liq_skew_band(liq)
 
     subs = { 'crowding' => crowding, 'top_traders' => top_traders, 'oi_7d' => oi_7d,
              'taker_bias' => taker_bias, 'liq_skew' => liq_skew }
-    { subs: subs, score: score(crowding[0], oi_7d[0], liq_skew[0]) }
+    { subs: subs, score: score(crowding[0], oi_7d[0], liq_skew[0]),
+      series: build_series(global, top, oi, taker, liq) }
   end
 
   # ---- daily history: append one row per UTC day ----------------------
@@ -235,7 +293,10 @@ module Positioning
                       result[:score], bands['crowding'], bands['top_traders'],
                       bands['oi_7d'], bands['taker_bias'], bands['liq_skew'])
 
-    Scenario.report(NAME, result[:score], headline, bands)
+    # M10-4: the card series ride the --json output only; the human table
+    # stays the five band rows (a series dump would swamp it).
+    detail = ARGV.include?('--json') ? bands.merge('series' => result[:series]) : bands
+    Scenario.report(NAME, result[:score], headline, detail)
   end
 end
 

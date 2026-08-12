@@ -931,7 +931,8 @@ var CARD_ORDER = ["chart:gex_btc", "chart:gex_mstr", "chart:gex_btc_trend",
                   "chart:gex_mstr_trend",
                   "chart:vol_surface", "chart:vol_surface_mstr", "chart:vol_basis",
                   "chart:vol_spread", "chart:vol_spread_trend",
-                  "chart:scenario_strip", "chart:lppl_regime", "chart:lppl_shadow",
+                  "chart:scenario_strip", "chart:positioning",
+                  "chart:lppl_regime", "chart:lppl_shadow",
                   "chart:scorecard", "chart:btco_table"];
 function cardRank(key) {
   var i = CARD_ORDER.indexOf(key);
@@ -1079,7 +1080,7 @@ function forgetGroup(groupId) {
 // rev: bump on EVERY render.js change; `MimirRender.rev` in the console
 // answers "which renderer is this tab actually running?" after deploys.
 window.MimirRender = {
-  rev: "m10-7-scorecard",
+  rev: "m10-4-positioning",
   staleClass: staleClass,
   hhmm: hhmm,
   liveHeader: liveHeader,
