@@ -9,6 +9,11 @@
 #   BTC::Coinglass.option_info                       # per-exchange option OI
 #   BTC::Coinglass.max_pain(exchange: 'Deribit')     # per-expiry max pain
 #   BTC::Coinglass.funding_oi_history(interval: '8h')# OI-weighted funding OHLC
+#   BTC::Coinglass.oi_aggregated_history             # aggregated OI OHLC (1d)
+#   BTC::Coinglass.global_long_short_ratio           # retail account L/S ratio
+#   BTC::Coinglass.top_position_ratio                # top-trader position L/S
+#   BTC::Coinglass.taker_buy_sell_history            # taker buy/sell volume
+#   BTC::Coinglass.liquidation_history               # aggregated liquidations
 #   BTC::Coinglass.get('option/info', { symbol: 'BTC' },
 #                      cache: 'cg_option_info', ttl: 86_400) # cached, 24h
 #
@@ -34,9 +39,22 @@
 #   cached bodies too.
 #
 # CAVEATS
-#   Our tier was probed 2026-07-08..10 (.docs/DEV-PROPOSALS.md): these
-#   three endpoints are confirmed served. max-pain REQUIRES the exchange
-#   param ('Required String parameter' 400 otherwise).
+#   Our tier was probed 2026-07-08..10 (.docs/DEV-PROPOSALS.md): the
+#   option/funding endpoints are confirmed served. max-pain REQUIRES the
+#   exchange param ('Required String parameter' 400 otherwise).
+#
+#   P-6 crowd-positioning family (M10-2, probed 2026-07-12; recorded
+#   2026-08-12). All paginate by interval; we pin interval: '1d' as the
+#   tier-safe cadence (our bi-hourly publish loop reads a daily series).
+#   REQUIRED params discovered by probe -- omitting them 400s:
+#     * global-long-short-account-ratio/history and
+#       top-long-short-position-ratio/history REQUIRE exchange=Binance
+#       AND symbol=BTCUSDT (these are per-exchange perpetual series, not
+#       the aggregated BTC symbol the OI/option endpoints take).
+#     * liquidation/aggregated-history REQUIRES exchange_list ('Required
+#       String parameter' 400 without) -- we pass Binance,OKX,Bybit.
+#   Wrappers stay UNCACHED by default (cache: nil); the M10-3 caller owns
+#   the caching decision, as with the option/funding wrappers above.
 
 require 'json'
 require_relative 'http'
@@ -110,6 +128,48 @@ module BTC
     # time (ms), open/high/low/close (rate fractions per interval).
     def funding_oi_history(symbol: 'BTC', interval: '8h')
       get('futures/funding-rate/oi-weight-history', { symbol: symbol, interval: interval })
+    end
+
+    # ---- P-6 crowd-positioning family (M10-2) ---------------------------
+    # All daily (interval: '1d', our tier-safe cadence). Braced params so
+    # they land in get's `params`, not its cache:/ttl: keywords (M10-1).
+
+    # Aggregated futures open-interest OHLC history (all exchanges). Rows
+    # carry time (ms) + open/high/low/close OI (USD notional).
+    def oi_aggregated_history(symbol: 'BTC', interval: '1d')
+      get('futures/open-interest/aggregated-history', { symbol: symbol, interval: interval })
+    end
+
+    # Global (retail) long/short ACCOUNT ratio history. Per-exchange
+    # perpetual series -- REQUIRES exchange + symbol (BTCUSDT), 400s
+    # otherwise. Rows carry time + long/short account % and their ratio.
+    def global_long_short_ratio(exchange: 'Binance', symbol: 'BTCUSDT', interval: '1d')
+      get('futures/global-long-short-account-ratio/history',
+          { exchange: exchange, symbol: symbol, interval: interval })
+    end
+
+    # Top-trader long/short POSITION ratio history. Same required params
+    # as the global ratio (exchange + BTCUSDT). Rows carry time + long/
+    # short position % and their ratio -- the "smart money" counterpart.
+    def top_position_ratio(exchange: 'Binance', symbol: 'BTCUSDT', interval: '1d')
+      get('futures/top-long-short-position-ratio/history',
+          { exchange: exchange, symbol: symbol, interval: interval })
+    end
+
+    # Taker buy/sell volume history. Rows carry time + taker buy / taker
+    # sell volume, whose imbalance reads aggressive flow direction.
+    def taker_buy_sell_history(exchange: 'Binance', symbol: 'BTCUSDT', interval: '1d')
+      get('futures/taker-buy-sell-volume/history',
+          { exchange: exchange, symbol: symbol, interval: interval })
+    end
+
+    # Aggregated liquidation history. REQUIRES exchange_list ('Required
+    # String parameter' 400 without); we pass the top-3 venues. Rows
+    # carry time + aggregated long/short liquidation USD.
+    def liquidation_history(symbol: 'BTC', interval: '1d',
+                            exchange_list: 'Binance,OKX,Bybit')
+      get('futures/liquidation/aggregated-history',
+          { symbol: symbol, interval: interval, exchange_list: exchange_list })
     end
   end
 end

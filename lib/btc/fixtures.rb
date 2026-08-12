@@ -64,6 +64,32 @@ module BTC
       raise 'fewer than 12 parseable farside rows on the whole page'
     end
 
+    # M10-2 P-6 crowd-positioning family: one recorded fixture per probed
+    # BTC::Coinglass wrapper. Envelope {code, data}; trim keeps code + the
+    # last `keep` daily rows verbatim (all fields preserved -- the M10-3
+    # caller's field list is not frozen yet, so we do not slim columns).
+    # `check` asserts the load-bearing row shape M10-3 will consume.
+    cg = lambda do |file, path, params, keep, row_field, label|
+      { file: file, env: 'COINGLASS_API_KEY',
+        url: "https://open-api-v4.coinglass.com/api/#{path}?#{params}",
+        headers: -> { { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] } },
+        trim: lambda { |b|
+          j = JSON.parse(b)
+          JSON.generate('code' => j['code'], 'data' => j['data'].to_a.last(keep))
+        },
+        stat: lambda { |b|
+          data = JSON.parse(b)['data'].to_a
+          raise "only #{data.size} rows (need >= 5)" if data.size < 5
+          raise "row missing time field" unless data.last.key?('time')
+          raise "row missing #{row_field}" unless data.last.key?(row_field)
+
+          span = [data.first['time'].to_i, data.last['time'].to_i].map do |ms|
+            Time.at(ms / 1000).utc.strftime('%d %b %Y')
+          end
+          format('%s: %d rows, %s..%s', label, data.size, span[0], span[1])
+        } }
+    end
+
     fred = lambda do |series, limit, keep|
       { file: "fred_#{series.downcase}.json", env: 'FRED_API_KEY',
         url: -> { "https://api.stlouisfed.org/fred/series/observations?series_id=#{series}&api_key=#{ENV['FRED_API_KEY']}&file_type=json&sort_order=desc&limit=#{limit}" },
@@ -266,6 +292,17 @@ module BTC
           last = Time.at(data.last['timestamp'].to_i / 1000).utc
           format('%d rows, last %s', data.size, last.strftime('%d %b %Y'))
         } },
+      cg.call('coinglass_oi_aggregated.json', 'futures/open-interest/aggregated-history',
+              'symbol=BTC&interval=1d', 10, 'close', 'OI'),
+      cg.call('coinglass_global_ls_ratio.json', 'futures/global-long-short-account-ratio/history',
+              'exchange=Binance&symbol=BTCUSDT&interval=1d', 10, 'global_account_long_short_ratio', 'global L/S'),
+      cg.call('coinglass_top_position_ratio.json', 'futures/top-long-short-position-ratio/history',
+              'exchange=Binance&symbol=BTCUSDT&interval=1d', 10, 'top_position_long_short_ratio', 'top pos'),
+      cg.call('coinglass_taker_volume.json', 'futures/taker-buy-sell-volume/history',
+              'exchange=Binance&symbol=BTCUSDT&interval=1d', 10, 'taker_buy_volume_usd', 'taker'),
+      cg.call('coinglass_liquidation.json', 'futures/liquidation/aggregated-history',
+              'symbol=BTC&interval=1d&exchange_list=Binance,OKX,Bybit', 10,
+              'aggregated_long_liquidation_usd', 'liq'),
       { file: 'frankfurter_fx.json',
         url: 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=JPY',
         stat: lambda { |b|
@@ -315,9 +352,16 @@ module BTC
 
     # Record every fixture into dir. Returns [[file, :ok|:skip|:fail, note]].
     # All HTTP goes through BTC::Http, so tests inject a fake transport.
-    def record_all(dir)
+    #
+    # `only:` (array of file-name substrings, from `rake fixtures:record
+    # SOURCES=...`) records just the matching fixtures -- an additive
+    # filter (M10-2) so a new source can be recorded without re-hitting
+    # every upstream. A filtered run leaves README.md untouched (the
+    # curated provenance is hand-maintained); a full run regenerates it.
+    def record_all(dir, only: nil)
       FileUtils.mkdir_p(dir)
-      results = FIXTURES.map do |f|
+      selected = only ? FIXTURES.select { |f| only.any? { |t| f[:file].include?(t) } } : FIXTURES
+      results = selected.map do |f|
         if f[:env] && ENV[f[:env]].to_s.empty?
           [f[:file], :skip, "#{f[:env]} not set"]
         else
@@ -331,7 +375,7 @@ module BTC
           end
         end
       end
-      write_readme(dir, results)
+      write_readme(dir, results) if only.nil?
       results
     end
 
