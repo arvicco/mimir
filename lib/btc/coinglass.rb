@@ -134,42 +134,52 @@ module BTC
     # All daily (interval: '1d', our tier-safe cadence). Braced params so
     # they land in get's `params`, not its cache:/ttl: keywords (M10-1).
 
+    # Each wrapper forwards optional cache:/ttl: to get() so the M10-3
+    # caller owns the caching decision (default cache: nil = uncached, as
+    # before); the SourceCache seam then serves these daily series at most
+    # once per ttl on the bi-hourly publish loop.
+
     # Aggregated futures open-interest OHLC history (all exchanges). Rows
     # carry time (ms) + open/high/low/close OI (USD notional).
-    def oi_aggregated_history(symbol: 'BTC', interval: '1d')
-      get('futures/open-interest/aggregated-history', { symbol: symbol, interval: interval })
+    def oi_aggregated_history(symbol: 'BTC', interval: '1d', cache: nil, ttl: nil)
+      get('futures/open-interest/aggregated-history',
+          { symbol: symbol, interval: interval }, cache: cache, ttl: ttl)
     end
 
     # Global (retail) long/short ACCOUNT ratio history. Per-exchange
     # perpetual series -- REQUIRES exchange + symbol (BTCUSDT), 400s
     # otherwise. Rows carry time + long/short account % and their ratio.
-    def global_long_short_ratio(exchange: 'Binance', symbol: 'BTCUSDT', interval: '1d')
+    def global_long_short_ratio(exchange: 'Binance', symbol: 'BTCUSDT', interval: '1d',
+                                cache: nil, ttl: nil)
       get('futures/global-long-short-account-ratio/history',
-          { exchange: exchange, symbol: symbol, interval: interval })
+          { exchange: exchange, symbol: symbol, interval: interval }, cache: cache, ttl: ttl)
     end
 
     # Top-trader long/short POSITION ratio history. Same required params
     # as the global ratio (exchange + BTCUSDT). Rows carry time + long/
     # short position % and their ratio -- the "smart money" counterpart.
-    def top_position_ratio(exchange: 'Binance', symbol: 'BTCUSDT', interval: '1d')
+    def top_position_ratio(exchange: 'Binance', symbol: 'BTCUSDT', interval: '1d',
+                           cache: nil, ttl: nil)
       get('futures/top-long-short-position-ratio/history',
-          { exchange: exchange, symbol: symbol, interval: interval })
+          { exchange: exchange, symbol: symbol, interval: interval }, cache: cache, ttl: ttl)
     end
 
     # Taker buy/sell volume history. Rows carry time + taker buy / taker
     # sell volume, whose imbalance reads aggressive flow direction.
-    def taker_buy_sell_history(exchange: 'Binance', symbol: 'BTCUSDT', interval: '1d')
+    def taker_buy_sell_history(exchange: 'Binance', symbol: 'BTCUSDT', interval: '1d',
+                               cache: nil, ttl: nil)
       get('futures/taker-buy-sell-volume/history',
-          { exchange: exchange, symbol: symbol, interval: interval })
+          { exchange: exchange, symbol: symbol, interval: interval }, cache: cache, ttl: ttl)
     end
 
     # Aggregated liquidation history. REQUIRES exchange_list ('Required
     # String parameter' 400 without); we pass the top-3 venues. Rows
     # carry time + aggregated long/short liquidation USD.
     def liquidation_history(symbol: 'BTC', interval: '1d',
-                            exchange_list: 'Binance,OKX,Bybit')
+                            exchange_list: 'Binance,OKX,Bybit', cache: nil, ttl: nil)
       get('futures/liquidation/aggregated-history',
-          { symbol: symbol, interval: interval, exchange_list: exchange_list })
+          { symbol: symbol, interval: interval, exchange_list: exchange_list },
+          cache: cache, ttl: ttl)
     end
   end
 end
