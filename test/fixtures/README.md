@@ -54,3 +54,13 @@ owner-run `rake fixtures:record` pass if recorder entries get added):
 - `coinglass_max_pain.json` -- OK (https://open-api-v4.coinglass.com/api/option/max-pain?symbol=BTC&exchange=Deribit -- trimmed to the first 4 expiry rows; NOTE the endpoint 400s without the exchange param)
 - `coinglass_funding_oi.json` -- OK (https://open-api-v4.coinglass.com/api/futures/funding-rate/oi-weight-history?symbol=BTC&interval=8h -- trimmed to the last 30 OHLC rows)
 - `cboe_options_mstr.json` -- OK (https://cdn.cboe.com/api/global/delayed_quotes/options/MSTR.json -- trimmed to 48 live rows: iv>0, oi>0, 16 nearest-ATM strikes across the 3 weekly expiries strictly after the recording day, spot 94.66)
+
+`scorecard/` (M10-6, SYNTHETIC -- generated deterministically, not
+recorded upstream): fixture ledgers for the scripts/scorecard.rb --json
+contract test. Shaped exactly like the real ledgers; sized so h7/h30
+cells are eligible and h90 is span-ineligible (both cell shapes pinned).
+
+- `scorecard/prices.csv` -- daily `date,close` closes 2026-05-01..2026-10-15 (alternating +/- moves; the join reference)
+- `scorecard/lppl_ledger.jsonl` -- 71 rows / 70 UTC days 2026-05-01..2026-07-09 (one duplicate day exercises dedup-to-last); verdict + trend/envelope/fit/logperiodic/percentile scores
+- `scorecard/scenario_history.jsonl` -- 70 daily rows, regime + 7 module scores (etf_flows/funding_basis/cb_premium/macro/hash_ribbons/onchain_value/stables)
+- `scorecard/gex_history/` -- 12 daily BTC-combined snapshot files (btc_spot + combined.gamma_flip); span 11d keeps gex cells ineligible
