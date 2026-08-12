@@ -16,6 +16,9 @@
 #   r['as_of'] -> iso8601 of when THAT data was fetched (cache time if stale)
 #   r['stale'] -> false on a live fetch, true when served from cache
 #   # a fetch failure with no usable cache re-raises the ORIGINAL error
+#   r = BTC::SourceCache.fetch_json('cg_x', url, ttl: 86_400)
+#   # ttl: skips the network entirely while the cache is younger than ttl
+#   # (fresh-by-policy, stale=false) -- for data slower than the loop
 #
 # Cache layout: one file per sanitized source name under the cache dir
 # ($BTC_DATA_DIR/source_cache when set, else <repo>/data/source_cache),
@@ -65,8 +68,24 @@ module BTC
     # return the fresh data. On ANY fetch/parse error: serve the last-good
     # cache when present and within max_stale_s (stale=true), else re-raise
     # the ORIGINAL error unchanged. Never caches an error.
+    #
+    # ttl: (seconds, default nil) is a fresh-by-policy short-circuit for
+    # data whose upstream cadence is slower than the caller's loop -- when
+    # given and the cache is younger than ttl, the cached entry is returned
+    # WITHOUT any network call, stale=false (it is fresh by policy, not a
+    # failure fallback). Older-than-ttl / absent / ttl nil all fall through
+    # to the live-fetch-with-last-good-fallback path unchanged, so the
+    # default (nil) is byte-identical to the pre-M10-1 behavior.
     def fetch_json(name, url, headers = {}, max_stale_s: MAX_STALE_S,
-                   read_timeout: 20, now: Time.now.utc)
+                   read_timeout: 20, now: Time.now.utc, ttl: nil)
+      if ttl
+        cached = read(name)
+        if cached && (now - cached[:fetched_at]) < ttl
+          return { 'data' => cached[:data], 'as_of' => cached[:fetched_at].iso8601,
+                   'stale' => false }
+        end
+      end
+
       data = BTC::Http.get_json(url, headers, read_timeout: read_timeout)
       write(name, url, data, now)
       { 'data' => data, 'as_of' => now.iso8601, 'stale' => false }
