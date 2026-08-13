@@ -300,10 +300,11 @@ static dashboard renders the pre-built chart specs.
   dot ticks up second-by-second and recolours green/amber/red from each
   envelope's `generated_at`/`ttl_hint_s`), a healthz-aware failure banner,
   the chart cards in a three-row grid (row 1 GEX / Volatility /
-  IV-spread, row 2 Scenario / Positioning / LPPL, row 3 Scorecard /
-  BTCo; the GEX card is [BTC][MSTR][BTC TREND][MSTR TREND] tabs, the
-  LPPL card [LPPL][SHADOW], volatility is a surface+basis card), and
-  the BTCo sortable table. The staleness badges are dot-only
+  IV-spread, row 2 Scenario / Positioning / LPPL, row 3 BTCo; the
+  GEX card is [BTC][MSTR][BTC TREND][MSTR TREND] tabs, the scenario
+  card [SCENARIO][SCORES] -- the signal scorecard rides the card it
+  audits -- the LPPL card [LPPL][SHADOW], volatility is a
+  surface+basis card), and the BTCo sortable table. The staleness badges are dot-only
   (hover a dot for its key and last publish time); legend terms (CW/PW,
   ATM IV, RR25) and the scenario module names carry the same hover
   glossary explanations.
