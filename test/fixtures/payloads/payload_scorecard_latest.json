@@ -1,0 +1,53 @@
+{
+  "generated_at": "2026-08-12T12:00:00Z",
+  "horizons": [
+    7,
+    30,
+    90
+  ],
+  "signals": {
+    "lppl_verdict": {
+      "ledger": { "rows": 302, "from": "2025-10-06", "to": "2026-08-11" },
+      "horizons": {
+        "7": {
+          "n": 302, "n_eff": 43.1, "eligible": true,
+          "all": { "n": 302, "mean_pct": -1.41, "pos_pct": 44.7 },
+          "bands": { "STRESSED": { "n": 302, "mean_pct": -1.41, "pos_pct": 44.7 } }
+        },
+        "30": {
+          "n": 279, "n_eff": 9.3, "eligible": true,
+          "all": { "n": 279, "mean_pct": -5.95, "pos_pct": 43.4 },
+          "bands": { "STRESSED": { "n": 279, "mean_pct": -5.95, "pos_pct": 43.4 } }
+        },
+        "90": {
+          "n": 219, "n_eff": 2.4, "eligible": true,
+          "all": { "n": 219, "mean_pct": -16.08, "pos_pct": 13.7 },
+          "bands": { "STRESSED": { "n": 219, "mean_pct": -16.08, "pos_pct": 13.7 } }
+        }
+      }
+    },
+    "scenario_regime": {
+      "ledger": { "rows": 31, "from": "2026-07-04", "to": "2026-08-11" },
+      "horizons": {
+        "7": {
+          "n": 31, "n_eff": 4.4, "eligible": true,
+          "all": { "n": 31, "mean_pct": 0.39, "pos_pct": 61.3 },
+          "bands": {
+            "BASE": { "n": 12, "mean_pct": 1.2, "pos_pct": 75.0 },
+            "NEUTRAL": { "n": 19, "mean_pct": -0.3, "pos_pct": 52.6 }
+          }
+        },
+        "30": { "n": 8, "eligible": false, "reason": "n too small" },
+        "90": { "n": 0, "eligible": false, "reason": "n too small" }
+      }
+    },
+    "gex_gamma_sign": {
+      "ledger": { "rows": 29, "from": "2026-07-06", "to": "2026-08-11" },
+      "horizons": {
+        "7": { "n": 29, "eligible": false, "reason": "n too small" },
+        "30": { "n": 6, "eligible": false, "reason": "n too small" },
+        "90": { "n": 0, "eligible": false, "reason": "n too small" }
+      }
+    }
+  }
+}

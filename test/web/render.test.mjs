@@ -429,3 +429,40 @@ test('the lppl_shadow formatter tooltip carries dark house chrome (contrast regr
   assert.equal(tip.backgroundColor, '#232933', 'dark bubble background');
   assert.equal(tip.textStyle.color, '#ccd3dc', 'light text on dark');
 });
+
+// ---- M10-7: the scorecard_row per-row hover formatter --------------------
+// Axis trigger hands every column datum at the hovered row; the row-label
+// datum carries a `hover` block and the formatter renders it. It also earns
+// the same dark house chrome as lppl_shadow (its block is light-on-dark).
+
+test('scorecard_row renders per-horizon lines, colours by sign, keeps ineligible honest', () => {
+  const { R } = loadRender();
+  const fmt = R.FORMATTERS.scorecard_row;
+  const hover = { title: 'scenario_regime', kind: 'band', band: 'BASE',
+    note: 'plain <language> note',
+    cells: {
+      7: { eligible: true, n: 12, n_eff: 1.7, mean_pct: 1.2, pos_pct: 75.0 },
+      30: { eligible: true, n: 40, n_eff: 1.3, mean_pct: -5.95, pos_pct: 43.4 },
+      90: { eligible: false, reason: 'n too small', n: 0 }
+    } };
+  const html = fmt([{ data: { label: {} } }, { data: { hover: hover } }]);
+  assert.match(html, /<b>scenario_regime<\/b>/);
+  assert.match(html, /7d: <span style="color:#2fbf8f">\+1\.2%<\/span>/, 'positive mean is teal, signed');
+  assert.match(html, /30d: <span style="color:#ef6b6b">-5\.95%<\/span>/, 'negative mean is red');
+  assert.match(html, /90d: <span style="color:#8a93a0">-- n too small \(n0\)<\/span>/, 'ineligible reads honest');
+  assert.match(html, /n_eff 1\.7/, 'the honest overlap-adjusted count rides the hover');
+  assert.match(html, /plain &lt;language&gt; note/, 'the note is escaped, not raw HTML');
+  assert.equal(fmt([{ data: {} }]), '', 'no hover datum -> empty (e.g. the header row)');
+});
+
+test('the scorecard_row formatter tooltip carries dark house chrome (contrast regression)', () => {
+  const { R, echarts } = loadRender();
+  const e = env('chart:scorecard', '2026-08-12T12:00:00Z',
+    { desc: 'd', axes: { x: 'x', y: 'y' }, help: 'h', tooltip_formatter: 'scorecard_row' },
+    [{ name: 'label' }]);
+  R.buildChartCard(e, 'chart:scorecard');
+  const inst = echarts.instances[echarts.instances.length - 1];
+  const tip = inst._opts.map((o) => o.tooltip).filter(Boolean).pop();
+  assert.equal(tip.backgroundColor, '#232933', 'dark bubble background');
+  assert.equal(tip.textStyle.color, '#ccd3dc', 'light text on dark');
+});

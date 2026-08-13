@@ -1,0 +1,1 @@
+{"date":"2026-05-01","captured_at":"2026-05-01T06:15:05Z","btc_combined":{"ts":"2026-05-01T06:15:06Z","btc_spot":60000.0,"combined":{"net_gex_usd_per_1pct":1000000,"regime":"long_gamma","gamma_flip":60500.0,"call_wall":{"level":62000,"gex":1},"put_wall":{"level":59000,"gex":-1},"put_call_oi_btc":0.6,"instruments":4000}},"us":[],"errors":{}}

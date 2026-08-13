@@ -137,6 +137,21 @@ module Publish
                    'into BTC. +1 growing, -1 shrinking.'
     }.freeze
 
+    # positioning card (M10-4): the panel-2 crowd-ratio legend items each
+    # explain themselves -- what the global (retail) ACCOUNT ratio measures
+    # vs the top-trader POSITION ratio vs the aggressive taker BUY-share.
+    POSITIONING_TERMS = {
+      'global L/S' => 'The global (retail) long/short ACCOUNT ratio on Binance ' \
+                      'BTCUSDT perps: how many accounts are net long vs net short. ' \
+                      'Above 1 = the crowd leans long; extremes are contrarian fuel.',
+      'top L/S' => 'The top-trader long/short POSITION ratio (Binance BTCUSDT ' \
+                   'perps): the "smart money" counterpart, weighted by position ' \
+                   'size rather than account count -- watch it diverge from the crowd.',
+      'taker buy%' => 'The share of aggressive taker volume that hit the BUY side ' \
+                      '(buy / (buy + sell)). Above 50% = takers are lifting offers ' \
+                      '(demand-led); below = hitting bids (supply-led).'
+    }.freeze
+
     # meta (additive envelope field, 2026-07-05): METHODOLOGY-grade
     # hover help rendered by preview.html/the dashboard -- desc for the
     # title bubble, axes + help behind the info affordance.
@@ -232,7 +247,10 @@ module Publish
           'height' => 250,
           # M9-15: each module name on the scoreboard axis explains itself
           # (canvas label -> styled popover; keys are the module `mod`s).
-          'terms' => SCENARIO_TERMS
+          'terms' => SCENARIO_TERMS,
+          # M10-9 (owner ruling 2026-08-13): the scorecard shares this card
+          # as a second tab -- the audit lives next to what it audits.
+          'tab_group' => 'scenario', 'tab_label' => 'SCENARIO', 'tab_pos' => 0
         }
       },
       'lppl_regime' => {
@@ -510,6 +528,75 @@ module Publish
           'tab_group' => 'gex', 'tab_label' => 'MSTR TREND', 'tab_pos' => 4,
           # M9-15: same spot / flip / CW / PW glossary as the BTC trend tab.
           'terms' => GEX_TREND_TERMS
+        }
+      },
+      # M10-7 (P-19, owner ruling D10-c): our own signals' forward-return
+      # track record as a signals x horizons matrix -- CURATED for v1 to three
+      # signals (lppl_verdict, scenario_regime, gex_gamma_sign); the full set
+      # stays CLI-only (scripts/scorecard.rb). Reads scorecard:latest; a
+      # missing signal simply drops its rows (fail-soft). Descriptive only.
+      'scorecard' => {
+        inputs: %w[payload_scorecard_latest.json], fn: :scorecard,
+        meta: {
+          'desc' => 'A track record of our OWN published signals: for each ' \
+                    'signal, the realized forward BTC return after it printed, ' \
+                    'at 7/30/90 days, next to the unconditional ALL benchmark ' \
+                    'for the same window. DESCRIPTIVE history only -- no ' \
+                    'significance tests and no verdicts (the engine emits ' \
+                    'none); the reader compares each band against ALL ' \
+                    '(METHODOLOGY.md).',
+          'axes' => { 'x' => 'the three forward horizons (7/30/90 days); each ' \
+                             'cell is the mean forward return over its hit rate ' \
+                             'and sample count',
+                      'y' => 'one row per signal -- a bold ALL benchmark then ' \
+                             'one row per band; ALL is the same-window ' \
+                             'unconditional return every band is read against' },
+          'help' => 'Teal mean = up, red = down. A dimmed -- is an ineligible ' \
+                    'cell (too few days to score, n < 30 or too short a span), ' \
+                    'never a zero. Hover any row for its full numbers, the ' \
+                    'honest overlap-adjusted count (daily h-day returns ' \
+                    'overlap, so n_eff = n/h), and what the band means.',
+          'tooltip_formatter' => 'scorecard_row',
+          # sized to the curated row count (3 ALL rows + their bands + a
+          # header row); a category axis spreads the rows to fit.
+          'height' => 330,
+          # M10-9 (owner ruling 2026-08-13): second tab on the scenario card.
+          'tab_group' => 'scenario', 'tab_label' => 'SCORES', 'tab_pos' => 1
+        }
+      },
+      # M10-4 (P-6, owner ruling D10-c): the crowd-positioning card. Three
+      # stacked panels sharing ONE date axis (the lppl_regime precedent) so a
+      # vertical slice reads the flush set-up at a glance -- OI on top, the
+      # crowd ratios in the middle, opposed liquidation bars at the bottom.
+      # Reads positioning:latest (the module runs at WEIGHT 0 during the soak;
+      # its score is display-only). WARMUP is a designed state, never blank.
+      'positioning' => {
+        inputs: %w[payload_positioning_latest.json], fn: :positioning,
+        meta: {
+          'desc' => 'The derivatives crowd\'s stance in one vertical slice: ' \
+                    'aggregate open interest ($B), the long/short crowd ratios ' \
+                    '(retail account + top-trader position) with aggressive ' \
+                    'taker BUY-share, and the daily liquidation skew. The module ' \
+                    'scores -1 ONLY when the full flush line-up appears (crowd ' \
+                    'long AND OI rising AND longs getting liquidated), +1 on its ' \
+                    'mirror, else 0. It rides at WEIGHT 0 during the soak -- ' \
+                    'shown and charted, never weighted (METHODOLOGY.md).',
+          'axes' => { 'x' => 'time -- one daily reading per UTC date, shared ' \
+                             'across all three panels (hover locks a vertical slice)',
+                      'y' => 'three stacked panels: (top) open interest, $B; ' \
+                             '(mid) L/S ratios left, taker BUY-share % right; ' \
+                             '(bottom) liquidations $M -- longs DOWN (red), ' \
+                             'shorts UP (teal), overlaid on the same day' },
+          'help' => 'Read the panels together at one date: long-crowding + ' \
+                    'rising OI + long liquidations lining up is the flush set-up. ' \
+                    'Filled dots so a sparse/WARMUP history still reads; the ' \
+                    'title shows WARMUP n/91d until 91 daily values have ' \
+                    'accumulated (each band needs a full trailing-90 window). ' \
+                    'Hover a crowd-ratio legend name for what it measures. The ' \
+                    'module is report-only (weight 0) during the soak.',
+          # M9-15 terms hook: the panel-2 crowd-ratio legend items explain
+          # themselves (drawn legend -> legend.tooltip, the house block).
+          'terms' => POSITIONING_TERMS
         }
       }
     }.freeze
@@ -976,10 +1063,12 @@ module Publish
         # entire axis furniture (labels AND ticks AND line), only the bottom
         # grid draws dates; the freed pixels go into panel heights (23->25%)
         # and tighter gaps.
+        # M10-9 follow-up (owner ruling 2026-08-13): the bottom margin was
+        # still wide -- panels stretch down to ~93%, leaving only the date row.
         'grid' => [
-          { 'left' => 60, 'right' => 24, 'top' => 40, 'height' => '25%' },
-          { 'left' => 60, 'right' => 24, 'top' => '34%', 'height' => '25%' },
-          { 'left' => 60, 'right' => 24, 'top' => '61%', 'height' => '25%' }
+          { 'left' => 60, 'right' => 24, 'top' => 40, 'height' => '26%' },
+          { 'left' => 60, 'right' => 24, 'top' => '36%', 'height' => '26%' },
+          { 'left' => 60, 'right' => 24, 'top' => '64%', 'height' => '29%' }
         ],
         'xAxis' => [
           { 'type' => 'time', 'gridIndex' => 0, 'axisLabel' => { 'show' => false },
@@ -1272,6 +1361,315 @@ module Publish
       return nil unless fit['trough_date'] && fit['trough_px']
 
       format('trough ~%s @%s', fit['trough_date'], fit['trough_px'])
+    end
+
+    # ---- scorecard (M10-7) --------------------------------------------
+    #
+    # scorecard:latest -> the signals x horizons track-record matrix (P-19,
+    # owner ruling D10-c). CURATED for v1 (the full signal set stays CLI-only
+    # in scripts/scorecard.rb): three signals -- lppl_verdict, scenario_regime,
+    # gex_gamma_sign. For each a bold unconditional ALL benchmark row, then one
+    # row per band present, across the three forward horizons (7/30/90d). A
+    # cell shows the mean forward BTC return (teal up / red down) over the hit
+    # rate and sample count; an ineligible horizon (too few days) is a DESIGNED
+    # dimmed '--' with the reason on hover, never blank. DESCRIPTIVE ONLY --
+    # no verdicts, no p-values (the engine, lib/btc/scorecard.rb, emits none).
+    #
+    # Same label-only-scatter grammar as lppl_shadow: a hidden 0..1 value
+    # x-axis, a category y-axis (a header slot then one slot per row, top
+    # first), the visible text label columns pinned at fixed x. The row's full
+    # per-horizon stats + a plain-language sentence ride the label datum's
+    # 'hover' member so the 'scorecard_row' registry formatter can render the
+    # tooltip (the payload stays JSON; the renderer stays dumb).
+    SCORECARD_SIGNALS = %w[lppl_verdict scenario_regime gex_gamma_sign].freeze
+    SCORECARD_HZ      = %w[7 30 90].freeze
+    SC_POS  = '#2fbf8f' # positive mean -> teal text (house palette)
+    SC_NEG  = '#ef6b6b' # negative mean -> red text
+    SC_DIM  = '#8a93a0' # secondary text (pos%/n, headers)
+    SC_DASH = '#6b7178' # ineligible '--'
+    SC_LBL  = '#e6e9ec' # bright row label (ALL rows)
+    # column x-centres on the hidden 0..1 axis: the row label left-flush, the
+    # three horizon cells spread across the plot.
+    SC_X = { 'label' => 0.005, '7' => 0.40, '30' => 0.64, '90' => 0.88 }.freeze
+
+    def scorecard(doc)
+      rows  = scorecard_rows(doc)
+      cats  = (0..rows.size).to_a # slot 0 = header, then one per row
+
+      {
+        'backgroundColor' => 'transparent',
+        'title' => { 'text' => 'Scorecard · fwd returns 7/30/90d · n_eff honest',
+                     'textStyle' => { 'fontSize' => 13 } },
+        # axis trigger on the category rows: hovering anywhere on a row fires
+        # the tooltip. confine:true + fontSize 11 satisfy the frozen tooltip
+        # contract; the renderer swaps in the never-clip position callback and
+        # the scorecard_row formatter at runtime.
+        'tooltip' => { 'trigger' => 'axis', 'confine' => true,
+                       'textStyle' => { 'fontSize' => 11 },
+                       'axisPointer' => { 'type' => 'shadow' } },
+        'grid' => [{ 'left' => 10, 'right' => 10, 'top' => 34, 'bottom' => 12 }],
+        'xAxis' => [{ 'type' => 'value', 'min' => 0, 'max' => 1, 'show' => false }],
+        'yAxis' => [{
+          'type' => 'category', 'inverse' => true, 'data' => cats,
+          'boundaryGap' => true,
+          'axisLabel' => { 'show' => false }, 'axisLine' => { 'show' => false },
+          'axisTick' => { 'show' => false }, 'splitLine' => { 'show' => false }
+        }],
+        'series' => [scorecard_header_series,
+                     scorecard_label_series(rows),
+                     scorecard_cells_series(rows)]
+      }
+    end
+
+    # Curated rows top-to-bottom: for each present signal an ALL row then one
+    # row per band (union across the eligible horizons, sorted). A signal
+    # absent from the payload contributes nothing (fail-soft).
+    def scorecard_rows(doc)
+      signals = doc['signals'] || {}
+      SCORECARD_SIGNALS.flat_map do |name|
+        sig = signals[name]
+        next [] unless sig.is_a?(Hash)
+
+        hz    = sig['horizons'] || {}
+        bands = SCORECARD_HZ.flat_map { |h| ((hz[h] || {})['bands'] || {}).keys }.uniq.sort
+        [scorecard_row_data(name, 'all', nil, hz)] +
+          bands.map { |b| scorecard_row_data(name, 'band', b, hz) }
+      end
+    end
+
+    def scorecard_row_data(signal, kind, band, hz)
+      cells = SCORECARD_HZ.to_h { |h| [h, scorecard_cell(hz[h] || {}, kind, band, h.to_i)] }
+      { 'signal' => signal, 'kind' => kind, 'band' => band,
+        'label' => (kind == 'all' ? signal : "  #{band}"),
+        'cells' => cells, 'note' => scorecard_note(signal, kind, band) }
+    end
+
+    # One horizon's cell for a row: the eligible stats (n / n_eff / mean_pct /
+    # pos_pct) or an explicit ineligible marker carrying the reason. For a band
+    # row n_eff is the band's own honest count (band n / h).
+    def scorecard_cell(hcell, kind, band, horizon)
+      if kind == 'all'
+        return scorecard_ineligible(hcell) unless hcell['eligible']
+
+        s = hcell['all'] || {}
+        { 'eligible' => true, 'n' => hcell['n'], 'n_eff' => hcell['n_eff'],
+          'mean_pct' => s['mean_pct'], 'pos_pct' => s['pos_pct'] }
+      else
+        b = hcell['eligible'] && (hcell['bands'] || {})[band]
+        return scorecard_ineligible(hcell) unless b
+
+        { 'eligible' => true, 'n' => b['n'],
+          'n_eff' => (b['n'].to_f / horizon).round(1),
+          'mean_pct' => b['mean_pct'], 'pos_pct' => b['pos_pct'] }
+      end
+    end
+
+    def scorecard_ineligible(hcell)
+      { 'eligible' => false, 'reason' => hcell['reason'] || 'n too small',
+        'n' => hcell['n'] }
+    end
+
+    # Owner-approved plain-language sentence per row: what it means plus the
+    # standing overlap caveat. Descriptive, no verdict.
+    def scorecard_note(signal, kind, band)
+      overlap = 'Daily h-day returns overlap; n_eff = n/h is the honest count.'
+      if kind == 'all'
+        "#{signal} ALL: the unconditional forward BTC return at each horizon " \
+          "-- the benchmark every band below is read against. #{overlap}"
+      else
+        "#{signal} = #{band}: forward BTC return on the days this signal read " \
+          "#{band}, next to the ALL benchmark. #{overlap}"
+      end
+    end
+
+    # Header slot (y = 0): the column captions, dim.
+    def scorecard_header_series
+      data = [{ 'value' => [SC_X['label'], 0],
+                'label' => scorecard_label('signal', 'left', SC_DIM, 10) }]
+      SCORECARD_HZ.each do |h|
+        data << { 'value' => [SC_X[h], 0],
+                  'label' => scorecard_label("#{h}d", 'center', SC_DIM, 10) }
+      end
+      scorecard_scatter('header', data)
+    end
+
+    # Row-label column (y = i+1): the signal name (bold, bright) on an ALL row,
+    # the indented band name (dim) on a band row. This datum also carries the
+    # row's 'hover' block for the scorecard_row formatter.
+    def scorecard_label_series(rows)
+      data = rows.each_index.map do |i|
+        r      = rows[i]
+        all    = r['kind'] == 'all'
+        color  = all ? SC_LBL : SC_DIM
+        weight = all ? 'bold' : 'normal'
+        { 'value' => [SC_X['label'], i + 1],
+          'label' => scorecard_label(r['label'], 'left', color, 12, weight),
+          'hover' => { 'title' => (all ? r['signal'] : r['band']),
+                       'signal' => r['signal'], 'kind' => r['kind'],
+                       'band' => r['band'], 'cells' => r['cells'], 'note' => r['note'] } }
+      end
+      scorecard_scatter('label', data)
+    end
+
+    # All three horizon cells, one datum each at its fixed x.
+    def scorecard_cells_series(rows)
+      data = rows.each_index.flat_map do |i|
+        SCORECARD_HZ.map { |h| scorecard_cell_datum(rows[i]['cells'][h], SC_X[h], i + 1) }
+      end
+      scorecard_scatter('cells', data)
+    end
+
+    # An eligible cell renders two lines -- the mean% (teal up / red red down,
+    # bold) over a dim pos% + n; an ineligible one a dim '--'.
+    def scorecard_cell_datum(cell, x, y)
+      return scorecard_dash_datum(x, y) unless cell['eligible']
+
+      color = cell['mean_pct'].to_f.negative? ? SC_NEG : SC_POS
+      l1 = format('%+.2f%%', cell['mean_pct'])
+      l2 = format('%.1f%% n%d', cell['pos_pct'], cell['n'])
+      { 'value' => [x, y],
+        'label' => {
+          'show' => true, 'position' => 'inside', 'align' => 'center',
+          'formatter' => "{m|#{l1}}\n{s|#{l2}}",
+          'rich' => {
+            'm' => { 'color' => color, 'fontSize' => 12, 'fontWeight' => 'bold',
+                     'lineHeight' => 15, 'align' => 'center' },
+            's' => { 'color' => SC_DIM, 'fontSize' => 9, 'lineHeight' => 12,
+                     'align' => 'center' }
+          }
+        } }
+    end
+
+    def scorecard_dash_datum(x, y)
+      { 'value' => [x, y], 'label' => scorecard_label('--', 'center', SC_DASH, 12) }
+    end
+
+    def scorecard_label(text, align, color, size, weight = 'normal')
+      { 'show' => true, 'position' => 'inside', 'align' => align,
+        'formatter' => text, 'fontSize' => size, 'fontWeight' => weight,
+        'color' => color }
+    end
+
+    def scorecard_scatter(name, data)
+      { 'name' => name, 'type' => 'scatter', 'xAxisIndex' => 0, 'yAxisIndex' => 0,
+        'symbolSize' => 0, 'silent' => true, 'animation' => false, 'data' => data }
+    end
+
+    # ---- positioning (M10-4) ------------------------------------------
+    #
+    # positioning:latest -> three time-aligned panels sharing ONE date axis
+    # (the lppl_regime precedent, owner ruling D10-c 2026-08-12): OI ($B)
+    # on top, the crowd ratios in the middle (global L/S + top-trader L/S on
+    # the left axis, taker BUY-share % on a right axis), and opposed
+    # liquidation bars at the bottom (longs DOWN in red, shorts UP in teal,
+    # barGap -100% so both sit on the same day -- the gex calls/puts idiom).
+    # The three grids share the same left/right so a vertical slice lines up
+    # across panels: long-crowding + rising OI + long liquidations at one
+    # date IS the flush set-up. WARMUP is a DESIGNED state (title reads
+    # WARMUP n/91d) -- the panels still draw whatever series exist. Values
+    # arrive pre-scaled from the producer, so the axis-trigger tooltip and
+    # the axes need no client formatting.
+    POS_OI    = '#e6a23c' # open interest line -- amber (a neutral level series)
+    POS_GLS   = '#2fbf8f' # global (retail) L/S -- teal
+    POS_TLS   = '#6aa9ff' # top-trader L/S -- blue
+    POS_TAKER = '#d0d5db' # taker BUY-share -- light grey (right axis)
+    POS_LONG  = '#c63939' # liquidated longs (plotted DOWN) -- red bar tone
+    POS_SHORT = '#0f7a5c' # liquidated shorts (plotted UP) -- teal bar tone
+
+    def positioning(doc)
+      series = doc['series'] || {}
+      {
+        'backgroundColor' => 'transparent',
+        'title' => { 'text' => positioning_title(doc), 'textStyle' => { 'fontSize' => 13 } },
+        'tooltip' => { 'trigger' => 'axis', 'confine' => true,
+                       'textStyle' => { 'fontSize' => 11 }, 'axisPointer' => { 'type' => 'cross' } },
+        # one date axis for the whole card: hovering locks a vertical slice
+        # across all three panels (the flush set-up reads at a single date).
+        'axisPointer' => { 'link' => [{ 'xAxisIndex' => 'all' }] },
+        # only the crowd-ratio series carry a drawn legend (they get the terms
+        # hover); OI and the liquidation bars are named by their axes.
+        'legend' => { 'top' => 22, 'data' => ['global L/S', 'top L/S', 'taker buy%'] },
+        # three grids, identical left/right so the panels align exactly (the
+        # two upper panels hide their date furniture; only the bottom draws it).
+        # M10-9 (owner ruling 2026-08-13): margins at minimum -- the panels
+        # take every px the y-gutters and the date row do not strictly need.
+        'grid' => [
+          { 'left' => 46, 'right' => 38, 'top' => 42,    'height' => '24%' },
+          { 'left' => 46, 'right' => 38, 'top' => '40%', 'height' => '24%' },
+          { 'left' => 46, 'right' => 38, 'top' => '69%', 'height' => '25%' }
+        ],
+        'xAxis' => [
+          positioning_hidden_time_axis(0),
+          positioning_hidden_time_axis(1),
+          { 'type' => 'time', 'gridIndex' => 2 }
+        ],
+        # panel names ride their axes (rotated, in the gutters) so they never
+        # land in the one-line title row; OI/ratios/taker autoscale (scale
+        # true), the liquidation axis keeps 0 so the opposed bars straddle it.
+        'yAxis' => [
+          { 'type' => 'value', 'gridIndex' => 0, 'name' => 'OI $B', 'scale' => true,
+            'nameLocation' => 'middle', 'nameGap' => 32 },
+          { 'type' => 'value', 'gridIndex' => 1, 'name' => 'L/S', 'scale' => true,
+            'nameLocation' => 'middle', 'nameGap' => 32 },
+          { 'type' => 'value', 'gridIndex' => 1, 'name' => 'buy %', 'scale' => true,
+            'position' => 'right', 'nameLocation' => 'middle', 'nameGap' => 26 },
+          { 'type' => 'value', 'gridIndex' => 2, 'name' => 'liq $M',
+            'nameLocation' => 'middle', 'nameGap' => 32 }
+        ],
+        'series' => [
+          positioning_line('OI $B', series['oi_close'], POS_OI, 0, 0),
+          positioning_line('global L/S', series['global_ls'], POS_GLS, 1, 1),
+          positioning_line('top L/S', series['top_ls'], POS_TLS, 1, 1),
+          positioning_line('taker buy%', series['taker_buy'], POS_TAKER, 1, 2),
+          positioning_liq_bar('long liq $M', series['long_liq'], POS_LONG, down: true),
+          positioning_liq_bar('short liq $M', series['short_liq'], POS_SHORT, down: false)
+        ]
+      }
+    end
+
+    # A time x-axis for an upper panel: all date furniture hidden (only the
+    # bottom panel draws the shared dates), matching lppl_regime.
+    def positioning_hidden_time_axis(grid_index)
+      { 'type' => 'time', 'gridIndex' => grid_index,
+        'axisLabel' => { 'show' => false }, 'axisTick' => { 'show' => false },
+        'axisLine' => { 'show' => false } }
+    end
+
+    # Title: 'Positioning · <+1/0/-1> · crowd <band>', or the honest WARMUP
+    # state 'Positioning · WARMUP n/91d' (n = days of crowd history so far;
+    # a full band needs 91 daily values). WARMUP never blanks the chart.
+    def positioning_title(doc)
+      crowd = doc['crowding'].to_s
+      if crowd == 'WARMUP'
+        n = (doc.dig('series', 'global_ls') || []).size
+        format('Positioning · WARMUP %d/91d', n)
+      else
+        format('Positioning · %s · crowd %s', positioning_score_str(doc['score']), crowd)
+      end
+    end
+
+    # -1/0/+1 with an explicit sign, but a bare '0' (not '+0') for neutral.
+    def positioning_score_str(score)
+      s = score.to_i
+      s.zero? ? '0' : format('%+d', s)
+    end
+
+    # A filled-symbol line for a [date, value] series on a panel (sparse data
+    # must read as clear dots -- design ruling). A nil series draws empty.
+    def positioning_line(name, data, color, x_index, y_index)
+      { 'name' => name, 'type' => 'line', 'xAxisIndex' => x_index, 'yAxisIndex' => y_index,
+        'showSymbol' => true, 'symbol' => 'circle', 'symbolSize' => 6,
+        'itemStyle' => { 'color' => color }, 'lineStyle' => { 'color' => color },
+        'data' => data || [] }
+    end
+
+    # Opposed liquidation bars on panel 3: longs plotted DOWN (negated),
+    # shorts UP, barGap -100% so both sit on the same date. Opposite signs,
+    # so like the gex calls/puts stacks they never cover each other.
+    def positioning_liq_bar(name, data, color, down:)
+      pts = (data || []).map { |date, value| [date, down ? -value : value] }
+      { 'name' => name, 'type' => 'bar', 'xAxisIndex' => 2, 'yAxisIndex' => 3,
+        'barGap' => '-100%', 'itemStyle' => { 'color' => color }, 'data' => pts }
     end
 
     # ---- btco_table (M3-4) --------------------------------------------

@@ -86,11 +86,14 @@ namespace :fixtures do
     fails
   end
 
-  desc 'Refresh recorded API fixtures (NETWORK -- run manually)'
+  desc 'Refresh recorded API fixtures (NETWORK -- run manually). ' \
+       'SOURCES=a,b records only fixtures whose file name matches a token ' \
+       '(additive filter; leaves README + other fixtures untouched).'
   task :record do
     require_relative 'lib/btc/fixtures'
-    puts 'Recording live API responses into test/fixtures/ ...'
-    fails = print_fixture_rows(BTC::Fixtures.record_all('test/fixtures'))
+    only = ENV['SOURCES']&.split(',')&.map(&:strip)
+    puts only ? "Recording only: #{only.join(', ')} ..." : 'Recording live API responses into test/fixtures/ ...'
+    fails = print_fixture_rows(BTC::Fixtures.record_all('test/fixtures', only: only))
     abort "fixtures:record: #{fails} failure(s)" if fails > 0
 
     puts "\nVerify digest (check the numbers against your screen, then commit):"
@@ -108,7 +111,9 @@ end
 desc 'Serve the repo for web/preview.html review (stdlib TCPServer, localhost only)'
 task :preview do
   require_relative 'lib/btc/preview_server'
-  BTC::PreviewServer.serve(Dir.pwd, (ENV['PORT'] || 8000).to_i)
+  port = (ENV['PORT'] || 8000).to_i
+  puts "preview: open http://localhost:#{port}/web/preview.html  (Ctrl-C stops)"
+  BTC::PreviewServer.serve(Dir.pwd, port)
 end
 
 namespace :lppl do

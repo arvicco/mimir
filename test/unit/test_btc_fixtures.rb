@@ -50,6 +50,17 @@ class TestBtcFixtures < Minitest::Test
                             ('<p>tail</p>' * 5_000),
     'flow-history'       => JSON.generate('code' => '0', 'msg' => 'success',
                                           'data' => (1..40).map { |i| { 'timestamp' => 1_700_000_000_000 + i * 86_400_000, 'flow_usd' => i * 1e6, 'price_usd' => 60_000, 'etf_flows' => [{ 'etf_ticker' => 'IBIT', 'flow_usd' => 1 }] } }),
+    # M10-2 P-6 positioning family (12 rows each -> trim keeps last 10).
+    'open-interest/aggregated-history' => JSON.generate('code' => '0',
+      'data' => (1..12).map { |i| { 'time' => 1_700_000_000_000 + i * 86_400_000, 'open' => '1e10', 'high' => '1.1e10', 'low' => '0.9e10', 'close' => '1.05e10' } }),
+    'global-long-short-account-ratio'  => JSON.generate('code' => '0',
+      'data' => (1..12).map { |i| { 'time' => 1_700_000_000_000 + i * 86_400_000, 'global_account_long_percent' => '52.0', 'global_account_short_percent' => '48.0', 'global_account_long_short_ratio' => '1.08' } }),
+    'top-long-short-position-ratio'    => JSON.generate('code' => '0',
+      'data' => (1..12).map { |i| { 'time' => 1_700_000_000_000 + i * 86_400_000, 'top_position_long_percent' => '55.0', 'top_position_short_percent' => '45.0', 'top_position_long_short_ratio' => '1.22' } }),
+    'taker-buy-sell-volume'            => JSON.generate('code' => '0',
+      'data' => (1..12).map { |i| { 'time' => 1_700_000_000_000 + i * 86_400_000, 'taker_buy_volume_usd' => '5e8', 'taker_sell_volume_usd' => '4e8' } }),
+    'liquidation/aggregated-history'   => JSON.generate('code' => '0',
+      'data' => (1..12).map { |i| { 'time' => 1_700_000_000_000 + i * 86_400_000, 'aggregated_long_liquidation_usd' => '3e6', 'aggregated_short_liquidation_usd' => '2e6' } }),
     'frankfurter'        => '{"rates":{"JPY":161.15}}',
     'stlouisfed'         => JSON.generate('observations' => (1..30).map { |i| { 'value' => i.to_s } }),
     'submissions/CIK'    => JSON.generate('cik' => '1050446', 'name' => 'Strategy',
@@ -165,6 +176,28 @@ class TestBtcFixtures < Minitest::Test
       assert_equal 30, j['data'].size
       refute j['data'].first.key?('etf_flows') # slimmed to module fields
       assert_equal %w[flow_usd price_usd timestamp], j['data'].first.keys.sort
+    end
+  ensure
+    old.nil? ? ENV.delete('COINGLASS_API_KEY') : ENV['COINGLASS_API_KEY'] = old
+  end
+
+  # M10-2: the SOURCES filter records ONLY the matching fixtures, keeps
+  # each trim to the last 10 daily rows, and leaves README untouched.
+  def test_positioning_only_filter_records_five_and_skips_readme
+    old = ENV['COINGLASS_API_KEY']
+    ENV['COINGLASS_API_KEY'] = 'cgkey456'
+    inject
+    Dir.mktmpdir do |dir|
+      only = %w[coinglass_oi_aggregated coinglass_global_ls_ratio
+                coinglass_top_position_ratio coinglass_taker_volume coinglass_liquidation]
+      results = BTC::Fixtures.record_all(dir, only: only)
+      assert_equal 5, results.size
+      assert(results.all? { |_, s, _| s == :ok }, results.inspect)
+      assert_equal 5, Dir.glob(File.join(dir, '*.json')).size
+      refute File.exist?(File.join(dir, 'README.md')), 'filtered run must not write README'
+      j = JSON.parse(File.read(File.join(dir, 'coinglass_oi_aggregated.json')))
+      assert_equal 10, j['data'].size # trimmed to last 10 rows
+      assert j['data'].first.key?('close')
     end
   ensure
     old.nil? ? ENV.delete('COINGLASS_API_KEY') : ENV['COINGLASS_API_KEY'] = old

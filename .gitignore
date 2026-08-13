@@ -8,9 +8,10 @@ scripts/btco/universe.json.bak-*
 *.status
 
 # btco: capstruct/<TICKER>.jsonl ledgers and universe.json ARE committed
-# (audit trail); other *.jsonl are runtime
+# (audit trail); test fixtures are recorded inputs; other *.jsonl are runtime
 *.jsonl
 !scripts/btco/capstruct/*.jsonl
+!test/fixtures/**/*.jsonl
 
 # secrets
 .env

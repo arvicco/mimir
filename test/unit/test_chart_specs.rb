@@ -82,8 +82,15 @@ class TestChartSpecs < Minitest::Test
     assert_equal 'gex', metas['gex_mstr']['tab_group']
     assert_equal 'MSTR', metas['gex_mstr']['tab_label']
     assert_equal 2, metas['gex_mstr']['tab_pos']
-    # scenario/btco stay solo cards; LPPL is a two-tab card (M9-13)
-    assert_nil metas['scenario_strip']['tab_group']
+    # btco stays a solo card; LPPL is a two-tab card (M9-13); M10-9 (owner
+    # ruling 2026-08-13): scenario + scorecard share one [SCENARIO][SCORES]
+    # card -- the audit lives next to what it audits.
+    assert_equal 'scenario', metas['scenario_strip']['tab_group']
+    assert_equal 'SCENARIO', metas['scenario_strip']['tab_label']
+    assert_equal 0, metas['scenario_strip']['tab_pos']
+    assert_equal 'scenario', metas['scorecard']['tab_group']
+    assert_equal 'SCORES', metas['scorecard']['tab_label']
+    assert_equal 1, metas['scorecard']['tab_pos']
     assert_equal 'lppl', metas['lppl_regime']['tab_group']
     assert_nil metas['btco_table']['tab_group']
     # M8-6 as amended 2026-08-10 (owner rulings): vol_surface + vol_basis
@@ -125,6 +132,14 @@ class TestChartSpecs < Minitest::Test
     end
     assert_nil metas['gex_btc_trend']['height'] # a tab, not a stacked half
     assert_nil metas['gex_mstr_trend']['height']
+    # M10-4: positioning is a SOLO card (no tab_group), no custom tooltip/
+    # legend hooks; it carries only the terms glossary and, like lppl_regime,
+    # no height (default card height for its three panels).
+    assert_nil metas['positioning']['tab_group']
+    assert_nil metas['positioning']['tooltip_formatter']
+    assert_nil metas['positioning']['legend_widget']
+    assert_nil metas['positioning']['height']
+    assert_equal Publish::Charts::POSITIONING_TERMS, metas['positioning']['terms']
   end
 
   # ---- M8-6 vol/gex family structure -----------------------------------
@@ -758,6 +773,77 @@ class TestChartSpecs < Minitest::Test
     assert_equal '.24', Publish::Charts.lppl_compact(0.238, 2)
     assert_equal '-.11', Publish::Charts.lppl_compact(-0.108, 2)
     assert_equal '1.40', Publish::Charts.lppl_compact(1.4, 2)
+  end
+
+  # ---- positioning structure (M10-4) -----------------------------------
+
+  def positioning_doc
+    @positioning_doc ||= JSON.parse(File.read(File.join(PAYLOADS, 'payload_positioning_latest.json')))
+  end
+
+  def test_positioning_three_panels_share_one_date_axis
+    opt = build('positioning')
+    # three grids, identical left/right so a vertical slice aligns exactly
+    assert_equal 3, opt['grid'].size
+    lefts  = opt['grid'].map { |g| g['left'] }.uniq
+    rights = opt['grid'].map { |g| g['right'] }.uniq
+    assert_equal 1, lefts.size, 'grids must share one left for alignment'
+    assert_equal 1, rights.size, 'grids must share one right for alignment'
+    # only the bottom panel draws the shared dates; the upper two hide theirs
+    assert_equal false, opt['xAxis'][0]['axisLabel']['show']
+    assert_equal false, opt['xAxis'][1]['axisLabel']['show']
+    refute opt['xAxis'][2].key?('axisLabel'), 'bottom panel draws its date labels'
+    opt['xAxis'].each { |x| assert_equal 'time', x['type'] }
+    # hovering locks a vertical slice across all panels
+    assert_equal [{ 'xAxisIndex' => 'all' }], opt['axisPointer']['link']
+  end
+
+  def test_positioning_series_panels_and_liq_overlay
+    opt = build('positioning')
+    by = opt['series'].to_h { |s| [s['name'], s] }
+    # OI on panel 0, the three crowd ratios on panel 1 (taker on the right
+    # axis, yAxisIndex 2), the liquidation bars on panel 2.
+    assert_equal [0, 0], by['OI $B'].values_at('xAxisIndex', 'yAxisIndex')
+    assert_equal [1, 1], by['global L/S'].values_at('xAxisIndex', 'yAxisIndex')
+    assert_equal [1, 1], by['top L/S'].values_at('xAxisIndex', 'yAxisIndex')
+    assert_equal [1, 2], by['taker buy%'].values_at('xAxisIndex', 'yAxisIndex')
+    assert_equal 'right', opt['yAxis'][2]['position'] # taker % on the right axis
+    # sparse data reads as filled dots
+    %w[OI\ $B global\ L/S top\ L/S taker\ buy%].each do |n|
+      assert_equal 6, by[n]['symbolSize']
+      assert_equal 'circle', by[n]['symbol']
+    end
+    # opposed liquidation bars overlay on the same day (barGap -100%); longs
+    # plotted DOWN (negated) in red, shorts UP in teal
+    long = by['long liq $M']; short = by['short liq $M']
+    assert_equal ['bar', '-100%', Publish::Charts::POS_LONG],
+                 long.values_at('type', 'barGap').push(long['itemStyle']['color'])
+    assert_equal Publish::Charts::POS_SHORT, short['itemStyle']['color']
+    # the fixture's long liqs are positive $M -> plotted negative (down)
+    src = positioning_doc['series']['long_liq']
+    assert_equal src.map { |d, v| [d, -v] }, long['data']
+    assert_equal positioning_doc['series']['short_liq'], short['data']
+  end
+
+  def test_positioning_legend_only_crowd_ratios_with_terms
+    opt = build('positioning')
+    # only the crowd ratios carry a drawn legend (they get the terms hover)
+    assert_equal ['global L/S', 'top L/S', 'taker buy%'], opt['legend']['data']
+    # every legend name has a glossary term (the terms hook attaches here)
+    terms = Publish::Charts::CHARTS['positioning'][:meta]['terms']
+    opt['legend']['data'].each { |n| assert terms.key?(n), "no term for #{n}" }
+  end
+
+  def test_positioning_title_warmup_and_scored
+    # the fixture is 30 WARMUP days -> honest WARMUP n/91d, never blank
+    assert_equal 'Positioning · WARMUP 30/91d', build('positioning')['title']['text']
+    # a fully-banded doc reads score + crowd band (0 shown bare, not +0)
+    scored = JSON.parse(JSON.generate(positioning_doc))
+    scored['crowding'] = 'LONG'
+    scored['score'] = -1
+    assert_equal 'Positioning · -1 · crowd LONG', Publish::Charts.positioning(scored)['title']['text']
+    scored['score'] = 0
+    assert_equal 'Positioning · 0 · crowd LONG', Publish::Charts.positioning(scored)['title']['text']
   end
 
   # ---- btco_table structure --------------------------------------------
