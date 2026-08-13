@@ -28,19 +28,19 @@
       "left": 60,
       "right": 24,
       "top": 40,
-      "height": "25%"
+      "height": "26%"
     },
     {
       "left": 60,
       "right": 24,
-      "top": "34%",
-      "height": "25%"
+      "top": "36%",
+      "height": "26%"
     },
     {
       "left": 60,
       "right": 24,
-      "top": "61%",
-      "height": "25%"
+      "top": "64%",
+      "height": "29%"
     }
   ],
   "xAxis": [
