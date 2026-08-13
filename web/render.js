@@ -125,6 +125,41 @@ var FORMATTERS = {
     return '<div style="max-width:320px;white-space:normal;line-height:1.5">' +
            "<b>" + esc(d.title) + "</b><br>" + line +
            '<div style="margin-top:6px;color:#c7ccd1">' + esc(d.explanation) + "</div></div>";
+  },
+
+  // scorecard_row (M10-7): the scorecard matrix's per-row hover. Axis trigger
+  // hands us every column datum at the hovered row; the row-label datum carries
+  // a `hover` block (title, kind, per-horizon cells, a plain-language note) --
+  // the renderer only reads it, exactly like lppl_shadow. Renders the bold row
+  // label, one line per horizon (mean teal up / red down, then hit rate + the
+  // honest n_eff), and the sentence. Wrapped so a long note stays on screen.
+  scorecard_row: function (params) {
+    if (!params || !params.length) return "";
+    var d = null;
+    for (var i = 0; i < params.length; i += 1) {
+      if (params[i].data && params[i].data.hover) { d = params[i].data.hover; break; }
+    }
+    if (!d) return "";
+    function esc(s) {
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+    var G = "#2fbf8f", R = "#ef6b6b", dim = "#8a93a0";
+    function span(c, t) { return '<span style="color:' + c + '">' + t + "</span>"; }
+    var lines = ["7", "30", "90"].map(function (h) {
+      var c = (d.cells && d.cells[h]) || {};
+      if (c.eligible) {
+        var col = Number(c.mean_pct) < 0 ? R : G;
+        var mean = (Number(c.mean_pct) >= 0 ? "+" : "") + c.mean_pct + "%";
+        return h + "d: " + span(col, mean) + " · " + esc(c.pos_pct + "% up") +
+               " · " + span(dim, "n" + c.n + " (n_eff " + c.n_eff + ")");
+      }
+      return h + "d: " + span(dim, "-- " + esc(c.reason || "ineligible") +
+                                  (c.n != null ? " (n" + c.n + ")" : ""));
+    });
+    var head = "<b>" + esc(d.title) + "</b>" + (d.kind === "all" ? span(dim, " · ALL") : "");
+    return '<div style="max-width:340px;white-space:normal;line-height:1.5">' +
+           head + "<br>" + lines.join("<br>") +
+           '<div style="margin-top:6px;color:#c7ccd1">' + esc(d.note) + "</div></div>";
   }
 };
 
@@ -483,10 +518,11 @@ function buildChartInstance(env, key, meta, legendHost) {
   chart.setOption({ tooltip: { position: tooltipPosition(div), confine: false } });
   if (meta && meta.tooltip_formatter && FORMATTERS[meta.tooltip_formatter]) {
     var fmtTip = { formatter: FORMATTERS[meta.tooltip_formatter] };
-    if (meta.tooltip_formatter === "lppl_shadow") {
-      // this formatter's block is written light-on-dark (house bubble
-      // colors); ECharts' default white tooltip made it unreadable
-      // (owner report 2026-08-11) -- give it the house dark chrome
+    if (meta.tooltip_formatter === "lppl_shadow" ||
+        meta.tooltip_formatter === "scorecard_row") {
+      // these formatters' blocks are written light-on-dark (house bubble
+      // colors); ECharts' default white tooltip made them unreadable
+      // (owner report 2026-08-11) -- give them the house dark chrome
       fmtTip.backgroundColor = "#232933";
       fmtTip.borderColor = "#3a424e";
       fmtTip.borderWidth = 1;
@@ -895,7 +931,9 @@ var CARD_ORDER = ["chart:gex_btc", "chart:gex_mstr", "chart:gex_btc_trend",
                   "chart:gex_mstr_trend",
                   "chart:vol_surface", "chart:vol_surface_mstr", "chart:vol_basis",
                   "chart:vol_spread", "chart:vol_spread_trend",
-                  "chart:scenario_strip", "chart:lppl_regime", "chart:lppl_shadow",
+                  "chart:scenario_strip", "chart:scorecard",
+                  "chart:positioning",
+                  "chart:lppl_regime", "chart:lppl_shadow",
                   "chart:btco_table"];
 function cardRank(key) {
   var i = CARD_ORDER.indexOf(key);
@@ -1043,7 +1081,7 @@ function forgetGroup(groupId) {
 // rev: bump on EVERY render.js change; `MimirRender.rev` in the console
 // answers "which renderer is this tab actually running?" after deploys.
 window.MimirRender = {
-  rev: "m9-15-terms",
+  rev: "m10-4-positioning",
   staleClass: staleClass,
   hhmm: hhmm,
   liveHeader: liveHeader,
