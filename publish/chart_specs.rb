@@ -1063,10 +1063,12 @@ module Publish
         # entire axis furniture (labels AND ticks AND line), only the bottom
         # grid draws dates; the freed pixels go into panel heights (23->25%)
         # and tighter gaps.
+        # M10-9 follow-up (owner ruling 2026-08-13): the bottom margin was
+        # still wide -- panels stretch down to ~93%, leaving only the date row.
         'grid' => [
-          { 'left' => 60, 'right' => 24, 'top' => 40, 'height' => '25%' },
-          { 'left' => 60, 'right' => 24, 'top' => '34%', 'height' => '25%' },
-          { 'left' => 60, 'right' => 24, 'top' => '61%', 'height' => '25%' }
+          { 'left' => 60, 'right' => 24, 'top' => 40, 'height' => '26%' },
+          { 'left' => 60, 'right' => 24, 'top' => '36%', 'height' => '26%' },
+          { 'left' => 60, 'right' => 24, 'top' => '64%', 'height' => '29%' }
         ],
         'xAxis' => [
           { 'type' => 'time', 'gridIndex' => 0, 'axisLabel' => { 'show' => false },
