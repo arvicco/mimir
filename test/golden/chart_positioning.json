@@ -33,22 +33,22 @@
   },
   "grid": [
     {
-      "left": 58,
-      "right": 46,
-      "top": 48,
-      "height": "20%"
+      "left": 46,
+      "right": 38,
+      "top": 42,
+      "height": "24%"
     },
     {
-      "left": 58,
-      "right": 46,
-      "top": "43%",
-      "height": "20%"
+      "left": 46,
+      "right": 38,
+      "top": "40%",
+      "height": "24%"
     },
     {
-      "left": 58,
-      "right": 46,
-      "top": "71%",
-      "height": "20%"
+      "left": 46,
+      "right": 38,
+      "top": "69%",
+      "height": "25%"
     }
   ],
   "xAxis": [
@@ -90,7 +90,7 @@
       "name": "OI $B",
       "scale": true,
       "nameLocation": "middle",
-      "nameGap": 40
+      "nameGap": 32
     },
     {
       "type": "value",
@@ -98,7 +98,7 @@
       "name": "L/S",
       "scale": true,
       "nameLocation": "middle",
-      "nameGap": 40
+      "nameGap": 32
     },
     {
       "type": "value",
@@ -107,14 +107,14 @@
       "scale": true,
       "position": "right",
       "nameLocation": "middle",
-      "nameGap": 34
+      "nameGap": 26
     },
     {
       "type": "value",
       "gridIndex": 2,
       "name": "liq $M",
       "nameLocation": "middle",
-      "nameGap": 40
+      "nameGap": 32
     }
   ],
   "series": [

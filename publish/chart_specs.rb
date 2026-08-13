@@ -247,7 +247,10 @@ module Publish
           'height' => 250,
           # M9-15: each module name on the scoreboard axis explains itself
           # (canvas label -> styled popover; keys are the module `mod`s).
-          'terms' => SCENARIO_TERMS
+          'terms' => SCENARIO_TERMS,
+          # M10-9 (owner ruling 2026-08-13): the scorecard shares this card
+          # as a second tab -- the audit lives next to what it audits.
+          'tab_group' => 'scenario', 'tab_label' => 'SCENARIO', 'tab_pos' => 0
         }
       },
       'lppl_regime' => {
@@ -556,7 +559,9 @@ module Publish
           'tooltip_formatter' => 'scorecard_row',
           # sized to the curated row count (3 ALL rows + their bands + a
           # header row); a category axis spreads the rows to fit.
-          'height' => 330
+          'height' => 330,
+          # M10-9 (owner ruling 2026-08-13): second tab on the scenario card.
+          'tab_group' => 'scenario', 'tab_label' => 'SCORES', 'tab_pos' => 1
         }
       },
       # M10-4 (P-6, owner ruling D10-c): the crowd-positioning card. Three
@@ -1584,10 +1589,12 @@ module Publish
         'legend' => { 'top' => 22, 'data' => ['global L/S', 'top L/S', 'taker buy%'] },
         # three grids, identical left/right so the panels align exactly (the
         # two upper panels hide their date furniture; only the bottom draws it).
+        # M10-9 (owner ruling 2026-08-13): margins at minimum -- the panels
+        # take every px the y-gutters and the date row do not strictly need.
         'grid' => [
-          { 'left' => 58, 'right' => 46, 'top' => 48,    'height' => '20%' },
-          { 'left' => 58, 'right' => 46, 'top' => '43%', 'height' => '20%' },
-          { 'left' => 58, 'right' => 46, 'top' => '71%', 'height' => '20%' }
+          { 'left' => 46, 'right' => 38, 'top' => 42,    'height' => '24%' },
+          { 'left' => 46, 'right' => 38, 'top' => '40%', 'height' => '24%' },
+          { 'left' => 46, 'right' => 38, 'top' => '69%', 'height' => '25%' }
         ],
         'xAxis' => [
           positioning_hidden_time_axis(0),
@@ -1599,13 +1606,13 @@ module Publish
         # true), the liquidation axis keeps 0 so the opposed bars straddle it.
         'yAxis' => [
           { 'type' => 'value', 'gridIndex' => 0, 'name' => 'OI $B', 'scale' => true,
-            'nameLocation' => 'middle', 'nameGap' => 40 },
+            'nameLocation' => 'middle', 'nameGap' => 32 },
           { 'type' => 'value', 'gridIndex' => 1, 'name' => 'L/S', 'scale' => true,
-            'nameLocation' => 'middle', 'nameGap' => 40 },
+            'nameLocation' => 'middle', 'nameGap' => 32 },
           { 'type' => 'value', 'gridIndex' => 1, 'name' => 'buy %', 'scale' => true,
-            'position' => 'right', 'nameLocation' => 'middle', 'nameGap' => 34 },
+            'position' => 'right', 'nameLocation' => 'middle', 'nameGap' => 26 },
           { 'type' => 'value', 'gridIndex' => 2, 'name' => 'liq $M',
-            'nameLocation' => 'middle', 'nameGap' => 40 }
+            'nameLocation' => 'middle', 'nameGap' => 32 }
         ],
         'series' => [
           positioning_line('OI $B', series['oi_close'], POS_OI, 0, 0),

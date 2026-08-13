@@ -82,8 +82,15 @@ class TestChartSpecs < Minitest::Test
     assert_equal 'gex', metas['gex_mstr']['tab_group']
     assert_equal 'MSTR', metas['gex_mstr']['tab_label']
     assert_equal 2, metas['gex_mstr']['tab_pos']
-    # scenario/btco stay solo cards; LPPL is a two-tab card (M9-13)
-    assert_nil metas['scenario_strip']['tab_group']
+    # btco stays a solo card; LPPL is a two-tab card (M9-13); M10-9 (owner
+    # ruling 2026-08-13): scenario + scorecard share one [SCENARIO][SCORES]
+    # card -- the audit lives next to what it audits.
+    assert_equal 'scenario', metas['scenario_strip']['tab_group']
+    assert_equal 'SCENARIO', metas['scenario_strip']['tab_label']
+    assert_equal 0, metas['scenario_strip']['tab_pos']
+    assert_equal 'scenario', metas['scorecard']['tab_group']
+    assert_equal 'SCORES', metas['scorecard']['tab_label']
+    assert_equal 1, metas['scorecard']['tab_pos']
     assert_equal 'lppl', metas['lppl_regime']['tab_group']
     assert_nil metas['btco_table']['tab_group']
     # M8-6 as amended 2026-08-10 (owner rulings): vol_surface + vol_basis
