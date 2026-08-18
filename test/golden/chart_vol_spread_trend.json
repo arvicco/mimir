@@ -19,6 +19,7 @@
       "7d",
       "14d",
       "21d",
+      "30d",
       "45d",
       "90d"
     ]
@@ -104,6 +105,24 @@
         44.3,
         43.7,
         44.4
+      ]
+    },
+    {
+      "name": "30d",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 6,
+      "data": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
       ]
     },
     {

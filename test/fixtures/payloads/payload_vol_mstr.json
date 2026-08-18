@@ -33,6 +33,16 @@
       "reason": null
     },
     {
+      "tenor_d": 30,
+      "expiry_d": 27.1,
+      "atm_iv": 0.8617,
+      "rr25": 0.0006,
+      "fly25": -0.0006,
+      "n_calls": 8,
+      "n_puts": 8,
+      "reason": null
+    },
+    {
       "tenor_d": 45,
       "expiry_d": 27.1,
       "atm_iv": 0.8617,

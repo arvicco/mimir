@@ -15,7 +15,7 @@
 # vol_spread.rb (minimal-diff rule). BTC::Vol is reused unchanged.
 #
 # SEMANTICS
-#   Per target tenor (7/14/21/45/90d -- BTC::Vol::DEFAULT_TARGETS, the same
+#   Per target tenor (7/14/21/30/45/90d -- BTC::Vol::DEFAULT_TARGETS, the same
 #   set-up as vol.rb) pick the expiry whose days are closest to the target,
 #   then report:
 #     atm_iv  -- IV at the strike nearest that expiry's underlying
