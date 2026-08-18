@@ -180,7 +180,7 @@ class TestPublishPipeline < Minitest::Test
     assert_equal 1, env['v']
     assert_equal 'gex:combined', env['key']
     assert_equal '2026-07-04T12:00:00Z', env['generated_at']
-    assert_equal 1_800, env['ttl_hint_s']
+    assert_equal 3_600, env['ttl_hint_s']
     assert_equal 'testhost', env['source']
     assert_equal GEX, env['payload']
   end
@@ -198,8 +198,8 @@ class TestPublishPipeline < Minitest::Test
     dry_run
     idx = JSON.parse(File.read(File.join(out_dir, 'index.json')))
     assert_equal 'index', idx['key']
-    # MIN ttl across published members: scenario/gex 1800 beat lppl 86400.
-    assert_equal 1_800, idx['ttl_hint_s']
+    # MIN ttl across published members -- every key ships 3600 (2026-08-18).
+    assert_equal 3_600, idx['ttl_hint_s']
     keys = idx['payload']['keys'].map { |r| r['key'] }
     # the built chart:gex_mstr is listed too (sorted in); scenario_strip
     # skipped (fail-soft input) and there is no previous index to carry from.
@@ -465,39 +465,39 @@ class TestPublishPipeline < Minitest::Test
 
     mstr = JSON.parse(File.read(File.join(out_dir, 'chart_gex_mstr.json')))
     assert_equal 'chart:gex_mstr', mstr['key']
-    assert_equal 1_800, mstr['ttl_hint_s'] # inherits gex:mstr (1800)
+    assert_equal 3_600, mstr['ttl_hint_s'] # inherits gex:mstr (3600)
 
     gex = JSON.parse(File.read(File.join(out_dir, 'chart_gex_btc.json')))
     assert_equal 'chart:gex_btc', gex['key']
-    assert_equal 1_800, gex['ttl_hint_s'] # inherits gex:combined (1800)
+    assert_equal 3_600, gex['ttl_hint_s'] # inherits gex:combined (3600)
     assert gex['payload'].key?('series')  # a real ECharts option
     # additive 2026-07-05: hover-help meta rides the chart envelope
     assert_equal Publish::Charts::CHARTS['gex_btc'][:meta], gex['meta']
 
     lppl = JSON.parse(File.read(File.join(out_dir, 'chart_lppl_regime.json')))
-    assert_equal 86_400, lppl['ttl_hint_s'] # min(86400, 86400)
+    assert_equal 3_600, lppl['ttl_hint_s'] # min(3600, 3600)
 
-    # M9-13: the SHADOW tab reads only lppl:latest (86400)
+    # M9-13: the SHADOW tab reads only lppl:latest (3600)
     shadow = JSON.parse(File.read(File.join(out_dir, 'chart_lppl_shadow.json')))
-    assert_equal 86_400, shadow['ttl_hint_s']
+    assert_equal 3_600, shadow['ttl_hint_s']
 
     btco = JSON.parse(File.read(File.join(out_dir, 'chart_btco_table.json')))
     assert_equal 3_600, btco['ttl_hint_s'] # inherits btco:latest (3600)
 
-    # M8-6/M8-16/M8-17 vol charts each inherit their single input's 1800s ttl
+    # M8-6/M8-16/M8-17 vol charts each inherit their single input ttl (3600)
     # (vol_spread_trend shares vol_spread's vol:spread input; vol_surface_mstr
     # reads vol:mstr).
     %w[vol_surface vol_surface_mstr vol_spread vol_spread_trend vol_basis].each do |n|
       env = JSON.parse(File.read(File.join(out_dir, "chart_#{n}.json")))
-      assert_equal 1_800, env['ttl_hint_s'], n
+      assert_equal 3_600, env['ttl_hint_s'], n
     end
-    # gex_btc_trend has TWO inputs (gex:trend 86400 + gex:check 1800) -> MIN 1800.
+    # gex_btc_trend has TWO inputs (gex:trend + gex:check, both 3600) -> MIN 3600.
     trend = JSON.parse(File.read(File.join(out_dir, 'chart_gex_btc_trend.json')))
-    assert_equal 1_800, trend['ttl_hint_s']
+    assert_equal 3_600, trend['ttl_hint_s']
     assert trend['payload']['title']['text'].include?('MP Δ') # cross-check suffix present
-    # gex_mstr_trend has ONE input (gex:trend 86400) -> 86400; no MP cross-check.
+    # gex_mstr_trend has ONE input (gex:trend 3600) -> 3600; no MP cross-check.
     mtrend = JSON.parse(File.read(File.join(out_dir, 'chart_gex_mstr_trend.json')))
-    assert_equal 86_400, mtrend['ttl_hint_s']
+    assert_equal 3_600, mtrend['ttl_hint_s']
     assert_match(/\AMSTR GEX trend · /, mtrend['payload']['title']['text'])
     refute_includes mtrend['payload']['title']['text'], 'MP'
   end
