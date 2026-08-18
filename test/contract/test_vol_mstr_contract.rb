@@ -33,8 +33,9 @@ class TestVolMstrContract < Minitest::Test
 
     assert_kind_of Array, j['tenors']
     refute_empty j['tenors']
-    # DEFAULT_TARGETS 7/30/90 -> exactly three tenor rows, in order.
-    assert_equal [7, 30, 90], j['tenors'].map { |t| t['tenor_d'] }
+    # DEFAULT_TARGETS 7/14/21/30/45/90 (owner rulings 2026-08-18: the surface
+    # shares vol_spread's tenor paradigm; 30d kept as the standard 1-month anchor) -> six rows.
+    assert_equal [7, 14, 21, 30, 45, 90], j['tenors'].map { |t| t['tenor_d'] }
 
     j['tenors'].each do |t|
       assert_contract_keys TENOR_KEYS, t, 'vol_mstr.rb tenors[]'

@@ -369,14 +369,15 @@
       for volatility. The <b>Volatility</b> card stacks two things: a
       <span class="term">surface</span> section, tabbed <b>BTC</b> /
       <b>MSTR</b>, showing that market's implied-vol term structure from
-      Deribit &mdash; ATM IV (the at-the-money level) at three tenors, plus
+      Deribit &mdash; ATM IV (the at-the-money level) at the house tenors
+      (7 / 14 / 21 / 30 / 45 / 90d, the same grid as the spread card), plus
       the <span class="term">25-delta risk reversal (RR25)</span> (call IV
       minus put IV) and the <span class="term">25-delta butterfly
       (FLY25)</span> &mdash; and, beneath it, the <span class="term">basis</span>:
       the annualized basis of Deribit's dated futures over spot, per expiry,
       plus the OI-weighted perpetual funding rate. A separate
       <b>MSTR-BTC spread</b> card shows MSTR's ATM IV minus BTC's, tenor by
-      tenor (7 / 14 / 21 / 45 / 90d) &mdash; the live price of
+      tenor (7 / 14 / 21 / 30 / 45 / 90d) &mdash; the live price of
       treasury-company leverage &mdash; with its own trend stacked beneath.
     </p>
     <p>
@@ -388,6 +389,14 @@
       pays to be long (contango, leverage demand); a flip negative is
       deleveraging or fear. These readings are descriptive only &mdash;
       there are no thresholds and no scores here.
+    </p>
+    <p>
+      <span class="lbl">exp(d) in the hover &mdash;</span> the tenors are
+      nominal buckets snapped to the nearest real listed expiry;
+      <code>exp(d)</code> is that expiry's actual days out. Hovering
+      <code>30d</code> and seeing <code>exp(d) 31</code> means the 30d
+      numbers came from the 31-day expiry; a large gap means the chain had
+      no expiry near that tenor.
     </p>
     <p>
       <span class="lbl">The title numbers &mdash;</span>
