@@ -391,6 +391,14 @@
       there are no thresholds and no scores here.
     </p>
     <p>
+      <span class="lbl">exp(d) in the hover &mdash;</span> the tenors are
+      nominal buckets snapped to the nearest real listed expiry;
+      <code>exp(d)</code> is that expiry's actual days out. Hovering
+      <code>30d</code> and seeing <code>exp(d) 31</code> means the 30d
+      numbers came from the 31-day expiry; a large gap means the chain had
+      no expiry near that tenor.
+    </p>
+    <p>
       <span class="lbl">The title numbers &mdash;</span>
       <code>Vol surface &middot; ATM &lt;tenor&gt;d &lt;pct&gt;%</code>,
       <code>MSTR-BTC IV &middot; &lt;spread&gt;</code>, and

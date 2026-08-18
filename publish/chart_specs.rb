@@ -342,20 +342,26 @@ module Publish
         inputs: %w[payload_vol_latest.json], fn: :vol_surface,
         meta: {
           'desc' => 'The implied-vol term structure from Deribit\'s BTC option ' \
-                    'chain at three nominal tenors: ATM IV is the at-the-money ' \
+                    'chain at five nominal tenors: ATM IV is the at-the-money ' \
                     'level, RR25 the 25-delta risk reversal (call IV minus put ' \
                     'IV) and FLY25 the 25-delta butterfly. GEX says where dealers ' \
                     'are positioned; skew says what the market pays to insure the ' \
                     'tails -- a negative RR25 means downside puts cost more than ' \
                     'upside calls (fear).',
-          'axes' => { 'x' => 'requested tenor (7/30/90d); the actual option ' \
-                             'expiry backing each rides the tooltip as exp(d)',
+          'axes' => { 'x' => 'nominal tenor (7/14/21/45/90d), snapped to the ' \
+                             'nearest listed option expiry -- exp(d) in the ' \
+                             'hover is that real expiry\'s days out, so 30d/' \
+                             'exp(d) 31 means the 30d numbers came from the ' \
+                             '31-day expiry',
                       'y' => 'left: ATM implied vol (%); right: 25-delta skew in ' \
                              'vol points (RR25 red, FLY25 amber)' },
           'help' => 'ATM IV (teal) reads on the left axis; RR25 (red) and FLY25 ' \
                     '(amber) are vol points on the right. A tenor whose chain was ' \
                     'too thin (reason set) is dropped, not drawn as zero. ' \
-                    'Negative RR25 = downside fear; a rising FLY25 = fatter tails.',
+                    'Negative RR25 = downside fear; a rising FLY25 = fatter tails. ' \
+                    'exp(d) in the hover is the ACTUAL days-to-expiry behind that ' \
+                    'tenor\'s numbers -- a large gap from the nominal tenor means ' \
+                    'the chain had no expiry near it.',
           # stacked card (owner ruling 2026-08-10): surface + basis are
           # one card, two half-height charts -- group_style 'stack',
           # tab_pos = vertical order, height = half a card. The SURFACE
@@ -377,20 +383,26 @@ module Publish
         meta: {
           'desc' => 'The implied-vol term structure from MicroStrategy\'s ' \
                     'own option chain (CBOE single-name, USD cash-settled) at ' \
-                    'three nominal tenors: ATM IV is the at-the-money level, ' \
+                    'five nominal tenors: ATM IV is the at-the-money level, ' \
                     'RR25 the 25-delta risk reversal (call IV minus put IV) and ' \
                     'FLY25 the 25-delta butterfly. MSTR is a levered, reflexive ' \
                     'BTC holder, so its vol persistently trades richer than ' \
                     'BTC\'s -- the [BTC] tab is the coin, this is the equity.',
-          'axes' => { 'x' => 'requested tenor (7/30/90d); the actual option ' \
-                             'expiry backing each rides the tooltip as exp(d)',
+          'axes' => { 'x' => 'nominal tenor (7/14/21/45/90d), snapped to the ' \
+                             'nearest listed option expiry -- exp(d) in the ' \
+                             'hover is that real expiry\'s days out, so 30d/' \
+                             'exp(d) 31 means the 30d numbers came from the ' \
+                             '31-day expiry',
                       'y' => 'left: ATM implied vol (%); right: 25-delta skew in ' \
                              'vol points (RR25 red, FLY25 amber)' },
           'help' => 'ATM IV (teal) reads on the left axis; RR25 (red) and FLY25 ' \
                     '(amber) are vol points on the right. MSTR options are ' \
                     'USD-settled single-name, so the listed chain is shorter ' \
                     'than BTC\'s -- a thin 90d tenor drops honestly (reason set), ' \
-                    'never drawn as zero. Negative RR25 = downside fear.',
+                    'never drawn as zero. Negative RR25 = downside fear. exp(d) ' \
+                    'in the hover is the ACTUAL days-to-expiry behind that ' \
+                    'tenor\'s numbers -- a large gap from the nominal tenor ' \
+                    'means the chain had no expiry near it.',
           # the MSTR half of the SURFACE section (owner ruling 2026-08-10):
           # same tab_pos 0 as vol_surface so the renderer tabs the two into
           # one section; MSTR is the second tab (BTC leads by CARD_ORDER).
@@ -408,7 +420,8 @@ module Publish
                     'is a levered, reflexive BTC holder, so its options ' \
                     'persistently trade richer; the spread (vol points) is how ' \
                     'much extra the option market charges for that leverage now.',
-          'axes' => { 'x' => 'requested tenor (7/30/90d)',
+          'axes' => { 'x' => 'nominal tenor (7/14/21/45/90d), snapped to the ' \
+                             'nearest listed expiry on each leg',
                       'y' => 'implied vol (%): bars = the MSTR-minus-BTC ATM ' \
                              'spread in vol points, lines = each leg\'s ATM IV ' \
                              '(MSTR bright, BTC dim)' },
