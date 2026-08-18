@@ -29,10 +29,12 @@
 # crashed subprocess is treated the same. That signal rides through to:
 #   * --json:  every element of `modules` gains a boolean `unavailable`.
 #   * --history: the appended line gains, ONLY when degraded --
-#       "blind": true            when EVERY scored module is unavailable
+#       "blind": true            when every WEIGHTED module is unavailable
 #                                (a "blind zero" -- composite 0.0 is data
-#                                absence, not a real neutral day), OR
-#       "unavailable": [names]   when SOME (not all) modules are down.
+#                                absence, not a real neutral day; a live
+#                                weight-0 module cannot rescue it, owner
+#                                ruling 2026-08-18), OR
+#       "unavailable": [names]   when some (not all weighted) are down.
 #     A fully healthy line grows neither key (old lines stay valid).
 # These are markers only; composite math is unchanged (Golden Rule 4).
 #
@@ -104,9 +106,13 @@ if ARGV.include?('--history')
   row = { ts: ts.iso8601, composite: composite.round(3), regime: regime,
           scores: Hash[results.map { |r| [r[:mod], r[:score]] }] }
   # M8-8: mark degraded rows so a data-absence zero is never mistaken for a
-  # real neutral day. blind == every scored module down; unavailable == some.
+  # real neutral day. blind == every WEIGHTED module down (a weight-0
+  # display-only module cannot rescue a composite computed from zero live
+  # inputs -- owner ruling 2026-08-18, after positioning defeated the
+  # marker); unavailable == some down. Mirrored in ops/repair.rb.
   down = results.select { |r| r[:unavailable] }.map { |r| r[:mod] }
-  if !down.empty? && down.size == results.size
+  weighted = results.reject { |r| r[:w].zero? }
+  if !down.empty? && !weighted.empty? && weighted.all? { |r| r[:unavailable] }
     row[:blind] = true
   elsif !down.empty?
     row[:unavailable] = down
