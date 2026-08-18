@@ -55,13 +55,58 @@ class TestRepair < Minitest::Test
     assert_empty actions
   end
 
-  def test_plan_partial_unavailable_is_not_repaired
+  # Owner ruling 2026-08-18 (the 7-of-8-down morning the weight-0
+  # positioning module kept from being marked blind): ANY degraded row
+  # dated today is a repair trigger; the heal itself only ever rewrites
+  # when the fresh run is strictly better, so partial days converge and
+  # never flap.
+  def test_plan_partial_unavailable_today_triggers_scenario
     actions = Ops::Repair.plan(
       today: TODAY,
       scenario_tail: scen_line(ts: "#{TODAY}T04:45:00Z", unavailable: %w[macro]),
       lppl_tail: nil, gex_state: :clean, vol_state: :clean
     )
-    assert_empty actions, 'partial degradation records the list but is not a repair trigger'
+    assert_equal [:scenario], actions,
+                 'a degraded (partially unavailable) today-row is a repair trigger'
+  end
+
+  def test_plan_partial_unavailable_yesterday_no_action
+    actions = Ops::Repair.plan(
+      today: TODAY,
+      scenario_tail: scen_line(ts: '2026-07-12T04:45:00Z', unavailable: %w[macro]),
+      lppl_tail: nil, gex_state: :clean, vol_state: :clean
+    )
+    assert_empty actions, "yesterday's damage is a permanent, marked gap"
+  end
+
+  # ---- weighted blind marker (owner ruling 2026-08-18) -----------------
+  # blind == every WEIGHTED module down. A live weight-0 module (M10-3
+  # positioning, display-only) cannot rescue a composite computed from
+  # zero live inputs -- that is exactly the row this ruling came from.
+
+  def test_scenario_line_blind_when_all_weighted_modules_down
+    j = JSON.parse(scenario_json_mods(
+                     [['etf_flows', 3, true], ['macro', 2, true], ['positioning', 0, false]]
+                   ))
+    row = Ops::Repair.scenario_line(j)
+    assert_equal true, row['blind'], 'weight-0 survivor must not defeat the blind marker'
+    refute row.key?('unavailable'), 'blind and unavailable are mutually exclusive (M8-8 shape)'
+  end
+
+  def test_scenario_line_partial_weighted_down_records_unavailable
+    j = JSON.parse(scenario_json_mods(
+                     [['etf_flows', 3, true], ['macro', 2, false], ['positioning', 0, false]]
+                   ))
+    row = Ops::Repair.scenario_line(j)
+    refute row.key?('blind')
+    assert_equal %w[etf_flows], row['unavailable']
+  end
+
+  def test_scenario_line_all_modules_down_is_still_blind
+    j = JSON.parse(scenario_json_mods(
+                     [['etf_flows', 3, true], ['macro', 2, true], ['positioning', 0, true]]
+                   ))
+    assert_equal true, Ops::Repair.scenario_line(j)['blind']
   end
 
   def test_plan_lppl_stale_today_triggers_lppl
@@ -99,7 +144,66 @@ class TestRepair < Minitest::Test
     refute Ops::Repair.snapshot_repairable?(:clean)
   end
 
+  # ---- heal rule: only ever rewrite to a strictly better row -----------
+
+  def test_run_heals_degraded_row_when_fresh_run_is_strictly_better
+    with_sandbox do |root|
+      scen = seed(root, 'scenario', 'history.jsonl',
+                  [scen_line(ts: "#{TODAY}T04:45:00Z", unavailable: %w[etf_flows macro])])
+      seed_clean_snapshots(root)
+      out = StringIO.new
+      Ops::Repair.run(
+        now: NOW, out: out,
+        suite_runner: suite_runner(
+          scenario: scenario_json_mods([['etf_flows', 3, false], ['macro', 2, false]]),
+          lppl: lppl_json(stale: false)
+        ),
+        snapshot_runner: snapshot_runner
+      )
+      tail = JSON.parse(File.readlines(scen).last)
+      assert_equal "#{TODAY}T12:00:00Z", tail['ts'], 'today-row rewritten from the fresh run'
+      refute tail.key?('unavailable')
+      assert_includes out.string, 'REPAIRED scenario:history'
+    end
+  end
+
+  def test_run_leaves_degraded_row_when_fresh_run_is_no_better
+    with_sandbox do |root|
+      scen = seed(root, 'scenario', 'history.jsonl',
+                  [scen_line(ts: "#{TODAY}T04:45:00Z", unavailable: %w[etf_flows macro])])
+      seed_clean_snapshots(root)
+      out = StringIO.new
+      Ops::Repair.run(
+        now: NOW, out: out,
+        suite_runner: suite_runner(
+          scenario: scenario_json_mods([['etf_flows', 3, true], ['macro', 2, true]]),
+          lppl: lppl_json(stale: false)
+        ),
+        snapshot_runner: snapshot_runner
+      )
+      tail = JSON.parse(File.readlines(scen).last)
+      assert_equal "#{TODAY}T04:45:00Z", tail['ts'], 'an equally-degraded fresh run rewrites nothing'
+      refute_includes out.string, 'REPAIRED scenario:history'
+    end
+  end
+
+  def seed_clean_snapshots(root)
+    seed(root, 'gex_history', "#{TODAY}.json",
+         [JSON.generate('date' => TODAY, 'captured_at' => "#{TODAY}T06:15:00Z", 'errors' => {})])
+    seed(root, 'vol_history', "#{TODAY}.json", [JSON.generate('date' => TODAY, 'errors' => {})])
+  end
+
   # ---- fake --json payloads -------------------------------------------
+
+  # modules spec: [[name, weight, down], ...] -> scenario --json string.
+  def scenario_json_mods(mods, ts: "#{TODAY}T12:00:00Z")
+    list = mods.map do |name, w, down|
+      { 'mod' => name, 'w' => w, 'score' => down ? 0 : 1, 'headline' => 'x',
+        'unavailable' => down }
+    end
+    JSON.generate('ts' => ts, 'composite' => 0.1, 'regime' => 'NEUTRAL',
+                  'modules' => list)
+  end
 
   def scenario_json(unavailable_all:)
     mods = %w[etf_flows macro].map do |m|
