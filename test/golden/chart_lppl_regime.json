@@ -80,6 +80,7 @@
       "type": "value",
       "gridIndex": 0,
       "name": "ratio",
+      "scale": true,
       "nameLocation": "middle",
       "nameGap": 44
     },
@@ -87,6 +88,7 @@
       "type": "value",
       "gridIndex": 1,
       "name": "log10 BF",
+      "scale": true,
       "nameLocation": "middle",
       "nameGap": 44
     },
@@ -94,6 +96,7 @@
       "type": "value",
       "gridIndex": 2,
       "name": "Z",
+      "scale": true,
       "nameLocation": "middle",
       "nameGap": 44
     }
@@ -147,7 +150,7 @@
               "color": "#c63939"
             },
             "label": {
-              "position": "insideEndBottom",
+              "position": "insideEndTop",
               "formatter": "floor 0.435"
             }
           }

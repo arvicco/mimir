@@ -97,6 +97,22 @@ built from the badge's data attrs ON OPEN (always current), right-
 anchored and flip-up so it never clips at the viewport. The page
 ticker only re-evaluates the dot's colour (and an open bubble's text).
 
+**Staleness dots walk one band per hour.** (Owner ruling 2026-08-18.)
+Every published key ships `ttl_hint_s` 3600 and the dot reads: green
+the first hour after a publish tick, yellow (`.amber`, #e2a52b) the
+second, orange (#e08e0b, the stress-band hue) the third, red past
+three hours -- i.e. red means the bi-hourly publisher missed a run.
+staleClass in render.js encodes it as 1x/2x/3x ttl; never re-tune the
+ttl values or bands without a new ruling.
+
+**Value axes auto-scale to the data.** (Owner ruling 2026-08-18.)
+Line/scatter y-axes set `'scale' => true` so the plot uses the whole
+card instead of anchoring at zero with the data squeezed into a
+band (the vol_spread_trend complaint). Bar axes are the exception --
+bars read from a zero baseline, so any axis carrying a bar series
+(gex profiles, vol_spread) keeps the default. A zero markLine on an
+auto-scaled axis simply clips away when the data sits far from zero.
+
 **Hover help everywhere, instantly.** Never native `title=` attributes
 (fixed browser delay, unstyled blob). Card-level CSS bubbles open on
 hover with structured paragraphs: description, `x —` / `y —` axis
