@@ -1768,8 +1768,9 @@ module Publish
 
     # ---- vol_surface (M8-6) -------------------------------------------
     #
-    # vol:latest -> the implied-vol term structure at the three requested
-    # tenors. Compact one-line 13px title carries the 30d ATM level. Left
+    # vol:latest -> the implied-vol term structure at the five requested
+    # tenors (7/14/21/45/90d, the shared vol paradigm -- owner ruling
+    # 2026-08-18). Compact one-line 13px title carries the lead ATM. Left
     # axis = ATM IV (%), right axis = the 25-delta skew in vol points (RR25
     # risk reversal, FLY25 butterfly). The nominal tenor's ACTUAL option
     # expiry rides an invisible carrier line (yAxisIndex 2, a hidden axis)
@@ -1843,9 +1844,10 @@ module Publish
       }
     end
 
-    # Title tail 'ATM <tenor>d <pct>%': prefer the 30d ATM; on a null 30d
-    # fall back to the first tenor with a live ATM (labelled with ITS tenor,
-    # never a misleading 30d); 'n/a' when the whole surface is empty.
+    # Title tail 'ATM <tenor>d <pct>%': prefer the 30d ATM (absent since
+    # the 2026-08-18 five-tenor ruling), so in practice the first live tenor
+    # (7d), labelled with ITS tenor --
+    # never a misleading label; 'n/a' when the whole surface is empty.
     def vol_atm_headline(tenors)
       t = tenors.find { |x| x['tenor_d'] == 30 && !x['atm_iv'].nil? } ||
           tenors.find { |x| !x['atm_iv'].nil? }
