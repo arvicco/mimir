@@ -14,7 +14,8 @@
 # iv > 0) -- not a refactor of gex.rb (minimal-diff rule).
 #
 # SEMANTICS
-#   Per target tenor (7d / 30d / 90d) pick the expiry whose days are
+#   Per target tenor (7/14/21/45/90d -- BTC::Vol::DEFAULT_TARGETS, the shared
+#   vol paradigm, owner ruling 2026-08-18) pick the expiry whose days are
 #   closest to the target, then report:
 #     atm_iv  -- IV at the strike nearest that expiry's underlying
 #     rr25    -- iv(25-delta call) - iv(25-delta put)  (skew)
