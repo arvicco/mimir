@@ -250,6 +250,23 @@ test('clicking MSTR swaps the surface section key/badge and resizes; basis untou
   assert.equal(basisSec.querySelector('.key').textContent, 'vol_basis');
 });
 
+// ---- staleness bands (owner ruling 2026-08-18) ---------------------------
+// green <= ttl, amber <= 2x, orange <= 3x, red beyond. With the uniform
+// 3600s ttl that is: green 1h after a publish, yellow the next hour,
+// orange the third, red past 3h.
+
+test('staleClass walks green/amber/orange/red at 1x/2x/3x ttl', () => {
+  const { R } = loadRender();
+  const at = (ageSec) => new Date(Date.now() - ageSec * 1000).toISOString();
+  assert.equal(R.staleClass(at(0), 3600), 'green', 'fresh is green');
+  assert.equal(R.staleClass(at(3600), 3600), 'green', 'exactly ttl is still green');
+  assert.equal(R.staleClass(at(3601), 3600), 'amber', 'past ttl turns amber');
+  assert.equal(R.staleClass(at(7200), 3600), 'amber', 'exactly 2x ttl is still amber');
+  assert.equal(R.staleClass(at(7201), 3600), 'orange', 'past 2x ttl turns orange');
+  assert.equal(R.staleClass(at(10800), 3600), 'orange', 'exactly 3x ttl is still orange');
+  assert.equal(R.staleClass(at(10801), 3600), 'red', 'past 3x ttl is red');
+});
+
 // ---- M8-13: re-fetch cadence clamp --------------------------------------
 
 test('nextDelay honours ttl_hint_s but never polls faster than the 60s floor', () => {

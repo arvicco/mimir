@@ -64,7 +64,7 @@
   .rows > div { margin: 0 0 4px; max-width: 74ch; }
   .dotwrap { display: inline-flex; align-items: center; gap: 5px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-  .green { background: #35c46a; } .amber { background: #e2a52b; } .red { background: #e04b4b; }
+  .green { background: #35c46a; } .amber { background: #e2a52b; } .orange { background: #e08e0b; } .red { background: #e04b4b; }
   .teal { color: #2fbf8f; } .rd { color: #ef6b6b; } .amb { color: #e6a23c; }
   hr { border: 0; border-top: 1px solid #2a2f38; margin: 20px 0; }
   .foot { color: #8a93a0; font-size: 12px; margin-top: 6px; }
@@ -105,12 +105,14 @@
       <div>
         <span class="lbl">The dot cluster &mdash;</span> one small dot per
         published data key. <span class="dotwrap"><span class="dot green"></span>green</span>
-        means the key is fresher than its <span class="term">TTL</span>
-        (time-to-live &mdash; the age past which the data is treated as
-        stale); <span class="dotwrap"><span class="dot amber"></span>amber</span>
-        means it has aged past the TTL but not yet three times it;
+        means the key was published within the last hour;
+        <span class="dotwrap"><span class="dot amber"></span>yellow</span>
+        means one to two hours ago;
+        <span class="dotwrap"><span class="dot orange"></span>orange</span>
+        two to three hours;
         <span class="dotwrap"><span class="dot red"></span>red</span> means
-        older still. Hover any dot to see its key and last publish time
+        older than three hours &mdash; the publisher has missed at least one
+        of its bi-hourly runs. Hover any dot to see its key and last publish time
         (<code>key@HH:MM</code>, UTC).
       </div>
       <div>
@@ -122,7 +124,7 @@
       <div>
         <span class="lbl">Keep-last-good &mdash;</span> when an upstream
         source fails, the affected card <em>ages</em>; it never blanks. Its
-        dot drifts amber then red and its age counter keeps climbing, but
+        dot drifts yellow, orange, then red and its age keeps climbing, but
         the last good chart stays on screen. An honest red beats a silent
         lie: you always know how old the number in front of you is.
       </div>

@@ -42,6 +42,7 @@
   "yAxis": {
     "type": "value",
     "name": "ann basis %",
+    "scale": true,
     "nameLocation": "middle",
     "nameGap": 44
   },
