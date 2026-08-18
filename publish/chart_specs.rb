@@ -1989,7 +1989,11 @@ module Publish
                   'textStyle' => { 'fontSize' => 13 } }]
       note = basis_funding_note(f)
       if note
-        titles << { 'text' => note, 'top' => '86%', 'right' => 12,
+        # Owner-reported collision 2026-08-18: at 86% card height the note
+        # overprinted the right-side x-axis labels. This chart has no legend,
+        # so the legend band (top 24, where every other card's legend sits,
+        # above grid top 44) is guaranteed free at any data shape.
+        titles << { 'text' => note, 'top' => 24, 'right' => 12,
                     'textStyle' => { 'fontSize' => 11, 'fontWeight' => 'normal', 'color' => VOL_GREY } }
       end
 
