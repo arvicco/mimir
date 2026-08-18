@@ -47,6 +47,7 @@
   "yAxis": {
     "type": "value",
     "name": "spread vol pts",
+    "scale": true,
     "nameLocation": "middle",
     "nameGap": 44
   },

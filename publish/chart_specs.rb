@@ -1080,11 +1080,11 @@ module Publish
         # panel names ride their axes (rotated, left gutter): at the top
         # they collided with the title row (owner review round 4)
         'yAxis' => [
-          { 'type' => 'value', 'gridIndex' => 0, 'name' => 'ratio',
+          { 'type' => 'value', 'gridIndex' => 0, 'name' => 'ratio', 'scale' => true,
             'nameLocation' => 'middle', 'nameGap' => 44 },
-          { 'type' => 'value', 'gridIndex' => 1, 'name' => 'log10 BF',
+          { 'type' => 'value', 'gridIndex' => 1, 'name' => 'log10 BF', 'scale' => true,
             'nameLocation' => 'middle', 'nameGap' => 44 },
-          { 'type' => 'value', 'gridIndex' => 2, 'name' => 'Z',
+          { 'type' => 'value', 'gridIndex' => 2, 'name' => 'Z', 'scale' => true,
             'nameLocation' => 'middle', 'nameGap' => 44 }
         ],
         'series' => [
@@ -1349,9 +1349,12 @@ module Publish
                   'label' => { 'position' => 'insideStartTop',
                                'formatter' => format('bound %.3f', env['bound'].to_f) } }
       end
+      # insideEndTop, not ...Bottom: with the ratio axis auto-scaled
+      # (2026-08-18) the envelope line hugs the panel floor, and a below-line
+      # label lands outside the grid in the inter-panel gutter
       if env['floor']
         data << { 'yAxis' => env['floor'], 'lineStyle' => { 'type' => 'dashed', 'color' => '#c63939' },
-                  'label' => { 'position' => 'insideEndBottom',
+                  'label' => { 'position' => 'insideEndTop',
                                'formatter' => format('floor %.3f', env['floor'].to_f) } }
       end
       { 'symbol' => 'none', 'silent' => true, 'data' => data }
@@ -1811,9 +1814,9 @@ module Publish
           # names ride the axes (rotated, in the gutters) so they never land
           # in the one-line title row (owner review round 4)
           { 'type' => 'value', 'name' => 'ATM IV %', 'position' => 'left',
-            'nameLocation' => 'middle', 'nameGap' => 44 },
+            'scale' => true, 'nameLocation' => 'middle', 'nameGap' => 44 },
           { 'type' => 'value', 'name' => 'vol pts', 'position' => 'right',
-            'nameLocation' => 'middle', 'nameGap' => 40 },
+            'scale' => true, 'nameLocation' => 'middle', 'nameGap' => 40 },
           # hidden carrier axis for exp(d): its ~355 range must not distort
           # the ATM/skew axes, so it draws nothing.
           { 'type' => 'value', 'show' => false }
@@ -1936,7 +1939,7 @@ module Publish
         'grid' => { 'left' => 56, 'right' => 24, 'top' => 52, 'bottom' => 28 },
         'xAxis' => { 'type' => 'category', 'data' => dates },
         'yAxis' => { 'type' => 'value', 'name' => 'spread vol pts',
-                     'nameLocation' => 'middle', 'nameGap' => 44 },
+                     'scale' => true, 'nameLocation' => 'middle', 'nameGap' => 44 },
         'series' => series
       }
     end
@@ -1983,7 +1986,7 @@ module Publish
         'grid' => { 'left' => 56, 'right' => 24, 'top' => 44, 'bottom' => 32 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
         'yAxis' => { 'type' => 'value', 'name' => 'ann basis %',
-                     'nameLocation' => 'middle', 'nameGap' => 44 },
+                     'scale' => true, 'nameLocation' => 'middle', 'nameGap' => 44 },
         'series' => [
           { 'name' => 'ann basis', 'type' => 'line', 'symbol' => 'circle', 'symbolSize' => 7,
             'itemStyle' => { 'color' => VOL_AMBER }, 'lineStyle' => { 'color' => VOL_AMBER },

@@ -16,8 +16,11 @@
 # key namespace; the envelope stores the bare artifact key. Hash keys are
 # strings so JSON.generate/JSON.parse round-trip identically.
 #
-# `ttl_hint_s` drives the dashboard staleness badge: age <= ttl -> green,
-# <= 3x ttl -> amber, else red. For v1:index the hint is the MIN across
+# `ttl_hint_s` drives the dashboard staleness badge (owner ruling
+# 2026-08-18): age <= ttl -> green, <= 2x ttl -> amber (yellow), <= 3x ttl
+# -> orange, else red. Every key ships ttl_hint_s 3600 (the bi-hourly
+# publisher re-stamps all of them each tick), so the dot walks one band
+# per hour since the last publish. For v1:index the hint is the MIN across
 # published keys, so the index reads stale as soon as its freshest-cadence
 # member does.
 #

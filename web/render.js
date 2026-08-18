@@ -25,11 +25,15 @@
   the .card/.bubble/.cp-legend classes preview.html and index.html share.
 */
 
-// Staleness class from age vs ttl: <=ttl green, <=3x amber, else red.
+// Staleness class from age vs ttl (owner ruling 2026-08-18): <=ttl green,
+// <=2x amber (yellow), <=3x orange, else red. Publishing stamps every key
+// bi-hourly with ttl_hint_s 3600, so the dot reads: green the first hour
+// after a publish tick, yellow the second, orange the third, red past 3h.
 function staleClass(generatedAt, ttlSec) {
   var age = (Date.now() - new Date(generatedAt).getTime()) / 1000;
   if (age <= ttlSec) return "green";
-  if (age <= ttlSec * 3) return "amber";
+  if (age <= ttlSec * 2) return "amber";
+  if (age <= ttlSec * 3) return "orange";
   return "red";
 }
 

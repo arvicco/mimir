@@ -76,35 +76,35 @@ module Publish
   module Pipeline
     # key, argv (relative to repo root), timeout_s, ttl_hint_s
     PRODUCERS = [
-      ['gex:combined',    ['ruby', 'scripts/gex_btc_combined.rb', '--json'],           60,  1_800],
-      ['gex:mstr',        ['ruby', 'scripts/gex_us.rb', 'MSTR', '--json'],             60,  1_800],
-      ['scenario:latest', ['ruby', 'scripts/scenario/scenario.rb', '--json'],          120, 1_800],
-      ['lppl:latest',     ['ruby', 'scripts/lppl/lppl.rb', '--json', '--skip-update'], 300, 86_400],
+      ['gex:combined',    ['ruby', 'scripts/gex_btc_combined.rb', '--json'],           60,  3_600],
+      ['gex:mstr',        ['ruby', 'scripts/gex_us.rb', 'MSTR', '--json'],             60,  3_600],
+      ['scenario:latest', ['ruby', 'scripts/scenario/scenario.rb', '--json'],          120, 3_600],
+      ['lppl:latest',     ['ruby', 'scripts/lppl/lppl.rb', '--json', '--skip-update'], 300, 3_600],
       ['btco:latest',     ['ruby', 'scripts/btco/btco.rb', '--json'],                  60,  3_600],
       # M8-6: the GEX/volatility family (Phase 8A stage 2). All fail-soft
       # (valid JSON, never 'unavailable') so they publish honestly even when
       # an upstream leg is down; their charts read from these keys.
-      ['vol:latest',      ['ruby', 'scripts/vol.rb', '--json'],                        60,  1_800],
-      ['vol:mstr',        ['ruby', 'scripts/vol_mstr.rb', '--json'],                   90,  1_800],
-      ['vol:spread',      ['ruby', 'scripts/vol_spread.rb', '--json'],                 90,  1_800],
-      ['basis:latest',    ['ruby', 'scripts/basis.rb', '--json'],                      60,  1_800],
-      ['gex:trend',       ['ruby', 'scripts/gex_trend.rb', '--json'],                  30,  86_400],
-      ['gex:check',       ['ruby', 'scripts/gex_check.rb', '--json'],                  120, 1_800],
+      ['vol:latest',      ['ruby', 'scripts/vol.rb', '--json'],                        60,  3_600],
+      ['vol:mstr',        ['ruby', 'scripts/vol_mstr.rb', '--json'],                   90,  3_600],
+      ['vol:spread',      ['ruby', 'scripts/vol_spread.rb', '--json'],                 90,  3_600],
+      ['basis:latest',    ['ruby', 'scripts/basis.rb', '--json'],                      60,  3_600],
+      ['gex:trend',       ['ruby', 'scripts/gex_trend.rb', '--json'],                  30,  3_600],
+      ['gex:check',       ['ruby', 'scripts/gex_check.rb', '--json'],                  120, 3_600],
       # M10-7 (P-19): our own signals' forward-return track record, scored
       # offline from the local ledgers by scripts/scorecard.rb (no network).
       # Descriptive only -- report-only, changes no analytics semantics.
-      ['scorecard:latest', ['ruby', 'scripts/scorecard.rb', '--json'],                 60,  86_400],
+      ['scorecard:latest', ['ruby', 'scripts/scorecard.rb', '--json'],                 60,  3_600],
       # M10-4 (P-6): the crowd-positioning module -- daily crowd/OI/liquidation
       # stance. Runs at WEIGHT 0 during the soak (display only); its --json
       # carries the card series. Daily cadence (24h source-cache ttl).
-      ['positioning:latest', ['ruby', 'scripts/scenario/positioning.rb', '--json'],    60,  86_400]
+      ['positioning:latest', ['ruby', 'scripts/scenario/positioning.rb', '--json'],    60,  3_600]
     ].freeze
 
     # key, suite, in-tree default dir, filename, window_days, ttl_hint_s.
     # The data dir is resolved at RUN time so BTC_DATA_DIR is honored.
     TAILS = [
-      ['scenario:history', 'scenario', 'scripts/scenario/data', 'history.jsonl', 90,  1_800],
-      ['lppl:ledger',      'lppl',     'scripts/lppl/data',     'ledger.jsonl',  365, 86_400]
+      ['scenario:history', 'scenario', 'scripts/scenario/data', 'history.jsonl', 90,  3_600],
+      ['lppl:ledger',      'lppl',     'scripts/lppl/data',     'ledger.jsonl',  365, 3_600]
     ].freeze
 
     DAY = 86_400
