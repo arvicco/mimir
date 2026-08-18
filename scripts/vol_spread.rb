@@ -27,8 +27,8 @@
 #   dropped to keep the payload lean); [] when the file is absent.
 #
 # SEMANTICS (owner-approved 2026-07-10, nearest-expiry pairing)
-#   BTC leg:  Deribit BTC option book -> BTC::Vol.surface (7/14/21/45/90d
-#             targets -- finer than the surface chart, owner ruling 2026-08-10).
+#   BTC leg:  Deribit BTC option book -> BTC::Vol.surface (7/14/21/30/45/90d
+#             targets -- the shared house grid since 2026-08-18).
 #   MSTR leg: CBOE delayed-quote MSTR chain -> BTC::Vol.surface (same targets).
 #   For each target tenor: spread_atm = MSTR atm_iv - BTC atm_iv (both
 #   fractions from BTC::Vol; displayed x100 as vol-points in human output).
@@ -69,11 +69,13 @@ require_relative '../lib/btc/env'
 
 CBOE_BASE = 'https://cdn.cboe.com/api/global/delayed_quotes/options'
 
-# Finer tenor ladder than the surface chart's 7/30/90 (owner ruling
+# The house tenor ladder (first widened for this chart, owner ruling
 # 2026-08-10): the MSTR-vs-BTC spread's term structure is the point of
 # this chart, and three points hid its shape. Additive rows only -- the
-# per-tenor field set is unchanged.
-TARGETS = [7, 14, 21, 45, 90].freeze
+# per-tenor field set is unchanged. Since the 2026-08-18 rulings the grid
+# is the shared house paradigm (30d back in as the 1-month anchor), owned
+# by BTC::Vol::DEFAULT_TARGETS so the vol views can never drift apart.
+TARGETS = BTC::Vol::DEFAULT_TARGETS
 
 now = Time.now.utc
 

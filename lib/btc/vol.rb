@@ -55,7 +55,11 @@ require_relative 'options'
 module BTC
   module Vol
     MIN_SIDE = 3 # calls AND puts needed before rr25/fly25 are computed
-    DEFAULT_TARGETS = [7, 30, 90].freeze
+    # The house tenor paradigm (owner rulings 2026-08-18): every vol view --
+    # surface, MSTR surface, spread -- reads on this one grid. 30d stays in
+    # the set as the standard 1-month anchor (it is also both headline
+    # tails' preferred tenor). vol_spread.rb reuses this constant.
+    DEFAULT_TARGETS = [7, 14, 21, 30, 45, 90].freeze
 
     module_function
 
