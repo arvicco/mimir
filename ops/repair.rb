@@ -23,7 +23,9 @@
 # DECISION TABLE (pure, unit-tested -- see Ops::Repair.plan)
 #   artifact          condition (all "today" = UTC)              action
 #   -----------------------------------------------------------------------
-#   scenario:history  tail line is blind:true AND dated today    re-run + rewrite
+#   scenario:history  tail line degraded (blind:true OR non-    re-run; rewrite
+#                     empty unavailable) AND dated today         only if strictly
+#                                                                fewer modules down
 #   lppl:ledger       tail line is stale_input:true AND today    re-run + rewrite
 #   gex:snapshot      today's file missing OR errors non-empty   re-capture
 #   vol:snapshot      today's file missing OR errors non-empty   re-capture
@@ -92,9 +94,15 @@ module Ops
       nil
     end
 
-    # A scenario history tail that is a blind zero recorded TODAY.
-    def scenario_blind_today?(tail, today)
-      tail.is_a?(Hash) && tail['blind'] == true && line_utc_date(tail) == today
+    # A scenario history tail recorded TODAY with any degradation marker --
+    # blind:true or a non-empty unavailable list (owner ruling 2026-08-18:
+    # degraded daily rows must self-heal; the heal itself only rewrites to
+    # a strictly better row, so partial days converge and never flap).
+    def scenario_degraded_today?(tail, today)
+      return false unless tail.is_a?(Hash) && line_utc_date(tail) == today
+
+      tail['blind'] == true ||
+        (tail['unavailable'].is_a?(Array) && !tail['unavailable'].empty?)
     end
 
     # An lppl ledger tail that is stale_input recorded TODAY.
@@ -110,7 +118,7 @@ module Ops
     # The full plan: the ordered list of repair actions for the given state.
     def plan(today:, scenario_tail:, lppl_tail:, gex_state:, vol_state:)
       actions = []
-      actions << :scenario if scenario_blind_today?(scenario_tail, today)
+      actions << :scenario if scenario_degraded_today?(scenario_tail, today)
       actions << :lppl     if lppl_stale_today?(lppl_tail, today)
       actions << :gex      if snapshot_repairable?(gex_state)
       actions << :vol      if snapshot_repairable?(vol_state)
@@ -120,14 +128,17 @@ module Ops
     # ---- projections (copied EXACTLY from the suites' --history blocks) --
 
     # scenario history line built from scenario.rb --json. blind == every
-    # scored module unavailable; unavailable == some (mirrors scenario.rb).
+    # WEIGHTED module unavailable (a weight-0 display-only module cannot
+    # rescue a composite computed from zero live inputs -- owner ruling
+    # 2026-08-18); unavailable == some down (mirrors scenario.rb).
     def scenario_line(j)
       mods = j['modules']
       down = mods.select { |m| m['unavailable'] }.map { |m| m['mod'] }
       row  = { 'ts' => j['ts'], 'composite' => j['composite'],
                'regime' => j['regime'],
                'scores' => mods.to_h { |m| [m['mod'], m['score']] } }
-      if !down.empty? && down.size == mods.size
+      weighted = mods.reject { |m| m['w'].to_i.zero? }
+      if !down.empty? && !weighted.empty? && weighted.all? { |m| m['unavailable'] }
         row['blind'] = true
       elsif !down.empty?
         row['unavailable'] = down
@@ -135,9 +146,13 @@ module Ops
       row
     end
 
-    def scenario_blind_json?(j)
-      mods = j['modules']
-      mods.is_a?(Array) && !mods.empty? && mods.all? { |m| m['unavailable'] }
+    # Down-module count of an existing history row: the heal comparator.
+    # A blind row counts every scored module as down.
+    def scenario_down_count(row)
+      return 0 unless row.is_a?(Hash)
+      return row['scores'].is_a?(Hash) ? row['scores'].size : 1 if row['blind'] == true
+
+      row['unavailable'].is_a?(Array) ? row['unavailable'].size : 0
     end
 
     # lppl ledger line built from lppl.rb --json (fields mirror lppl.rb).
@@ -247,12 +262,15 @@ module Ops
     # Re-run scenario --json; if the fresh result is not blind, rewrite today's
     # blind tail line. Returns true on a successful heal.
     def repair_scenario(path, suite_runner, out)
-      old_ts = read_tail(path)&.dig('ts')
+      old = read_tail(path)
       j = JSON.parse(suite_runner.call(SCENARIO_ARGV, SCENARIO_TO))
-      return false if scenario_blind_json?(j) # still blind: stay quiet, retry later
+      fresh_down = (j['modules'] || []).count { |m| m['unavailable'] }
+      # Rewrite only to a STRICTLY better row (fewer down modules): never
+      # downgrades, stays quiet on no-better re-runs, retries next tick.
+      return false unless fresh_down < scenario_down_count(old)
 
       rewrite_tail(path, scenario_line(j))
-      out.puts format('REPAIRED scenario:history %s -> %s', old_ts, j['ts'])
+      out.puts format('REPAIRED scenario:history %s -> %s', old&.dig('ts'), j['ts'])
       true
     end
 
