@@ -193,12 +193,12 @@ class TestPositioning < Minitest::Test
     assert_equal [['2026-07-01', 1.0], ['2026-07-03', 1.0]], out # chronological, gap dropped
   end
 
-  def test_date_series_tails_to_last_120
+  def test_date_series_tails_to_last_365
     ms = ->(i) { (Time.utc(2026, 1, 1) + i * 86_400).to_i * 1000 }
-    rows = (0...150).map { |i| { 'time' => ms.(i) } }
+    rows = (0...400).map { |i| { 'time' => ms.(i) } }
     out = P.date_series(rows) { |_r| 1 }
-    assert_equal 120, out.size
-    assert_equal '2026-05-30', out.last.first # last of 0..149 -> Jan1 + 149d
+    assert_equal 365, out.size # SERIES_TAIL (2026-08-29 zoomable-axes ruling)
+    assert_equal '2027-02-04', out.last.first # last of 0..399 -> Jan1 + 399d
   end
 
   # ---- --json run surface: additive `series`, human table unchanged ---

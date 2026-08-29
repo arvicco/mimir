@@ -143,6 +143,51 @@ class TestBtcCoinglass < Minitest::Test
     JSON.parse(File.read(File.join(FIX, file)))['data']
   end
 
+  # ---- M11-7 (P-8): exchange balance endpoints -------------------------
+
+  def test_exchange_balance_list_params_and_unwrap
+    body  = JSON.generate('code' => '0',
+                          'data' => [{ 'exchange_name' => 'Binance', 'total_balance' => 1.0 }])
+    calls = stub_transport(body)
+    rows  = with_key { BTC::Coinglass.exchange_balance_list }
+    assert_equal 'Binance', rows.first['exchange_name']
+    assert_includes calls.first[:url], 'exchange/balance/list'
+    assert_includes calls.first[:url], 'symbol=BTC'
+  end
+
+  def test_exchange_balance_chart_params_and_unwrap
+    body  = JSON.generate('code' => '0',
+                          'data' => { 'time_list' => [1], 'price_list' => [2.0],
+                                      'data_map' => { 'Binance' => [3.0] } })
+    calls = stub_transport(body)
+    data  = with_key { BTC::Coinglass.exchange_balance_chart }
+    assert_equal [1], data['time_list']
+    assert_equal({ 'Binance' => [3.0] }, data['data_map'])
+    assert_includes calls.first[:url], 'exchange/balance/chart'
+    assert_includes calls.first[:url], 'symbol=BTC'
+  end
+
+  def test_exchange_balance_list_fixture_shape
+    f = File.join(FIX, 'coinglass_exchange_balance_list.json')
+    skip 'coinglass_exchange_balance_list.json not yet recorded -- owner: rake fixtures:record SOURCES=coinglass_exchange' unless File.exist?(f)
+    rows = fixture_rows('coinglass_exchange_balance_list.json')
+    assert_operator rows.size, :>=, 5
+    r = rows.first
+    %w[exchange_name total_balance balance_change_30d balance_change_percent_30d].each do |k|
+      assert r.key?(k), "balance row missing #{k}"
+    end
+  end
+
+  def test_exchange_balance_chart_fixture_shape
+    f = File.join(FIX, 'coinglass_exchange_balance_chart.json')
+    skip 'coinglass_exchange_balance_chart.json not yet recorded -- owner: rake fixtures:record SOURCES=coinglass_exchange' unless File.exist?(f)
+    d = JSON.parse(File.read(f))['data']
+    assert_operator d['time_list'].size, :>=, 121, '30d delta + 90d percentile window needs >= 121 days'
+    assert_equal d['time_list'].size, d['price_list'].size
+    assert d['data_map'].is_a?(Hash) && !d['data_map'].empty?
+    d['data_map'].each_value { |series| assert_equal d['time_list'].size, series.size }
+  end
+
   def test_oi_aggregated_fixture_rows_carry_ohlc
     rows = fixture_rows('coinglass_oi_aggregated.json')
     assert_equal 10, rows.size

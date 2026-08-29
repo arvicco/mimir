@@ -103,8 +103,9 @@ var FORMATTERS = {
     return out.join("<br>");
   },
 
-  // lppl_shadow (M9-13): the SHADOW tab's per-row hover. The row's stat
-  // name (bold), then "frozen <val> -> shadow <val>  <verdict>", then the
+  // lppl_shadow (M9-13; labels M11-6): the SHADOW tab's per-row hover. The
+  // row's stat name (bold), then "ref <val> -> now <val>  <verdict>" (since
+  // the 2026-08-29 rulings the columns mean reference -> operative), then the
   // owner-approved plain-language paragraph -- all carried IN the option
   // on the row's `stat`-column datum (renderer stays dumb; payload stays
   // JSON). Axis trigger hands us every series at the hovered row; we pull
@@ -122,9 +123,9 @@ var FORMATTERS = {
       return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
     var A = "#e6a23c", dim = "#9aa0a6";
-    var line = '<span style="color:' + dim + '">frozen</span> ' + esc(d.frozen) +
+    var line = '<span style="color:' + dim + '">ref</span> ' + esc(d.frozen) +
                ' <span style="color:' + A + '">&rarr;</span> ' +
-               '<span style="color:' + dim + '">shadow</span> ' + esc(d.shadow) +
+               '<span style="color:' + dim + '">now</span> ' + esc(d.shadow) +
                '  <b>' + esc(d.verdict) + "</b>";
     return '<div style="max-width:320px;white-space:normal;line-height:1.5">' +
            "<b>" + esc(d.title) + "</b><br>" + line +
@@ -702,6 +703,14 @@ function buildStackedCard(env, key, meta, groupId) {
 // tab_pos, M8-17) is a tabbed section, its members ordered by CARD_ORDER
 // rank so BTC (lower rank) leads. Chart divs/instances are reused (moved,
 // not recreated) so echarts survives; a rAF resize re-fits them once placed.
+//
+// LINKED TABS (owner ruling 2026-08-29, the GEX card): when SEVERAL
+// tabbed sections carry IDENTICAL label sequences ([BTC][MSTR] over
+// [BTC][MSTR]), one switcher drives them all -- only the TOP linked
+// section renders the tab bar, and a click activates the same label in
+// every linked section (profile + its trend flip together). Sections
+// whose labels differ keep their own bars, so the vol card's lone
+// tabbed section is untouched.
 function rebuildStack(g) {
   var byPos = {}, order = [];
   g.members.forEach(function (m) {
@@ -710,12 +719,30 @@ function rebuildStack(g) {
   });
   order.sort(function (a, b) { return a - b; });
 
+  var rank = function (a, b) { return cardRank(a.key) - cardRank(b.key); };
+  var sig = function (pos) {
+    return byPos[pos].slice().sort(rank)
+      .map(function (m) { return m.meta.tab_label || m.key; }).join("|");
+  };
+  var tabbedPos = order.filter(function (pos) { return byPos[pos].length > 1; });
+  var link = null;
+  if (tabbedPos.length > 1 &&
+      tabbedPos.every(function (pos) { return sig(pos) === sig(tabbedPos[0]); })) {
+    var fns = [];
+    link = { leaderPos: tabbedPos[0],
+             register: function (f) { fns.push(f); },
+             activateAll: function (i) { fns.forEach(function (f) { f(i); }); } };
+  }
+
   while (g.card.firstChild) g.card.removeChild(g.card.firstChild);
   var firstKey = null;
   order.forEach(function (pos, i) {
-    var ms = byPos[pos].slice().sort(function (a, b) { return cardRank(a.key) - cardRank(b.key); });
+    var ms = byPos[pos].slice().sort(rank);
     if (i === 0) firstKey = ms[0].key;
-    g.card.appendChild(ms.length > 1 ? tabbedStackSection(ms) : plainStackSection(ms[0]));
+    var lk = link && ms.length > 1 ?
+      { leader: pos === link.leaderPos, register: link.register,
+        activateAll: link.activateAll } : null;
+    g.card.appendChild(ms.length > 1 ? tabbedStackSection(ms, lk) : plainStackSection(ms[0]));
   });
   g.card.dataset.key = firstKey;
   g.members.forEach(function (m) { requestAnimationFrame(function () { m.chart.resize(); }); });
@@ -787,32 +814,46 @@ function plainStackSection(m) {
 // text, hover bubble and staleness badge to that member's envelope (the
 // activateGroup idiom, scoped to this section). Default = ms[0] (lowest
 // CARD_ORDER rank, i.e. BTC).
-function tabbedStackSection(ms) {
-  var s = stackShell(true);
-  function activate(m) {
-    ms.forEach(function (x) {
-      var on = x === m;
+//
+// `link` (2026-08-29, linked stacked tabs): non-null when this section is
+// one of several with identical label sets. Only the LEADER renders the
+// tab bar; its clicks go through link.activateAll so every linked section
+// flips to the same label index. Follower sections keep their own head
+// (key/ⓘ/badge swap with activation) but draw no bar.
+function tabbedStackSection(ms, link) {
+  var s = stackShell(!link || link.leader);
+  function activate(i) {
+    var m = ms[i];
+    ms.forEach(function (x, j) {
+      var on = j === i;
       x.chartDiv.style.display = on ? "" : "none";
-      x.btn.classList.toggle("active", on);
-      x.btn.setAttribute("aria-selected", on ? "true" : "false");
+      if (x.btn) {
+        x.btn.classList.toggle("active", on);
+        x.btn.setAttribute("aria-selected", on ? "true" : "false");
+      }
     });
     s.keySpan.textContent = dispKey(m.key);
     fillBubble(s.bubble, m.meta);
     setBadge(s.badge, m.env);
     requestAnimationFrame(function () { m.chart.resize(); });
   }
-  ms.forEach(function (m) {
-    var btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "tabbtn";
-    btn.setAttribute("role", "tab");
-    btn.textContent = m.meta.tab_label || m.key;
-    btn.addEventListener("click", function () { activate(m); });
-    m.btn = btn;
-    s.tabbar.appendChild(btn);
+  ms.forEach(function (m, i) {
+    if (s.tabbar) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "tabbtn";
+      btn.setAttribute("role", "tab");
+      btn.textContent = m.meta.tab_label || m.key;
+      btn.addEventListener("click", function () {
+        if (link) { link.activateAll(i); } else { activate(i); }
+      });
+      m.btn = btn;
+      s.tabbar.appendChild(btn);
+    }
     s.section.appendChild(m.chartDiv);
   });
-  activate(ms[0]);
+  if (link) link.register(activate);
+  activate(0);
   return s.section;
 }
 

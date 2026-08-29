@@ -79,7 +79,8 @@ class TestPublishPipeline < Minitest::Test
       when 'scripts/vol.rb', 'scripts/vol_mstr.rb', 'scripts/vol_spread.rb',
            'scripts/basis.rb', 'scripts/gex_trend.rb', 'scripts/gex_check.rb',
            'scripts/scorecard.rb', # M10-7: skipped in the mixed path too
-           'scripts/scenario/positioning.rb' # M10-4: skipped in the mixed path too
+           'scripts/scenario/positioning.rb', # M10-4: skipped in the mixed path too
+           'scripts/scenario/reserves.rb' # M11-7: skipped in the mixed path too
         raise 'boom (producer skipped in the mixed path)'
       else raise "unexpected argv #{argv.inspect}"
       end
@@ -109,7 +110,8 @@ class TestPublishPipeline < Minitest::Test
       'scripts/gex_trend.rb'         => 'payload_gex_trend.json',
       'scripts/gex_check.rb'         => 'payload_gex_check.json',
       'scripts/scorecard.rb'         => 'payload_scorecard_latest.json',
-      'scripts/scenario/positioning.rb' => 'payload_positioning_latest.json'
+      'scripts/scenario/positioning.rb' => 'payload_positioning_latest.json',
+      'scripts/scenario/reserves.rb'    => 'payload_reserves_latest.json'
     }
     ->(argv, _t) { fixture(map.fetch(argv.find { |a| a.end_with?('.rb') })) }
   end
@@ -132,6 +134,46 @@ class TestPublishPipeline < Minitest::Test
   end
 
   def out_dir = File.join(@dir, 'preview')
+
+  # M11-7: chart:positioning declares reserves:latest as an OPTIONAL input
+  # -- a dead reserves producer must degrade the curve, never skip the
+  # positioning card (and the reserves key itself skips honestly).
+  def test_optional_chart_input_failure_never_skips_the_chart
+    write_fixture_tails
+    runner = lambda do |argv, t|
+      raise 'boom (reserves down)' if argv.include?('scripts/scenario/reserves.rb')
+
+      fixture_runner.call(argv, t)
+    end
+    s = Publish::Pipeline.run(now: NOW, source: 'testhost', dry_run: true,
+                              runner: runner, out_dir: out_dir, status_dir: @dir)
+    assert_includes s[:skipped], 'reserves:latest'
+    assert_includes s[:keys], 'chart:positioning', 'optional input down -> chart still builds'
+    opt = JSON.parse(File.read(File.join(out_dir, 'chart_positioning.json')))['payload']
+    resv = opt['series'].find { |x| x['name'] == 'reserves' }
+    assert_equal [], resv['data'], 'the curve degrades to empty, the card lives'
+  end
+
+  # ... and when the optional producer publishes its honest fail-soft JSON
+  # (exit 0, unavailable:true), the chart likewise gets nil, not junk.
+  def test_optional_chart_input_fail_soft_degrades_to_nil
+    write_fixture_tails
+    runner = lambda do |argv, t|
+      if argv.include?('scripts/scenario/reserves.rb')
+        JSON.generate('name' => 'reserves', 'score' => 0,
+                      'headline' => 'unavailable (tier-gated)',
+                      'ts' => NOW.iso8601, 'unavailable' => true)
+      else
+        fixture_runner.call(argv, t)
+      end
+    end
+    s = Publish::Pipeline.run(now: NOW, source: 'testhost', dry_run: true,
+                              runner: runner, out_dir: out_dir, status_dir: @dir)
+    assert_includes s[:keys], 'reserves:latest', 'fail-soft JSON still publishes (honest status)'
+    assert_includes s[:keys], 'chart:positioning'
+    opt = JSON.parse(File.read(File.join(out_dir, 'chart_positioning.json')))['payload']
+    assert_equal [], opt['series'].find { |x| x['name'] == 'reserves' }['data']
+  end
 
   def dry_run(runner: mixed_runner)
     Publish::Pipeline.run(now: NOW, source: 'testhost', dry_run: true,
@@ -163,7 +205,8 @@ class TestPublishPipeline < Minitest::Test
     assert_equal %w[gex:combined gex:mstr scenario:latest scenario:history
                     lppl:ledger chart:gex_mstr index], s[:keys]
     assert_equal %w[lppl:latest btco:latest vol:latest vol:mstr vol:spread basis:latest
-                    gex:trend gex:check scorecard:latest positioning:latest chart:gex_btc
+                    gex:trend gex:check scorecard:latest positioning:latest reserves:latest
+                    chart:gex_btc
                     chart:scenario_strip chart:lppl_regime chart:lppl_shadow chart:btco_table
                     chart:vol_surface chart:vol_surface_mstr chart:vol_spread
                     chart:vol_spread_trend chart:vol_basis chart:gex_btc_trend
@@ -306,7 +349,7 @@ class TestPublishPipeline < Minitest::Test
     dry_run
     line = File.read(File.join(@dir, 'publish.status'))
     # 7 written (gex:combined, gex:mstr, scenario:latest, 2 tails,
-    # chart:gex_mstr, index) of 31 expected (13 producers + 2 tails +
+    # chart:gex_mstr, index) of 32 expected (14 producers + 2 tails +
     # 15 charts + 1 index); scenario_strip skipped on fail-soft input, the
     # six M8-6/M8-17 producers skipped in the mixed path (so vol_spread,
     # vol_spread_trend, which read the same skipped vol:spread key, and
@@ -315,7 +358,7 @@ class TestPublishPipeline < Minitest::Test
     # The synthetic tails demonstrate the M7-5 content-recency guard IN
     # ONE LINE: scenario:history's newest entry is NOW-1d (24h < 30h, FRESH,
     # no marker) but lppl:ledger's newest is NOW-10d (> 30h) -> ` OLD:...`.
-    assert_equal "PUB DRY 7/31 keys 12:00 UTC OLD:lppl:ledger\n", line
+    assert_equal "PUB DRY 7/32 keys 12:00 UTC OLD:lppl:ledger\n", line
   end
 
   def test_status_line_live_label
@@ -331,7 +374,7 @@ class TestPublishPipeline < Minitest::Test
     Publish::Pipeline.run(now: NOW, source: 'testhost', dry_run: false,
                           runner: fixture_runner, env: ENV_OK, status_dir: @dir)
     # all 13 sources + two tails + fifteen charts + index publish cleanly.
-    assert_equal "PUB LIVE 31/31 keys 12:00 UTC\n", File.read(File.join(@dir, 'publish.status'))
+    assert_equal "PUB LIVE 32/32 keys 12:00 UTC\n", File.read(File.join(@dir, 'publish.status'))
   end
 
   # -- content-recency guard (M7-5, 2026-07-07 frozen-evidence incident) ---
@@ -345,7 +388,7 @@ class TestPublishPipeline < Minitest::Test
     File.write(File.join(@dir, 'lppl', 'ledger.jsonl'),
                JSON.generate('ts' => stale, 'bf' => 1.0) + "\n")
     dry_run
-    assert_equal "PUB DRY 7/31 keys 12:00 UTC OLD:scenario:history,lppl:ledger\n",
+    assert_equal "PUB DRY 7/32 keys 12:00 UTC OLD:scenario:history,lppl:ledger\n",
                  File.read(File.join(@dir, 'publish.status'))
   end
 
@@ -357,7 +400,7 @@ class TestPublishPipeline < Minitest::Test
     File.write(File.join(@dir, 'lppl', 'ledger.jsonl'),
                JSON.generate('ts' => fresh, 'bf' => 1.0) + "\n")
     dry_run
-    assert_equal "PUB DRY 7/31 keys 12:00 UTC\n", File.read(File.join(@dir, 'publish.status'))
+    assert_equal "PUB DRY 7/32 keys 12:00 UTC\n", File.read(File.join(@dir, 'publish.status'))
   end
 
   # -- BLIND data-integrity marker (M8-10, blind-zero incident) ------------
@@ -372,7 +415,7 @@ class TestPublishPipeline < Minitest::Test
     File.write(File.join(@dir, 'lppl', 'ledger.jsonl'),
                JSON.generate('ts' => fresh, 'bf' => 1.0, 'stale_input' => true) + "\n")
     dry_run
-    assert_equal "PUB DRY 7/31 keys 12:00 UTC BLIND:scenario,lppl\n",
+    assert_equal "PUB DRY 7/32 keys 12:00 UTC BLIND:scenario,lppl\n",
                  File.read(File.join(@dir, 'publish.status'))
   end
 
@@ -384,7 +427,7 @@ class TestPublishPipeline < Minitest::Test
     File.write(File.join(@dir, 'lppl', 'ledger.jsonl'),
                JSON.generate('ts' => stale, 'bf' => 1.0, 'stale_input' => true) + "\n")
     dry_run
-    assert_equal "PUB DRY 7/31 keys 12:00 UTC " \
+    assert_equal "PUB DRY 7/32 keys 12:00 UTC " \
                  "OLD:scenario:history,lppl:ledger BLIND:scenario,lppl\n",
                  File.read(File.join(@dir, 'publish.status'))
   end
@@ -410,7 +453,7 @@ class TestPublishPipeline < Minitest::Test
                JSON.generate('ts' => fresh, 'composite' => 0.1) + "\n")
     dry_run
     # 6/25 now (one tail gone); no OLD marker (skip, not stale).
-    assert_equal "PUB DRY 6/31 keys 12:00 UTC\n", File.read(File.join(@dir, 'publish.status'))
+    assert_equal "PUB DRY 6/32 keys 12:00 UTC\n", File.read(File.join(@dir, 'publish.status'))
   end
 
   # -- real mode: v1:-prefixed PUTs + 403 abort ----------------------------
@@ -433,7 +476,7 @@ class TestPublishPipeline < Minitest::Test
     s = Publish::Pipeline.run(now: NOW, source: 'testhost', dry_run: false,
                               runner: fixture_runner, env: ENV_OK, status_dir: @dir)
     # every producer + tail + chart + index put exactly once, v1:-prefixed.
-    assert_equal 31, calls.size
+    assert_equal 32, calls.size
     assert(calls.all? { |c| c[:uri].include?('/values/v1%3A') })
     # the chart keys are PUT as 'v1:chart:<name>' (colons url-encoded).
     assert(calls.any? { |c| c[:uri].include?('/values/v1%3Achart%3A') })
@@ -511,9 +554,9 @@ class TestPublishPipeline < Minitest::Test
        chart:vol_surface chart:vol_surface_mstr
        chart:vol_spread chart:vol_spread_trend chart:vol_basis
        chart:gex_btc_trend chart:gex_mstr_trend].each { |k| assert_includes keys, k }
-    # index lists every published member but not itself: 13 sources + 2
+    # index lists every published member but not itself: 14 sources + 2
     # tails + 15 charts.
-    assert_equal 30, keys.size
+    assert_equal 31, keys.size
   end
 
   # A builder crash SKIPs only that chart; the source key survives and the

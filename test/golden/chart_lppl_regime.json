@@ -23,6 +23,16 @@
       }
     ]
   },
+  "dataZoom": [
+    {
+      "type": "inside",
+      "xAxisIndex": [
+        0,
+        1,
+        2
+      ]
+    }
+  ],
   "grid": [
     {
       "left": 60,
@@ -82,7 +92,8 @@
       "name": "ratio",
       "scale": true,
       "nameLocation": "middle",
-      "nameGap": 44
+      "nameGap": 44,
+      "min": 0.34
     },
     {
       "type": "value",
@@ -133,25 +144,25 @@
         "silent": true,
         "data": [
           {
-            "yAxis": 0.435,
+            "yAxis": 0.358,
             "lineStyle": {
               "type": "dashed",
               "color": "#e6a23c"
             },
             "label": {
               "position": "insideStartTop",
-              "formatter": "bound 0.435"
+              "formatter": "bound 0.358"
             }
           },
           {
-            "yAxis": 0.435,
+            "yAxis": 0.242,
             "lineStyle": {
               "type": "dashed",
               "color": "#c63939"
             },
             "label": {
               "position": "insideEndTop",
-              "formatter": "floor 0.435"
+              "formatter": "floor 0.242"
             }
           }
         ]

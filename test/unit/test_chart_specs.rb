@@ -18,7 +18,11 @@ class TestChartSpecs < Minitest::Test
   def build(name)
     spec = Publish::Charts::CHARTS.fetch(name)
     payloads = spec[:inputs].map { |f| JSON.parse(File.read(File.join(PAYLOADS, f))) }
-    Publish::Charts.public_send(spec[:fn], *payloads)
+    # M11-7: optional enrichment inputs ride after the required ones (the
+    # pipeline passes nil when one is absent/fail-soft; the golden path
+    # always has its fixture).
+    optional = (spec[:optional] || []).map { |f| JSON.parse(File.read(File.join(PAYLOADS, f))) }
+    Publish::Charts.public_send(spec[:fn], *payloads, *optional)
   end
 
   # ---- golden harness (every registered chart) -------------------------
@@ -72,16 +76,14 @@ class TestChartSpecs < Minitest::Test
     # series does not match gex_levels' per-venue C/P input
     assert_nil metas['gex_mstr']['tooltip_formatter']
     assert_nil metas['gex_mstr']['legend_widget']
-    # M6-4 (owner ruling D7-c, 2026-07-06): the two GEX charts share ONE
-    # dashboard card as [BTC][MSTR] tabs. tab_group pairs them; tab_pos
-    # fixes BTC first (the index sorts keys alphabetically, so gex_mstr
-    # would otherwise lead). tab_label is the button text.
-    assert_equal 'gex', metas['gex_btc']['tab_group']
-    assert_equal 'BTC', metas['gex_btc']['tab_label']
-    assert_equal 1, metas['gex_btc']['tab_pos']
-    assert_equal 'gex', metas['gex_mstr']['tab_group']
-    assert_equal 'MSTR', metas['gex_mstr']['tab_label']
-    assert_equal 2, metas['gex_mstr']['tab_pos']
+    # 2026-08-29 owner ruling (the 2-per-card format): the GEX card is a
+    # STACKED card of two [BTC][MSTR] tab pairs -- profile section (pos 0)
+    # over trend section (pos 1). Identical label sequences are what the
+    # renderer links into ONE switcher (linked stacked tabs).
+    assert_equal %w[gex stack 0 260 BTC],
+                 metas['gex_btc'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
+    assert_equal %w[gex stack 0 260 MSTR],
+                 metas['gex_mstr'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
     # btco stays a solo card; LPPL is a two-tab card (M9-13); M10-9 (owner
     # ruling 2026-08-13): scenario + scorecard share one [SCENARIO][SCORES]
     # card -- the audit lives next to what it audits.
@@ -115,14 +117,12 @@ class TestChartSpecs < Minitest::Test
                  metas['vol_spread'].values_at('tab_group', 'group_style', 'tab_pos', 'height').map(&:to_s)
     assert_equal %w[volspread stack 1 235],
                  metas['vol_spread_trend'].values_at('tab_group', 'group_style', 'tab_pos', 'height').map(&:to_s)
-    # M8-18 (owner ruling 2026-08-10): the GEX card is now four tabs --
-    # [BTC][MSTR][BTC TREND][MSTR TREND]. gex_btc_trend keeps pos 3 (relabelled
-    # 'BTC TREND'); gex_mstr_trend is the new pos-4 tab, reading gex:trend's
-    # additive 'mstr' block.
-    assert_equal ['gex', 'BTC TREND', '3'],
-                 metas['gex_btc_trend'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
-    assert_equal ['gex', 'MSTR TREND', '4'],
-                 metas['gex_mstr_trend'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
+    # 2026-08-29: the trend charts form the LOWER section of the stacked
+    # GEX card (pos 1), tab-labelled BTC/MSTR to match the profile pair.
+    assert_equal %w[gex stack 1 210 BTC],
+                 metas['gex_btc_trend'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
+    assert_equal %w[gex stack 1 210 MSTR],
+                 metas['gex_mstr_trend'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
     # the vol charts carry no drawn-legend/tooltip renderer hooks;
     # the stacked pairs DO carry height (half a card each)
     %w[vol_surface vol_surface_mstr vol_spread vol_spread_trend vol_basis
@@ -130,8 +130,8 @@ class TestChartSpecs < Minitest::Test
       assert_nil metas[n]['tooltip_formatter'], n
       assert_nil metas[n]['legend_widget'], n
     end
-    assert_nil metas['gex_btc_trend']['height'] # a tab, not a stacked half
-    assert_nil metas['gex_mstr_trend']['height']
+    assert_equal 210, metas['gex_btc_trend']['height'] # lower stacked section
+    assert_equal 210, metas['gex_mstr_trend']['height']
     # M10-4: positioning is a SOLO card (no tab_group), no custom tooltip/
     # legend hooks; it carries only the terms glossary and, like lppl_regime,
     # no height (default card height for its three panels).
@@ -182,17 +182,32 @@ class TestChartSpecs < Minitest::Test
     assert(atm.compact.all? { |v| v > 0 }, 'MSTR ATM IV points are live percentages')
   end
 
-  def test_vol_spread_bars_coloured_by_sign_legs_as_lines
+  def test_vol_spread_bars_and_dots_carry_tenor_gradient
+    # Owner ruling 2026-08-29 (register R-9): bars and the leg-line dots
+    # are colour-coded by TENOR (the same gradient as the trend below),
+    # not by sign -- sign reads from bar direction against zero.
     opt = build('vol_spread')
+    sp  = JSON.parse(File.read(File.join(PAYLOADS, 'payload_vol_spread.json')))
+    tenor_colors = sp['tenors'].map { |t| Publish::Charts::VOL_TENOR_COLORS.fetch(t['tenor_d']) }
     bar = opt['series'].find { |s| s['name'] == 'spread' }
     assert_equal 'bar', bar['type']
-    bar['data'].compact.each do |d|
-      want = d['value'].negative? ? '#c63939' : '#0f7a5c'
-      assert_equal want, d['itemStyle']['color']
+    bar['data'].each_with_index do |d, i|
+      next if d.nil?
+
+      assert_equal tenor_colors[i], d['itemStyle']['color']
     end
-    assert_equal %w[MSTR BTC], opt['series'].select { |s| s['type'] == 'line' }.map { |s| s['name'] }
+    legs = opt['series'].select { |s| s['type'] == 'line' }
+    assert_equal %w[MSTR BTC], legs.map { |s| s['name'] }
+    legs.each do |s|
+      # dots take the tenor colour; the connecting line keeps the leg colour.
+      s['data'].each_with_index do |d, i|
+        next if d.nil?
+
+        assert_equal tenor_colors[i], d['itemStyle']['color']
+      end
+      assert s['lineStyle']['color'], 'leg line keeps its own colour'
+    end
     # a dead leg drops its line points and that tenor's bar (nil, not zero)
-    sp = JSON.parse(File.read(File.join(PAYLOADS, 'payload_vol_spread.json')))
     sp['tenors'].each { |t| t['mstr'] = { 'expiry_d' => nil, 'atm_iv' => nil, 'reason' => 'down' }; t['spread_atm'] = nil }
     d2 = Publish::Charts.vol_spread(sp)
     assert(d2['series'].find { |s| s['name'] == 'MSTR' }['data'].all?(&:nil?))
@@ -204,21 +219,27 @@ class TestChartSpecs < Minitest::Test
     sp  = JSON.parse(File.read(File.join(PAYLOADS, 'payload_vol_spread.json')))
     # x axis = the history dates in order; one line series per tenor.
     assert_equal sp['history'].map { |r| r['date'] }, opt['xAxis']['data']
-    assert_equal %w[7d 14d 21d 30d 45d 90d], opt['series'].map { |s| s['name'] }
+    assert_equal %w[7d 14d 21d 30d 45d 90d 180d], opt['series'].map { |s| s['name'] }
     opt['series'].each do |s|
       assert_equal 'line', s['type']
       assert_equal 6, s['symbolSize'] # sparse: a single day reads as a dot
     end
+    # Owner ruling 2026-08-29 (register R-9): the six tenors take the
+    # spectral gradient 7d red -> 90d dark blue, single-sourced in
+    # VOL_TENOR_COLORS -- line, dots and legend swatch all follow.
+    expected = Publish::Charts::VOL_SPREAD_TREND_TENORS.map { |td| Publish::Charts::VOL_TENOR_COLORS.fetch(td) }
+    assert_equal expected, opt['series'].map { |s| s['itemStyle']['color'] }
+    assert_equal expected, opt['series'].map { |s| s['lineStyle']['color'] }
     # decimal spread -> vol points at build time (0.402 -> 40.2, 1dp)
     first7 = opt['series'].find { |s| s['name'] == '7d' }['data'].first
     assert_in_delta 40.2, first7, 0.001
     # the synthetic null 45d spread on 2026-06-30 is a GAP (nil), never a zero
     idx45 = sp['history'].index { |r| r['date'] == '2026-06-30' }
     assert_nil opt['series'].find { |s| s['name'] == '45d' }['data'][idx45]
-    # empty history still yields a valid option: empty axis + 6 empty series
+    # empty history still yields a valid option: empty axis + 7 empty series
     empty = Publish::Charts.vol_spread_trend('history' => [])
     assert_equal [], empty['xAxis']['data']
-    assert_equal 6, empty['series'].size
+    assert_equal 7, empty['series'].size
     assert(empty['series'].all? { |s| s['data'].empty? })
     assert_match(/Spread trend · 0d history/, empty['title']['text'])
   end
@@ -700,8 +721,8 @@ class TestChartSpecs < Minitest::Test
     assert_equal 'category', yax['type']
     assert_equal (0..5).to_a, yax['data'] # 6 slots, labels hidden
     assert_equal false, yax['axisLabel']['show']
-    # title carries the honest check count (fontSize 13)
-    assert_equal 'Shadow diagnostics · 6 checks', opt['title'].first['text']
+    # title carries the honest row count (fontSize 13)
+    assert_equal 'Shadow checks · 6 rows', opt['title'].first['text']
     assert_equal 13, opt['title'].first['textStyle']['fontSize']
     # the visible columns and their build-time-scaled values, in order
     stat = shadow_stat_series(opt)
@@ -709,12 +730,16 @@ class TestChartSpecs < Minitest::Test
     assert_equal true, stat['silent']
     assert_equal %w[mean/eval 365/730 damping impr p(osc) freeze],
                  stat['data'].map { |d| d['title'] }
+    # M11-6 (rulings 2026-08-29): reference column = the old/demoted
+    # value, operative column = the number now in force; graduated rows
+    # say so in the verdict. mean/eval carries the NW error bar.
     assert_equal ['-427.34', '-0.11', '>=1', '43.5%', '.19', '.435'],
                  stat['data'].map { |d| d['frozen'] }
-    assert_equal ['-1.17', '+0.15', '0.41', '27.9%', '.24', '.358'],
+    assert_equal ['-1.17±.17', '+0.15', '0.41', '27.9%', '.24', '.358'],
                  stat['data'].map { |d| d['shadow'] }
-    assert_equal ['rivals win', 'wins at 2y', 'not met', 'still wins',
-                  'still noise', 'drift flatters'],
+    assert_equal ['headline 08-29', 'wins at 2y · report-only',
+                  'not met · report-only', 'headline 08-29',
+                  'still noise · headline 08-29', 'adopted 08-29'],
                  stat['data'].map { |d| d['verdict'] }
   end
 
@@ -726,8 +751,8 @@ class TestChartSpecs < Minitest::Test
       assert_equal Publish::Charts::LPPL_SHADOW_EXPLAIN[d['title']], d['explanation']
     end
     mean = stat['data'].find { |d| d['title'] == 'mean/eval' }
-    assert_match(/Feeds ruling D9-b/, mean['explanation'])
-    assert_match(/18x higher probability/, mean['explanation'])
+    assert_match(/GRADUATED 2026-08-29/, mean['explanation'])
+    assert_match(/Newey-West error bar/, mean['explanation'])
   end
 
   def test_lppl_shadow_axis_tooltip_contract
@@ -743,15 +768,18 @@ class TestChartSpecs < Minitest::Test
   def test_lppl_shadow_row_absent_when_field_missing
     lat = JSON.parse(JSON.generate(lppl_latest))
     fld = ->(n) { lat['tests'].find { |t| t['name'] == n }['detail'] }
-    fld.call('envelope').delete('freeze_candidate') # drops the freeze row
+    # the freeze row reads the M11-5 shape (bound_live) first, so a
+    # pre-M9-4 payload must lack BOTH bound_live and freeze_candidate
+    fld.call('envelope').delete('freeze_candidate')
+    fld.call('envelope').delete('bound_live')        # drops the freeze row
     fld.call('logperiodic').delete('p_value_v2')     # drops the p(osc) row
     stat = shadow_stat_series(Publish::Charts.lppl_shadow(lat))
     assert_equal 4, stat['data'].size # 6 rows minus the two dropped
     titles = stat['data'].map { |d| d['title'] }
     refute_includes titles, 'freeze'
     refute_includes titles, 'p(osc)'
-    # the title's check count follows the surviving rows
-    assert_equal 'Shadow diagnostics · 4 checks',
+    # the title's row count follows the surviving rows
+    assert_equal 'Shadow checks · 4 rows',
                  Publish::Charts.lppl_shadow(lat)['title'].first['text']
   end
 
@@ -760,11 +788,12 @@ class TestChartSpecs < Minitest::Test
     td = ->(n) { lat['tests'].find { |t| t['name'] == n }['detail'] }
     %w[per_horizon per_horizon_long].each { |k| td.call('trend').delete(k) }
     td.call('envelope').delete('freeze_candidate')
+    td.call('envelope').delete('bound_live')
     %w[damping improvement_v2].each { |k| td.call('fit').delete(k) }
     td.call('logperiodic').delete('p_value_v2')
     opt = Publish::Charts.lppl_shadow(lat)
     assert_empty opt['series'] # no rows -> nothing drawn (fail-soft)
-    assert_equal 'Shadow diagnostics · 0 checks', opt['title'].first['text']
+    assert_equal 'Shadow checks · 0 rows', opt['title'].first['text']
     assert_equal 'awaiting shadow fields', opt['title'].last['text']
     assert_equal opt, JSON.parse(JSON.generate(opt)) # still JSON-safe
   end
@@ -773,6 +802,37 @@ class TestChartSpecs < Minitest::Test
     assert_equal '.24', Publish::Charts.lppl_compact(0.238, 2)
     assert_equal '-.11', Publish::Charts.lppl_compact(-0.108, 2)
     assert_equal '1.40', Publish::Charts.lppl_compact(1.4, 2)
+  end
+
+  # ---- zoomable date axes (owner ruling 2026-08-29) --------------------
+  # The time-series charts get the gex_btc idiom: INSIDE dataZoom (wheel
+  # zoom + drag pan, no slider) on their date axes -- every linked panel
+  # zooms together; a non-time companion axis (the scenario 'now' heatmap
+  # column) stays out. Default window = full range.
+  DATE_ZOOM = {
+    'vol_spread_trend' => [0],
+    'scenario_strip'   => [0],     # NOT the heatmap 'now' column (axis 1)
+    'positioning'      => [0, 1, 2],
+    'lppl_regime'      => [0, 1, 2],
+    'gex_btc_trend'    => [0],
+    'gex_mstr_trend'   => [0]
+  }.freeze
+
+  def test_time_series_charts_carry_inside_date_zoom
+    DATE_ZOOM.each do |name, axes|
+      zoom = build(name)['dataZoom']
+      assert_kind_of Array, zoom, "#{name}: dataZoom missing"
+      assert_equal 1, zoom.size, "#{name}: exactly one zoom entry"
+      assert_equal 'inside', zoom.first['type'], "#{name}: inside only, no slider"
+      assert_equal axes, zoom.first['xAxisIndex'], "#{name}: linked panels zoom together"
+      refute zoom.first.key?('startValue'), "#{name}: default window is the full range"
+    end
+  end
+
+  def test_non_time_charts_stay_unzoomed
+    %w[vol_spread vol_surface btco_table lppl_shadow scorecard].each do |name|
+      refute build(name).key?('dataZoom'), "#{name}: no date axis, no zoom"
+    end
   end
 
   # ---- positioning structure (M10-4) -----------------------------------
@@ -808,11 +868,15 @@ class TestChartSpecs < Minitest::Test
     assert_equal [1, 1], by['top L/S'].values_at('xAxisIndex', 'yAxisIndex')
     assert_equal [1, 2], by['taker buy%'].values_at('xAxisIndex', 'yAxisIndex')
     assert_equal 'right', opt['yAxis'][2]['position'] # taker % on the right axis
-    # sparse data reads as filled dots
+    # density-aware symbols (2026-08-29): the 365d real fixture is dense,
+    # so the lines drop their per-point dots; a sparse (<60pt) series
+    # keeps them (the sparse-data rule) -- pinned via a truncated doc
     %w[OI\ $B global\ L/S top\ L/S taker\ buy%].each do |n|
-      assert_equal 6, by[n]['symbolSize']
-      assert_equal 'circle', by[n]['symbol']
+      assert_equal false, by[n]['showSymbol'], "#{n}: dense series draws the line alone"
+      assert_equal 'circle', by[n]['symbol'] # emphasis/hover dot stays configured
     end
+    sparse = Publish::Charts.positioning_line('x', [['2026-08-01', 1.0]] * 30, '#fff', 0, 0)
+    assert_equal true, sparse['showSymbol'], 'sparse series keeps its filled dots'
     # opposed liquidation bars overlay on the same day (barGap -100%); longs
     # plotted DOWN (negated) in red, shorts UP in teal
     long = by['long liq $M']; short = by['short liq $M']
@@ -827,23 +891,64 @@ class TestChartSpecs < Minitest::Test
 
   def test_positioning_legend_only_crowd_ratios_with_terms
     opt = build('positioning')
-    # only the crowd ratios carry a drawn legend (they get the terms hover)
-    assert_equal ['global L/S', 'top L/S', 'taker buy%'], opt['legend']['data']
+    # the crowd ratios + the M11-7 reserves curve carry a drawn legend
+    assert_equal ['global L/S', 'top L/S', 'taker buy%', 'reserves'], opt['legend']['data']
     # every legend name has a glossary term (the terms hook attaches here)
     terms = Publish::Charts::CHARTS['positioning'][:meta]['terms']
     opt['legend']['data'].each { |n| assert terms.key?(n), "no term for #{n}" }
   end
 
+  # M11-7 (owner ruling 2026-08-29): the reserves curve rides the OI
+  # panel's right axis from the OPTIONAL reserves:latest input; a nil
+  # input degrades to an empty series -- the card renders, never skips.
+  def test_positioning_reserves_curve_on_oi_right_axis
+    opt = build('positioning')
+    resv = opt['series'].find { |s| s['name'] == 'reserves' }
+    assert resv, 'reserves series present when the optional payload is'
+    assert_equal [0, 4], resv.values_at('xAxisIndex', 'yAxisIndex')
+    assert_equal Publish::Charts::POS_RESV, resv['itemStyle']['color']
+    ax = opt['yAxis'][4]
+    assert_equal [0, 'right'], ax.values_at('gridIndex', 'position')
+    refute ax.key?('name'), 'unnamed axis: wide M-BTC ticks + a rotated name collide'
+    # data = the reserves payload's card series CLIPPED (both ends) to the
+    # positioning window (each grid owns its time axis; a longer tail on
+    # either side would stretch panel 0 and break vertical-slice alignment)
+    fixture = JSON.parse(File.read(File.join(PAYLOADS, 'payload_reserves_latest.json')))
+    from = positioning_doc['series'].values.map { |pts| pts.first.first }.min
+    to   = positioning_doc['series'].values.map { |pts| pts.last.first }.max
+    assert_equal fixture['series']['total_mbtc'].select { |d, _| d >= from && d <= to },
+                 resv['data']
+    assert_operator resv['data'].first.first, :>=, from
+    assert_operator resv['data'].last.first, :<=, to
+    # frozen axis indices 0..3 unchanged (nothing renumbers)
+    assert_equal 'right', opt['yAxis'][2]['position']
+  end
+
+  def test_positioning_without_reserves_input_degrades_not_skips
+    opt = Publish::Charts.positioning(positioning_doc, nil)
+    resv = opt['series'].find { |s| s['name'] == 'reserves' }
+    assert_equal [], resv['data'], 'nil optional input -> empty curve'
+    assert_equal 5, opt['yAxis'].size # axis still declared (static option)
+    assert_equal opt, JSON.parse(JSON.generate(opt)) # JSON-safe
+    # single-arg call (pre-M11-7 pipeline shape) still works too
+    assert Publish::Charts.positioning(positioning_doc)['series']
+      .any? { |s| s['name'] == 'reserves' }
+  end
+
   def test_positioning_title_warmup_and_scored
-    # the fixture is 30 WARMUP days -> honest WARMUP n/91d, never blank
-    assert_equal 'Positioning · WARMUP 30/91d', build('positioning')['title']['text']
-    # a fully-banded doc reads score + crowd band (0 shown bare, not +0)
+    # the fixture is a REAL 365d capture (2026-08-29) -> scored title
+    assert_equal 'Positioning · 0 · crowd SHORT', build('positioning')['title']['text']
+    # scored variants (0 shown bare, not +0)
     scored = JSON.parse(JSON.generate(positioning_doc))
     scored['crowding'] = 'LONG'
     scored['score'] = -1
     assert_equal 'Positioning · -1 · crowd LONG', Publish::Charts.positioning(scored)['title']['text']
-    scored['score'] = 0
-    assert_equal 'Positioning · 0 · crowd LONG', Publish::Charts.positioning(scored)['title']['text']
+    # the designed WARMUP state stays honest (never blank): n/91d from the
+    # crowd series length
+    warm = JSON.parse(JSON.generate(positioning_doc))
+    warm['crowding'] = 'WARMUP'
+    warm['series']['global_ls'] = warm['series']['global_ls'].first(30)
+    assert_equal 'Positioning · WARMUP 30/91d', Publish::Charts.positioning(warm)['title']['text']
   end
 
   # ---- btco_table structure --------------------------------------------

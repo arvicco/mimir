@@ -181,7 +181,11 @@ if ARGV.include?('--history')
     bf: d['trend']['bf'], ratio: d['envelope']['ratio'],
     days_below_strong: d['envelope']['days_below_strong'],
     trough_date: d['fit']['trough_date'], trough_px: d['fit']['trough_px'],
-    omega: d['fit']['omega'], p_lp: d['logperiodic']['p_value'],
+    # M11-4 (owner ruling 2026-08-29, R-7): p_lp records the GARCH bootstrap
+    # p (the headline/score p since the flip); p_lp_ar1 keeps the old AR(1)
+    # series' continuity as an additive reference column.
+    omega: d['fit']['omega'], p_lp: d['logperiodic']['p_value_v2'],
+    p_lp_ar1: d['logperiodic']['p_value'],
     z: d['percentile']['z'], pct_emp: d['percentile']['pct_emp'],
     z_record: d['percentile']['record'],
     days_le_p01: d['percentile']['days_le_p01'],
@@ -198,7 +202,7 @@ line = format('LPPL %s %+.2f BF%s r%s trough %s/%s w%s p%s Z%s@%s%s',
               d['fit']['trough_date'] || '--',
               d['fit']['trough_px'] ? "#{(d['fit']['trough_px'] / 1000.0).round}k" : '--',
               d['fit']['omega'] ? format('%.1f', d['fit']['omega']) : '?',
-              d['logperiodic']['p_value'] ? format('%.2f', d['logperiodic']['p_value']) : '?',
+              d['logperiodic']['p_value_v2'] ? format('%.2f', d['logperiodic']['p_value_v2']) : '?',
               d['percentile']['z'] ? format('%.1f', d['percentile']['z']) : '?',
               d['percentile']['pct_emp'] ? format('%.1f%%', d['percentile']['pct_emp']) : '?',
               d['percentile']['record'] ? '!' : '')

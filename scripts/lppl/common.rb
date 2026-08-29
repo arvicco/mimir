@@ -250,6 +250,28 @@ module Lppl
     x
   end
 
+  # Newey-West (Bartlett-kernel) standard error of the MEAN of +xs+ under
+  # serial dependence up to +lag+ (M11-3, owner ruling 2026-08-29 R-3 --
+  # the error bar on the trend test's per-eval-mean headline; overlapping
+  # forecast horizons make the daily differentials strongly autocorrelated,
+  # so a plain sd/sqrt(n) would be far too tight). lag truncates to n-1.
+  #   var(mean) = (g0 + 2 * sum_{l=1..L} (1 - l/(L+1)) * g_l) / n
+  # with g_l the lag-l autocovariance in the 1/n convention. Bartlett
+  # weights keep the estimate PSD; a tiny negative from fp dust clamps to
+  # 0. Returns nil below 2 points.
+  def newey_west_se(xs, lag:)
+    n = xs.size
+    return nil if n < 2
+
+    mu = xs.sum / n.to_f
+    l_max = [lag, n - 1].min
+    gamma = ->(l) { (l...n).sum { |i| (xs[i] - mu) * (xs[i - l] - mu) } / n.to_f }
+    v = gamma.call(0)
+    (1..l_max).each { |l| v += 2.0 * (1.0 - l.to_f / (l_max + 1)) * gamma.call(l) }
+    v = 0.0 if v.negative?
+    Math.sqrt(v / n)
+  end
+
   # Lomb-Scargle normalized periodogram over an angular-frequency grid,
   # on the (uneven) sample points u. Returns [powers, peak_power,
   # peak_frequency]; [[], 0.0, 0.0] for zero-variance input.

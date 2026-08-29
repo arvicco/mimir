@@ -237,3 +237,42 @@ class TestAtomicWrite < Minitest::Test
     end
   end
 end
+
+# M11-3 (owner ruling 2026-08-29, register R-3): Newey-West (Bartlett)
+# standard error of a series mean under serial dependence -- the error bar
+# on the trend test's per-evaluation-mean headline. Exact-value pins on
+# hand-computed examples (gamma_l in the 1/n convention).
+class TestNeweyWestSe < Minitest::Test
+  def test_lag_zero_is_plain_variance_of_mean
+    # [1,2,3,4]: gamma0 = 1.25 -> var(mean) = 1.25/4 -> se = 0.559017
+    assert_close 0.5590169943749475, Lppl.newey_west_se([1.0, 2.0, 3.0, 4.0], lag: 0), 1e-12
+  end
+
+  def test_lag_one_bartlett_hand_computed
+    # gamma1 = 0.3125, w1 = 0.5 -> v = 1.25 + 2*0.5*0.3125 = 1.5625
+    # var(mean) = 1.5625/4 = 0.390625 -> se = 0.625 exactly
+    assert_close 0.625, Lppl.newey_west_se([1.0, 2.0, 3.0, 4.0], lag: 1), 1e-12
+  end
+
+  def test_lag_truncates_to_n_minus_one
+    # lag 99 on 4 points behaves as lag 3 (weights from the truncated L)
+    assert_close Lppl.newey_west_se([1.0, 2.0, 3.0, 4.0], lag: 3),
+                 Lppl.newey_west_se([1.0, 2.0, 3.0, 4.0], lag: 99), 1e-12
+  end
+
+  def test_constant_series_zero
+    assert_close 0.0, Lppl.newey_west_se([2.0] * 10, lag: 3), 1e-12
+  end
+
+  def test_too_short_returns_nil
+    assert_nil Lppl.newey_west_se([], lag: 1)
+    assert_nil Lppl.newey_west_se([1.0], lag: 1)
+  end
+
+  def test_positive_dependence_widens_the_error_bar
+    # a slowly-alternating blocky series: NW at lag 4 must exceed lag 0
+    xs = [1, 1, 1, 1, -1, -1, -1, -1] * 8
+    assert_operator Lppl.newey_west_se(xs.map(&:to_f), lag: 4), :>,
+                    Lppl.newey_west_se(xs.map(&:to_f), lag: 0)
+  end
+end

@@ -65,6 +65,8 @@ endpoints served, none tier-gated):
 - `coinglass_top_position_ratio.json` -- OK (https://open-api-v4.coinglass.com/api/futures/top-long-short-position-ratio/history?exchange=Binance&symbol=BTCUSDT&interval=1d -- top-trader position L/S; same required params; rows: top_position_long/short_percent + _long_short_ratio)
 - `coinglass_taker_volume.json` -- OK (https://open-api-v4.coinglass.com/api/futures/taker-buy-sell-volume/history?exchange=Binance&symbol=BTCUSDT&interval=1d -- per-exchange taker flow; rows: taker_buy_volume_usd, taker_sell_volume_usd)
 - `coinglass_liquidation.json` -- OK (https://open-api-v4.coinglass.com/api/futures/liquidation/aggregated-history?symbol=BTC&interval=1d&exchange_list=Binance,OKX,Bybit -- REQUIRES exchange_list, 400s otherwise; rows: aggregated_long/short_liquidation_usd)
+- `coinglass_exchange_balance_list.json` -- OK (https://open-api-v4.coinglass.com/api/exchange/balance/list?symbol=BTC -- M11-7 reserves snapshot, recorded 2026-08-29; rows: exchange_name, total_balance, balance_change_{1d,7d,30d} absolute + percent)
+- `coinglass_exchange_balance_chart.json` -- OK (https://open-api-v4.coinglass.com/api/exchange/balance/chart?symbol=BTC -- M11-7 reserves daily history, recorded 2026-08-29, trimmed to the trailing 130 days; data: time_list, price_list, data_map = one balance series per exchange, nil-padded for defunct venues)
 
 `scorecard/` (M10-6, SYNTHETIC -- generated deterministically, not
 recorded upstream): fixture ledgers for the scripts/scorecard.rb --json

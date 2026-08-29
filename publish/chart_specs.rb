@@ -110,7 +110,7 @@ module Publish
     }.freeze
 
     # vol_spread_trend tenor legends: one series per requested tenor.
-    VOL_SPREAD_TREND_TERMS = [7, 14, 21, 30, 45, 90].to_h { |n|
+    VOL_SPREAD_TREND_TERMS = [7, 14, 21, 30, 45, 90, 180].to_h { |n|
       ["#{n}d", "The #{n}-day spread series: each day's MSTR-minus-BTC " \
                 "at-the-money vol gap at the #{n}-day option tenor."]
     }.freeze
@@ -134,7 +134,16 @@ module Publish
                          '+1 = holders underwater historically deep (accumulation ' \
                          'zone), -1 = extreme unrealized profit.',
       'stables' => 'Total stablecoin supply trend -- dry powder that can rotate ' \
-                   'into BTC. +1 growing, -1 shrinking.'
+                   'into BTC. +1 growing, -1 shrinking.',
+      # M11-7: the two weight-0 modules (the positioning entry also closes
+      # a gap -- its scoreboard row never had a hover term).
+      'positioning' => 'Derivatives crowd stance (weight 0 -- shown, never ' \
+                       'weighted): -1 only on the full flush line-up (crowd long ' \
+                       '+ OI rising + longs liquidated), +1 on its mirror.',
+      'reserves' => 'BTC sitting on exchanges (weight 0 -- shown, never ' \
+                    'weighted). Scores the 30-day change vs its own trailing ' \
+                    'history: +1 coins leaving unusually fast (self-custody ' \
+                    'drain), -1 piling up unusually fast (sellable overhang).'
     }.freeze
 
     # positioning card (M10-4): the panel-2 crowd-ratio legend items each
@@ -149,7 +158,11 @@ module Publish
                    'size rather than account count -- watch it diverge from the crowd.',
       'taker buy%' => 'The share of aggressive taker volume that hit the BUY side ' \
                       '(buy / (buy + sell)). Above 50% = takers are lifting offers ' \
-                      '(demand-led); below = hitting bids (supply-led).'
+                      '(demand-led); below = hitting bids (supply-led).',
+      'reserves' => 'Aggregate BTC held on the exchanges Coinglass tracks (M BTC, ' \
+                    'right axis). Falling = coins moving to self-custody (supply ' \
+                    'drain); rising = sellable supply building up. The reserves ' \
+                    'module scores its 30-day change at weight 0.'
     }.freeze
 
     # meta (additive envelope field, 2026-07-05): METHODOLOGY-grade
@@ -189,7 +202,12 @@ module Publish
           # 2026-08-10): the GEX card is now four tabs --
           # [BTC][MSTR][BTC TREND][MSTR TREND]. tab_pos is explicit because the
           # index sorts keys alphabetically yet BTC must be the default/first tab.
-          'tab_group' => 'gex', 'tab_label' => 'BTC', 'tab_pos' => 1
+          # 2026-08-29 owner ruling (the 2-per-card format): the GEX card
+          # becomes TWO STACKED SECTIONS -- profile on top, its trend below
+          # -- each a [BTC][MSTR] tab pair with IDENTICAL labels, which the
+          # renderer links into ONE switcher (linked stacked tabs).
+          'tab_group' => 'gex', 'group_style' => 'stack', 'tab_pos' => 0,
+          'tab_label' => 'BTC', 'height' => 260
         }
       },
       'gex_mstr' => {
@@ -217,7 +235,9 @@ module Publish
           # series does not carry -- the default axis tooltip is correct here.
           # tab-group hook (M6-4, owner ruling D7-c 2026-07-06): shares the
           # BTC gex_profile card as the second [MSTR] tab (BTC is tab_pos 1).
-          'tab_group' => 'gex', 'tab_label' => 'MSTR', 'tab_pos' => 2
+          # shares the profile section (tab_pos 0) as its MSTR tab.
+          'tab_group' => 'gex', 'group_style' => 'stack', 'tab_pos' => 0,
+          'tab_label' => 'MSTR', 'height' => 260
         }
       },
       'scenario_strip' => {
@@ -348,7 +368,7 @@ module Publish
                     'are positioned; skew says what the market pays to insure the ' \
                     'tails -- a negative RR25 means downside puts cost more than ' \
                     'upside calls (fear).',
-          'axes' => { 'x' => 'nominal tenor (7/14/21/30/45/90d), snapped to the ' \
+          'axes' => { 'x' => 'nominal tenor (7/14/21/30/45/90/180d), snapped to the ' \
                              'nearest listed option expiry -- exp(d) in the ' \
                              'hover is that real expiry\'s days out, so 30d/' \
                              'exp(d) 31 means the 30d numbers came from the ' \
@@ -388,7 +408,7 @@ module Publish
                     'FLY25 the 25-delta butterfly. MSTR is a levered, reflexive ' \
                     'BTC holder, so its vol persistently trades richer than ' \
                     'BTC\'s -- the [BTC] tab is the coin, this is the equity.',
-          'axes' => { 'x' => 'nominal tenor (7/14/21/30/45/90d), snapped to the ' \
+          'axes' => { 'x' => 'nominal tenor (7/14/21/30/45/90/180d), snapped to the ' \
                              'nearest listed option expiry -- exp(d) in the ' \
                              'hover is that real expiry\'s days out, so 30d/' \
                              'exp(d) 31 means the 30d numbers came from the ' \
@@ -420,7 +440,7 @@ module Publish
                     'is a levered, reflexive BTC holder, so its options ' \
                     'persistently trade richer; the spread (vol points) is how ' \
                     'much extra the option market charges for that leverage now.',
-          'axes' => { 'x' => 'nominal tenor (7/14/21/30/45/90d), snapped to the ' \
+          'axes' => { 'x' => 'nominal tenor (7/14/21/30/45/90/180d), snapped to the ' \
                              'nearest listed expiry on each leg',
                       'y' => 'implied vol (%): bars = the MSTR-minus-BTC ATM ' \
                              'spread in vol points, lines = each leg\'s ATM IV ' \
@@ -445,7 +465,7 @@ module Publish
         inputs: %w[payload_vol_spread.json], fn: :vol_spread_trend,
         meta: {
           'desc' => 'The MSTR-minus-BTC ATM vol spread over time, one line per ' \
-                    'tenor (7/14/21/30/45/90d). This is the same treasury-company ' \
+                    'tenor (7/14/21/30/45/90/180d). This is the same treasury-company ' \
                     'leverage premium as the bars above, but as a term-structure ' \
                     'trend: it accumulates one point per day from the first ' \
                     'deploy, so early history is short and fills in daily.',
@@ -505,10 +525,11 @@ module Publish
                     'and -- when the Coinglass cross-check is present -- MP ' \
                     'Delta, spot vs their max-pain. Sparse history reads as ' \
                     'filled dots.',
-          # joins the existing GEX card (D7-c) as the third tab after
-          # [BTC](pos 1) and [MSTR](pos 2); pos 3 keeps [BTC TREND] before
-          # [MSTR TREND](pos 4).
-          'tab_group' => 'gex', 'tab_label' => 'BTC TREND', 'tab_pos' => 3,
+          # 2026-08-29: the TREND section stacks below the profile
+          # (tab_pos 1), tab-labelled BTC/MSTR to match the profile pair --
+          # identical labels are what links the two switchers into one.
+          'tab_group' => 'gex', 'group_style' => 'stack', 'tab_pos' => 1,
+          'tab_label' => 'BTC', 'height' => 210,
           # M9-15: the spot / flip / CW / PW legend items explain themselves.
           'terms' => GEX_TREND_TERMS
         }
@@ -537,8 +558,9 @@ module Publish
                     'walls. The title carries flip distance last and the regime ' \
                     'run length. Sparse history reads as filled dots; a day with ' \
                     'no MSTR capture is an honest gap.',
-          # fourth tab of the GEX card, after [BTC TREND](pos 3).
-          'tab_group' => 'gex', 'tab_label' => 'MSTR TREND', 'tab_pos' => 4,
+          # shares the trend section (tab_pos 1) as its MSTR tab.
+          'tab_group' => 'gex', 'group_style' => 'stack', 'tab_pos' => 1,
+          'tab_label' => 'MSTR', 'height' => 210,
           # M9-15: same spot / flip / CW / PW glossary as the BTC trend tab.
           'terms' => GEX_TREND_TERMS
         }
@@ -584,7 +606,12 @@ module Publish
       # Reads positioning:latest (the module runs at WEIGHT 0 during the soak;
       # its score is display-only). WARMUP is a designed state, never blank.
       'positioning' => {
+        # M11-7 (owner ruling 2026-08-29): reserves:latest rides along as
+        # an OPTIONAL input -- the aggregate exchange-reserve curve on the
+        # OI panel's right axis. Optional: absent or fail-soft -> nil ->
+        # the card renders without the curve, never skips.
         inputs: %w[payload_positioning_latest.json], fn: :positioning,
+        optional: %w[payload_reserves_latest.json],
         meta: {
           'desc' => 'The derivatives crowd\'s stance in one vertical slice: ' \
                     'aggregate open interest ($B), the long/short crowd ratios ' \
@@ -596,7 +623,8 @@ module Publish
                     'shown and charted, never weighted (METHODOLOGY.md).',
           'axes' => { 'x' => 'time -- one daily reading per UTC date, shared ' \
                              'across all three panels (hover locks a vertical slice)',
-                      'y' => 'three stacked panels: (top) open interest, $B; ' \
+                      'y' => 'three stacked panels: (top) open interest, $B left, ' \
+                             'aggregate exchange reserves, M BTC right; ' \
                              '(mid) L/S ratios left, taker BUY-share % right; ' \
                              '(bottom) liquidations $M -- longs DOWN (red), ' \
                              'shorts UP (teal), overlaid on the same day' },
@@ -950,6 +978,10 @@ module Publish
           { 'type' => 'category', 'gridIndex' => 1, 'data' => ['now'],
             'axisLabel' => { 'show' => false }, 'axisTick' => { 'show' => false } }
         ],
+        # owner ruling 2026-08-29: the composite's date axis zooms/pans
+        # (inside, full range by default); the 'now' heatmap column (axis 1)
+        # is not a time axis and stays fixed.
+        'dataZoom' => [{ 'type' => 'inside', 'xAxisIndex' => [0] }],
         'yAxis' => [
           # name rides the axis (rotated, left gutter): at the default top
           # position it collided with the one-line title, and at the bottom
@@ -1043,6 +1075,14 @@ module Publish
         'showSymbol' => true, 'symbol' => 'circle', 'symbolSize' => 7, # a 1-entry ledger must still show as a filled dot
         'data' => ratio, 'markLine' => envelope_lines(env)
       }
+      # M11-6: with the frozen bound (R-8) sitting below the recent ratio
+      # range, a purely auto-scaled axis clips the bound markLine away and
+      # the envelope panel loses its reference line. Pin the panel's min
+      # just under the bound (build-time, so the option stays static); max
+      # keeps auto-scaling. The far-below floor is allowed to clip -- it is
+      # the catastrophic threshold, not the operative reference.
+      ratio_min = [ratio.map { |_, v| v.to_f }.min, env['bound']&.to_f].compact.min
+      ratio_axis_min = ratio_min && (ratio_min * 0.97).floor(2)
       unless ratio.empty?
         ratio_series['markPoint'] = {
           'symbol' => 'pin', 'symbolSize' => 40,
@@ -1070,6 +1110,9 @@ module Publish
         'title' => titles.size == 1 ? titles.first : titles,
         'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 }, 'axisPointer' => { 'type' => 'cross' } },
         'axisPointer' => { 'link' => [{ 'xAxisIndex' => 'all' }] },
+        # owner ruling 2026-08-29: the shared date axis zooms/pans (inside,
+        # full range by default); the linked panels move together.
+        'dataZoom' => [{ 'type' => 'inside', 'xAxisIndex' => [0, 1, 2] }],
         # three panels under a one-line title. M8-18 R7 + follow-up (owner
         # rulings 2026-08-10): denser, and ONE date axis for the whole card --
         # the panels are time-synchronized, so the two upper grids hide their
@@ -1094,7 +1137,8 @@ module Publish
         # they collided with the title row (owner review round 4)
         'yAxis' => [
           { 'type' => 'value', 'gridIndex' => 0, 'name' => 'ratio', 'scale' => true,
-            'nameLocation' => 'middle', 'nameGap' => 44 },
+            'nameLocation' => 'middle', 'nameGap' => 44 }
+            .merge(ratio_axis_min ? { 'min' => ratio_axis_min } : {}),
           { 'type' => 'value', 'gridIndex' => 1, 'name' => 'log10 BF', 'scale' => true,
             'nameLocation' => 'middle', 'nameGap' => 44 },
           { 'type' => 'value', 'gridIndex' => 2, 'name' => 'Z', 'scale' => true,
@@ -1135,52 +1179,61 @@ module Publish
     # lppl_shadow formatter shows the matching entry for the hovered row.
     # These describe the METHOD, so they cite representative live numbers;
     # the per-row frozen/shadow VALUES beside them come from the payload.
+    # Post-ruling texts (M11-6): four of the six checks GRADUATED on the
+    # 2026-08-29 owner rulings (register R-3/R-6/R-7/R-8) -- their shadow
+    # value IS now the headline and the old value is the reference. Two
+    # stay deliberately report-only (365/730 scoring wants a backtest;
+    # damping gating wants more soak -- register CALENDAR).
     LPPL_SHADOW_EXPLAIN = {
       'mean/eval' =>
         'The average forecast-score gap per evaluation: power law vs its ' \
         'best rival, in log10. Negative = rivals beat the power law that ' \
-        'day. Unlike the headline sum (about -460), this number does not ' \
-        'grow just because we evaluate more often -- it is the honest size ' \
-        'of the effect. -1.26 means that on an average day the best rival ' \
-        'gave about 18x higher probability to what actually happened. Feeds ' \
-        'ruling D9-b (make this the primary trend number?).',
+        'day. GRADUATED 2026-08-29: this is now the trend test\'s headline ' \
+        '(with a Newey-West error bar), because the old cumulative sum grew ' \
+        'just from evaluating more often. The sum stays as the reference ' \
+        'shown here; the score still runs on it, so no verdict changed. ' \
+        'About -1.3 means an average day\'s outcome was ~20x more likely ' \
+        'under the best rival.',
       '365/730' =>
         'The same per-evaluation score at 1-year and 2-year forecast ' \
-        'horizons. These do NOT count toward the verdict yet. Negative at ' \
-        '365d (power law still loses), positive at 730d (power law WINS at ' \
-        'two years) -- matching published research that short horizons ' \
-        'favor naive models and long horizons favor the power law. Feeds ' \
-        'ruling D9-c (should long horizons enter the score?).',
+        'horizons. These still do NOT count toward the verdict -- the ' \
+        '2026-08-29 ruling deliberately kept them report-only until a ' \
+        'backtest can justify thresholds. Negative at 365d (power law ' \
+        'still loses), positive at 730d (power law WINS at two years) -- ' \
+        'matching published research that short horizons favor naive ' \
+        'models and long horizons favor the power law.',
       'damping' =>
         'An anti-bubble shape test from the Sornette school: the ' \
         'oscillations of a genuine damped anti-bubble decay with a damping ' \
-        'ratio of at least 1. Today\'s fit scores 0.41 -- it does NOT ' \
-        'qualify as a genuine damped anti-bubble under the standard ' \
-        'condition, even though it passes the suite\'s four original ' \
-        'filters. Report-only for now. Feeds ruling D9-e (should this gate ' \
-        'the fit verdict?).',
+        'ratio of at least 1. Today\'s fit does NOT meet the condition, ' \
+        'even though it passes the suite\'s four original filters. The ' \
+        '2026-08-29 ruling deliberately kept this report-only -- making it ' \
+        'gate the verdict is the single most verdict-changing switch in ' \
+        'the family, parked for a longer soak.',
       'impr' =>
         'How much better the LPPLS curve fits the post-peak decline than a ' \
-        'plain decay curve. The frozen 29.2% was measured with an unfair ' \
-        'advantage: the plain curve got a coarser parameter search. 27.9% ' \
-        'is the fair, like-for-like number -- the LPPLS fit still wins, ' \
-        'just honestly. The fair search also fixes a bias that pushed the ' \
-        'plain curve\'s peak date to the edge of its search grid. Feeds ' \
-        'ruling D9-e.',
+        'plain decay curve. GRADUATED 2026-08-29: the headline figure is ' \
+        'now the fair, like-for-like measurement (the old one gave the ' \
+        'plain curve a coarser parameter search and a grid-edge bias); the ' \
+        'old figure stays in the data as reference. The LPPLS fit still ' \
+        'wins -- just honestly.',
       'p(osc)' =>
         'The probability that the log-periodic wobble in the data is just ' \
-        'noise. Under the simple noise model (frozen): 0.38. Under a ' \
-        'realistic model with fat tails and volatility clustering (shadow): ' \
-        '0.24. Both are far above the usual 0.05 bar -- the wobble is NOT ' \
-        'statistically proven, and the suite is right to say so. Feeds ' \
-        'ruling D9-f (which noise model is the headline?).',
+        'noise. GRADUATED 2026-08-29: the headline (and the test\'s score) ' \
+        'now use the realistic noise model -- fat tails and volatility ' \
+        'clustering -- instead of the simple one, which stays as the ' \
+        'reference shown here. Both sit far above the usual 0.05 bar: the ' \
+        'wobble is NOT statistically proven, and the suite is right to ' \
+        'say so.',
       'freeze' =>
-        'The envelope\'s support bound. 0.439 is today\'s live value, ' \
-        'recomputed daily against a trend that keeps drifting as new data ' \
-        'arrives. 0.358 is what the bound would be if it had been frozen at ' \
-        'the 2022 low, as a stricter rule would demand. The gap between ' \
-        'them is how much the drifting trend flatters the \'envelope ' \
-        'intact\' reading. Feeds ruling D9-g (freeze each cycle\'s bound?).'
+        'The envelope\'s support bound. GRADUATED 2026-08-29: the ' \
+        'operative bound is now FROZEN at the last cycle low, measured ' \
+        'against the trend as it stood then -- the old bound drifted ' \
+        'upward with every re-fit, flattering the "envelope intact" ' \
+        'reading. The drifting value stays as the reference shown here. ' \
+        'Honest side-effect: measured this way, trough damping already ' \
+        'failed between 2018 and 2022 -- recorded in the methodology, not ' \
+        'hidden.'
     }.freeze
 
     # ".24" not "0.24" -- probabilities/ratios read compact (design ruling).
@@ -1188,10 +1241,12 @@ module Publish
       format("%.#{dp}f", value.to_f).sub(/\A(-?)0\./, '\1.')
     end
 
-    # One hash per PRESENT shadow check (a missing field drops its row),
-    # top-to-bottom order. Each: stat (row name + explanation key), frozen
-    # and shadow display strings, and a one-phrase verdict. Values are
-    # scaled/compacted at build time per the design system.
+    # One hash per PRESENT check (a missing field drops its row),
+    # top-to-bottom order. Each: stat (row name + explanation key), the
+    # REFERENCE value ('frozen' column -- since M11-6 this is the old/
+    # demoted number), the OPERATIVE value ('shadow' column -- the number
+    # now in force), and a one-phrase verdict. Values are scaled/compacted
+    # at build time per the design system.
     def lppl_shadow_rows(latest)
       trend = lppl_detail(latest, 'trend') || {}
       env   = lppl_detail(latest, 'envelope') || {}
@@ -1199,18 +1254,23 @@ module Publish
       lp    = lppl_detail(latest, 'logperiodic') || {}
       rows  = []
 
-      # (D9-b) density-honest trend: frozen headline BF sum vs the
-      # per-evaluation mean summed across the three headline horizons.
+      # (R-3, GRADUATED) trend: old cumulative sum (reference) -> the
+      # per-eval mean headline +- its NW error bar. headline_mean when the
+      # payload carries it (post-M11-3); the per_horizon sum otherwise.
       ph = trend['per_horizon']
+      hm = trend['headline_mean']
       if ph.is_a?(Hash) && trend['bf']
         means = %w[30 90 180].map { |h| ph.dig(h, 'mean_per_eval') }
-        unless means.any?(&:nil?)
+        value = hm.is_a?(Hash) ? hm['value'] : (means.any?(&:nil?) ? nil : means.sum)
+        if value
+          se = hm.is_a?(Hash) ? hm['se_nw'] : nil
           rows << { 'stat' => 'mean/eval', 'frozen' => format('%.2f', trend['bf']),
-                    'shadow' => format('%.2f', means.sum), 'verdict' => 'rivals win' }
+                    'shadow' => se ? format('%.2f±%s', value, lppl_compact(se, 2)) : format('%.2f', value),
+                    'verdict' => 'headline 08-29' }
         end
       end
 
-      # (D9-c) report-only long horizons: the 365d/730d per-eval means.
+      # (R-4, stays report-only) long horizons: the 365d/730d per-eval means.
       pl = trend['per_horizon_long']
       if pl.is_a?(Hash)
         a = pl.dig('365', 'mean_per_eval')
@@ -1218,38 +1278,44 @@ module Publish
         if a && b
           rows << { 'stat' => '365/730', 'frozen' => format('%+.2f', a),
                     'shadow' => format('%+.2f', b),
-                    'verdict' => b > 0 ? 'wins at 2y' : 'still loses' }
+                    'verdict' => b > 0 ? 'wins at 2y · report-only' : 'still loses · report-only' }
         end
       end
 
-      # (D9-e) fit damping condition D against its threshold: frozen shows
-      # the requirement, shadow the observed ratio.
+      # (stays report-only; gating parked in the register CALENDAR) fit
+      # damping condition D against its threshold.
       if (d = fit['damping'])
         thr = fit['damping_ref_threshold'] || 1.0
         rows << { 'stat' => 'damping', 'frozen' => format('>=%g', thr),
                   'shadow' => format('%.2f', d),
-                  'verdict' => d < thr ? 'not met' : 'qualifies' }
+                  'verdict' => d < thr ? 'not met · report-only' : 'qualifies · report-only' }
       end
 
-      # (D9-e) frozen RMSE improvement vs the fair, like-for-like one.
+      # (R-6, GRADUATED) old improvement figure (reference) -> the fair
+      # symmetric-null figure now in the headline.
       if (iv = fit['improvement_v2']) && (fr = fit['rmse_impr_pct'])
         rows << { 'stat' => 'impr', 'frozen' => format('%.1f%%', fr),
                   'shadow' => format('%.1f%%', iv),
-                  'verdict' => iv > 0 ? 'still wins' : 'no edge' }
+                  'verdict' => 'headline 08-29' }
       end
 
-      # (D9-f) AR(1) vs GARCH bootstrap p-value for the oscillation.
+      # (R-7, GRADUATED) AR(1) p (reference) -> the GARCH bootstrap p that
+      # now drives headline and score.
       if (pv = lp['p_value_v2']) && (fp = lp['p_value'])
         rows << { 'stat' => 'p(osc)', 'frozen' => lppl_compact(fp, 2),
                   'shadow' => lppl_compact(pv, 2),
-                  'verdict' => pv <= 0.05 ? 'significant' : 'still noise' }
+                  'verdict' => pv <= 0.05 ? 'significant · headline 08-29' : 'still noise · headline 08-29' }
       end
 
-      # (D9-g) live envelope bound vs the pre-trough freeze candidate.
-      if (fc = env['freeze_candidate']) && (bd = env['bound'])
-        rows << { 'stat' => 'freeze', 'frozen' => lppl_compact(bd, 3),
-                  'shadow' => lppl_compact(fc, 3),
-                  'verdict' => bd > fc ? 'drift flatters' : 'no drift' }
+      # (R-8, GRADUATED) drifting bound (reference) -> the frozen operative
+      # bound. bound_live when the payload carries it (post-M11-5); the
+      # pre-flip bound/freeze_candidate pair otherwise.
+      bd_ref = env['bound_live'] || env['bound']
+      bd_op  = env['bound_live'] ? env['bound'] : env['freeze_candidate']
+      if bd_ref && bd_op
+        rows << { 'stat' => 'freeze', 'frozen' => lppl_compact(bd_ref, 3),
+                  'shadow' => lppl_compact(bd_op, 3),
+                  'verdict' => 'adopted 08-29' }
       end
 
       rows
@@ -1268,10 +1334,10 @@ module Publish
     def lppl_shadow(latest)
       rows = lppl_shadow_rows(latest)
 
-      titles = [{ 'text' => format('Shadow diagnostics · %d checks', rows.size),
+      titles = [{ 'text' => format('Shadow checks · %d rows', rows.size),
                   'textStyle' => { 'fontSize' => 13 } }]
       titles << { 'text' => rows.empty? ? 'awaiting shadow fields' :
-                    'frozen → shadow · hover a row for what it means',
+                    'reference → operative · rulings 2026-08-29 · hover a row for the story',
                   'top' => 26, 'left' => 8,
                   'textStyle' => { 'fontSize' => 11, 'fontWeight' => 'normal',
                                    'color' => '#8a93a0' } }
@@ -1591,9 +1657,24 @@ module Publish
     POS_TAKER = '#d0d5db' # taker BUY-share -- light grey (right axis)
     POS_LONG  = '#c63939' # liquidated longs (plotted DOWN) -- red bar tone
     POS_SHORT = '#0f7a5c' # liquidated shorts (plotted UP) -- teal bar tone
+    POS_RESV  = '#b48cd9' # exchange reserves -- violet (M11-7 right axis;
+                          # nothing else on the card uses the hue)
 
-    def positioning(doc)
+    # reserves (M11-7): the OPTIONAL second payload -- reserves:latest.
+    # nil (absent or fail-soft upstream) renders the card exactly as
+    # before the ruling: no reserves axis entry gets data, the legend
+    # keeps its slot order, nothing skips. The curve is CLIPPED to the
+    # positioning series' own date window: each grid owns its (hidden)
+    # time axis, so a longer reserves tail would silently stretch panel
+    # 0's axis and break the card's vertical-slice alignment (caught at
+    # the M11-7 screenshot review -- the OI curve compressed into a
+    # quarter of its panel).
+    def positioning(doc, reserves = nil)
       series = doc['series'] || {}
+      resv   = reserves.is_a?(Hash) ? (reserves.dig('series', 'total_mbtc') || []) : []
+      from = series.values.compact.filter_map { |pts| pts.first&.first }.min
+      to   = series.values.compact.filter_map { |pts| pts.last&.first }.max
+      resv = resv.select { |d, _| d >= from && d <= to } if from && to
       {
         'backgroundColor' => 'transparent',
         'title' => { 'text' => positioning_title(doc), 'textStyle' => { 'fontSize' => 13 } },
@@ -1602,9 +1683,15 @@ module Publish
         # one date axis for the whole card: hovering locks a vertical slice
         # across all three panels (the flush set-up reads at a single date).
         'axisPointer' => { 'link' => [{ 'xAxisIndex' => 'all' }] },
-        # only the crowd-ratio series carry a drawn legend (they get the terms
-        # hover); OI and the liquidation bars are named by their axes.
-        'legend' => { 'top' => 22, 'data' => ['global L/S', 'top L/S', 'taker buy%'] },
+        # owner ruling 2026-08-29: the shared date axis zooms/pans (inside,
+        # full range by default); the linked panels move together.
+        'dataZoom' => [{ 'type' => 'inside', 'xAxisIndex' => [0, 1, 2] }],
+        # the crowd-ratio series + the reserves curve carry a drawn legend
+        # (they get the terms hover); OI and the liquidation bars are named
+        # by their axes. 'reserves' is listed even when its optional input
+        # is absent -- ECharts ignores a legend name with no series data.
+        'legend' => { 'top' => 22,
+                      'data' => ['global L/S', 'top L/S', 'taker buy%', 'reserves'] },
         # three grids, identical left/right so the panels align exactly (the
         # two upper panels hide their date furniture; only the bottom draws it).
         # M10-9 (owner ruling 2026-08-13): margins at minimum -- the panels
@@ -1622,6 +1709,9 @@ module Publish
         # panel names ride their axes (rotated, in the gutters) so they never
         # land in the one-line title row; OI/ratios/taker autoscale (scale
         # true), the liquidation axis keeps 0 so the opposed bars straddle it.
+        # axis indices 0..3 are frozen (series reference them); the M11-7
+        # reserves axis APPENDS as index 4 (grid 0, right side) so nothing
+        # existing renumbers.
         'yAxis' => [
           { 'type' => 'value', 'gridIndex' => 0, 'name' => 'OI $B', 'scale' => true,
             'nameLocation' => 'middle', 'nameGap' => 32 },
@@ -1630,7 +1720,13 @@ module Publish
           { 'type' => 'value', 'gridIndex' => 1, 'name' => 'buy %', 'scale' => true,
             'position' => 'right', 'nameLocation' => 'middle', 'nameGap' => 26 },
           { 'type' => 'value', 'gridIndex' => 2, 'name' => 'liq $M',
-            'nameLocation' => 'middle', 'nameGap' => 32 }
+            'nameLocation' => 'middle', 'nameGap' => 32 },
+          # no axis name: its M-BTC tick labels are wide (2.53x, 3dp) and a
+          # rotated name collides with them inside the shared 38px right
+          # margin (screenshot-caught). The legend entry + its glossary
+          # term carry the name and unit instead.
+          { 'type' => 'value', 'gridIndex' => 0, 'scale' => true,
+            'position' => 'right' }
         ],
         'series' => [
           positioning_line('OI $B', series['oi_close'], POS_OI, 0, 0),
@@ -1638,7 +1734,10 @@ module Publish
           positioning_line('top L/S', series['top_ls'], POS_TLS, 1, 1),
           positioning_line('taker buy%', series['taker_buy'], POS_TAKER, 1, 2),
           positioning_liq_bar('long liq $M', series['long_liq'], POS_LONG, down: true),
-          positioning_liq_bar('short liq $M', series['short_liq'], POS_SHORT, down: false)
+          positioning_liq_bar('short liq $M', series['short_liq'], POS_SHORT, down: false),
+          # M11-7: aggregate exchange reserves (M BTC) on the OI panel's
+          # right axis -- an empty series when the optional input is absent.
+          positioning_line('reserves', resv, POS_RESV, 0, 4)
         ]
       }
     end
@@ -1670,13 +1769,19 @@ module Publish
       s.zero? ? '0' : format('%+d', s)
     end
 
-    # A filled-symbol line for a [date, value] series on a panel (sparse data
-    # must read as clear dots -- design ruling). A nil series draws empty.
+    # A line for a [date, value] series on a panel. Symbols are
+    # DENSITY-AWARE (2026-08-29, with the 365d window): a sparse series
+    # (< 60 points) still reads as clear filled dots (the sparse-data
+    # design rule), but at daily-year density per-point dots turn the
+    # panel into noise, so dense series draw the line alone (the axis
+    # crosshair still picks exact points, and zooming in shows the
+    # hover dots ECharts renders on emphasis). A nil series draws empty.
     def positioning_line(name, data, color, x_index, y_index)
+      pts = data || []
       { 'name' => name, 'type' => 'line', 'xAxisIndex' => x_index, 'yAxisIndex' => y_index,
-        'showSymbol' => true, 'symbol' => 'circle', 'symbolSize' => 6,
+        'showSymbol' => pts.size < 60, 'symbol' => 'circle', 'symbolSize' => 6,
         'itemStyle' => { 'color' => color }, 'lineStyle' => { 'color' => color },
-        'data' => data || [] }
+        'data' => pts }
     end
 
     # Opposed liquidation bars on panel 3: longs plotted DOWN (negated),
@@ -1769,6 +1874,24 @@ module Publish
     VOL_AMBER = '#e6a23c' # FLY25 / flip / basis lines
     VOL_MSTR  = '#d0d5db' # MSTR leg (brighter)
     VOL_BTC   = '#7a828c' # BTC leg (dimmer)
+
+    # Owner ruling 2026-08-29 (register R-9): the six vol tenors carry a
+    # spectral gradient -- 7d RED through orange/yellow/green/cyan to 90d
+    # DARK BLUE -- so a tenor reads the same colour on the vol_spread bars/
+    # dots and on the trend lines below (one card, one code). Sign on the
+    # spread bars reads from direction against zero, not colour (this chart
+    # is the sanctioned exception to the teal/red sign anchors). Hues tuned
+    # for the dark theme: red/orange reuse the stress-band anchors; 90d is
+    # brightened just enough to stay legible on dark.
+    VOL_TENOR_COLORS = {
+      7  => '#e04b4b', # red
+      14 => '#e08e0b', # orange
+      21 => '#e2c84b', # yellow
+      30 => '#35c46a', # green
+      45 => '#3fc1d1', # cyan
+      90 => '#4665e6', # dark blue
+      180 => '#2e3f9e' # dark-dark blue (owner ruling 2026-08-29, the long tenor)
+    }.freeze
     VOL_SPOT  = '#d7dce3' # spot level line
     VOL_GREY  = '#6b7178' # invisible carriers / notes
 
@@ -1782,7 +1905,7 @@ module Publish
     # ---- vol_surface (M8-6) -------------------------------------------
     #
     # vol:latest -> the implied-vol term structure at the five requested
-    # tenors (7/14/21/30/45/90d, the shared vol paradigm -- owner ruling
+    # tenors (7/14/21/30/45/90/180d, the shared vol paradigm -- owner ruling
     # 2026-08-18). Compact one-line 13px title carries the lead ATM. Left
     # axis = ATM IV (%), right axis = the 25-delta skew in vol points (RR25
     # risk reversal, FLY25 butterfly). The nominal tenor's ACTUAL option
@@ -1872,20 +1995,22 @@ module Publish
     # ---- vol_spread (M8-6) --------------------------------------------
     #
     # vol:spread -> MSTR-minus-BTC ATM implied vol per tenor (the live price
-    # of treasury-company leverage). Bars = the spread in vol points (teal
-    # positive / red negative, per bar); two thin lines = each leg's raw ATM
-    # IV (MSTR brighter, BTC dimmer) so a move is attributable. One shared
-    # vol-% axis: the bar height reads against each leg's absolute level. A
-    # failed leg drops its line and that tenor's bar (nil, never zero).
+    # of treasury-company leverage). Bars = the spread in vol points,
+    # colour-coded by TENOR (the R-9 gradient; sign reads from direction
+    # against zero); two thin lines = each leg's raw ATM IV (MSTR brighter,
+    # BTC dimmer) with their dots tenor-coloured to match the bars and the
+    # trend chart below. One shared vol-% axis: the bar height reads against
+    # each leg's absolute level. A failed leg drops its line and that
+    # tenor's bar (nil, never zero).
     def vol_spread(spread)
       tenors = spread['tenors'] || []
       labels = tenors.map { |t| "#{t['tenor_d']}d" }
       bars   = tenors.map do |t|
         v = vol_pct(t['spread_atm'])
-        v.nil? ? nil : { 'value' => v, 'itemStyle' => { 'color' => v.negative? ? GEX_RED : GEX_TEAL } }
+        v.nil? ? nil : { 'value' => v, 'itemStyle' => { 'color' => tenor_color(t) } }
       end
-      mstr = tenors.map { |t| vol_pct(t.dig('mstr', 'atm_iv')) }
-      btc  = tenors.map { |t| vol_pct(t.dig('btc', 'atm_iv')) }
+      mstr = tenors.map { |t| tenor_dot(vol_pct(t.dig('mstr', 'atm_iv')), t) }
+      btc  = tenors.map { |t| tenor_dot(vol_pct(t.dig('btc', 'atm_iv')), t) }
 
       {
         'backgroundColor' => 'transparent',
@@ -1899,9 +2024,9 @@ module Publish
         'yAxis' => { 'type' => 'value', 'name' => 'vol %',
                      'nameLocation' => 'middle', 'nameGap' => 44 },
         'series' => [
-          # series-level teal so the legend swatch matches the (positive)
-          # bars; per-bar itemStyle still overrides negatives to red.
-          { 'name' => 'spread', 'type' => 'bar', 'itemStyle' => { 'color' => GEX_TEAL },
+          # bars are per-tenor coloured (R-9 gradient); the series-level
+          # grey exists only so the legend swatch reads neutral.
+          { 'name' => 'spread', 'type' => 'bar', 'itemStyle' => { 'color' => '#888e98' },
             'data' => bars },
           { 'name' => 'MSTR', 'type' => 'line', 'symbol' => 'circle', 'symbolSize' => 6,
             'itemStyle' => { 'color' => VOL_MSTR }, 'lineStyle' => { 'color' => VOL_MSTR, 'width' => 1 },
@@ -1911,6 +2036,19 @@ module Publish
             'data' => btc }
         ]
       }
+    end
+
+    # The R-9 gradient colour for a tenor row (nil-safe fetch fallback:
+    # an off-grid tenor keeps the neutral grey rather than crashing).
+    def tenor_color(t)
+      VOL_TENOR_COLORS.fetch(t['tenor_d'], '#888e98')
+    end
+
+    # A tenor-coloured line point: value +v+ as a datum whose DOT carries
+    # the tenor colour while the connecting line keeps the series colour.
+    # nil stays nil (a dead leg's gap, never a zero).
+    def tenor_dot(v, t)
+      v.nil? ? nil : { 'value' => v, 'itemStyle' => { 'color' => tenor_color(t) } }
     end
 
     # Title tail '<tenor>d <+spread>': prefer 30d, else the first live spread.
@@ -1925,22 +2063,26 @@ module Publish
     # ---- vol_spread_trend (M8-16) -------------------------------------
     #
     # vol:spread's daily "history" -> the MSTR-minus-BTC ATM spread over
-    # time, one line per tenor (7/14/21/30/45/90d). Stacked BELOW the
+    # time, one line per tenor (7/14/21/30/45/90/180d). Stacked BELOW the
     # vol_spread bars (owner ruling 2026-08-10): the bars are the current
     # term structure, this is its trend. Values are vol points
     # (spread_atm * 100, 1dp) scaled at build time (design system); a null
     # spread on a date is a gap (nil), never a zero. Filled dots
     # (sparse-data rule) so a single live day reads as a clear point. The
-    # dark theme colours the six series (no semantic pair to preserve).
-    # Empty history still yields a valid option (empty axis + 5 empty
-    # series) -- the acceptable pre-accumulation state.
-    VOL_SPREAD_TREND_TENORS = [7, 14, 21, 30, 45, 90].freeze
+    # six series take the R-9 tenor gradient (owner ruling 2026-08-29:
+    # 7d red -> 90d dark blue, VOL_TENOR_COLORS -- same hue per tenor as
+    # the vol_spread bars/dots above). Empty history still yields a valid
+    # option (empty axis + 6 empty series) -- the acceptable
+    # pre-accumulation state.
+    VOL_SPREAD_TREND_TENORS = [7, 14, 21, 30, 45, 90, 180].freeze
 
     def vol_spread_trend(spread)
       history = spread['history'] || []
       dates   = history.map { |r| r['date'] }
       series  = VOL_SPREAD_TREND_TENORS.map do |td|
+        color = VOL_TENOR_COLORS.fetch(td)
         { 'name' => "#{td}d", 'type' => 'line', 'symbol' => 'circle', 'symbolSize' => 6,
+          'itemStyle' => { 'color' => color }, 'lineStyle' => { 'color' => color },
           'data' => history.map { |r| vol_spread_trend_point(r, td) } }
       end
 
@@ -1955,6 +2097,9 @@ module Publish
         'xAxis' => { 'type' => 'category', 'data' => dates },
         'yAxis' => { 'type' => 'value', 'name' => 'spread vol pts',
                      'scale' => true, 'nameLocation' => 'middle', 'nameGap' => 44 },
+        # owner ruling 2026-08-29: date axes zoom/pan (inside, no slider,
+        # full range by default -- the gex_btc idiom on the time dimension)
+        'dataZoom' => [{ 'type' => 'inside', 'xAxisIndex' => [0] }],
         'series' => series
       }
     end
@@ -2056,6 +2201,8 @@ module Publish
         'legend' => { 'top' => 24, 'data' => %w[spot flip CW PW] },
         'grid' => { 'left' => 56, 'right' => 24, 'top' => 52, 'bottom' => 28 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
+        # owner ruling 2026-08-29: date axes zoom/pan (inside, full range)
+        'dataZoom' => [{ 'type' => 'inside', 'xAxisIndex' => [0] }],
         'yAxis' => { 'type' => 'value', 'name' => 'price ($k)', 'scale' => true,
                      'nameLocation' => 'middle', 'nameGap' => 44 },
         'series' => [
@@ -2118,6 +2265,8 @@ module Publish
         'legend' => { 'top' => 24, 'data' => %w[spot flip CW PW] },
         'grid' => { 'left' => 56, 'right' => 24, 'top' => 52, 'bottom' => 28 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
+        # owner ruling 2026-08-29: date axes zoom/pan (inside, full range)
+        'dataZoom' => [{ 'type' => 'inside', 'xAxisIndex' => [0] }],
         'yAxis' => { 'type' => 'value', 'name' => 'price ($)', 'scale' => true,
                      'nameLocation' => 'middle', 'nameGap' => 44 },
         'series' => [

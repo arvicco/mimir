@@ -87,9 +87,10 @@ class TestLpplContract < Minitest::Test
   # or run-dependent), extra argv]
   TESTS = {
     'trend'       => [%w[bf bf_by_horizon per_horizon per_horizon_long pl_lp1
-                         delta_ln_age eval_points_1y],
+                         headline_mean delta_ln_age eval_points_1y],
                       %w[bootstrap], []],
     'envelope'    => [%w[ratio bound floor freeze_candidate trough_ratios
+                         bound_live floor_live trough_ratios_live
                          trend_today days_below_strong days_below_floor], [], []],
     'fit'         => [%w[omega m tc_date filters b_negative damping_ref_threshold],
                       %w[trough_date trough_px rmse_impr_pct trough_std_days
@@ -171,6 +172,60 @@ class TestLpplContract < Minitest::Test
       assert_equal true, h['report_only']
       assert_kind_of Numeric, h['sum']
     end
+  end
+
+  # M11-5 (owner ruling 2026-08-29, register R-8, was D9-g): the envelope's
+  # operative bound and floor are FROZEN measurements -- each historical
+  # trough's ratio against the trend as fitted on data up to that trough --
+  # so today's re-estimated trend can no longer drag the reference
+  # thresholds around. The drifting measurements stay as *_live reference
+  # fields; freeze_candidate (== the frozen bound) keeps its continuity.
+  def test_envelope_frozen_bound_with_live_references
+    j = module_json('envelope')
+    assert_match(/frozen bound/, j['headline'])
+    assert_kind_of Numeric, j['bound']
+    assert_kind_of Numeric, j['bound_live']
+    assert_kind_of Numeric, j['floor_live']
+    assert_kind_of String, j['trough_ratios_live']
+    assert_in_delta j['freeze_candidate'], j['bound'], 1e-9,
+                    'the adopted bound IS the freeze candidate'
+    assert_operator j['bound'], :>=, j['floor'],
+                    'frozen measurement keeps strong bound >= weak floor'
+  end
+
+  # M11-4 (owner ruling 2026-08-29, register R-6/R-7): the fit headline's
+  # improvement figure is the symmetric-null improvement_v2; the logperiodic
+  # headline (and its score) run on the GARCH bootstrap p_value_v2, with the
+  # AR(1) p kept as the in-line reference. Field sets unchanged (the v2
+  # fields have existed since M9-6/M9-7 -- this flips prominence only).
+  def test_fit_headline_uses_symmetric_null
+    j = module_json('fit')
+    assert_match(/vs sym null/, j['headline'])
+  end
+
+  def test_logperiodic_headline_leads_with_garch
+    j = module_json('logperiodic', '--sims', '5', '--sims-v2', '5')
+    assert_match(/GARCH/, j['headline'])
+    assert_match(/AR\(1\) ref/, j['headline'])
+  end
+
+  # M11-3 (owner ruling 2026-08-29, register R-3): headline_mean is the
+  # density-honest headline block -- per-eval mean value, its Newey-West SE,
+  # the NW lag, the daily-series length, and the frozen band re-expressed in
+  # per-eval units. The score still runs on the cumulative bf (pinned same).
+  def test_trend_headline_mean_shape
+    j = module_json('trend')
+    hm = j['headline_mean']
+    assert_kind_of Hash, hm
+    assert_equal %w[band_per_eval lag n_dates se_nw value], hm.keys.sort
+    assert_equal 179, hm['lag']
+    assert_kind_of Integer, hm['n_dates']
+    assert hm['value'].nil? || hm['value'].is_a?(Numeric)
+    assert hm['se_nw'].nil? || hm['se_nw'].is_a?(Numeric)
+    assert hm['band_per_eval'].nil? || hm['band_per_eval'].is_a?(Numeric)
+    # the human headline leads with the mean and keeps the cumulative as 'cum'
+    assert_match(/MEAN log predictive-score differential/, j['headline'])
+    assert_match(/cum [+-]/, j['headline'])
   end
 
   # M9-9 stage 1: lp1_check.rb is a standalone research script (not in publish)
@@ -301,9 +356,12 @@ class TestLpplContract < Minitest::Test
     assert_match STATUS_RE, File.read('/tmp/lppl.status').chomp
   end
 
+  # M11-4 (owner ruling 2026-08-29, register R-7): p_lp records the GARCH
+  # bootstrap p (the number we stand behind); p_lp_ar1 keeps the AR(1)
+  # series' continuity as an additive reference column.
   LEDGER_KEYS = %w[bf composite days_below_strong days_le_p01 omega p_lp
-                   pct_emp ratio scores trough_date trough_px ts verdict
-                   z z_record].freeze
+                   p_lp_ar1 pct_emp ratio scores trough_date trough_px ts
+                   verdict z z_record].freeze
 
   def test_history_ledger_line_contract
     _, err, st = run_script('scripts/lppl/lppl.rb', '--json', '--skip-update',

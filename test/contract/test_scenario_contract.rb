@@ -30,8 +30,19 @@ class TestScenarioContract < Minitest::Test
     # fields, and it needs COINGLASS_API_KEY (like macro needs FRED).
     # M10-4 (additive): + `series`, the trailing daily card series for
     # v1:chart:positioning (its per-metric shape is pinned in test_positioning.rb).
-    'positioning'   => ['positioning',  'coinglass',      %w[crowding top_traders oi_7d taker_bias liq_skew series]]
+    'positioning'   => ['positioning',  'coinglass',      %w[crowding top_traders oi_7d taker_bias liq_skew series]],
+    # M11-7 (R-11/D11-a): exchange-reserve module, weight 0. Its --json
+    # carries the band + scored delta + total and the card series for the
+    # positioning card's right-axis reserves curve.
+    'reserves'      => ['reserves',     'coinglass',      %w[band delta_30d_pct total_mbtc series]]
   }.freeze
+
+  # M11-7: the reserves fixture records on the owner's
+  # `rake fixtures:record SOURCES=coinglass_exchange` run; until it lands
+  # the module (and the aggregator's healthy-fixture pins) skip.
+  def reserves_fixture?
+    File.exist?(File.join(ROOT, 'test/fixtures/coinglass_exchange_balance_chart.json'))
+  end
 
   FRED_ENV      = { 'FRED_API_KEY' => 'contract-test-key' }.freeze
   COINGLASS_ENV = { 'COINGLASS_API_KEY' => 'contract-test-key' }.freeze
@@ -40,8 +51,8 @@ class TestScenarioContract < Minitest::Test
   # FRED key, positioning a Coinglass key. Everything else runs keyless.
   def env_for(mod)
     case mod
-    when 'macro'       then FRED_ENV
-    when 'positioning' then COINGLASS_ENV
+    when 'macro'                   then FRED_ENV
+    when 'positioning', 'reserves' then COINGLASS_ENV
     else {}
     end
   end
@@ -73,6 +84,10 @@ class TestScenarioContract < Minitest::Test
       rows = BTC::Flows.parse_flows(File.read(File.join(ROOT, 'test/fixtures/farside_flows.html')))
       if rows.size < 10
         skip 'farside_flows.html parses below 10 rows (F-22) -- owner: rake fixtures:record'
+      end
+    when 'reserves'
+      unless reserves_fixture?
+        skip 'coinglass_exchange_balance_chart.json not yet recorded (M11-7) -- owner: rake fixtures:record SOURCES=coinglass_exchange'
       end
     end
   end
@@ -124,12 +139,13 @@ class TestScenarioContract < Minitest::Test
   # ---- aggregator ------------------------------------------------------
 
   def test_aggregator_json_contract
+    skip 'coinglass_exchange_balance_chart.json not yet recorded (M11-7) -- owner: rake fixtures:record SOURCES=coinglass_exchange' unless reserves_fixture?
     j = run_json('scripts/scenario/scenario.rb', '--json', env: FRED_ENV.merge(COINGLASS_ENV))
     assert_contract_keys %w[composite modules regime ts], j, 'scenario.rb'
     assert_kind_of Float, j['composite']
     assert_includes REGIMES, j['regime']
 
-    assert_equal 8, j['modules'].size # M10-3: +positioning
+    assert_equal 9, j['modules'].size # M10-3: +positioning; M11-7: +reserves
     # the aggregator keys modules by FILENAME (the F-11 quirks stay module-local)
     assert_equal MODULES.keys.sort, j['modules'].map { |m| m['mod'] }.sort
     j['modules'].each do |m|
@@ -153,6 +169,9 @@ class TestScenarioContract < Minitest::Test
     pos = mods.find { |m| m['mod'] == 'positioning' }
     assert pos, 'positioning module present'
     assert_equal 0, pos['w'], 'positioning enters at weight 0'
+    rsv = mods.find { |m| m['mod'] == 'reserves' }
+    assert rsv, 'reserves module present'
+    assert_equal 0, rsv['w'], 'reserves enters at weight 0 (M11-7, R-11)'
 
     recompute = lambda do |list|
       wsum = list.sum { |m| m['w'] }
@@ -160,8 +179,8 @@ class TestScenarioContract < Minitest::Test
     end
     # composite matches the full weighted mean ...
     assert_in_delta recompute.call(mods), j['composite'], 1e-9
-    # ... and the SAME value drops out when positioning is excluded.
-    assert_in_delta recompute.call(mods.reject { |m| m['mod'] == 'positioning' }),
+    # ... and the SAME value drops out when the weight-0 modules are excluded.
+    assert_in_delta recompute.call(mods.reject { |m| %w[positioning reserves].include?(m['mod']) }),
                     j['composite'], 1e-9
   end
 
@@ -192,6 +211,7 @@ class TestScenarioContract < Minitest::Test
 
   # Healthy day: neither marker key -- old lines stay valid.
   def test_history_line_healthy_carries_no_marker
+    skip_if_fixture_pending('reserves') # an unrecorded fixture fail-softs the module
     line = history_line
     assert_contract_keys HISTORY_BASE, line, 'scenario history line'
     assert_equal MODULES.keys.sort, line['scores'].keys.sort
@@ -214,6 +234,7 @@ class TestScenarioContract < Minitest::Test
 
   # Partial degradation: a strict subset denied -> unavailable:[names], no blind.
   def test_history_line_unavailable_list_when_some_modules_down
+    skip_if_fixture_pending('reserves') # an unrecorded fixture would join the list
     line = history_line(deny: 'coinbase,mempool') # cb_premium + hash_ribbons
     refute line.key?('blind')
     assert_equal %w[cb_premium hash_ribbons], line['unavailable']
@@ -226,7 +247,8 @@ class TestScenarioContract < Minitest::Test
     assert st.success?, err
     line = File.read('/tmp/scenario.status')
     assert_match(
-      /\ASCN (FLUSH|LEAN-FLUSH|NEUTRAL|BASE|RECOVERY) [+-]\d+\.\d\d etf[+-]\d fnd[+-]\d cbp[+-]\d mac[+-]\d hsh[+-]\d mvrv[+-]\d stb[+-]\d pos[+-]\d\n\z/,
+      # M11-7: + the rsv token (additive --tmux change, test same commit)
+      /\ASCN (FLUSH|LEAN-FLUSH|NEUTRAL|BASE|RECOVERY) [+-]\d+\.\d\d etf[+-]\d fnd[+-]\d cbp[+-]\d mac[+-]\d hsh[+-]\d mvrv[+-]\d stb[+-]\d pos[+-]\d rsv[+-]\d\n\z/,
       line
     )
   end
