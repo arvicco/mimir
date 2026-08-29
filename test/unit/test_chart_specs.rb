@@ -721,8 +721,8 @@ class TestChartSpecs < Minitest::Test
     assert_equal 'category', yax['type']
     assert_equal (0..5).to_a, yax['data'] # 6 slots, labels hidden
     assert_equal false, yax['axisLabel']['show']
-    # title carries the honest check count (fontSize 13)
-    assert_equal 'Shadow diagnostics · 6 checks', opt['title'].first['text']
+    # title carries the honest row count (fontSize 13)
+    assert_equal 'Shadow checks · 6 rows', opt['title'].first['text']
     assert_equal 13, opt['title'].first['textStyle']['fontSize']
     # the visible columns and their build-time-scaled values, in order
     stat = shadow_stat_series(opt)
@@ -730,12 +730,16 @@ class TestChartSpecs < Minitest::Test
     assert_equal true, stat['silent']
     assert_equal %w[mean/eval 365/730 damping impr p(osc) freeze],
                  stat['data'].map { |d| d['title'] }
+    # M11-6 (rulings 2026-08-29): reference column = the old/demoted
+    # value, operative column = the number now in force; graduated rows
+    # say so in the verdict. mean/eval carries the NW error bar.
     assert_equal ['-427.34', '-0.11', '>=1', '43.5%', '.19', '.435'],
                  stat['data'].map { |d| d['frozen'] }
-    assert_equal ['-1.17', '+0.15', '0.41', '27.9%', '.24', '.358'],
+    assert_equal ['-1.17±.17', '+0.15', '0.41', '27.9%', '.24', '.358'],
                  stat['data'].map { |d| d['shadow'] }
-    assert_equal ['rivals win', 'wins at 2y', 'not met', 'still wins',
-                  'still noise', 'drift flatters'],
+    assert_equal ['headline 08-29', 'wins at 2y · report-only',
+                  'not met · report-only', 'headline 08-29',
+                  'still noise · headline 08-29', 'adopted 08-29'],
                  stat['data'].map { |d| d['verdict'] }
   end
 
@@ -747,8 +751,8 @@ class TestChartSpecs < Minitest::Test
       assert_equal Publish::Charts::LPPL_SHADOW_EXPLAIN[d['title']], d['explanation']
     end
     mean = stat['data'].find { |d| d['title'] == 'mean/eval' }
-    assert_match(/Feeds ruling D9-b/, mean['explanation'])
-    assert_match(/18x higher probability/, mean['explanation'])
+    assert_match(/GRADUATED 2026-08-29/, mean['explanation'])
+    assert_match(/Newey-West error bar/, mean['explanation'])
   end
 
   def test_lppl_shadow_axis_tooltip_contract
@@ -764,15 +768,18 @@ class TestChartSpecs < Minitest::Test
   def test_lppl_shadow_row_absent_when_field_missing
     lat = JSON.parse(JSON.generate(lppl_latest))
     fld = ->(n) { lat['tests'].find { |t| t['name'] == n }['detail'] }
-    fld.call('envelope').delete('freeze_candidate') # drops the freeze row
+    # the freeze row reads the M11-5 shape (bound_live) first, so a
+    # pre-M9-4 payload must lack BOTH bound_live and freeze_candidate
+    fld.call('envelope').delete('freeze_candidate')
+    fld.call('envelope').delete('bound_live')        # drops the freeze row
     fld.call('logperiodic').delete('p_value_v2')     # drops the p(osc) row
     stat = shadow_stat_series(Publish::Charts.lppl_shadow(lat))
     assert_equal 4, stat['data'].size # 6 rows minus the two dropped
     titles = stat['data'].map { |d| d['title'] }
     refute_includes titles, 'freeze'
     refute_includes titles, 'p(osc)'
-    # the title's check count follows the surviving rows
-    assert_equal 'Shadow diagnostics · 4 checks',
+    # the title's row count follows the surviving rows
+    assert_equal 'Shadow checks · 4 rows',
                  Publish::Charts.lppl_shadow(lat)['title'].first['text']
   end
 
@@ -781,11 +788,12 @@ class TestChartSpecs < Minitest::Test
     td = ->(n) { lat['tests'].find { |t| t['name'] == n }['detail'] }
     %w[per_horizon per_horizon_long].each { |k| td.call('trend').delete(k) }
     td.call('envelope').delete('freeze_candidate')
+    td.call('envelope').delete('bound_live')
     %w[damping improvement_v2].each { |k| td.call('fit').delete(k) }
     td.call('logperiodic').delete('p_value_v2')
     opt = Publish::Charts.lppl_shadow(lat)
     assert_empty opt['series'] # no rows -> nothing drawn (fail-soft)
-    assert_equal 'Shadow diagnostics · 0 checks', opt['title'].first['text']
+    assert_equal 'Shadow checks · 0 rows', opt['title'].first['text']
     assert_equal 'awaiting shadow fields', opt['title'].last['text']
     assert_equal opt, JSON.parse(JSON.generate(opt)) # still JSON-safe
   end
