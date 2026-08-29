@@ -134,7 +134,16 @@ module Publish
                          '+1 = holders underwater historically deep (accumulation ' \
                          'zone), -1 = extreme unrealized profit.',
       'stables' => 'Total stablecoin supply trend -- dry powder that can rotate ' \
-                   'into BTC. +1 growing, -1 shrinking.'
+                   'into BTC. +1 growing, -1 shrinking.',
+      # M11-7: the two weight-0 modules (the positioning entry also closes
+      # a gap -- its scoreboard row never had a hover term).
+      'positioning' => 'Derivatives crowd stance (weight 0 -- shown, never ' \
+                       'weighted): -1 only on the full flush line-up (crowd long ' \
+                       '+ OI rising + longs liquidated), +1 on its mirror.',
+      'reserves' => 'BTC sitting on exchanges (weight 0 -- shown, never ' \
+                    'weighted). Scores the 30-day change vs its own trailing ' \
+                    'history: +1 coins leaving unusually fast (self-custody ' \
+                    'drain), -1 piling up unusually fast (sellable overhang).'
     }.freeze
 
     # positioning card (M10-4): the panel-2 crowd-ratio legend items each
@@ -149,7 +158,11 @@ module Publish
                    'size rather than account count -- watch it diverge from the crowd.',
       'taker buy%' => 'The share of aggressive taker volume that hit the BUY side ' \
                       '(buy / (buy + sell)). Above 50% = takers are lifting offers ' \
-                      '(demand-led); below = hitting bids (supply-led).'
+                      '(demand-led); below = hitting bids (supply-led).',
+      'reserves' => 'Aggregate BTC held on the exchanges Coinglass tracks (M BTC, ' \
+                    'right axis). Falling = coins moving to self-custody (supply ' \
+                    'drain); rising = sellable supply building up. The reserves ' \
+                    'module scores its 30-day change at weight 0.'
     }.freeze
 
     # meta (additive envelope field, 2026-07-05): METHODOLOGY-grade
@@ -584,7 +597,12 @@ module Publish
       # Reads positioning:latest (the module runs at WEIGHT 0 during the soak;
       # its score is display-only). WARMUP is a designed state, never blank.
       'positioning' => {
+        # M11-7 (owner ruling 2026-08-29): reserves:latest rides along as
+        # an OPTIONAL input -- the aggregate exchange-reserve curve on the
+        # OI panel's right axis. Optional: absent or fail-soft -> nil ->
+        # the card renders without the curve, never skips.
         inputs: %w[payload_positioning_latest.json], fn: :positioning,
+        optional: %w[payload_reserves_latest.json],
         meta: {
           'desc' => 'The derivatives crowd\'s stance in one vertical slice: ' \
                     'aggregate open interest ($B), the long/short crowd ratios ' \
@@ -596,7 +614,8 @@ module Publish
                     'shown and charted, never weighted (METHODOLOGY.md).',
           'axes' => { 'x' => 'time -- one daily reading per UTC date, shared ' \
                              'across all three panels (hover locks a vertical slice)',
-                      'y' => 'three stacked panels: (top) open interest, $B; ' \
+                      'y' => 'three stacked panels: (top) open interest, $B left, ' \
+                             'aggregate exchange reserves, M BTC right; ' \
                              '(mid) L/S ratios left, taker BUY-share % right; ' \
                              '(bottom) liquidations $M -- longs DOWN (red), ' \
                              'shorts UP (teal), overlaid on the same day' },
@@ -1622,9 +1641,23 @@ module Publish
     POS_TAKER = '#d0d5db' # taker BUY-share -- light grey (right axis)
     POS_LONG  = '#c63939' # liquidated longs (plotted DOWN) -- red bar tone
     POS_SHORT = '#0f7a5c' # liquidated shorts (plotted UP) -- teal bar tone
+    POS_RESV  = '#b48cd9' # exchange reserves -- violet (M11-7 right axis;
+                          # nothing else on the card uses the hue)
 
-    def positioning(doc)
+    # reserves (M11-7): the OPTIONAL second payload -- reserves:latest.
+    # nil (absent or fail-soft upstream) renders the card exactly as
+    # before the ruling: no reserves axis entry gets data, the legend
+    # keeps its slot order, nothing skips. The curve is CLIPPED to the
+    # positioning series' own date window: each grid owns its (hidden)
+    # time axis, so a longer reserves tail would silently stretch panel
+    # 0's axis and break the card's vertical-slice alignment (caught at
+    # the M11-7 screenshot review -- the OI curve compressed into a
+    # quarter of its panel).
+    def positioning(doc, reserves = nil)
       series = doc['series'] || {}
+      resv   = reserves.is_a?(Hash) ? (reserves.dig('series', 'total_mbtc') || []) : []
+      from   = series.values.compact.filter_map { |pts| pts.first&.first }.min
+      resv   = resv.select { |d, _| d >= from } if from
       {
         'backgroundColor' => 'transparent',
         'title' => { 'text' => positioning_title(doc), 'textStyle' => { 'fontSize' => 13 } },
@@ -1633,9 +1666,12 @@ module Publish
         # one date axis for the whole card: hovering locks a vertical slice
         # across all three panels (the flush set-up reads at a single date).
         'axisPointer' => { 'link' => [{ 'xAxisIndex' => 'all' }] },
-        # only the crowd-ratio series carry a drawn legend (they get the terms
-        # hover); OI and the liquidation bars are named by their axes.
-        'legend' => { 'top' => 22, 'data' => ['global L/S', 'top L/S', 'taker buy%'] },
+        # the crowd-ratio series + the reserves curve carry a drawn legend
+        # (they get the terms hover); OI and the liquidation bars are named
+        # by their axes. 'reserves' is listed even when its optional input
+        # is absent -- ECharts ignores a legend name with no series data.
+        'legend' => { 'top' => 22,
+                      'data' => ['global L/S', 'top L/S', 'taker buy%', 'reserves'] },
         # three grids, identical left/right so the panels align exactly (the
         # two upper panels hide their date furniture; only the bottom draws it).
         # M10-9 (owner ruling 2026-08-13): margins at minimum -- the panels
@@ -1653,6 +1689,9 @@ module Publish
         # panel names ride their axes (rotated, in the gutters) so they never
         # land in the one-line title row; OI/ratios/taker autoscale (scale
         # true), the liquidation axis keeps 0 so the opposed bars straddle it.
+        # axis indices 0..3 are frozen (series reference them); the M11-7
+        # reserves axis APPENDS as index 4 (grid 0, right side) so nothing
+        # existing renumbers.
         'yAxis' => [
           { 'type' => 'value', 'gridIndex' => 0, 'name' => 'OI $B', 'scale' => true,
             'nameLocation' => 'middle', 'nameGap' => 32 },
@@ -1661,7 +1700,13 @@ module Publish
           { 'type' => 'value', 'gridIndex' => 1, 'name' => 'buy %', 'scale' => true,
             'position' => 'right', 'nameLocation' => 'middle', 'nameGap' => 26 },
           { 'type' => 'value', 'gridIndex' => 2, 'name' => 'liq $M',
-            'nameLocation' => 'middle', 'nameGap' => 32 }
+            'nameLocation' => 'middle', 'nameGap' => 32 },
+          # no axis name: its M-BTC tick labels are wide (2.53x, 3dp) and a
+          # rotated name collides with them inside the shared 38px right
+          # margin (screenshot-caught). The legend entry + its glossary
+          # term carry the name and unit instead.
+          { 'type' => 'value', 'gridIndex' => 0, 'scale' => true,
+            'position' => 'right' }
         ],
         'series' => [
           positioning_line('OI $B', series['oi_close'], POS_OI, 0, 0),
@@ -1669,7 +1714,10 @@ module Publish
           positioning_line('top L/S', series['top_ls'], POS_TLS, 1, 1),
           positioning_line('taker buy%', series['taker_buy'], POS_TAKER, 1, 2),
           positioning_liq_bar('long liq $M', series['long_liq'], POS_LONG, down: true),
-          positioning_liq_bar('short liq $M', series['short_liq'], POS_SHORT, down: false)
+          positioning_liq_bar('short liq $M', series['short_liq'], POS_SHORT, down: false),
+          # M11-7: aggregate exchange reserves (M BTC) on the OI panel's
+          # right axis -- an empty series when the optional input is absent.
+          positioning_line('reserves', resv, POS_RESV, 0, 4)
         ]
       }
     end

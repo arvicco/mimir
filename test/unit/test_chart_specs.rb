@@ -18,7 +18,11 @@ class TestChartSpecs < Minitest::Test
   def build(name)
     spec = Publish::Charts::CHARTS.fetch(name)
     payloads = spec[:inputs].map { |f| JSON.parse(File.read(File.join(PAYLOADS, f))) }
-    Publish::Charts.public_send(spec[:fn], *payloads)
+    # M11-7: optional enrichment inputs ride after the required ones (the
+    # pipeline passes nil when one is absent/fail-soft; the golden path
+    # always has its fixture).
+    optional = (spec[:optional] || []).map { |f| JSON.parse(File.read(File.join(PAYLOADS, f))) }
+    Publish::Charts.public_send(spec[:fn], *payloads, *optional)
   end
 
   # ---- golden harness (every registered chart) -------------------------
@@ -856,11 +860,45 @@ class TestChartSpecs < Minitest::Test
 
   def test_positioning_legend_only_crowd_ratios_with_terms
     opt = build('positioning')
-    # only the crowd ratios carry a drawn legend (they get the terms hover)
-    assert_equal ['global L/S', 'top L/S', 'taker buy%'], opt['legend']['data']
+    # the crowd ratios + the M11-7 reserves curve carry a drawn legend
+    assert_equal ['global L/S', 'top L/S', 'taker buy%', 'reserves'], opt['legend']['data']
     # every legend name has a glossary term (the terms hook attaches here)
     terms = Publish::Charts::CHARTS['positioning'][:meta]['terms']
     opt['legend']['data'].each { |n| assert terms.key?(n), "no term for #{n}" }
+  end
+
+  # M11-7 (owner ruling 2026-08-29): the reserves curve rides the OI
+  # panel's right axis from the OPTIONAL reserves:latest input; a nil
+  # input degrades to an empty series -- the card renders, never skips.
+  def test_positioning_reserves_curve_on_oi_right_axis
+    opt = build('positioning')
+    resv = opt['series'].find { |s| s['name'] == 'reserves' }
+    assert resv, 'reserves series present when the optional payload is'
+    assert_equal [0, 4], resv.values_at('xAxisIndex', 'yAxisIndex')
+    assert_equal Publish::Charts::POS_RESV, resv['itemStyle']['color']
+    ax = opt['yAxis'][4]
+    assert_equal [0, 'right'], ax.values_at('gridIndex', 'position')
+    refute ax.key?('name'), 'unnamed axis: wide M-BTC ticks + a rotated name collide'
+    # data = the reserves payload's card series CLIPPED to the positioning
+    # window (each grid owns its time axis; a longer tail would stretch
+    # panel 0 and break the vertical-slice alignment)
+    fixture = JSON.parse(File.read(File.join(PAYLOADS, 'payload_reserves_latest.json')))
+    from = positioning_doc['series'].values.map { |pts| pts.first.first }.min
+    assert_equal fixture['series']['total_mbtc'].select { |d, _| d >= from }, resv['data']
+    assert_equal from, resv['data'].first.first, 'curve starts with the positioning window'
+    # frozen axis indices 0..3 unchanged (nothing renumbers)
+    assert_equal 'right', opt['yAxis'][2]['position']
+  end
+
+  def test_positioning_without_reserves_input_degrades_not_skips
+    opt = Publish::Charts.positioning(positioning_doc, nil)
+    resv = opt['series'].find { |s| s['name'] == 'reserves' }
+    assert_equal [], resv['data'], 'nil optional input -> empty curve'
+    assert_equal 5, opt['yAxis'].size # axis still declared (static option)
+    assert_equal opt, JSON.parse(JSON.generate(opt)) # JSON-safe
+    # single-arg call (pre-M11-7 pipeline shape) still works too
+    assert Publish::Charts.positioning(positioning_doc)['series']
+      .any? { |s| s['name'] == 'reserves' }
   end
 
   def test_positioning_title_warmup_and_scored

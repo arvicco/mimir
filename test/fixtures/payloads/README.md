@@ -32,6 +32,14 @@ into `payload_<key>.json` here.
   same shape a post-M11-5 live run emits. The lppl_regime golden's
   bound/floor markLines follow the frozen values.
 
+- `payload_reserves_latest.json` (M11-7) is fully SYNTHETIC (deterministic
+  cosine-drift series, 120 days ending 2026-08-11 to match the positioning
+  fixture's window): the module shipped before its upstream fixture was
+  recorded. Once `coinglass_exchange_balance_chart.json` lands (owner:
+  `rake fixtures:record SOURCES=coinglass_exchange`), regenerate it
+  offline via the contract harness (fake transport + FAKE_NOW) and
+  re-bless the positioning golden.
+
 - `payload_scenario_history.json` carries a trailing **synthetic blind
   row** (`2026-07-07`, `"blind": true`, composite 0.0) so the M8-10
   scenario_strip golden exercises the hollow/grey blind-day marker. The
