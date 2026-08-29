@@ -1656,8 +1656,9 @@ module Publish
     def positioning(doc, reserves = nil)
       series = doc['series'] || {}
       resv   = reserves.is_a?(Hash) ? (reserves.dig('series', 'total_mbtc') || []) : []
-      from   = series.values.compact.filter_map { |pts| pts.first&.first }.min
-      resv   = resv.select { |d, _| d >= from } if from
+      from = series.values.compact.filter_map { |pts| pts.first&.first }.min
+      to   = series.values.compact.filter_map { |pts| pts.last&.first }.max
+      resv = resv.select { |d, _| d >= from && d <= to } if from && to
       {
         'backgroundColor' => 'transparent',
         'title' => { 'text' => positioning_title(doc), 'textStyle' => { 'fontSize' => 13 } },

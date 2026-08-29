@@ -879,13 +879,16 @@ class TestChartSpecs < Minitest::Test
     ax = opt['yAxis'][4]
     assert_equal [0, 'right'], ax.values_at('gridIndex', 'position')
     refute ax.key?('name'), 'unnamed axis: wide M-BTC ticks + a rotated name collide'
-    # data = the reserves payload's card series CLIPPED to the positioning
-    # window (each grid owns its time axis; a longer tail would stretch
-    # panel 0 and break the vertical-slice alignment)
+    # data = the reserves payload's card series CLIPPED (both ends) to the
+    # positioning window (each grid owns its time axis; a longer tail on
+    # either side would stretch panel 0 and break vertical-slice alignment)
     fixture = JSON.parse(File.read(File.join(PAYLOADS, 'payload_reserves_latest.json')))
     from = positioning_doc['series'].values.map { |pts| pts.first.first }.min
-    assert_equal fixture['series']['total_mbtc'].select { |d, _| d >= from }, resv['data']
-    assert_equal from, resv['data'].first.first, 'curve starts with the positioning window'
+    to   = positioning_doc['series'].values.map { |pts| pts.last.first }.max
+    assert_equal fixture['series']['total_mbtc'].select { |d, _| d >= from && d <= to },
+                 resv['data']
+    assert_operator resv['data'].first.first, :>=, from
+    assert_operator resv['data'].last.first, :<=, to
     # frozen axis indices 0..3 unchanged (nothing renumbers)
     assert_equal 'right', opt['yAxis'][2]['position']
   end
