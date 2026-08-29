@@ -77,8 +77,9 @@ computed off Deribit's own mark IV; funding is percent per 8h
 render as two cards -- a "Volatility" card (the surface tabbed
 [BTC][MSTR] with the futures/funding basis stacked below) and a
 separate MSTR-vs-BTC IV-spread card (the current spread with its trend
-stacked beneath) -- plus [BTC TREND] and [MSTR TREND] tabs on the GEX
-card. All live since the Phase 8 deploy.
+stacked beneath); the GEX trends form the lower half of the stacked
+GEX card, flipping with its [BTC][MSTR] switch (2026-08-29). All live
+since the Phase 8 deploy.
 
 ## Scenario composite
 
