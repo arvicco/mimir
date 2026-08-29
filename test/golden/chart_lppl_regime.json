@@ -23,6 +23,16 @@
       }
     ]
   },
+  "dataZoom": [
+    {
+      "type": "inside",
+      "xAxisIndex": [
+        0,
+        1,
+        2
+      ]
+    }
+  ],
   "grid": [
     {
       "left": 60,

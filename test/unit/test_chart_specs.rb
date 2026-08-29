@@ -808,6 +808,35 @@ class TestChartSpecs < Minitest::Test
     assert_equal '1.40', Publish::Charts.lppl_compact(1.4, 2)
   end
 
+  # ---- zoomable date axes (owner ruling 2026-08-29) --------------------
+  # The time-series charts get the gex_btc idiom: INSIDE dataZoom (wheel
+  # zoom + drag pan, no slider) on their date axes -- every linked panel
+  # zooms together; a non-time companion axis (the scenario 'now' heatmap
+  # column) stays out. Default window = full range.
+  DATE_ZOOM = {
+    'vol_spread_trend' => [0],
+    'scenario_strip'   => [0],     # NOT the heatmap 'now' column (axis 1)
+    'positioning'      => [0, 1, 2],
+    'lppl_regime'      => [0, 1, 2]
+  }.freeze
+
+  def test_time_series_charts_carry_inside_date_zoom
+    DATE_ZOOM.each do |name, axes|
+      zoom = build(name)['dataZoom']
+      assert_kind_of Array, zoom, "#{name}: dataZoom missing"
+      assert_equal 1, zoom.size, "#{name}: exactly one zoom entry"
+      assert_equal 'inside', zoom.first['type'], "#{name}: inside only, no slider"
+      assert_equal axes, zoom.first['xAxisIndex'], "#{name}: linked panels zoom together"
+      refute zoom.first.key?('startValue'), "#{name}: default window is the full range"
+    end
+  end
+
+  def test_non_time_charts_stay_unzoomed
+    %w[vol_spread vol_surface btco_table lppl_shadow scorecard].each do |name|
+      refute build(name).key?('dataZoom'), "#{name}: no date axis, no zoom"
+    end
+  end
+
   # ---- positioning structure (M10-4) -----------------------------------
 
   def positioning_doc

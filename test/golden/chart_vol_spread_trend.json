@@ -52,6 +52,14 @@
     "nameLocation": "middle",
     "nameGap": 44
   },
+  "dataZoom": [
+    {
+      "type": "inside",
+      "xAxisIndex": [
+        0
+      ]
+    }
+  ],
   "series": [
     {
       "name": "7d",

@@ -105,6 +105,15 @@ three hours -- i.e. red means the bi-hourly publisher missed a run.
 staleClass in render.js encodes it as 1x/2x/3x ttl; never re-tune the
 ttl values or bands without a new ruling.
 
+**Date axes zoom and pan.** (Owner ruling 2026-08-29.) Every
+time-series chart (vol_spread_trend, scenario_strip, positioning,
+lppl_regime -- and any future date-axis chart) carries INSIDE dataZoom
+on its date axis: wheel to scale, drag to move, full range as the
+default window, never a slider -- the same idiom as the gex profiles'
+price axis. Multi-panel cards list every linked x-axis in one
+`xAxisIndex` array so the panels zoom together; a non-time companion
+axis (the scenario 'now' heatmap column) stays out of the zoom.
+
 **Value axes auto-scale to the data.** (Owner ruling 2026-08-18.)
 Line/scatter y-axes set `'scale' => true` so the plot uses the whole
 card instead of anchoring at zero with the data squeezed into a
