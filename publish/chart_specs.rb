@@ -1043,6 +1043,14 @@ module Publish
         'showSymbol' => true, 'symbol' => 'circle', 'symbolSize' => 7, # a 1-entry ledger must still show as a filled dot
         'data' => ratio, 'markLine' => envelope_lines(env)
       }
+      # M11-6: with the frozen bound (R-8) sitting below the recent ratio
+      # range, a purely auto-scaled axis clips the bound markLine away and
+      # the envelope panel loses its reference line. Pin the panel's min
+      # just under the bound (build-time, so the option stays static); max
+      # keeps auto-scaling. The far-below floor is allowed to clip -- it is
+      # the catastrophic threshold, not the operative reference.
+      ratio_min = [ratio.map { |_, v| v.to_f }.min, env['bound']&.to_f].compact.min
+      ratio_axis_min = ratio_min && (ratio_min * 0.97).floor(2)
       unless ratio.empty?
         ratio_series['markPoint'] = {
           'symbol' => 'pin', 'symbolSize' => 40,
@@ -1094,7 +1102,8 @@ module Publish
         # they collided with the title row (owner review round 4)
         'yAxis' => [
           { 'type' => 'value', 'gridIndex' => 0, 'name' => 'ratio', 'scale' => true,
-            'nameLocation' => 'middle', 'nameGap' => 44 },
+            'nameLocation' => 'middle', 'nameGap' => 44 }
+            .merge(ratio_axis_min ? { 'min' => ratio_axis_min } : {}),
           { 'type' => 'value', 'gridIndex' => 1, 'name' => 'log10 BF', 'scale' => true,
             'nameLocation' => 'middle', 'nameGap' => 44 },
           { 'type' => 'value', 'gridIndex' => 2, 'name' => 'Z', 'scale' => true,
@@ -1135,52 +1144,61 @@ module Publish
     # lppl_shadow formatter shows the matching entry for the hovered row.
     # These describe the METHOD, so they cite representative live numbers;
     # the per-row frozen/shadow VALUES beside them come from the payload.
+    # Post-ruling texts (M11-6): four of the six checks GRADUATED on the
+    # 2026-08-29 owner rulings (register R-3/R-6/R-7/R-8) -- their shadow
+    # value IS now the headline and the old value is the reference. Two
+    # stay deliberately report-only (365/730 scoring wants a backtest;
+    # damping gating wants more soak -- register CALENDAR).
     LPPL_SHADOW_EXPLAIN = {
       'mean/eval' =>
         'The average forecast-score gap per evaluation: power law vs its ' \
         'best rival, in log10. Negative = rivals beat the power law that ' \
-        'day. Unlike the headline sum (about -460), this number does not ' \
-        'grow just because we evaluate more often -- it is the honest size ' \
-        'of the effect. -1.26 means that on an average day the best rival ' \
-        'gave about 18x higher probability to what actually happened. Feeds ' \
-        'ruling D9-b (make this the primary trend number?).',
+        'day. GRADUATED 2026-08-29: this is now the trend test\'s headline ' \
+        '(with a Newey-West error bar), because the old cumulative sum grew ' \
+        'just from evaluating more often. The sum stays as the reference ' \
+        'shown here; the score still runs on it, so no verdict changed. ' \
+        'About -1.3 means an average day\'s outcome was ~20x more likely ' \
+        'under the best rival.',
       '365/730' =>
         'The same per-evaluation score at 1-year and 2-year forecast ' \
-        'horizons. These do NOT count toward the verdict yet. Negative at ' \
-        '365d (power law still loses), positive at 730d (power law WINS at ' \
-        'two years) -- matching published research that short horizons ' \
-        'favor naive models and long horizons favor the power law. Feeds ' \
-        'ruling D9-c (should long horizons enter the score?).',
+        'horizons. These still do NOT count toward the verdict -- the ' \
+        '2026-08-29 ruling deliberately kept them report-only until a ' \
+        'backtest can justify thresholds. Negative at 365d (power law ' \
+        'still loses), positive at 730d (power law WINS at two years) -- ' \
+        'matching published research that short horizons favor naive ' \
+        'models and long horizons favor the power law.',
       'damping' =>
         'An anti-bubble shape test from the Sornette school: the ' \
         'oscillations of a genuine damped anti-bubble decay with a damping ' \
-        'ratio of at least 1. Today\'s fit scores 0.41 -- it does NOT ' \
-        'qualify as a genuine damped anti-bubble under the standard ' \
-        'condition, even though it passes the suite\'s four original ' \
-        'filters. Report-only for now. Feeds ruling D9-e (should this gate ' \
-        'the fit verdict?).',
+        'ratio of at least 1. Today\'s fit does NOT meet the condition, ' \
+        'even though it passes the suite\'s four original filters. The ' \
+        '2026-08-29 ruling deliberately kept this report-only -- making it ' \
+        'gate the verdict is the single most verdict-changing switch in ' \
+        'the family, parked for a longer soak.',
       'impr' =>
         'How much better the LPPLS curve fits the post-peak decline than a ' \
-        'plain decay curve. The frozen 29.2% was measured with an unfair ' \
-        'advantage: the plain curve got a coarser parameter search. 27.9% ' \
-        'is the fair, like-for-like number -- the LPPLS fit still wins, ' \
-        'just honestly. The fair search also fixes a bias that pushed the ' \
-        'plain curve\'s peak date to the edge of its search grid. Feeds ' \
-        'ruling D9-e.',
+        'plain decay curve. GRADUATED 2026-08-29: the headline figure is ' \
+        'now the fair, like-for-like measurement (the old one gave the ' \
+        'plain curve a coarser parameter search and a grid-edge bias); the ' \
+        'old figure stays in the data as reference. The LPPLS fit still ' \
+        'wins -- just honestly.',
       'p(osc)' =>
         'The probability that the log-periodic wobble in the data is just ' \
-        'noise. Under the simple noise model (frozen): 0.38. Under a ' \
-        'realistic model with fat tails and volatility clustering (shadow): ' \
-        '0.24. Both are far above the usual 0.05 bar -- the wobble is NOT ' \
-        'statistically proven, and the suite is right to say so. Feeds ' \
-        'ruling D9-f (which noise model is the headline?).',
+        'noise. GRADUATED 2026-08-29: the headline (and the test\'s score) ' \
+        'now use the realistic noise model -- fat tails and volatility ' \
+        'clustering -- instead of the simple one, which stays as the ' \
+        'reference shown here. Both sit far above the usual 0.05 bar: the ' \
+        'wobble is NOT statistically proven, and the suite is right to ' \
+        'say so.',
       'freeze' =>
-        'The envelope\'s support bound. 0.439 is today\'s live value, ' \
-        'recomputed daily against a trend that keeps drifting as new data ' \
-        'arrives. 0.358 is what the bound would be if it had been frozen at ' \
-        'the 2022 low, as a stricter rule would demand. The gap between ' \
-        'them is how much the drifting trend flatters the \'envelope ' \
-        'intact\' reading. Feeds ruling D9-g (freeze each cycle\'s bound?).'
+        'The envelope\'s support bound. GRADUATED 2026-08-29: the ' \
+        'operative bound is now FROZEN at the last cycle low, measured ' \
+        'against the trend as it stood then -- the old bound drifted ' \
+        'upward with every re-fit, flattering the "envelope intact" ' \
+        'reading. The drifting value stays as the reference shown here. ' \
+        'Honest side-effect: measured this way, trough damping already ' \
+        'failed between 2018 and 2022 -- recorded in the methodology, not ' \
+        'hidden.'
     }.freeze
 
     # ".24" not "0.24" -- probabilities/ratios read compact (design ruling).
@@ -1188,10 +1206,12 @@ module Publish
       format("%.#{dp}f", value.to_f).sub(/\A(-?)0\./, '\1.')
     end
 
-    # One hash per PRESENT shadow check (a missing field drops its row),
-    # top-to-bottom order. Each: stat (row name + explanation key), frozen
-    # and shadow display strings, and a one-phrase verdict. Values are
-    # scaled/compacted at build time per the design system.
+    # One hash per PRESENT check (a missing field drops its row),
+    # top-to-bottom order. Each: stat (row name + explanation key), the
+    # REFERENCE value ('frozen' column -- since M11-6 this is the old/
+    # demoted number), the OPERATIVE value ('shadow' column -- the number
+    # now in force), and a one-phrase verdict. Values are scaled/compacted
+    # at build time per the design system.
     def lppl_shadow_rows(latest)
       trend = lppl_detail(latest, 'trend') || {}
       env   = lppl_detail(latest, 'envelope') || {}
@@ -1199,18 +1219,23 @@ module Publish
       lp    = lppl_detail(latest, 'logperiodic') || {}
       rows  = []
 
-      # (D9-b) density-honest trend: frozen headline BF sum vs the
-      # per-evaluation mean summed across the three headline horizons.
+      # (R-3, GRADUATED) trend: old cumulative sum (reference) -> the
+      # per-eval mean headline +- its NW error bar. headline_mean when the
+      # payload carries it (post-M11-3); the per_horizon sum otherwise.
       ph = trend['per_horizon']
+      hm = trend['headline_mean']
       if ph.is_a?(Hash) && trend['bf']
         means = %w[30 90 180].map { |h| ph.dig(h, 'mean_per_eval') }
-        unless means.any?(&:nil?)
+        value = hm.is_a?(Hash) ? hm['value'] : (means.any?(&:nil?) ? nil : means.sum)
+        if value
+          se = hm.is_a?(Hash) ? hm['se_nw'] : nil
           rows << { 'stat' => 'mean/eval', 'frozen' => format('%.2f', trend['bf']),
-                    'shadow' => format('%.2f', means.sum), 'verdict' => 'rivals win' }
+                    'shadow' => se ? format('%.2f±%s', value, lppl_compact(se, 2)) : format('%.2f', value),
+                    'verdict' => 'headline 08-29' }
         end
       end
 
-      # (D9-c) report-only long horizons: the 365d/730d per-eval means.
+      # (R-4, stays report-only) long horizons: the 365d/730d per-eval means.
       pl = trend['per_horizon_long']
       if pl.is_a?(Hash)
         a = pl.dig('365', 'mean_per_eval')
@@ -1218,38 +1243,44 @@ module Publish
         if a && b
           rows << { 'stat' => '365/730', 'frozen' => format('%+.2f', a),
                     'shadow' => format('%+.2f', b),
-                    'verdict' => b > 0 ? 'wins at 2y' : 'still loses' }
+                    'verdict' => b > 0 ? 'wins at 2y · report-only' : 'still loses · report-only' }
         end
       end
 
-      # (D9-e) fit damping condition D against its threshold: frozen shows
-      # the requirement, shadow the observed ratio.
+      # (stays report-only; gating parked in the register CALENDAR) fit
+      # damping condition D against its threshold.
       if (d = fit['damping'])
         thr = fit['damping_ref_threshold'] || 1.0
         rows << { 'stat' => 'damping', 'frozen' => format('>=%g', thr),
                   'shadow' => format('%.2f', d),
-                  'verdict' => d < thr ? 'not met' : 'qualifies' }
+                  'verdict' => d < thr ? 'not met · report-only' : 'qualifies · report-only' }
       end
 
-      # (D9-e) frozen RMSE improvement vs the fair, like-for-like one.
+      # (R-6, GRADUATED) old improvement figure (reference) -> the fair
+      # symmetric-null figure now in the headline.
       if (iv = fit['improvement_v2']) && (fr = fit['rmse_impr_pct'])
         rows << { 'stat' => 'impr', 'frozen' => format('%.1f%%', fr),
                   'shadow' => format('%.1f%%', iv),
-                  'verdict' => iv > 0 ? 'still wins' : 'no edge' }
+                  'verdict' => 'headline 08-29' }
       end
 
-      # (D9-f) AR(1) vs GARCH bootstrap p-value for the oscillation.
+      # (R-7, GRADUATED) AR(1) p (reference) -> the GARCH bootstrap p that
+      # now drives headline and score.
       if (pv = lp['p_value_v2']) && (fp = lp['p_value'])
         rows << { 'stat' => 'p(osc)', 'frozen' => lppl_compact(fp, 2),
                   'shadow' => lppl_compact(pv, 2),
-                  'verdict' => pv <= 0.05 ? 'significant' : 'still noise' }
+                  'verdict' => pv <= 0.05 ? 'significant · headline 08-29' : 'still noise · headline 08-29' }
       end
 
-      # (D9-g) live envelope bound vs the pre-trough freeze candidate.
-      if (fc = env['freeze_candidate']) && (bd = env['bound'])
-        rows << { 'stat' => 'freeze', 'frozen' => lppl_compact(bd, 3),
-                  'shadow' => lppl_compact(fc, 3),
-                  'verdict' => bd > fc ? 'drift flatters' : 'no drift' }
+      # (R-8, GRADUATED) drifting bound (reference) -> the frozen operative
+      # bound. bound_live when the payload carries it (post-M11-5); the
+      # pre-flip bound/freeze_candidate pair otherwise.
+      bd_ref = env['bound_live'] || env['bound']
+      bd_op  = env['bound_live'] ? env['bound'] : env['freeze_candidate']
+      if bd_ref && bd_op
+        rows << { 'stat' => 'freeze', 'frozen' => lppl_compact(bd_ref, 3),
+                  'shadow' => lppl_compact(bd_op, 3),
+                  'verdict' => 'adopted 08-29' }
       end
 
       rows
@@ -1268,10 +1299,10 @@ module Publish
     def lppl_shadow(latest)
       rows = lppl_shadow_rows(latest)
 
-      titles = [{ 'text' => format('Shadow diagnostics · %d checks', rows.size),
+      titles = [{ 'text' => format('Shadow checks · %d rows', rows.size),
                   'textStyle' => { 'fontSize' => 13 } }]
       titles << { 'text' => rows.empty? ? 'awaiting shadow fields' :
-                    'frozen → shadow · hover a row for what it means',
+                    'reference → operative · rulings 2026-08-29 · hover a row for the story',
                   'top' => 26, 'left' => 8,
                   'textStyle' => { 'fontSize' => 11, 'fontWeight' => 'normal',
                                    'color' => '#8a93a0' } }

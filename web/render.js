@@ -103,8 +103,9 @@ var FORMATTERS = {
     return out.join("<br>");
   },
 
-  // lppl_shadow (M9-13): the SHADOW tab's per-row hover. The row's stat
-  // name (bold), then "frozen <val> -> shadow <val>  <verdict>", then the
+  // lppl_shadow (M9-13; labels M11-6): the SHADOW tab's per-row hover. The
+  // row's stat name (bold), then "ref <val> -> now <val>  <verdict>" (since
+  // the 2026-08-29 rulings the columns mean reference -> operative), then the
   // owner-approved plain-language paragraph -- all carried IN the option
   // on the row's `stat`-column datum (renderer stays dumb; payload stays
   // JSON). Axis trigger hands us every series at the hovered row; we pull
@@ -122,9 +123,9 @@ var FORMATTERS = {
       return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
     var A = "#e6a23c", dim = "#9aa0a6";
-    var line = '<span style="color:' + dim + '">frozen</span> ' + esc(d.frozen) +
+    var line = '<span style="color:' + dim + '">ref</span> ' + esc(d.frozen) +
                ' <span style="color:' + A + '">&rarr;</span> ' +
-               '<span style="color:' + dim + '">shadow</span> ' + esc(d.shadow) +
+               '<span style="color:' + dim + '">now</span> ' + esc(d.shadow) +
                '  <b>' + esc(d.verdict) + "</b>";
     return '<div style="max-width:320px;white-space:normal;line-height:1.5">' +
            "<b>" + esc(d.title) + "</b><br>" + line +

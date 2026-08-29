@@ -24,6 +24,13 @@ into `payload_<key>.json` here.
   internally consistent (per_horizon sums match the frozen
   `bf_by_horizon`); they are synthetic, not a live capture. Keep them on
   any refresh (re-add, or regenerate from a real `lppl.rb --json` cache).
+  M11-6 extended it again for the 2026-08-29 ruling flips:
+  `trend.detail.headline_mean` (value = the per_horizon means' sum), and
+  the envelope's frozen-rule shape -- `bound`/`floor`/`trough_ratios`
+  now hold the FROZEN values (0.358/0.242) with the old drifting values
+  moved to `bound_live`/`floor_live`/`trough_ratios_live` (0.435), the
+  same shape a post-M11-5 live run emits. The lppl_regime golden's
+  bound/floor markLines follow the frozen values.
 
 - `payload_scenario_history.json` carries a trailing **synthetic blind
   row** (`2026-07-07`, `"blind": true`, composite 0.0) so the M8-10
