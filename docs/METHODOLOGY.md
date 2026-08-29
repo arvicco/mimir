@@ -100,6 +100,15 @@ months).
 | `hash_ribbons` (1) | miner capitulation, 30d vs 60d hashrate SMA | recovery cross within last 14d (the classic buy signal) | 30d < 60d: capitulation in progress |
 | `onchain_value` (1) | MVRV (market cap / realized cap) | <= 0.85: terminal value zone | >= 2.5: froth |
 | `stables` (1) | USDT+USDC supply, 1-month change | >= +0.5%: liquidity expanding | <= -0.5%: contracting |
+| `positioning` (0, display-only) | derivatives crowd stance: retail + top-trader L/S, OI momentum, taker flow, liquidation skew (Coinglass, trailing-90d percentile bands) | full mirror line-up: crowd SHORT + OI falling + shorts liquidated | full flush line-up: crowd LONG + OI rising + longs liquidated |
+| `reserves` (0, display-only) | BTC on tracked exchanges, 30d % change vs its own trailing-90d distribution (Coinglass; window-consistent across delistings) | <= 20th pct: coins draining to self-custody unusually fast | >= 80th pct: sellable supply building unusually fast |
+
+The two weight-0 modules are governed shadow-first (owner rulings
+D10-b 2026-08-12 and R-11/D11-a 2026-08-29): shown and charted, never
+weighted, each with pre-registered kill criteria (source dead 14d, or
+120d of scorecard showing no band separation -> module removed, not
+tuned). Graduation into a real weight is a later owner ruling refereed
+by the scorecard.
 
 Extras shown but not scored: annualized basis of the nearest Deribit
 future (negative basis has historically marked terminal capitulation);

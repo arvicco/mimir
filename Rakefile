@@ -151,7 +151,11 @@ namespace :golden do
     FileUtils.mkdir_p('test/golden')
     Publish::Charts::CHARTS.each do |name, spec|
       payloads = spec[:inputs].map { |f| JSON.parse(File.read(File.join('test/fixtures/payloads', f))) }
-      option = Publish::Charts.public_send(spec[:fn], *payloads)
+      # M11-7: optional enrichment inputs (always present as fixtures on
+      # the golden path) ride after the required ones -- MUST mirror the
+      # golden test's build helper or approve blesses a different option.
+      optional = (spec[:optional] || []).map { |f| JSON.parse(File.read(File.join('test/fixtures/payloads', f))) }
+      option = Publish::Charts.public_send(spec[:fn], *payloads, *optional)
       File.write(File.join('test/golden', "chart_#{name}.json"),
                  JSON.pretty_generate(option) + "\n")
       puts "blessed chart_#{name}.json"

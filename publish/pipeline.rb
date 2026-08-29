@@ -39,7 +39,7 @@
 #   is attempted. Error text stays redacted (kv_client's pattern).
 # - STATUS (frozen --tmux contract): /tmp/publish.status carries
 #   `PUB DRY|LIVE <published>/<expected> keys HH:MM UTC` where
-#   expected = producers + tails + charts + 1 (the index) = n/31
+#   expected = producers + tails + charts + 1 (the index) = n/32
 #   (13 producers + 2 tails + 15 charts + index). Pinned in the tests.
 #   ADDITIVE (M7-5, 2026-07-07 frozen-evidence incident): when a PUBLISHED
 #   tail's newest entry is older than STALE_EVIDENCE_H (30h), the line gains
@@ -97,7 +97,11 @@ module Publish
       # M10-4 (P-6): the crowd-positioning module -- daily crowd/OI/liquidation
       # stance. Runs at WEIGHT 0 during the soak (display only); its --json
       # carries the card series. Daily cadence (24h source-cache ttl).
-      ['positioning:latest', ['ruby', 'scripts/scenario/positioning.rb', '--json'],    60,  3_600]
+      ['positioning:latest', ['ruby', 'scripts/scenario/positioning.rb', '--json'],    60,  3_600],
+      # M11-7 (P-8, R-11/D11-a): the exchange-reserve module -- weight 0,
+      # daily cadence (24h source-cache ttl); its --json carries the
+      # reserves series the positioning card draws on its right axis.
+      ['reserves:latest',  ['ruby', 'scripts/scenario/reserves.rb', '--json'],         60,  3_600]
     ].freeze
 
     # key, suite, in-tree default dir, filename, window_days, ttl_hint_s.
@@ -301,10 +305,16 @@ module Publish
     end
 
     # Build one registered chart from THIS run's collected payloads and
-    # insert it as 'chart:<name>' (ttl = MIN of its inputs' ttls). Returns
-    # the wrapped envelope on success, nil (with a redacted warn) if any
-    # input is absent or the builder raises -- the caller then counts the
-    # skip. Never propagates a builder error.
+    # insert it as 'chart:<name>' (ttl = MIN of its REQUIRED inputs'
+    # ttls). Returns the wrapped envelope on success, nil (with a redacted
+    # warn) if any required input is absent or the builder raises -- the
+    # caller then counts the skip. Never propagates a builder error.
+    #
+    # M11-7: a spec may also declare :optional inputs -- enrichment
+    # payloads passed AFTER the required ones, or nil when absent or
+    # fail-soft. An optional input can therefore never skip the chart
+    # (the reserves curve must not couple the positioning card to the
+    # reserves module's uptime); the builder degrades on nil.
     def chart(name, spec, envelopes, now, source)
       key = 'chart:' + name
       inputs = spec[:inputs].map { |f| chart_input_key(f) }
@@ -318,7 +328,15 @@ module Publish
       bad = inputs.find { |k| envelopes[k]['payload'].is_a?(Hash) && envelopes[k]['payload']['unavailable'] }
       return skip_chart(key, "input #{bad} unavailable") if bad
 
-      option = Publish::Charts.public_send(spec[:fn], *inputs.map { |k| envelopes[k]['payload'] })
+      optional = (spec[:optional] || []).map do |f|
+        env = envelopes[chart_input_key(f)]
+        p   = env && env['payload']
+        p.is_a?(Hash) && p['unavailable'] ? nil : p
+      end
+
+      option = Publish::Charts.public_send(spec[:fn],
+                                           *inputs.map { |k| envelopes[k]['payload'] },
+                                           *optional)
       ttl = inputs.map { |k| envelopes[k]['ttl_hint_s'] }.min
       envelopes[key] = Publish.wrap(key, option, ttl, now: now, source: source,
                                     meta: spec[:meta])
