@@ -36,8 +36,12 @@
 #   null_v2 {tc, rmse, at_grid_edge}, improvement_v2 (M9-6) -- the RMSE
 #                            improvement re-measured against a symmetric null
 #                            (Lppl.power_decay_fit_v2: refined pass + RMSE tc
-#                            selection). Shadow of rmse_impr_pct; the frozen
-#                            figure is untouched. Flip is D9-e/D9-f.
+#                            selection). HEADLINE since M11-4 (owner ruling
+#                            2026-08-29, register R-6): the human line's
+#                            "vs sym null" figure is improvement_v2; the
+#                            frozen rmse_impr_pct field stays as reference.
+#                            Damping remains report-only (same ruling; the
+#                            gating question is a register CALENDAR residue).
 
 require_relative 'common'
 
@@ -217,12 +221,18 @@ if ARGV.include?('--history')
   end
 end
 
+# Headline improvement figure (owner ruling 2026-08-29, register R-6 / was
+# D9-e): the symmetric-null improvement_v2 -- free of the frozen null's
+# tc-grid-edge artifact -- is the number we stand behind; the frozen
+# rmse_impr_pct keeps its field and meaning as reference. Score untouched
+# (damping stays report-only per the same ruling; residue in the register
+# CALENDAR).
 Lppl.report(NAME, score,
-              format('m %.2f, omega %.1f, %d/4 filters; trough %s @ ~%s; rmse %.3f (%s vs null)%s',
+              format('m %.2f, omega %.1f, %d/4 filters; trough %s @ ~%s; rmse %.3f (%s vs sym null)%s',
                      best[:m], best[:w], passed,
                      interior ? trough_date : 'none<=+400d',
                      trough_px ? trough_px.to_s : '--', rmse,
-                     impr ? format('%+.0f%%', impr) : 'n/a',
+                     impr_v2 ? format('%+.0f%%', impr_v2) : 'n/a',
                      tstd ? format('; trough std %.0fd', tstd) : ''),
               'omega' => best[:w].round(2), 'm' => best[:m].round(3),
               'tc_date' => (Lppl::GENESIS + best[:tc] * 86_400).strftime('%Y-%m-%d'),

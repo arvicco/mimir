@@ -173,6 +173,22 @@ class TestLpplContract < Minitest::Test
     end
   end
 
+  # M11-4 (owner ruling 2026-08-29, register R-6/R-7): the fit headline's
+  # improvement figure is the symmetric-null improvement_v2; the logperiodic
+  # headline (and its score) run on the GARCH bootstrap p_value_v2, with the
+  # AR(1) p kept as the in-line reference. Field sets unchanged (the v2
+  # fields have existed since M9-6/M9-7 -- this flips prominence only).
+  def test_fit_headline_uses_symmetric_null
+    j = module_json('fit')
+    assert_match(/vs sym null/, j['headline'])
+  end
+
+  def test_logperiodic_headline_leads_with_garch
+    j = module_json('logperiodic', '--sims', '5', '--sims-v2', '5')
+    assert_match(/GARCH/, j['headline'])
+    assert_match(/AR\(1\) ref/, j['headline'])
+  end
+
   # M11-3 (owner ruling 2026-08-29, register R-3): headline_mean is the
   # density-honest headline block -- per-eval mean value, its Newey-West SE,
   # the NW lag, the daily-series length, and the frozen band re-expressed in
@@ -320,9 +336,12 @@ class TestLpplContract < Minitest::Test
     assert_match STATUS_RE, File.read('/tmp/lppl.status').chomp
   end
 
+  # M11-4 (owner ruling 2026-08-29, register R-7): p_lp records the GARCH
+  # bootstrap p (the number we stand behind); p_lp_ar1 keeps the AR(1)
+  # series' continuity as an additive reference column.
   LEDGER_KEYS = %w[bf composite days_below_strong days_le_p01 omega p_lp
-                   pct_emp ratio scores trough_date trough_px ts verdict
-                   z z_record].freeze
+                   p_lp_ar1 pct_emp ratio scores trough_date trough_px ts
+                   verdict z z_record].freeze
 
   def test_history_ledger_line_contract
     _, err, st = run_script('scripts/lppl/lppl.rb', '--json', '--skip-update',
