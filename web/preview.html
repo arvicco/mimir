@@ -225,7 +225,11 @@
     padding: 8px 12px; font-size: 12px; font-weight: 400; line-height: 1.5;
     color: #ccd3dc; box-shadow: 0 6px 24px rgba(0,0,0,.45); white-space: normal;
   }
-  .cp-cell:hover .cp-bub, .cp-cell:focus-within .cp-bub { display: block; }
+  /* hover, or KEYBOARD focus only (:focus-visible): the pieces are real
+     <button>s, so a plain :focus-within pinned a clicked venue's bubble
+     open until focus moved -- two bubbles at once with the next hover
+     (owner-caught 2026-08-29). Mouse clicks don't match :focus-visible. */
+  .cp-cell:hover .cp-bub, .cp-cell:has(:focus-visible) .cp-bub { display: block; }
   /* Reset the real <button> (render.js) back to inline text -- the toggle is
      keyboard-operable but must look identical to the old <span>. */
   .cp {
