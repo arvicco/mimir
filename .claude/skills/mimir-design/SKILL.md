@@ -30,7 +30,11 @@ another. When a new ruling lands, add it here in the same commit.
   'stack'` (owner ruling 2026-08-10: a tab_group rendered as ONE card
   with every member ALWAYS visible, stacked vertically by tab_pos,
   each member keeping its own head/badge/bubble at meta.height -- the
-  vol_surface + vol_basis card), and `terms` (owner ruling 2026-08-11,
+  vol_surface + vol_basis card. Members sharing a tab_pos collapse
+  into one tabbed section (M8-17); and since 2026-08-29, tabbed
+  sections with IDENTICAL label sequences LINK: one tab bar on the
+  top section drives them all -- the GEX card's [BTC][MSTR] flipping
+  profile + trend together), and `terms` (owner ruling 2026-08-11,
   M9-15: a `{ TERM => plain explanation }` glossary. The renderer gives
   each named abbreviation / module name a hover explanation -- the SAME
   styled block as the lppl_shadow tooltip -- on the surface that fits
