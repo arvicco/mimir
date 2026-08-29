@@ -303,6 +303,44 @@ module BTC
       cg.call('coinglass_liquidation.json', 'futures/liquidation/aggregated-history',
               'symbol=BTC&interval=1d&exchange_list=Binance,OKX,Bybit', 10,
               'aggregated_long_liquidation_usd', 'liq'),
+      # M11-7 (P-8): exchange reserves. The list is a small per-exchange
+      # snapshot (kept whole); the chart is {time_list, price_list,
+      # data_map} -- trimmed to the trailing 130 days per series (enough
+      # for a 30d delta + a 90d trailing-percentile window in tests).
+      { file: 'coinglass_exchange_balance_list.json', env: 'COINGLASS_API_KEY',
+        url: 'https://open-api-v4.coinglass.com/api/exchange/balance/list?symbol=BTC',
+        headers: -> { { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] } },
+        stat: lambda { |b|
+          data = JSON.parse(b)['data'].to_a
+          raise "only #{data.size} exchanges (need >= 5)" if data.size < 5
+          raise 'row missing total_balance' unless data.first.key?('total_balance')
+
+          format('reserves: %d exchanges, total %.0f BTC', data.size,
+                 data.sum { |r| r['total_balance'].to_f })
+        } },
+      { file: 'coinglass_exchange_balance_chart.json', env: 'COINGLASS_API_KEY',
+        url: 'https://open-api-v4.coinglass.com/api/exchange/balance/chart?symbol=BTC',
+        headers: -> { { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] } },
+        trim: lambda { |b|
+          j = JSON.parse(b)
+          d = j['data']
+          keep = 130
+          JSON.generate('code' => j['code'],
+                        'data' => {
+                          'time_list' => d['time_list'].to_a.last(keep),
+                          'price_list' => d['price_list'].to_a.last(keep),
+                          'data_map' => Hash[d['data_map'].to_h.map { |k, v| [k, v.to_a.last(keep)] }]
+                        })
+        },
+        stat: lambda { |b|
+          d = JSON.parse(b)['data']
+          n = d['time_list'].to_a.size
+          raise "only #{n} days (need >= 121)" if n < 121
+
+          last = Time.at(d['time_list'].last.to_i / 1000).utc
+          format('reserve chart: %d days x %d exchanges, last %s', n,
+                 d['data_map'].to_h.size, last.strftime('%d %b %Y'))
+        } },
       { file: 'frankfurter_fx.json',
         url: 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=JPY',
         stat: lambda { |b|
