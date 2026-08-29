@@ -46,6 +46,8 @@ module FakeTransport
     ['top-long-short-position-ratio',    'coinglass_top_position_ratio.json'],
     ['taker-buy-sell-volume',            'coinglass_taker_volume.json'],
     ['liquidation/aggregated-history',   'coinglass_liquidation.json'],
+    ['exchange/balance/list',            'coinglass_exchange_balance_list.json'],
+    ['exchange/balance/chart',           'coinglass_exchange_balance_chart.json'],
     ['delayed_quotes/options/MSTR', 'cboe_options_mstr.json'],
     ['frankfurter',                 'frankfurter_fx.json'],
     ['bitcointreasuries',           'bitcointreasuries_table.html'],

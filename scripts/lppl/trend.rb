@@ -12,22 +12,24 @@
 #   pl_recent  power law fitted on trailing 3 years  ("the trend has bent")
 #   rw         random walk, sigma scaled sqrt(h)     (no trend information)
 #
-# Headline: the trailing-365-day cumulative log predictive-score differential
-# (log10) of pl_full vs the best rival (formerly called the "Bayes factor").
-# This component can genuinely FALSIFY: a decisively negative differential
-# means the trend claim is dying regardless of how pretty the oscillation
-# fit looks.
+# Headline (M11-3, owner ruling 2026-08-29 / register R-3): the trailing-1y
+# per-evaluation MEAN log predictive-score differential (log10/eval) of
+# pl_full vs the best rival -- the density-invariant number (SBI 3.1: the old
+# SUM headline scaled with cache density; it stays as the 'bf' reference
+# field and in the human line as 'cum'). The headline carries a Newey-West
+# (Bartlett, lag 179) standard error -- overlapping forecast horizons make
+# the daily differentials strongly autocorrelated -- and band_per_eval, the
+# frozen band re-expressed in headline units. This component can genuinely
+# FALSIFY: a decisively negative differential means the trend claim is dying
+# regardless of how pretty the oscillation fit looks.
 #
-#   score +1  trailing differential >= +1.0 (>=10:1 for the global power law)
-#   score -1  trailing differential <= -1.0
+# The SCORE is byte-identical to pre-M11-3 -- still the cumulative
+# differential against +-1.0 (at equal horizon counts the mean-vs-band and
+# sum-vs-1.0 comparisons are the same inequality):
+#
+#   score +1  trailing cumulative differential >= +1.0 (>=10:1)
+#   score -1  trailing cumulative differential <= -1.0
 #   score  0  in between
-#
-# CACHE-DENSITY CAVEAT (SBI 3.1): the headline is a SUM over evaluation days,
-# so its magnitude scales roughly linearly with how many days the cache
-# holds -- a full daily cache and a weekly-stride cache of the same period
-# differ ~7x in magnitude while agreeing on sign and on the per-evaluation
-# MEAN. The additive per_horizon.mean_per_eval field is the density-invariant
-# reading; the raw sum is not comparable across cache densities (feeds D9-b).
 #
 # Scores are cached in data/trend_scores.csv. First run bootstraps history
 # from 2017 with weekly stride (a minute or so); daily runs append only
@@ -391,13 +393,66 @@ score = if bf_yr >= 1.0
           0
         end
 
+# ---- headline_mean (M11-3, owner ruling 2026-08-29 / register R-3) -----------
+# The HEADLINE becomes the density-honest per-evaluation MEAN: the sum across
+# horizons of each horizon's mean_per_eval (log10/eval; at equal horizon
+# counts this is exactly bf_yr / n_evals, so the frozen +-1.0 cumulative band
+# re-expresses as +-band_per_eval = 1.0 / n_evals in headline units -- the
+# same inequality, different units). The SCORE above still compares the
+# cumulative bf_yr to +-1.0, byte-identical to pre-M11-3 -- the ruling moved
+# the number we stand behind, not the test.
+#
+# Uncertainty: Newey-West (Bartlett) SE of the daily combined differential
+# series over the trailing year, lag = the longest horizon (180d overlap
+# makes the differentials strongly autocorrelated; plain sd/sqrt(n) would be
+# far too tight). The daily series uses each horizon's WINNING rival (by
+# trailing-year sum -- the same rival the aggregate compares against), so the
+# series total reproduces the aggregate differential on complete dates.
+nw_lag = HORIZ.max - 1
+riv_name = {}
+HORIZ.each do |h|
+  riv_name[h] = sums["yr|#{h}|pl_recent"] >= sums["yr|#{h}|rw"] ? 'pl_recent' : 'rw'
+end
+daily = Hash.new(0.0)
+daily_n = Hash.new(0)
+have.each do |k, s|
+  d, h, m = k.split('|')
+  next if d < cut
+  next unless m == 'pl_full'
+
+  r = have["#{d}|#{h}|#{riv_name[h.to_i]}"]
+  next unless r
+
+  daily[d]   += (s - r) / Math.log(10)
+  daily_n[d] += 1
+end
+series = daily.keys.sort.filter_map { |d| daily[d] if daily_n[d] == HORIZ.size }
+se_nw  = Lppl.newey_west_se(series, lag: nw_lag)
+
+means = HORIZ.filter_map { |h| per_horizon[h.to_s]['mean_per_eval'] }
+ne_yr = count["yr|90|pl_full"]
+headline_mean = {
+  'value'         => (means.empty? ? nil : means.sum.round(4)),
+  'se_nw'         => se_nw&.round(4),
+  'lag'           => nw_lag,
+  'n_dates'       => series.size,
+  'band_per_eval' => (ne_yr.positive? ? (1.0 / ne_yr).round(4) : nil)
+}
+
 Lppl.report(NAME, score,
-              format('trailing-1y cum. log predictive-score differential (log10) pl_full vs best rival %+.2f  [30d %+.2f / 90d %+.2f / 180d %+.2f]',
-                     bf_yr, per_h[30], per_h[90], per_h[180]),
+              format('trailing-1y MEAN log predictive-score differential/eval (log10) pl_full vs best rival %s ±%s NW · band ±%s · cum %+.2f  [30d %+.4f / 90d %+.4f / 180d %+.4f /eval]',
+                     headline_mean['value'] ? format('%+.4f', headline_mean['value']) : '?',
+                     se_nw ? format('%.4f', se_nw) : '?',
+                     headline_mean['band_per_eval'] ? format('%.4f', headline_mean['band_per_eval']) : '?',
+                     bf_yr,
+                     per_horizon['30']['mean_per_eval'] || 0.0,
+                     per_horizon['90']['mean_per_eval'] || 0.0,
+                     per_horizon['180']['mean_per_eval'] || 0.0),
               'bf' => bf_yr, # deprecated name; the value is the cumulative differential
               'bf_by_horizon' => per_h.inspect, # deprecated name; see per_horizon
               'per_horizon' => per_horizon,
               'per_horizon_long' => per_horizon_long,
+              'headline_mean' => headline_mean,
               'pl_lp1' => pl_lp1_field,
               'delta_ln_age' => delta_ln_age,
               'eval_points_1y' => count["yr|90|pl_full"],

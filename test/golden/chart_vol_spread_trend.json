@@ -21,7 +21,8 @@
       "21d",
       "30d",
       "45d",
-      "90d"
+      "90d",
+      "180d"
     ]
   },
   "grid": {
@@ -52,12 +53,26 @@
     "nameLocation": "middle",
     "nameGap": 44
   },
+  "dataZoom": [
+    {
+      "type": "inside",
+      "xAxisIndex": [
+        0
+      ]
+    }
+  ],
   "series": [
     {
       "name": "7d",
       "type": "line",
       "symbol": "circle",
       "symbolSize": 6,
+      "itemStyle": {
+        "color": "#e04b4b"
+      },
+      "lineStyle": {
+        "color": "#e04b4b"
+      },
       "data": [
         40.2,
         41.5,
@@ -76,6 +91,12 @@
       "type": "line",
       "symbol": "circle",
       "symbolSize": 6,
+      "itemStyle": {
+        "color": "#e08e0b"
+      },
+      "lineStyle": {
+        "color": "#e08e0b"
+      },
       "data": [
         41.0,
         41.8,
@@ -94,6 +115,12 @@
       "type": "line",
       "symbol": "circle",
       "symbolSize": 6,
+      "itemStyle": {
+        "color": "#e2c84b"
+      },
+      "lineStyle": {
+        "color": "#e2c84b"
+      },
       "data": [
         41.5,
         42.1,
@@ -112,6 +139,12 @@
       "type": "line",
       "symbol": "circle",
       "symbolSize": 6,
+      "itemStyle": {
+        "color": "#35c46a"
+      },
+      "lineStyle": {
+        "color": "#35c46a"
+      },
       "data": [
         null,
         null,
@@ -130,6 +163,12 @@
       "type": "line",
       "symbol": "circle",
       "symbolSize": 6,
+      "itemStyle": {
+        "color": "#3fc1d1"
+      },
+      "lineStyle": {
+        "color": "#3fc1d1"
+      },
       "data": [
         42.0,
         42.5,
@@ -148,6 +187,12 @@
       "type": "line",
       "symbol": "circle",
       "symbolSize": 6,
+      "itemStyle": {
+        "color": "#4665e6"
+      },
+      "lineStyle": {
+        "color": "#4665e6"
+      },
       "data": [
         41.8,
         42.2,
@@ -159,6 +204,30 @@
         43.6,
         43.2,
         43.1
+      ]
+    },
+    {
+      "name": "180d",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 6,
+      "itemStyle": {
+        "color": "#2e3f9e"
+      },
+      "lineStyle": {
+        "color": "#2e3f9e"
+      },
+      "data": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
       ]
     }
   ]

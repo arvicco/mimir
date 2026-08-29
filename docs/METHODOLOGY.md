@@ -100,6 +100,15 @@ months).
 | `hash_ribbons` (1) | miner capitulation, 30d vs 60d hashrate SMA | recovery cross within last 14d (the classic buy signal) | 30d < 60d: capitulation in progress |
 | `onchain_value` (1) | MVRV (market cap / realized cap) | <= 0.85: terminal value zone | >= 2.5: froth |
 | `stables` (1) | USDT+USDC supply, 1-month change | >= +0.5%: liquidity expanding | <= -0.5%: contracting |
+| `positioning` (0, display-only) | derivatives crowd stance: retail + top-trader L/S, OI momentum, taker flow, liquidation skew (Coinglass, trailing-90d percentile bands) | full mirror line-up: crowd SHORT + OI falling + shorts liquidated | full flush line-up: crowd LONG + OI rising + longs liquidated |
+| `reserves` (0, display-only) | BTC on tracked exchanges, 30d % change vs its own trailing-90d distribution (Coinglass; window-consistent across delistings) | <= 20th pct: coins draining to self-custody unusually fast | >= 80th pct: sellable supply building unusually fast |
+
+The two weight-0 modules are governed shadow-first (owner rulings
+D10-b 2026-08-12 and R-11/D11-a 2026-08-29): shown and charted, never
+weighted, each with pre-registered kill criteria (source dead 14d, or
+120d of scorecard showing no band separation -> module removed, not
+tuned). Graduation into a real weight is a later owner ruling refereed
+by the scorecard.
 
 Extras shown but not scored: annualized basis of the nearest Deribit
 future (negative basis has historically marked terminal capitulation);
@@ -145,58 +154,72 @@ Gaussian log-score:
 - `pl_recent` -- power law on the trailing 3y ("the trend has bent"),
 - `rw` -- random walk with sqrt(h)-scaled variance (no trend info).
 
-**Displayed:** `trailing-1y cum. log predictive-score differential
-(log10) pl_full vs best rival` (formerly the "Bayes factor") plus the
-per-horizon split. The differential = sum over the trailing year of
-(pl_full's log-score - the best rival's), in log10 units: +2 means
-the year's data was 100:1 more likely under the global power law than
-under its best rival; negative means the rival explains the year
-better. Score: +1 above +1.0, -1 below -1.0.
+**Displayed** (headline flipped by owner ruling 2026-08-29, register
+R-3): `trailing-1y MEAN log predictive-score differential/eval (log10)
+pl_full vs best rival` -- the per-evaluation-day mean of (pl_full's
+log-score - the best rival's), in log10 per eval: -0.6 at 30d means an
+average day's realized price was about 4x more likely under the best
+rival than under the global power law. The mean carries a Newey-West
+standard error (`±… NW`; Bartlett kernel, lag 179 -- overlapping
+horizons make daily evidence strongly autocorrelated, so a naive error
+bar would be far too tight; a one-off 180-block circular bootstrap
+cross-check agreed within 4%) and `band ±…`, the scoring band
+re-expressed in per-eval units. The old cumulative SUM stays visible as
+`cum` (and the `bf` JSON field): its magnitude scales with cache
+density (SBI 3.1: -459 over 364 daily points vs -67 over 52
+weekly-stride points for the same period; the per-eval mean held ~-1.26
+against ~-1.28), which is exactly why it lost headline status.
 
-**Interpretation:** this is the suite's designated falsifier. A
-differential of -425 is not a subtle reading -- it says the trailing
-year is astronomically better described by "the trend bent" (or a random
-walk) than by the genesis-anchored power law. When trend is -1, the
-overall verdict is capped at STRESSED no matter how pretty the
-oscillation looks, and FALSIFIED if the envelope breaks too.
+**Score (unchanged):** still the cumulative differential against ±1.0
+(+1 above +1.0, -1 below -1.0) -- at equal per-horizon eval counts the
+mean-vs-band and sum-vs-±1.0 comparisons are the same inequality, and
+freezing the score form guarantees no verdict drift from this ruling.
 
-**Magnitude caveats:** (1) the differential SUMS per-day evidence, so its
-size scales with the number of cached evaluation points -- the first run
-bootstraps weekly (magnitudes ~7x smaller) and later runs densify to
-daily; sign and per-horizon pattern are comparable, raw magnitude across
-cache densities is not. The additive `per_horizon.mean_per_eval` field
-(differential ÷ eval-point count) IS density-invariant -- a controlled
-reproduction (SBI 3.1) on our own cache found the trailing-1y sum falling
-7x (-459 over 364 daily points → -67 over 52 weekly-stride points) while
-the per-eval mean held steady (~-1.26 vs ~-1.28). (2) The model's
-predictive variances ignore parameter uncertainty (documented
-simplification), which inflates the magnitude when price sits far outside
-the fitted channel. Read the sign and the ledger trend of the
-differential, not the absolute number.
+**Interpretation:** this is the suite's designated falsifier. A mean of
+-1.29 ± 0.18 across the three horizons is not a subtle reading -- the
+trailing year is decisively better described by "the trend bent" (or a
+random walk) than by the genesis-anchored power law, and the error bar
+says that is signal, not noise. When trend is -1, the overall verdict is
+capped at STRESSED no matter how pretty the oscillation looks, and
+FALSIFIED if the envelope breaks too.
+
+**Magnitude caveat:** the model's predictive variances ignore parameter
+uncertainty (documented simplification), which inflates magnitudes when
+price sits far outside the fitted channel. Read the sign, the error
+bar, and the ledger trend of the differential -- not the absolute
+number alone.
 
 ### Test 2 · envelope (wt 3) -- is trough damping intact?
 
 This is a **descriptive cycle heuristic**, not a statistical test: only
 three historical troughs support it, so it describes a pattern rather
 than proving one. The regime claims trough depth ratios (price/trend at
-cycle lows) damp monotonically: ~0.40 (2015) -> ~0.45 (2018) -> ~0.50
-(2022), so this cycle must bottom ABOVE the 2022 ratio.
+cycle lows) damp -- each cycle bottoming shallower than the last -- so
+this cycle must bottom ABOVE the previous trough's ratio.
 
-**Displayed:** `price/trend 0.464 vs bound 0.434 (floor 0.434)` --
-today's ratio, the strong bound (last cycle's trough ratio) and the
-hard floor (worst historical ratio), all recomputed against today's
-full-history fit; then persistence counters. Score: +1 while ratio >=
+**Displayed:** `price/trend 0.559 vs frozen bound 0.358 (floor 0.241; live 0.441/0.441)` --
+today's ratio (measured against today's full-history fit), then the
+**frozen** thresholds (owner ruling 2026-08-29, register R-8): each
+historical trough's ratio measured against the trend *as fitted on data
+up to that trough*, so today's re-estimated trend can no longer drag
+the reference thresholds around. The old drifting measurements ride
+along as `live` (and the `*_live` JSON fields) -- the drift flattered
+the model (rising price pulled the bound up with it), which is why it
+lost operative status. The bound re-sets only when a subsequent trough
+is confirmed. Score thresholds unchanged in form: +1 while ratio >=
 bound ("intact"); 0 below the bound while persistence hasn't triggered
-("stressed" -- the model being genuinely tested, not yet broken); -1
-after >= 45 consecutive days below 0.95x bound (strong form broken) or
->= 30 days below 0.95x floor (claim dead in any form).
+("stressed"); -1 after >= 45 consecutive days below 0.95x bound
+(strong form broken) or >= 30 days below 0.95x floor (claim dead in
+any form).
 
 **Interpretation:** watch the two day-counters, not the ratio alone; a
 brief poke below the bound is expected texture, persistence is
-falsification. `--json` also carries `freeze_candidate` (report-only):
-the strong bound as it would read if frozen against the trend as of the
-2022 trough, rather than drifting with today's re-estimated trend --
-previewing the D9-g freeze rule without changing the score.
+falsification. Honesty note the freeze itself surfaced: the frozen
+trough sequence is `0.241 -> 0.482 -> 0.358` -- NOT monotonic. Measured
+honestly, damping already failed between 2018 and 2022; the heuristic
+survives only in the weaker "bottom above the last trough" form this
+test actually checks. `freeze_candidate` (M9-4) remains in `--json`
+and now equals the operative bound.
 
 ### Test 3 · fit (wt 2) -- does a qualified anti-bubble LPPLS fit exist?
 
@@ -204,7 +227,7 @@ Fits `ln P = A + B*tau^m + tau^m * [C1 cos(w ln tau) + C2 sin(w ln tau)]`
 post-peak (Filimonov-Sornette linearization: grid over tc/m/w, linear
 solve for the rest). The *evidence* is not the fit but its quality:
 
-**Displayed:** `m 0.56, omega 8.6, 4/4 filters; trough none<=+400d @ ~27000; rmse 0.048 (+44% vs null)`
+**Displayed:** `m 0.56, omega 8.6, 4/4 filters; trough none<=+400d @ ~27000; rmse 0.048 (+44% vs sym null)`
 - the Sornette qualifying filters: m interior to (0.1, 0.9), omega in
   [6, 13], >= 2.5 oscillations in window, |C|/|B| <= 1. 4/4 = a
   textbook-shaped fit; <= 2 scores -1.
@@ -212,8 +235,15 @@ solve for the rest). The *evidence* is not the fit but its quality:
   to +400 days. `none<=+400d` = the minimum sits on the boundary --
   itself a strike (score downgraded 1), because a real anti-bubble
   should have an interior trough.
-- `rmse ... vs null`: improvement over a pure power-decay fit with no
-  oscillation; +44% means the oscillation term earns its keep.
+- `rmse ... vs sym null`: improvement over a pure power-decay fit with
+  no oscillation. Since the 2026-08-29 owner ruling (register R-6) the
+  figure shown is `improvement_v2` -- measured against the symmetric,
+  RMSE-selected null that cleared the original null's tc-grid-edge
+  artifact (29.2% became an honest 27.9% on the day the artifact was
+  found); the original figure stays in `--json` as `rmse_impr_pct`.
+- report-only diagnostics ride alongside (`b_negative`, `damping` vs
+  its 1.0 reference threshold): visible, wired into nothing -- whether
+  damping ever GATES the verdict is a deliberately open item.
 - `trough std Nd` (when >= 5 history entries): day-to-day stability of
   the projected trough; > 21 days of wander is the classic overfit
   signature and downgrades the score.
@@ -227,14 +257,20 @@ to name a bottom -- structure without a forecast.
 
 Guards against seeing omega in autocorrelated noise. Residuals of the
 power-decay null are tested for periodicity in ln(tau) via Lomb-Scargle;
-significance comes from an AR(1) bootstrap with matched lag-1
-autocorrelation (default 100 sims, seeded).
+significance comes from a parametric bootstrap (seeded). Since the
+2026-08-29 owner ruling (register R-7) the p-value we stand behind --
+headline AND score -- is the **AR(1)+GARCH(1,1)** bootstrap
+(`p_value_v2`, default 1000 sims): it matches crypto's volatility
+clustering and re-fits the null on every simulated path, carrying the
+refit-and-look-elsewhere variance the plain AR(1) null ignores. The
+AR(1) p remains in the line and in `--json` (`p_value`) as reference.
 
-**Displayed:** `LS peak omega 8.5, power 57.1, p = 0.307 (AR(1) rho 0.96, 100 sims)`.
+**Displayed:** `LS peak omega 8.5, power 57.1, p = 0.238 (GARCH, 1000 sims; AR(1) ref p 0.376 rho 0.96)`.
 Score: +1 if p <= 0.05 with omega in [6, 13]; -1 if p > 0.50 (clearly
-noise); else 0. Note rho 0.96: the residuals are heavily
-autocorrelated, which is exactly why raw periodogram power (57) can
-still be non-significant (p 0.31) -- an honest null is doing its job.
+noise); else 0 -- unchanged thresholds, now evaluated on the GARCH p.
+Note rho 0.96: the residuals are heavily autocorrelated, which is
+exactly why raw periodogram power (57) can still be non-significant --
+an honest null is doing its job (both nulls agree on that today).
 Check omega here against the fit's omega (8.5 vs 8.6): agreement
 between two independent estimates is soft corroboration.
 
@@ -293,10 +329,11 @@ differential's trend decide which heavyweight wins.
 
 ### Status line
 
-`LPPL STRESSED +0.00 BF-425.5 r0.46 trough --/-- w8.6 p0.31 Z-1.8@0.2%!`
-= verdict, composite, the `BF` token (the trend differential, unchanged
-abbreviation), envelope ratio, fit's projected trough
-date/level (`--/--` = none interior), fit omega, logperiodic p-value,
+`LPPL STRESSED +0.00 BF-425.5 r0.46 trough --/-- w8.6 p0.24 Z-1.8@0.2%!`
+= verdict, composite, the `BF` token (the trend cumulative
+differential, unchanged abbreviation), envelope ratio, fit's projected
+trough date/level (`--/--` = none interior), fit omega, logperiodic
+p-value (the GARCH bootstrap p since the 2026-08-29 ruling),
 percentile Z @ empirical percentile, `!` = record low.
 
 ### Shadow diagnostics (SHADOW tab -- report-only during the D9 soak)

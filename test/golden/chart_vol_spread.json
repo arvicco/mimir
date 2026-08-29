@@ -35,7 +35,8 @@
       "21d",
       "30d",
       "45d",
-      "90d"
+      "90d",
+      "180d"
     ]
   },
   "yAxis": {
@@ -49,43 +50,49 @@
       "name": "spread",
       "type": "bar",
       "itemStyle": {
-        "color": "#0f7a5c"
+        "color": "#888e98"
       },
       "data": [
         {
           "value": 33.71,
           "itemStyle": {
-            "color": "#0f7a5c"
+            "color": "#e04b4b"
           }
         },
         {
           "value": 33.71,
           "itemStyle": {
-            "color": "#0f7a5c"
+            "color": "#e08e0b"
           }
         },
         {
           "value": 36.89,
           "itemStyle": {
-            "color": "#0f7a5c"
+            "color": "#e2c84b"
           }
         },
         {
           "value": 42.29,
           "itemStyle": {
-            "color": "#0f7a5c"
+            "color": "#35c46a"
           }
         },
         {
           "value": 42.29,
           "itemStyle": {
-            "color": "#0f7a5c"
+            "color": "#3fc1d1"
           }
         },
         {
           "value": 42.29,
           "itemStyle": {
-            "color": "#0f7a5c"
+            "color": "#4665e6"
+          }
+        },
+        {
+          "value": 42.29,
+          "itemStyle": {
+            "color": "#2e3f9e"
           }
         }
       ]
@@ -103,12 +110,48 @@
         "width": 1
       },
       "data": [
-        77.59,
-        77.59,
-        80.77,
-        86.17,
-        86.17,
-        86.17
+        {
+          "value": 77.59,
+          "itemStyle": {
+            "color": "#e04b4b"
+          }
+        },
+        {
+          "value": 77.59,
+          "itemStyle": {
+            "color": "#e08e0b"
+          }
+        },
+        {
+          "value": 80.77,
+          "itemStyle": {
+            "color": "#e2c84b"
+          }
+        },
+        {
+          "value": 86.17,
+          "itemStyle": {
+            "color": "#35c46a"
+          }
+        },
+        {
+          "value": 86.17,
+          "itemStyle": {
+            "color": "#3fc1d1"
+          }
+        },
+        {
+          "value": 86.17,
+          "itemStyle": {
+            "color": "#4665e6"
+          }
+        },
+        {
+          "value": 86.17,
+          "itemStyle": {
+            "color": "#2e3f9e"
+          }
+        }
       ]
     },
     {
@@ -124,12 +167,48 @@
         "width": 1
       },
       "data": [
-        43.88,
-        43.88,
-        43.88,
-        43.88,
-        43.88,
-        43.88
+        {
+          "value": 43.88,
+          "itemStyle": {
+            "color": "#e04b4b"
+          }
+        },
+        {
+          "value": 43.88,
+          "itemStyle": {
+            "color": "#e08e0b"
+          }
+        },
+        {
+          "value": 43.88,
+          "itemStyle": {
+            "color": "#e2c84b"
+          }
+        },
+        {
+          "value": 43.88,
+          "itemStyle": {
+            "color": "#35c46a"
+          }
+        },
+        {
+          "value": 43.88,
+          "itemStyle": {
+            "color": "#3fc1d1"
+          }
+        },
+        {
+          "value": 43.88,
+          "itemStyle": {
+            "color": "#4665e6"
+          }
+        },
+        {
+          "value": 43.88,
+          "itemStyle": {
+            "color": "#2e3f9e"
+          }
+        }
       ]
     }
   ]

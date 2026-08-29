@@ -46,6 +46,14 @@
       }
     }
   ],
+  "dataZoom": [
+    {
+      "type": "inside",
+      "xAxisIndex": [
+        0
+      ]
+    }
+  ],
   "yAxis": [
     {
       "type": "value",

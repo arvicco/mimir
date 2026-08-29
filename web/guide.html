@@ -141,21 +141,22 @@
   <hr>
 
   <section id="gex">
-    <h2>GEX <span class="tabs">tabs: BTC / MSTR / BTC TREND / MSTR TREND</span></h2>
+    <h2>GEX <span class="tabs">tabs: BTC / MSTR &middot; profile over trend</span></h2>
     <p>
       <span class="lbl">What it shows &mdash;</span> <span class="term">GEX</span>
       (gamma exposure) is the dollar amount options dealers must re-hedge
       for every 1% move in the underlying. Dealers who are net
       <span class="term">long gamma</span> sell rallies and buy dips, which
       <em>pins</em> price; net <span class="term">short gamma</span> dealers
-      do the opposite, which <em>amplifies</em> moves. The <b>BTC</b> tab
-      buckets dealer gamma across Deribit and the US spot-ETF option chains
-      on one BTC-equivalent price axis; the <b>MSTR</b> tab shows
-      MicroStrategy's own single-name chain on its equity price axis
+      do the opposite, which <em>amplifies</em> moves. The card stacks two
+      charts &mdash; today's strike-level profile on top, the daily history
+      of spot vs that market's flip and walls below &mdash; and one
+      <b>BTC</b>/<b>MSTR</b> switch flips both together (2026-08-29
+      ruling). <b>BTC</b> buckets dealer gamma across Deribit and the US
+      spot-ETF option chains on one BTC-equivalent price axis; <b>MSTR</b>
+      shows MicroStrategy's own single-name chain on its equity price axis
       (deliberately not merged &mdash; MSTR gamma lives on the stock, not
-      the coin); the <b>BTC TREND</b> and <b>MSTR TREND</b> tabs are daily
-      histories of where spot has sat relative to that market's flip and
-      walls.
+      the coin).
     </p>
     <p>
       <span class="lbl">How to read it &mdash;</span> above zero is long
@@ -260,11 +261,14 @@
     <p>
       <span class="lbl">How to read it &mdash;</span> three stacked panels:
       (top) the price/trend ratio against the damping-envelope
-      <span class="amb">bound</span> (amber, last cycle's trough ratio) and
-      <span class="rd">floor</span> (red, the worst historical ratio) &mdash;
-      a <span class="term">descriptive cycle heuristic</span> (only three
-      troughs back it), where the ratio must hold above the bound for the
-      damping story to survive;
+      <span class="amb">bound</span> (amber, the last cycle's trough ratio)
+      and <span class="rd">floor</span> (red, the worst historical ratio)
+      &mdash; both <span class="term">frozen</span> since the 2026-08-29
+      owner ruling: each trough is measured against the trend as it stood at
+      that trough, so today's re-fit can no longer drag the thresholds
+      around. A <span class="term">descriptive cycle heuristic</span> (only
+      three troughs back it), where the ratio must hold above the bound for
+      the damping story to survive;
       (middle) the trailing-1-year cumulative log predictive-score
       differential (log10, panel labelled <span class="mono">log10 BF</span>)
       of the global power law versus its best rival, with a zero line &mdash;
@@ -284,19 +288,21 @@
     </p>
     <p>
       <span class="lbl">The SHADOW tab &mdash;</span> a second tab on this
-      card shows six <em>frozen-vs-shadow</em> diagnostics, one per row:
-      the statistic's name, its current (<span class="term">frozen</span>)
-      value, an arrow, a candidate (<span class="term">shadow</span>)
-      revision, and a one-phrase verdict &mdash; all readable without
-      hover. The six are a density-honest trend number, the 1-year/2-year
-      forecast scores, the anti-bubble damping condition, the fair
-      like-for-like fit improvement, the oscillation p-value under a
-      fat-tailed noise model, and the envelope's freeze bound. Hover any
-      row for a plain-language explanation of what it measures and which
-      pre-registered decision item (D9-a..g) it feeds. These are additive,
-      report-only numbers during the soak &mdash; they change no verdict or
-      weight yet; owner rulings after the soak decide, per item, whether a
-      shadow number becomes the headline.
+      card shows six checks, one per row: the statistic's name, its
+      <span class="term">reference</span> value (the old number), an
+      arrow, the <span class="term">operative</span> value (the number now
+      in force), and a one-phrase verdict &mdash; all readable without
+      hover. This tab began as the Phase-9 soak surface; on
+      <strong>2026-08-29</strong> the owner ruled on it, and four of the
+      six checks <em>graduated</em>: the per-evaluation trend mean (now
+      the trend headline, with a Newey&ndash;West error bar), the fair
+      like-for-like fit improvement, the oscillation p-value under the
+      realistic fat-tailed noise model (now also driving that test's
+      score), and the frozen envelope bound. Two remain deliberately
+      report-only: the 1-year/2-year forecast scores (await a backtest)
+      and the anti-bubble damping condition (awaits a longer soak). Hover
+      any row for the plain-language story, including what changed at the
+      ruling.
     </p>
     <p>
       <span class="lbl">Cadence &mdash;</span> published bi-hourly; the tests
@@ -304,9 +310,13 @@
     </p>
     <p>
       <span class="lbl">When it fails &mdash;</span> the first run bootstraps
-      its score cache weekly, later runs densify to daily &mdash; so the
-      differential's magnitude is not comparable across cache densities. Read
-      the sign and the per-horizon pattern, never the raw number.
+      its score cache weekly, later runs densify to daily &mdash; so a
+      cumulative differential's magnitude is not comparable across cache
+      densities. That is why the trend test's headline is the
+      <span class="term">per-evaluation mean</span> with a Newey&ndash;West
+      error bar (density-invariant; owner ruling 2026-08-29): read the mean
+      against its <span class="mono">band</span> and error bar, and treat the
+      cumulative <span class="mono">cum</span> number as context only.
     </p>
   </section>
 
@@ -377,7 +387,7 @@
       the annualized basis of Deribit's dated futures over spot, per expiry,
       plus the OI-weighted perpetual funding rate. A separate
       <b>MSTR-BTC spread</b> card shows MSTR's ATM IV minus BTC's, tenor by
-      tenor (7 / 14 / 21 / 30 / 45 / 90d) &mdash; the live price of
+      tenor (7 / 14 / 21 / 30 / 45 / 90 / 180d) &mdash; the live price of
       treasury-company leverage &mdash; with its own trend stacked beneath.
     </p>
     <p>

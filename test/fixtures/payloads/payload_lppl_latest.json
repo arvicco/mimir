@@ -1,118 +1,154 @@
 {
-  "ts": "2026-07-06T14:48:56Z",
-  "composite": 0.0,
-  "verdict": "STRESSED",
-  "status_line": "LPPL STRESSED +0.00 BF-427.3 r0.47 trough --/-- w8.7 p0.19 Z-1.8@0.3%!",
-  "tests": [
-    {
-      "name": "trend",
-      "w": 3,
-      "score": -1,
-      "headline": "trailing-1y log10 BF (pl_full vs best rival) -427.34  [30d -210.02 / 90d -144.70 / 180d -72.62]",
-      "detail": {
-        "name": "trend",
-        "score": -1,
-        "headline": "trailing-1y log10 BF (pl_full vs best rival) -427.34  [30d -210.02 / 90d -144.70 / 180d -72.62]",
-        "ts": "2026-07-06T14:48:54Z",
-        "bf": -427.34,
-        "bf_by_horizon": "{30 => -210.02, 90 => -144.7, 180 => -72.62}",
-        "per_horizon": {
-          "30": { "sum": -210.02, "mean_per_eval": -0.577, "n_evals": 364 },
-          "90": { "sum": -144.7, "mean_per_eval": -0.3975, "n_evals": 364 },
-          "180": { "sum": -72.62, "mean_per_eval": -0.1995, "n_evals": 364 }
-        },
-        "per_horizon_long": {
-          "365": { "sum": -40.33, "mean_per_eval": -0.1108, "n_evals": 364, "report_only": true },
-          "730": { "sum": 56.13, "mean_per_eval": 0.1542, "n_evals": 364, "report_only": true }
-        },
-        "eval_points_1y": 365
-      }
+ "ts": "2026-07-06T14:48:56Z",
+ "composite": 0.0,
+ "verdict": "STRESSED",
+ "status_line": "LPPL STRESSED +0.00 BF-427.3 r0.47 trough --/-- w8.7 p0.19 Z-1.8@0.3%!",
+ "tests": [
+  {
+   "name": "trend",
+   "w": 3,
+   "score": -1,
+   "headline": "trailing-1y log10 BF (pl_full vs best rival) -427.34  [30d -210.02 / 90d -144.70 / 180d -72.62]",
+   "detail": {
+    "name": "trend",
+    "score": -1,
+    "headline": "trailing-1y log10 BF (pl_full vs best rival) -427.34  [30d -210.02 / 90d -144.70 / 180d -72.62]",
+    "ts": "2026-07-06T14:48:54Z",
+    "bf": -427.34,
+    "bf_by_horizon": "{30 => -210.02, 90 => -144.7, 180 => -72.62}",
+    "per_horizon": {
+     "30": {
+      "sum": -210.02,
+      "mean_per_eval": -0.577,
+      "n_evals": 364
+     },
+     "90": {
+      "sum": -144.7,
+      "mean_per_eval": -0.3975,
+      "n_evals": 364
+     },
+     "180": {
+      "sum": -72.62,
+      "mean_per_eval": -0.1995,
+      "n_evals": 364
+     }
     },
-    {
-      "name": "envelope",
-      "w": 3,
-      "score": 1,
-      "headline": "price/trend 0.472 vs bound 0.435 (floor 0.435) -- intact; 0d below strong, 0d below floor",
-      "detail": {
-        "name": "envelope",
-        "score": 1,
-        "headline": "price/trend 0.472 vs bound 0.435 (floor 0.435) -- intact; 0d below strong, 0d below floor",
-        "ts": "2026-07-06T14:48:54Z",
-        "ratio": 0.472,
-        "bound": 0.435,
-        "floor": 0.435,
-        "freeze_candidate": 0.358,
-        "trough_ratios": "0.544 -> 0.579 -> 0.435",
-        "trend_today": 134800,
-        "days_below_strong": 0,
-        "days_below_floor": 0
-      }
+    "per_horizon_long": {
+     "365": {
+      "sum": -40.33,
+      "mean_per_eval": -0.1108,
+      "n_evals": 364,
+      "report_only": true
+     },
+     "730": {
+      "sum": 56.13,
+      "mean_per_eval": 0.1542,
+      "n_evals": 364,
+      "report_only": true
+     }
     },
-    {
-      "name": "fit",
-      "w": 2,
-      "score": 0,
-      "headline": "m 0.52, omega 8.7, 4/4 filters; trough none<=+400d @ ~28300; rmse 0.048 (+43% vs null); trough std 1d",
-      "detail": {
-        "name": "fit",
-        "score": 0,
-        "headline": "m 0.52, omega 8.7, 4/4 filters; trough none<=+400d @ ~28300; rmse 0.048 (+43% vs null); trough std 1d",
-        "ts": "2026-07-06T14:48:55Z",
-        "omega": 8.7,
-        "m": 0.52,
-        "tc_date": "2025-09-07",
-        "filters": "{\"m_interior\" => true, \"omega_band\" => true, \"oscillations\" => true, \"amp_bounded\" => true}",
-        "rmse_impr_pct": 43.5,
-        "trough_std_days": 0.7,
-        "b_negative": true,
-        "damping": 0.4132,
-        "damping_ref_threshold": 1.0,
-        "null_v2": { "tc": "2025-09-14", "rmse": 0.0789, "at_grid_edge": false },
-        "improvement_v2": 27.9
-      }
-    },
-    {
-      "name": "logperiodic",
-      "w": 2,
-      "score": 0,
-      "headline": "LS peak omega 8.5, power 57.7, p = 0.188 (AR(1) rho 0.96, 100 sims)",
-      "detail": {
-        "name": "logperiodic",
-        "score": 0,
-        "headline": "LS peak omega 8.5, power 57.7, p = 0.188 (AR(1) rho 0.96, 100 sims)",
-        "ts": "2026-07-06T14:48:56Z",
-        "omega_peak": 8.5,
-        "p_value": 0.188,
-        "ar1_rho": 0.961,
-        "n_resid": 260,
-        "p_value_v2": 0.238,
-        "sims_v2": 1000
-      }
-    },
-    {
-      "name": "percentile",
-      "w": 0,
-      "score": 0,
-      "headline": "Z -1.78 -> emp pctile 0.29% (gauss 3.72%); 20d at <=1st pct, 40d at <=5th; NEW RECORD low (prior -1.73 on 2022-12-31)",
-      "detail": {
-        "name": "percentile",
-        "score": 0,
-        "headline": "Z -1.78 -> emp pctile 0.29% (gauss 3.72%); 20d at <=1st pct, 40d at <=5th; NEW RECORD low (prior -1.73 on 2022-12-31)",
-        "ts": "2026-07-06T14:48:56Z",
-        "z": -1.78,
-        "pct_emp": 0.29,
-        "pct_gauss": 3.72,
-        "trend_px": 134800,
-        "exponent": 5.663,
-        "ratio_to_trend": 0.472,
-        "record": true,
-        "prior_min_z": -1.73,
-        "prior_min_date": "2022-12-31",
-        "days_le_p01": 20,
-        "days_le_p05": 40,
-        "envelope_pos": "3.56/(Age+4.5)",
-        "envelope_neg": "-4.16/(Age+11.0)"
-      }
+    "eval_points_1y": 365,
+    "headline_mean": {
+     "value": -1.174,
+     "se_nw": 0.171,
+     "lag": 179,
+     "n_dates": 364,
+     "band_per_eval": 0.0027
     }
-  ]
+   }
+  },
+  {
+   "name": "envelope",
+   "w": 3,
+   "score": 1,
+   "headline": "price/trend 0.472 vs bound 0.435 (floor 0.435) -- intact; 0d below strong, 0d below floor",
+   "detail": {
+    "name": "envelope",
+    "score": 1,
+    "headline": "price/trend 0.472 vs frozen bound 0.358 (floor 0.242; live 0.435/0.435) -- intact; 0d below strong, 0d below floor",
+    "ts": "2026-07-06T14:48:54Z",
+    "ratio": 0.472,
+    "bound": 0.358,
+    "floor": 0.242,
+    "freeze_candidate": 0.358,
+    "trough_ratios": "0.242 -> 0.481 -> 0.358",
+    "trend_today": 134800,
+    "days_below_strong": 0,
+    "days_below_floor": 0,
+    "bound_live": 0.435,
+    "floor_live": 0.435,
+    "trough_ratios_live": "0.544 -> 0.579 -> 0.435"
+   }
+  },
+  {
+   "name": "fit",
+   "w": 2,
+   "score": 0,
+   "headline": "m 0.52, omega 8.7, 4/4 filters; trough none<=+400d @ ~28300; rmse 0.048 (+43% vs null); trough std 1d",
+   "detail": {
+    "name": "fit",
+    "score": 0,
+    "headline": "m 0.52, omega 8.7, 4/4 filters; trough none<=+400d @ ~28300; rmse 0.048 (+43% vs null); trough std 1d",
+    "ts": "2026-07-06T14:48:55Z",
+    "omega": 8.7,
+    "m": 0.52,
+    "tc_date": "2025-09-07",
+    "filters": "{\"m_interior\" => true, \"omega_band\" => true, \"oscillations\" => true, \"amp_bounded\" => true}",
+    "rmse_impr_pct": 43.5,
+    "trough_std_days": 0.7,
+    "b_negative": true,
+    "damping": 0.4132,
+    "damping_ref_threshold": 1.0,
+    "null_v2": {
+     "tc": "2025-09-14",
+     "rmse": 0.0789,
+     "at_grid_edge": false
+    },
+    "improvement_v2": 27.9
+   }
+  },
+  {
+   "name": "logperiodic",
+   "w": 2,
+   "score": 0,
+   "headline": "LS peak omega 8.5, power 57.7, p = 0.188 (AR(1) rho 0.96, 100 sims)",
+   "detail": {
+    "name": "logperiodic",
+    "score": 0,
+    "headline": "LS peak omega 8.5, power 57.7, p = 0.188 (AR(1) rho 0.96, 100 sims)",
+    "ts": "2026-07-06T14:48:56Z",
+    "omega_peak": 8.5,
+    "p_value": 0.188,
+    "ar1_rho": 0.961,
+    "n_resid": 260,
+    "p_value_v2": 0.238,
+    "sims_v2": 1000
+   }
+  },
+  {
+   "name": "percentile",
+   "w": 0,
+   "score": 0,
+   "headline": "Z -1.78 -> emp pctile 0.29% (gauss 3.72%); 20d at <=1st pct, 40d at <=5th; NEW RECORD low (prior -1.73 on 2022-12-31)",
+   "detail": {
+    "name": "percentile",
+    "score": 0,
+    "headline": "Z -1.78 -> emp pctile 0.29% (gauss 3.72%); 20d at <=1st pct, 40d at <=5th; NEW RECORD low (prior -1.73 on 2022-12-31)",
+    "ts": "2026-07-06T14:48:56Z",
+    "z": -1.78,
+    "pct_emp": 0.29,
+    "pct_gauss": 3.72,
+    "trend_px": 134800,
+    "exponent": 5.663,
+    "ratio_to_trend": 0.472,
+    "record": true,
+    "prior_min_z": -1.73,
+    "prior_min_date": "2022-12-31",
+    "days_le_p01": 20,
+    "days_le_p05": 40,
+    "envelope_pos": "3.56/(Age+4.5)",
+    "envelope_neg": "-4.16/(Age+11.0)"
+   }
+  }
+ ]
 }

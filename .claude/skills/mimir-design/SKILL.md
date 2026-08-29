@@ -30,7 +30,11 @@ another. When a new ruling lands, add it here in the same commit.
   'stack'` (owner ruling 2026-08-10: a tab_group rendered as ONE card
   with every member ALWAYS visible, stacked vertically by tab_pos,
   each member keeping its own head/badge/bubble at meta.height -- the
-  vol_surface + vol_basis card), and `terms` (owner ruling 2026-08-11,
+  vol_surface + vol_basis card. Members sharing a tab_pos collapse
+  into one tabbed section (M8-17); and since 2026-08-29, tabbed
+  sections with IDENTICAL label sequences LINK: one tab bar on the
+  top section drives them all -- the GEX card's [BTC][MSTR] flipping
+  profile + trend together), and `terms` (owner ruling 2026-08-11,
   M9-15: a `{ TERM => plain explanation }` glossary. The renderer gives
   each named abbreviation / module name a hover explanation -- the SAME
   styled block as the lppl_shadow tooltip -- on the surface that fits
@@ -104,6 +108,15 @@ second, orange (#e08e0b, the stress-band hue) the third, red past
 three hours -- i.e. red means the bi-hourly publisher missed a run.
 staleClass in render.js encodes it as 1x/2x/3x ttl; never re-tune the
 ttl values or bands without a new ruling.
+
+**Date axes zoom and pan.** (Owner ruling 2026-08-29.) Every
+time-series chart (vol_spread_trend, scenario_strip, positioning,
+lppl_regime -- and any future date-axis chart) carries INSIDE dataZoom
+on its date axis: wheel to scale, drag to move, full range as the
+default window, never a slider -- the same idiom as the gex profiles'
+price axis. Multi-panel cards list every linked x-axis in one
+`xAxisIndex` array so the panels zoom together; a non-time companion
+axis (the scenario 'now' heatmap column) stays out of the zoom.
 
 **Value axes auto-scale to the data.** (Owner ruling 2026-08-18.)
 Line/scatter y-axes set `'scale' => true` so the plot uses the whole
@@ -182,6 +195,17 @@ never override into the inversion.
 **Palette anchors**: calls/positive `#0f7a5c` (bars) / `#2fbf8f`
 (text); puts/negative `#c63939` / `#ef6b6b`; flip/bound lines amber
 `#e6a23c`; stress bands green→amber→orange→red.
+
+**Vol tenors carry a spectral gradient.** (Owner ruling 2026-08-29,
+register R-9.) The six vol tenors are colour-coded 7d RED → 14d
+orange → 21d yellow → 30d green → 45d cyan → 90d dark blue → 180d
+DARK-DARK BLUE (the long tenor, owner ruling 2026-08-29)
+(`VOL_TENOR_COLORS` in chart_specs.rb, single source), the SAME hue
+per tenor everywhere a tenor renders: the vol_spread bars, the dots
+on its MSTR/BTC leg lines, and the vol_spread_trend lines/legend.
+The spread bars are the sanctioned exception to the teal/red sign
+anchors — sign reads from bar direction against zero. Never recolour
+a tenor ad hoc; a new tenor enters the map, not a series default.
 
 ## Self-review before any owner handoff (.docs/DEV-LOOP.md step 6b)
 

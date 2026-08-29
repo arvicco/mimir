@@ -13,4 +13,4 @@
 # and render.js sets element .style at runtime.
 /*
   X-Robots-Tag: noindex
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-GdDmzemO0rA+K6JXjgbEQo4F2EtxCssc3IxKa9dE+fs=' 'sha256-t/gqlBhNjRywXKFm9kYPgPcFaJyPQl4g4IQJkWQgzjU='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-TWIGLVVW12dT26LgZ9RbCqnALcmJBu+ggE5ek/WRM4s=' 'sha256-t/gqlBhNjRywXKFm9kYPgPcFaJyPQl4g4IQJkWQgzjU='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'

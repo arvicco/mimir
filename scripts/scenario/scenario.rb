@@ -56,14 +56,16 @@ MODULES = [
   ['hash_ribbons',  1],
   ['onchain_value', 1],
   ['stables',       1],
-  ['positioning',   0] # M10-3: display-only under shadow-first (D10-b);
-                       # weight 0 -- cannot move the composite (Golden Rule 4)
+  ['positioning',   0], # M10-3: display-only under shadow-first (D10-b);
+                        # weight 0 -- cannot move the composite (Golden Rule 4)
+  ['reserves',      0]  # M11-7: exchange reserves, display-only (R-11/D11-a
+                        # 2026-08-29); weight 0 -- same shadow-first governance
 ].freeze
 
 LABELS = {
   'etf_flows' => 'etf', 'funding_basis' => 'fnd', 'cb_premium' => 'cbp',
   'macro' => 'mac', 'hash_ribbons' => 'hsh', 'onchain_value' => 'mvrv',
-  'stables' => 'stb', 'positioning' => 'pos'
+  'stables' => 'stb', 'positioning' => 'pos', 'reserves' => 'rsv'
 }.freeze
 
 results = MODULES.map do |mod, w|

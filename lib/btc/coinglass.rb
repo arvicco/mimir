@@ -181,5 +181,20 @@ module BTC
           { symbol: symbol, interval: interval, exchange_list: exchange_list },
           cache: cache, ttl: ttl)
     end
+
+    # Exchange BTC balance snapshot (P-8/M11-7): one row per exchange with
+    # total_balance plus 1d/7d/30d absolute and percent changes (21 venues
+    # at probe time 2026-08-29).
+    def exchange_balance_list(symbol: 'BTC', cache: nil, ttl: nil)
+      get('exchange/balance/list', { symbol: symbol }, cache: cache, ttl: ttl)
+    end
+
+    # Exchange BTC balance daily history (P-8/M11-7): a Hash {time_list,
+    # price_list, data_map} -- data_map holds one balance series per
+    # exchange, aligned to time_list and nil-padded for defunct venues
+    # (~676 daily points at probe time 2026-08-29).
+    def exchange_balance_chart(symbol: 'BTC', cache: nil, ttl: nil)
+      get('exchange/balance/chart', { symbol: symbol }, cache: cache, ttl: ttl)
+    end
   end
 end

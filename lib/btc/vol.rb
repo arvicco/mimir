@@ -59,7 +59,7 @@ module BTC
     # surface, MSTR surface, spread -- reads on this one grid. 30d stays in
     # the set as the standard 1-month anchor (it is also both headline
     # tails' preferred tenor). vol_spread.rb reuses this constant.
-    DEFAULT_TARGETS = [7, 14, 21, 30, 45, 90].freeze
+    DEFAULT_TARGETS = [7, 14, 21, 30, 45, 90, 180].freeze
 
     module_function
 
