@@ -210,7 +210,7 @@ Fits `ln P = A + B*tau^m + tau^m * [C1 cos(w ln tau) + C2 sin(w ln tau)]`
 post-peak (Filimonov-Sornette linearization: grid over tc/m/w, linear
 solve for the rest). The *evidence* is not the fit but its quality:
 
-**Displayed:** `m 0.56, omega 8.6, 4/4 filters; trough none<=+400d @ ~27000; rmse 0.048 (+44% vs null)`
+**Displayed:** `m 0.56, omega 8.6, 4/4 filters; trough none<=+400d @ ~27000; rmse 0.048 (+44% vs sym null)`
 - the Sornette qualifying filters: m interior to (0.1, 0.9), omega in
   [6, 13], >= 2.5 oscillations in window, |C|/|B| <= 1. 4/4 = a
   textbook-shaped fit; <= 2 scores -1.
@@ -218,8 +218,15 @@ solve for the rest). The *evidence* is not the fit but its quality:
   to +400 days. `none<=+400d` = the minimum sits on the boundary --
   itself a strike (score downgraded 1), because a real anti-bubble
   should have an interior trough.
-- `rmse ... vs null`: improvement over a pure power-decay fit with no
-  oscillation; +44% means the oscillation term earns its keep.
+- `rmse ... vs sym null`: improvement over a pure power-decay fit with
+  no oscillation. Since the 2026-08-29 owner ruling (register R-6) the
+  figure shown is `improvement_v2` -- measured against the symmetric,
+  RMSE-selected null that cleared the original null's tc-grid-edge
+  artifact (29.2% became an honest 27.9% on the day the artifact was
+  found); the original figure stays in `--json` as `rmse_impr_pct`.
+- report-only diagnostics ride alongside (`b_negative`, `damping` vs
+  its 1.0 reference threshold): visible, wired into nothing -- whether
+  damping ever GATES the verdict is a deliberately open item.
 - `trough std Nd` (when >= 5 history entries): day-to-day stability of
   the projected trough; > 21 days of wander is the classic overfit
   signature and downgrades the score.
@@ -233,14 +240,20 @@ to name a bottom -- structure without a forecast.
 
 Guards against seeing omega in autocorrelated noise. Residuals of the
 power-decay null are tested for periodicity in ln(tau) via Lomb-Scargle;
-significance comes from an AR(1) bootstrap with matched lag-1
-autocorrelation (default 100 sims, seeded).
+significance comes from a parametric bootstrap (seeded). Since the
+2026-08-29 owner ruling (register R-7) the p-value we stand behind --
+headline AND score -- is the **AR(1)+GARCH(1,1)** bootstrap
+(`p_value_v2`, default 1000 sims): it matches crypto's volatility
+clustering and re-fits the null on every simulated path, carrying the
+refit-and-look-elsewhere variance the plain AR(1) null ignores. The
+AR(1) p remains in the line and in `--json` (`p_value`) as reference.
 
-**Displayed:** `LS peak omega 8.5, power 57.1, p = 0.307 (AR(1) rho 0.96, 100 sims)`.
+**Displayed:** `LS peak omega 8.5, power 57.1, p = 0.238 (GARCH, 1000 sims; AR(1) ref p 0.376 rho 0.96)`.
 Score: +1 if p <= 0.05 with omega in [6, 13]; -1 if p > 0.50 (clearly
-noise); else 0. Note rho 0.96: the residuals are heavily
-autocorrelated, which is exactly why raw periodogram power (57) can
-still be non-significant (p 0.31) -- an honest null is doing its job.
+noise); else 0 -- unchanged thresholds, now evaluated on the GARCH p.
+Note rho 0.96: the residuals are heavily autocorrelated, which is
+exactly why raw periodogram power (57) can still be non-significant --
+an honest null is doing its job (both nulls agree on that today).
 Check omega here against the fit's omega (8.5 vs 8.6): agreement
 between two independent estimates is soft corroboration.
 
@@ -299,10 +312,11 @@ differential's trend decide which heavyweight wins.
 
 ### Status line
 
-`LPPL STRESSED +0.00 BF-425.5 r0.46 trough --/-- w8.6 p0.31 Z-1.8@0.2%!`
-= verdict, composite, the `BF` token (the trend differential, unchanged
-abbreviation), envelope ratio, fit's projected trough
-date/level (`--/--` = none interior), fit omega, logperiodic p-value,
+`LPPL STRESSED +0.00 BF-425.5 r0.46 trough --/-- w8.6 p0.24 Z-1.8@0.2%!`
+= verdict, composite, the `BF` token (the trend cumulative
+differential, unchanged abbreviation), envelope ratio, fit's projected
+trough date/level (`--/--` = none interior), fit omega, logperiodic
+p-value (the GARCH bootstrap p since the 2026-08-29 ruling),
 percentile Z @ empirical percentile, `!` = record low.
 
 ### Shadow diagnostics (SHADOW tab -- report-only during the D9 soak)
