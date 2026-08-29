@@ -26,6 +26,9 @@
 #      owns the daily price-cache update + the ledger/fit_history append)
 #   2. ruby scripts/scenario/scenario.rb --history   (the scenario history
 #      append)
+#   3. ruby scripts/scenario/positioning.rb --history   (the positioning
+#      module's daily sub-signal row -- M11-1; this duty was unmapped from
+#      the module's ship in Phase 10 until the 2026-08-29 owner ruling)
 #   It NEVER passes --tmux (the suites' own /tmp/*.status tokens are not
 #   this agent's business) and NEVER --apply anything.
 #
@@ -33,10 +36,13 @@
 #   One summary line per suite, then a final aggregate line:
 #     suite-history: lppl updated -- <verdict/status tail>
 #     suite-history: scenario updated -- <verdict/status tail>
-#     suite-history OK: 2/2 suites updated (lppl, scenario)
+#     suite-history: positioning updated -- <verdict/status tail>
+#     suite-history OK: 3/3 suites updated (lppl, scenario, positioning)
 #   On a suite failure its line is `suite-history: <name> ABORT -- <stderr
-#   tail>` and the final line is `suite-history FAILED: n/2 updated,
+#   tail>` and the final line is `suite-history FAILED: n/3 updated,
 #   failed: <names>`. All tails pass BTC::Env.redact (defense in depth).
+#   Failures are ISOLATED: every suite always runs regardless of the
+#   others' outcomes (sequential, each independently reported).
 #
 # EXIT / ALARM SEMANTICS
 #   Exits 1 if EITHER suite failed (launchd surfaces it in `last exit`);
@@ -53,11 +59,16 @@ module Ops
   module SuiteHistory
     # name, argv (from repo root), timeout_s. Order matters: lppl first
     # (it owns the price-cache update + ledger/fit_history append), then
-    # scenario. lppl --history fetches Coin Metrics and refits, so it gets
-    # the wider timeout.
+    # scenario, then positioning. lppl --history fetches Coin Metrics and
+    # refits, so it gets the wider timeout. positioning --history (M11-1,
+    # owner ruling 2026-08-29 on register item R-10) appends the module's
+    # daily sub-signal row -- the evidence the D10-b 120-day graduation
+    # review referees; on a dead-source day the module fail-softs (exit 0,
+    # no row -- an honest gap), so ABORT here means a hard crash only.
     SUITES = [
-      ['lppl',     ['ruby', 'scripts/lppl/lppl.rb', '--history'],         600],
-      ['scenario', ['ruby', 'scripts/scenario/scenario.rb', '--history'], 180]
+      ['lppl',        ['ruby', 'scripts/lppl/lppl.rb', '--history'],             600],
+      ['scenario',    ['ruby', 'scripts/scenario/scenario.rb', '--history'],     180],
+      ['positioning', ['ruby', 'scripts/scenario/positioning.rb', '--history'],  120]
     ].freeze
 
     # Default subprocess runner: run argv under Timeout, capturing stdout
