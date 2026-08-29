@@ -140,6 +140,17 @@ module BTC
         url: 'https://open-api-v4.coinglass.com/api/futures/liquidation/aggregated-history?symbol=BTC&interval=1d&exchange_list=Binance,OKX,Bybit',
         headers: -> { { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] } },
         check: ->(b) { j = JSON.parse(b); j['code'].to_s == '0' && !j['data'].to_a.empty? } },
+      # M11-7 (P-8): exchange BTC reserves -- snapshot list + daily history.
+      { name: 'coinglass exchange balance list', src: 'lib/btc/coinglass.rb',
+        marker: 'exchange/balance/list', env: 'COINGLASS_API_KEY', soft: true,
+        url: 'https://open-api-v4.coinglass.com/api/exchange/balance/list?symbol=BTC',
+        headers: -> { { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] } },
+        check: ->(b) { j = JSON.parse(b); j['code'].to_s == '0' && !j['data'].to_a.empty? } },
+      { name: 'coinglass exchange balance chart', src: 'lib/btc/coinglass.rb',
+        marker: 'exchange/balance/chart', env: 'COINGLASS_API_KEY', soft: true,
+        url: 'https://open-api-v4.coinglass.com/api/exchange/balance/chart?symbol=BTC',
+        headers: -> { { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] } },
+        check: ->(b) { j = JSON.parse(b); j['code'].to_s == '0' && !(j.dig('data', 'time_list') || []).empty? } },
       # soft: an advisory ingest sanity reference (M7-9) -- if the
       # aggregator is down or reshapes, --review just omits the ref line,
       # so degradation WARNs rather than failing the probe run.
