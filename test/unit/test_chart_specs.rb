@@ -182,17 +182,32 @@ class TestChartSpecs < Minitest::Test
     assert(atm.compact.all? { |v| v > 0 }, 'MSTR ATM IV points are live percentages')
   end
 
-  def test_vol_spread_bars_coloured_by_sign_legs_as_lines
+  def test_vol_spread_bars_and_dots_carry_tenor_gradient
+    # Owner ruling 2026-08-29 (register R-9): bars and the leg-line dots
+    # are colour-coded by TENOR (the same gradient as the trend below),
+    # not by sign -- sign reads from bar direction against zero.
     opt = build('vol_spread')
+    sp  = JSON.parse(File.read(File.join(PAYLOADS, 'payload_vol_spread.json')))
+    tenor_colors = sp['tenors'].map { |t| Publish::Charts::VOL_TENOR_COLORS.fetch(t['tenor_d']) }
     bar = opt['series'].find { |s| s['name'] == 'spread' }
     assert_equal 'bar', bar['type']
-    bar['data'].compact.each do |d|
-      want = d['value'].negative? ? '#c63939' : '#0f7a5c'
-      assert_equal want, d['itemStyle']['color']
+    bar['data'].each_with_index do |d, i|
+      next if d.nil?
+
+      assert_equal tenor_colors[i], d['itemStyle']['color']
     end
-    assert_equal %w[MSTR BTC], opt['series'].select { |s| s['type'] == 'line' }.map { |s| s['name'] }
+    legs = opt['series'].select { |s| s['type'] == 'line' }
+    assert_equal %w[MSTR BTC], legs.map { |s| s['name'] }
+    legs.each do |s|
+      # dots take the tenor colour; the connecting line keeps the leg colour.
+      s['data'].each_with_index do |d, i|
+        next if d.nil?
+
+        assert_equal tenor_colors[i], d['itemStyle']['color']
+      end
+      assert s['lineStyle']['color'], 'leg line keeps its own colour'
+    end
     # a dead leg drops its line points and that tenor's bar (nil, not zero)
-    sp = JSON.parse(File.read(File.join(PAYLOADS, 'payload_vol_spread.json')))
     sp['tenors'].each { |t| t['mstr'] = { 'expiry_d' => nil, 'atm_iv' => nil, 'reason' => 'down' }; t['spread_atm'] = nil }
     d2 = Publish::Charts.vol_spread(sp)
     assert(d2['series'].find { |s| s['name'] == 'MSTR' }['data'].all?(&:nil?))
@@ -209,6 +224,12 @@ class TestChartSpecs < Minitest::Test
       assert_equal 'line', s['type']
       assert_equal 6, s['symbolSize'] # sparse: a single day reads as a dot
     end
+    # Owner ruling 2026-08-29 (register R-9): the six tenors take the
+    # spectral gradient 7d red -> 90d dark blue, single-sourced in
+    # VOL_TENOR_COLORS -- line, dots and legend swatch all follow.
+    expected = Publish::Charts::VOL_SPREAD_TREND_TENORS.map { |td| Publish::Charts::VOL_TENOR_COLORS.fetch(td) }
+    assert_equal expected, opt['series'].map { |s| s['itemStyle']['color'] }
+    assert_equal expected, opt['series'].map { |s| s['lineStyle']['color'] }
     # decimal spread -> vol points at build time (0.402 -> 40.2, 1dp)
     first7 = opt['series'].find { |s| s['name'] == '7d' }['data'].first
     assert_in_delta 40.2, first7, 0.001
