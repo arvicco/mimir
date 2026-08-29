@@ -90,6 +90,7 @@ class TestLpplContract < Minitest::Test
                          headline_mean delta_ln_age eval_points_1y],
                       %w[bootstrap], []],
     'envelope'    => [%w[ratio bound floor freeze_candidate trough_ratios
+                         bound_live floor_live trough_ratios_live
                          trend_today days_below_strong days_below_floor], [], []],
     'fit'         => [%w[omega m tc_date filters b_negative damping_ref_threshold],
                       %w[trough_date trough_px rmse_impr_pct trough_std_days
@@ -171,6 +172,25 @@ class TestLpplContract < Minitest::Test
       assert_equal true, h['report_only']
       assert_kind_of Numeric, h['sum']
     end
+  end
+
+  # M11-5 (owner ruling 2026-08-29, register R-8, was D9-g): the envelope's
+  # operative bound and floor are FROZEN measurements -- each historical
+  # trough's ratio against the trend as fitted on data up to that trough --
+  # so today's re-estimated trend can no longer drag the reference
+  # thresholds around. The drifting measurements stay as *_live reference
+  # fields; freeze_candidate (== the frozen bound) keeps its continuity.
+  def test_envelope_frozen_bound_with_live_references
+    j = module_json('envelope')
+    assert_match(/frozen bound/, j['headline'])
+    assert_kind_of Numeric, j['bound']
+    assert_kind_of Numeric, j['bound_live']
+    assert_kind_of Numeric, j['floor_live']
+    assert_kind_of String, j['trough_ratios_live']
+    assert_in_delta j['freeze_candidate'], j['bound'], 1e-9,
+                    'the adopted bound IS the freeze candidate'
+    assert_operator j['bound'], :>=, j['floor'],
+                    'frozen measurement keeps strong bound >= weak floor'
   end
 
   # M11-4 (owner ruling 2026-08-29, register R-6/R-7): the fit headline's

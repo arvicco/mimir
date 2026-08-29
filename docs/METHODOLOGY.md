@@ -185,24 +185,32 @@ number alone.
 This is a **descriptive cycle heuristic**, not a statistical test: only
 three historical troughs support it, so it describes a pattern rather
 than proving one. The regime claims trough depth ratios (price/trend at
-cycle lows) damp monotonically: ~0.40 (2015) -> ~0.45 (2018) -> ~0.50
-(2022), so this cycle must bottom ABOVE the 2022 ratio.
+cycle lows) damp -- each cycle bottoming shallower than the last -- so
+this cycle must bottom ABOVE the previous trough's ratio.
 
-**Displayed:** `price/trend 0.464 vs bound 0.434 (floor 0.434)` --
-today's ratio, the strong bound (last cycle's trough ratio) and the
-hard floor (worst historical ratio), all recomputed against today's
-full-history fit; then persistence counters. Score: +1 while ratio >=
+**Displayed:** `price/trend 0.559 vs frozen bound 0.358 (floor 0.241; live 0.441/0.441)` --
+today's ratio (measured against today's full-history fit), then the
+**frozen** thresholds (owner ruling 2026-08-29, register R-8): each
+historical trough's ratio measured against the trend *as fitted on data
+up to that trough*, so today's re-estimated trend can no longer drag
+the reference thresholds around. The old drifting measurements ride
+along as `live` (and the `*_live` JSON fields) -- the drift flattered
+the model (rising price pulled the bound up with it), which is why it
+lost operative status. The bound re-sets only when a subsequent trough
+is confirmed. Score thresholds unchanged in form: +1 while ratio >=
 bound ("intact"); 0 below the bound while persistence hasn't triggered
-("stressed" -- the model being genuinely tested, not yet broken); -1
-after >= 45 consecutive days below 0.95x bound (strong form broken) or
->= 30 days below 0.95x floor (claim dead in any form).
+("stressed"); -1 after >= 45 consecutive days below 0.95x bound
+(strong form broken) or >= 30 days below 0.95x floor (claim dead in
+any form).
 
 **Interpretation:** watch the two day-counters, not the ratio alone; a
 brief poke below the bound is expected texture, persistence is
-falsification. `--json` also carries `freeze_candidate` (report-only):
-the strong bound as it would read if frozen against the trend as of the
-2022 trough, rather than drifting with today's re-estimated trend --
-previewing the D9-g freeze rule without changing the score.
+falsification. Honesty note the freeze itself surfaced: the frozen
+trough sequence is `0.241 -> 0.482 -> 0.358` -- NOT monotonic. Measured
+honestly, damping already failed between 2018 and 2022; the heuristic
+survives only in the weaker "bottom above the last trough" form this
+test actually checks. `freeze_candidate` (M9-4) remains in `--json`
+and now equals the operative bound.
 
 ### Test 3 · fit (wt 2) -- does a qualified anti-bubble LPPLS fit exist?
 
