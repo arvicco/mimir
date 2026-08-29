@@ -969,6 +969,10 @@ module Publish
           { 'type' => 'category', 'gridIndex' => 1, 'data' => ['now'],
             'axisLabel' => { 'show' => false }, 'axisTick' => { 'show' => false } }
         ],
+        # owner ruling 2026-08-29: the composite's date axis zooms/pans
+        # (inside, full range by default); the 'now' heatmap column (axis 1)
+        # is not a time axis and stays fixed.
+        'dataZoom' => [{ 'type' => 'inside', 'xAxisIndex' => [0] }],
         'yAxis' => [
           # name rides the axis (rotated, left gutter): at the default top
           # position it collided with the one-line title, and at the bottom
@@ -1097,6 +1101,9 @@ module Publish
         'title' => titles.size == 1 ? titles.first : titles,
         'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 }, 'axisPointer' => { 'type' => 'cross' } },
         'axisPointer' => { 'link' => [{ 'xAxisIndex' => 'all' }] },
+        # owner ruling 2026-08-29: the shared date axis zooms/pans (inside,
+        # full range by default); the linked panels move together.
+        'dataZoom' => [{ 'type' => 'inside', 'xAxisIndex' => [0, 1, 2] }],
         # three panels under a one-line title. M8-18 R7 + follow-up (owner
         # rulings 2026-08-10): denser, and ONE date axis for the whole card --
         # the panels are time-synchronized, so the two upper grids hide their
@@ -1667,6 +1674,9 @@ module Publish
         # one date axis for the whole card: hovering locks a vertical slice
         # across all three panels (the flush set-up reads at a single date).
         'axisPointer' => { 'link' => [{ 'xAxisIndex' => 'all' }] },
+        # owner ruling 2026-08-29: the shared date axis zooms/pans (inside,
+        # full range by default); the linked panels move together.
+        'dataZoom' => [{ 'type' => 'inside', 'xAxisIndex' => [0, 1, 2] }],
         # the crowd-ratio series + the reserves curve carry a drawn legend
         # (they get the terms hover); OI and the liquidation bars are named
         # by their axes. 'reserves' is listed even when its optional input
@@ -2071,6 +2081,9 @@ module Publish
         'xAxis' => { 'type' => 'category', 'data' => dates },
         'yAxis' => { 'type' => 'value', 'name' => 'spread vol pts',
                      'scale' => true, 'nameLocation' => 'middle', 'nameGap' => 44 },
+        # owner ruling 2026-08-29: date axes zoom/pan (inside, no slider,
+        # full range by default -- the gex_btc idiom on the time dimension)
+        'dataZoom' => [{ 'type' => 'inside', 'xAxisIndex' => [0] }],
         'series' => series
       }
     end
