@@ -20,7 +20,7 @@
 #                                  #   <data>/positioning/history.jsonl
 #
 # --json ADDITIVE `series` (M10-4, for v1:chart:positioning): a `series`
-# object carrying trailing 120 daily [date, value] points of six card
+# object carrying trailing 365 daily [date, value] points of six card
 # metrics, each scaled at build time to the unit a human reads (design
 # ruling): oi_close in $B (1dp), global_ls / top_ls ratios (2dp), taker_buy
 # BUY-share in % (1dp), long_liq / short_liq in $M (1dp). A day with no
@@ -83,7 +83,12 @@ module Positioning
   WINDOW = 90         # trailing daily values that define the distribution
   TTL    = 86_400     # 24h source-cache freshness -- one API hit per day
   HI, LO = 80.0, 20.0 # percentile cutoffs (inclusive to the extreme band)
-  SERIES_TAIL = 120   # trailing daily points published to the card (M10-4)
+  # Trailing daily points published to the card. 365 since the 2026-08-29
+  # Gate-11 design ruling (zoomable date axes need history to zoom INTO;
+  # the five endpoints serve 1000 daily rows, so a year is free) -- M10-4
+  # shipped 120. Display-only: the bands still use the trailing-90 window
+  # of the full fetched series regardless of what the card shows.
+  SERIES_TAIL = 365
 
   # Linear rank of `value` among `window`: the share of window values
   # STRICTLY BELOW it, in percent (0..100).

@@ -305,8 +305,9 @@ module BTC
               'aggregated_long_liquidation_usd', 'liq'),
       # M11-7 (P-8): exchange reserves. The list is a small per-exchange
       # snapshot (kept whole); the chart is {time_list, price_list,
-      # data_map} -- trimmed to the trailing 130 days per series (enough
-      # for a 30d delta + a 90d trailing-percentile window in tests).
+      # data_map} -- trimmed to the trailing 400 days per series (the
+      # 365d card window + the 30d delta lead-in; comfortably above the
+      # 121-day stat floor).
       { file: 'coinglass_exchange_balance_list.json', env: 'COINGLASS_API_KEY',
         url: 'https://open-api-v4.coinglass.com/api/exchange/balance/list?symbol=BTC',
         headers: -> { { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] } },
@@ -324,7 +325,7 @@ module BTC
         trim: lambda { |b|
           j = JSON.parse(b)
           d = j['data']
-          keep = 130
+          keep = 400 # 365d card window + the 30d delta lead-in (2026-08-29)
           JSON.generate('code' => j['code'],
                         'data' => {
                           'time_list' => d['time_list'].to_a.last(keep),

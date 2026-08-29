@@ -42,7 +42,7 @@
 #
 # --json ADDITIVE `series` (for v1:chart:positioning -- owner ruling
 # 2026-08-29: the reserves history rides the positioning card's OI panel
-# on a right axis, not its own card): trailing 120 daily [date, value]
+# on a right axis, not its own card): trailing 365 daily [date, value]
 # points of aggregate reserves in M BTC (3dp), summed over the exchanges
 # reporting on each date. NOTE this display series is the plain daily
 # total, so a venue delisting shows as an honest level step; the SCORE's
@@ -75,7 +75,9 @@ module Reserves
   DELTA_D = 30       # the scored delta horizon, days
   TTL     = 86_400   # 24h source-cache freshness -- one API hit per day
   HI, LO  = 80.0, 20.0
-  SERIES_TAIL = 120  # trailing daily points published to the card
+  SERIES_TAIL = 365  # trailing daily points published to the card (365
+                     # since the 2026-08-29 zoomable-axes ruling; the
+                     # source serves ~676 days)
 
   # Linear rank of `value` among `window` (share strictly below, %).
   def percentile(value, window)

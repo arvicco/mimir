@@ -1760,13 +1760,19 @@ module Publish
       s.zero? ? '0' : format('%+d', s)
     end
 
-    # A filled-symbol line for a [date, value] series on a panel (sparse data
-    # must read as clear dots -- design ruling). A nil series draws empty.
+    # A line for a [date, value] series on a panel. Symbols are
+    # DENSITY-AWARE (2026-08-29, with the 365d window): a sparse series
+    # (< 60 points) still reads as clear filled dots (the sparse-data
+    # design rule), but at daily-year density per-point dots turn the
+    # panel into noise, so dense series draw the line alone (the axis
+    # crosshair still picks exact points, and zooming in shows the
+    # hover dots ECharts renders on emphasis). A nil series draws empty.
     def positioning_line(name, data, color, x_index, y_index)
+      pts = data || []
       { 'name' => name, 'type' => 'line', 'xAxisIndex' => x_index, 'yAxisIndex' => y_index,
-        'showSymbol' => true, 'symbol' => 'circle', 'symbolSize' => 6,
+        'showSymbol' => pts.size < 60, 'symbol' => 'circle', 'symbolSize' => 6,
         'itemStyle' => { 'color' => color }, 'lineStyle' => { 'color' => color },
-        'data' => data || [] }
+        'data' => pts }
     end
 
     # Opposed liquidation bars on panel 3: longs plotted DOWN (negated),
