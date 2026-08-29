@@ -87,7 +87,7 @@ class TestLpplContract < Minitest::Test
   # or run-dependent), extra argv]
   TESTS = {
     'trend'       => [%w[bf bf_by_horizon per_horizon per_horizon_long pl_lp1
-                         delta_ln_age eval_points_1y],
+                         headline_mean delta_ln_age eval_points_1y],
                       %w[bootstrap], []],
     'envelope'    => [%w[ratio bound floor freeze_candidate trough_ratios
                          trend_today days_below_strong days_below_floor], [], []],
@@ -171,6 +171,25 @@ class TestLpplContract < Minitest::Test
       assert_equal true, h['report_only']
       assert_kind_of Numeric, h['sum']
     end
+  end
+
+  # M11-3 (owner ruling 2026-08-29, register R-3): headline_mean is the
+  # density-honest headline block -- per-eval mean value, its Newey-West SE,
+  # the NW lag, the daily-series length, and the frozen band re-expressed in
+  # per-eval units. The score still runs on the cumulative bf (pinned same).
+  def test_trend_headline_mean_shape
+    j = module_json('trend')
+    hm = j['headline_mean']
+    assert_kind_of Hash, hm
+    assert_equal %w[band_per_eval lag n_dates se_nw value], hm.keys.sort
+    assert_equal 179, hm['lag']
+    assert_kind_of Integer, hm['n_dates']
+    assert hm['value'].nil? || hm['value'].is_a?(Numeric)
+    assert hm['se_nw'].nil? || hm['se_nw'].is_a?(Numeric)
+    assert hm['band_per_eval'].nil? || hm['band_per_eval'].is_a?(Numeric)
+    # the human headline leads with the mean and keeps the cumulative as 'cum'
+    assert_match(/MEAN log predictive-score differential/, j['headline'])
+    assert_match(/cum [+-]/, j['headline'])
   end
 
   # M9-9 stage 1: lp1_check.rb is a standalone research script (not in publish)

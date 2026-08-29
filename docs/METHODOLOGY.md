@@ -145,34 +145,40 @@ Gaussian log-score:
 - `pl_recent` -- power law on the trailing 3y ("the trend has bent"),
 - `rw` -- random walk with sqrt(h)-scaled variance (no trend info).
 
-**Displayed:** `trailing-1y cum. log predictive-score differential
-(log10) pl_full vs best rival` (formerly the "Bayes factor") plus the
-per-horizon split. The differential = sum over the trailing year of
-(pl_full's log-score - the best rival's), in log10 units: +2 means
-the year's data was 100:1 more likely under the global power law than
-under its best rival; negative means the rival explains the year
-better. Score: +1 above +1.0, -1 below -1.0.
+**Displayed** (headline flipped by owner ruling 2026-08-29, register
+R-3): `trailing-1y MEAN log predictive-score differential/eval (log10)
+pl_full vs best rival` -- the per-evaluation-day mean of (pl_full's
+log-score - the best rival's), in log10 per eval: -0.6 at 30d means an
+average day's realized price was about 4x more likely under the best
+rival than under the global power law. The mean carries a Newey-West
+standard error (`±… NW`; Bartlett kernel, lag 179 -- overlapping
+horizons make daily evidence strongly autocorrelated, so a naive error
+bar would be far too tight; a one-off 180-block circular bootstrap
+cross-check agreed within 4%) and `band ±…`, the scoring band
+re-expressed in per-eval units. The old cumulative SUM stays visible as
+`cum` (and the `bf` JSON field): its magnitude scales with cache
+density (SBI 3.1: -459 over 364 daily points vs -67 over 52
+weekly-stride points for the same period; the per-eval mean held ~-1.26
+against ~-1.28), which is exactly why it lost headline status.
 
-**Interpretation:** this is the suite's designated falsifier. A
-differential of -425 is not a subtle reading -- it says the trailing
-year is astronomically better described by "the trend bent" (or a random
-walk) than by the genesis-anchored power law. When trend is -1, the
-overall verdict is capped at STRESSED no matter how pretty the
-oscillation looks, and FALSIFIED if the envelope breaks too.
+**Score (unchanged):** still the cumulative differential against ±1.0
+(+1 above +1.0, -1 below -1.0) -- at equal per-horizon eval counts the
+mean-vs-band and sum-vs-±1.0 comparisons are the same inequality, and
+freezing the score form guarantees no verdict drift from this ruling.
 
-**Magnitude caveats:** (1) the differential SUMS per-day evidence, so its
-size scales with the number of cached evaluation points -- the first run
-bootstraps weekly (magnitudes ~7x smaller) and later runs densify to
-daily; sign and per-horizon pattern are comparable, raw magnitude across
-cache densities is not. The additive `per_horizon.mean_per_eval` field
-(differential ÷ eval-point count) IS density-invariant -- a controlled
-reproduction (SBI 3.1) on our own cache found the trailing-1y sum falling
-7x (-459 over 364 daily points → -67 over 52 weekly-stride points) while
-the per-eval mean held steady (~-1.26 vs ~-1.28). (2) The model's
-predictive variances ignore parameter uncertainty (documented
-simplification), which inflates the magnitude when price sits far outside
-the fitted channel. Read the sign and the ledger trend of the
-differential, not the absolute number.
+**Interpretation:** this is the suite's designated falsifier. A mean of
+-1.29 ± 0.18 across the three horizons is not a subtle reading -- the
+trailing year is decisively better described by "the trend bent" (or a
+random walk) than by the genesis-anchored power law, and the error bar
+says that is signal, not noise. When trend is -1, the overall verdict is
+capped at STRESSED no matter how pretty the oscillation looks, and
+FALSIFIED if the envelope breaks too.
+
+**Magnitude caveat:** the model's predictive variances ignore parameter
+uncertainty (documented simplification), which inflates magnitudes when
+price sits far outside the fitted channel. Read the sign, the error
+bar, and the ledger trend of the differential -- not the absolute
+number alone.
 
 ### Test 2 · envelope (wt 3) -- is trough damping intact?
 

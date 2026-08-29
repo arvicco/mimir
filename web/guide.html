@@ -304,9 +304,13 @@
     </p>
     <p>
       <span class="lbl">When it fails &mdash;</span> the first run bootstraps
-      its score cache weekly, later runs densify to daily &mdash; so the
-      differential's magnitude is not comparable across cache densities. Read
-      the sign and the per-horizon pattern, never the raw number.
+      its score cache weekly, later runs densify to daily &mdash; so a
+      cumulative differential's magnitude is not comparable across cache
+      densities. That is why the trend test's headline is the
+      <span class="term">per-evaluation mean</span> with a Newey&ndash;West
+      error bar (density-invariant; owner ruling 2026-08-29): read the mean
+      against its <span class="mono">band</span> and error bar, and treat the
+      cumulative <span class="mono">cum</span> number as context only.
     </p>
   </section>
 
