@@ -35,7 +35,8 @@
       "21d",
       "30d",
       "45d",
-      "90d"
+      "90d",
+      "180d"
     ]
   },
   "yAxis": {
@@ -86,6 +87,12 @@
           "value": 42.29,
           "itemStyle": {
             "color": "#4665e6"
+          }
+        },
+        {
+          "value": 42.29,
+          "itemStyle": {
+            "color": "#2e3f9e"
           }
         }
       ]
@@ -138,6 +145,12 @@
           "itemStyle": {
             "color": "#4665e6"
           }
+        },
+        {
+          "value": 86.17,
+          "itemStyle": {
+            "color": "#2e3f9e"
+          }
         }
       ]
     },
@@ -188,6 +201,12 @@
           "value": 43.88,
           "itemStyle": {
             "color": "#4665e6"
+          }
+        },
+        {
+          "value": 43.88,
+          "itemStyle": {
+            "color": "#2e3f9e"
           }
         }
       ]

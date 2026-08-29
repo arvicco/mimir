@@ -198,7 +198,8 @@ never override into the inversion.
 
 **Vol tenors carry a spectral gradient.** (Owner ruling 2026-08-29,
 register R-9.) The six vol tenors are colour-coded 7d RED → 14d
-orange → 21d yellow → 30d green → 45d cyan → 90d DARK BLUE
+orange → 21d yellow → 30d green → 45d cyan → 90d dark blue → 180d
+DARK-DARK BLUE (the long tenor, owner ruling 2026-08-29)
 (`VOL_TENOR_COLORS` in chart_specs.rb, single source), the SAME hue
 per tenor everywhere a tenor renders: the vol_spread bars, the dots
 on its MSTR/BTC leg lines, and the vol_spread_trend lines/legend.

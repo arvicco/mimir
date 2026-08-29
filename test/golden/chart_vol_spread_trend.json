@@ -21,7 +21,8 @@
       "21d",
       "30d",
       "45d",
-      "90d"
+      "90d",
+      "180d"
     ]
   },
   "grid": {
@@ -203,6 +204,30 @@
         43.6,
         43.2,
         43.1
+      ]
+    },
+    {
+      "name": "180d",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 6,
+      "itemStyle": {
+        "color": "#2e3f9e"
+      },
+      "lineStyle": {
+        "color": "#2e3f9e"
+      },
+      "data": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
       ]
     }
   ]

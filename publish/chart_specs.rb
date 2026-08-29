@@ -110,7 +110,7 @@ module Publish
     }.freeze
 
     # vol_spread_trend tenor legends: one series per requested tenor.
-    VOL_SPREAD_TREND_TERMS = [7, 14, 21, 30, 45, 90].to_h { |n|
+    VOL_SPREAD_TREND_TERMS = [7, 14, 21, 30, 45, 90, 180].to_h { |n|
       ["#{n}d", "The #{n}-day spread series: each day's MSTR-minus-BTC " \
                 "at-the-money vol gap at the #{n}-day option tenor."]
     }.freeze
@@ -368,7 +368,7 @@ module Publish
                     'are positioned; skew says what the market pays to insure the ' \
                     'tails -- a negative RR25 means downside puts cost more than ' \
                     'upside calls (fear).',
-          'axes' => { 'x' => 'nominal tenor (7/14/21/30/45/90d), snapped to the ' \
+          'axes' => { 'x' => 'nominal tenor (7/14/21/30/45/90/180d), snapped to the ' \
                              'nearest listed option expiry -- exp(d) in the ' \
                              'hover is that real expiry\'s days out, so 30d/' \
                              'exp(d) 31 means the 30d numbers came from the ' \
@@ -408,7 +408,7 @@ module Publish
                     'FLY25 the 25-delta butterfly. MSTR is a levered, reflexive ' \
                     'BTC holder, so its vol persistently trades richer than ' \
                     'BTC\'s -- the [BTC] tab is the coin, this is the equity.',
-          'axes' => { 'x' => 'nominal tenor (7/14/21/30/45/90d), snapped to the ' \
+          'axes' => { 'x' => 'nominal tenor (7/14/21/30/45/90/180d), snapped to the ' \
                              'nearest listed option expiry -- exp(d) in the ' \
                              'hover is that real expiry\'s days out, so 30d/' \
                              'exp(d) 31 means the 30d numbers came from the ' \
@@ -440,7 +440,7 @@ module Publish
                     'is a levered, reflexive BTC holder, so its options ' \
                     'persistently trade richer; the spread (vol points) is how ' \
                     'much extra the option market charges for that leverage now.',
-          'axes' => { 'x' => 'nominal tenor (7/14/21/30/45/90d), snapped to the ' \
+          'axes' => { 'x' => 'nominal tenor (7/14/21/30/45/90/180d), snapped to the ' \
                              'nearest listed expiry on each leg',
                       'y' => 'implied vol (%): bars = the MSTR-minus-BTC ATM ' \
                              'spread in vol points, lines = each leg\'s ATM IV ' \
@@ -465,7 +465,7 @@ module Publish
         inputs: %w[payload_vol_spread.json], fn: :vol_spread_trend,
         meta: {
           'desc' => 'The MSTR-minus-BTC ATM vol spread over time, one line per ' \
-                    'tenor (7/14/21/30/45/90d). This is the same treasury-company ' \
+                    'tenor (7/14/21/30/45/90/180d). This is the same treasury-company ' \
                     'leverage premium as the bars above, but as a term-structure ' \
                     'trend: it accumulates one point per day from the first ' \
                     'deploy, so early history is short and fills in daily.',
@@ -1889,7 +1889,8 @@ module Publish
       21 => '#e2c84b', # yellow
       30 => '#35c46a', # green
       45 => '#3fc1d1', # cyan
-      90 => '#4665e6'  # dark blue
+      90 => '#4665e6', # dark blue
+      180 => '#2e3f9e' # dark-dark blue (owner ruling 2026-08-29, the long tenor)
     }.freeze
     VOL_SPOT  = '#d7dce3' # spot level line
     VOL_GREY  = '#6b7178' # invisible carriers / notes
@@ -1904,7 +1905,7 @@ module Publish
     # ---- vol_surface (M8-6) -------------------------------------------
     #
     # vol:latest -> the implied-vol term structure at the five requested
-    # tenors (7/14/21/30/45/90d, the shared vol paradigm -- owner ruling
+    # tenors (7/14/21/30/45/90/180d, the shared vol paradigm -- owner ruling
     # 2026-08-18). Compact one-line 13px title carries the lead ATM. Left
     # axis = ATM IV (%), right axis = the 25-delta skew in vol points (RR25
     # risk reversal, FLY25 butterfly). The nominal tenor's ACTUAL option
@@ -2062,7 +2063,7 @@ module Publish
     # ---- vol_spread_trend (M8-16) -------------------------------------
     #
     # vol:spread's daily "history" -> the MSTR-minus-BTC ATM spread over
-    # time, one line per tenor (7/14/21/30/45/90d). Stacked BELOW the
+    # time, one line per tenor (7/14/21/30/45/90/180d). Stacked BELOW the
     # vol_spread bars (owner ruling 2026-08-10): the bars are the current
     # term structure, this is its trend. Values are vol points
     # (spread_atm * 100, 1dp) scaled at build time (design system); a null
@@ -2073,7 +2074,7 @@ module Publish
     # the vol_spread bars/dots above). Empty history still yields a valid
     # option (empty axis + 6 empty series) -- the acceptable
     # pre-accumulation state.
-    VOL_SPREAD_TREND_TENORS = [7, 14, 21, 30, 45, 90].freeze
+    VOL_SPREAD_TREND_TENORS = [7, 14, 21, 30, 45, 90, 180].freeze
 
     def vol_spread_trend(spread)
       history = spread['history'] || []

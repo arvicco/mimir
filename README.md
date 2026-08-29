@@ -58,7 +58,7 @@ treat that as keep-last-good.
 ## Volatility & positioning tools (Phase 8A)
 
 ```
-ruby scripts/vol.rb          # BTC vol surface: ATM IV, 25d RR, 25d fly (7/14/21/30/45/90d)
+ruby scripts/vol.rb          # BTC vol surface: ATM IV, 25d RR, 25d fly (7/14/21/30/45/90/180d)
 ruby scripts/vol_spread.rb   # MSTR-vs-BTC ATM IV spread per tenor
 ruby scripts/basis.rb        # Deribit futures basis curve + OI-weighted funding
 ruby scripts/gex_trend.rb    # time series over the daily GEX snapshots (local)
