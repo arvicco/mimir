@@ -32,13 +32,15 @@ into `payload_<key>.json` here.
   same shape a post-M11-5 live run emits. The lppl_regime golden's
   bound/floor markLines follow the frozen values.
 
-- `payload_reserves_latest.json` (M11-7) is fully SYNTHETIC (deterministic
-  cosine-drift series, 120 days ending 2026-08-11 to match the positioning
-  fixture's window): the module shipped before its upstream fixture was
-  recorded. Once `coinglass_exchange_balance_chart.json` lands (owner:
-  `rake fixtures:record SOURCES=coinglass_exchange`), regenerate it
-  offline via the contract harness (fake transport + FAKE_NOW) and
-  re-bless the positioning golden.
+- `payload_reserves_latest.json` (M11-7) is the REAL `scripts/scenario/
+  reserves.rb --json` output, generated OFFLINE through the contract
+  harness against the recorded `coinglass_exchange_balance_chart.json`
+  (2026-08-29). Regenerate with:
+  `RUBYOPT="-Itest/support -rfake_transport" FAKE_NOW=2026-08-29T12:00:00Z
+  BTC_DATA_DIR=$(mktemp -d) COINGLASS_API_KEY=fixture-key
+  ruby scripts/scenario/reserves.rb --json`. The chart builder clips the
+  curve to the positioning fixture's window (ending 2026-08-11), so the
+  series' later real days are deliberately absent from the golden.
 
 - `payload_scenario_history.json` carries a trailing **synthetic blind
   row** (`2026-07-07`, `"blind": true`, composite 0.0) so the M8-10
