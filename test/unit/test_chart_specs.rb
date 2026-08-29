@@ -870,11 +870,15 @@ class TestChartSpecs < Minitest::Test
     assert_equal [1, 1], by['top L/S'].values_at('xAxisIndex', 'yAxisIndex')
     assert_equal [1, 2], by['taker buy%'].values_at('xAxisIndex', 'yAxisIndex')
     assert_equal 'right', opt['yAxis'][2]['position'] # taker % on the right axis
-    # sparse data reads as filled dots
+    # density-aware symbols (2026-08-29): the 365d real fixture is dense,
+    # so the lines drop their per-point dots; a sparse (<60pt) series
+    # keeps them (the sparse-data rule) -- pinned via a truncated doc
     %w[OI\ $B global\ L/S top\ L/S taker\ buy%].each do |n|
-      assert_equal 6, by[n]['symbolSize']
-      assert_equal 'circle', by[n]['symbol']
+      assert_equal false, by[n]['showSymbol'], "#{n}: dense series draws the line alone"
+      assert_equal 'circle', by[n]['symbol'] # emphasis/hover dot stays configured
     end
+    sparse = Publish::Charts.positioning_line('x', [['2026-08-01', 1.0]] * 30, '#fff', 0, 0)
+    assert_equal true, sparse['showSymbol'], 'sparse series keeps its filled dots'
     # opposed liquidation bars overlay on the same day (barGap -100%); longs
     # plotted DOWN (negated) in red, shorts UP in teal
     long = by['long liq $M']; short = by['short liq $M']
@@ -934,15 +938,19 @@ class TestChartSpecs < Minitest::Test
   end
 
   def test_positioning_title_warmup_and_scored
-    # the fixture is 30 WARMUP days -> honest WARMUP n/91d, never blank
-    assert_equal 'Positioning · WARMUP 30/91d', build('positioning')['title']['text']
-    # a fully-banded doc reads score + crowd band (0 shown bare, not +0)
+    # the fixture is a REAL 365d capture (2026-08-29) -> scored title
+    assert_equal 'Positioning · 0 · crowd SHORT', build('positioning')['title']['text']
+    # scored variants (0 shown bare, not +0)
     scored = JSON.parse(JSON.generate(positioning_doc))
     scored['crowding'] = 'LONG'
     scored['score'] = -1
     assert_equal 'Positioning · -1 · crowd LONG', Publish::Charts.positioning(scored)['title']['text']
-    scored['score'] = 0
-    assert_equal 'Positioning · 0 · crowd LONG', Publish::Charts.positioning(scored)['title']['text']
+    # the designed WARMUP state stays honest (never blank): n/91d from the
+    # crowd series length
+    warm = JSON.parse(JSON.generate(positioning_doc))
+    warm['crowding'] = 'WARMUP'
+    warm['series']['global_ls'] = warm['series']['global_ls'].first(30)
+    assert_equal 'Positioning · WARMUP 30/91d', Publish::Charts.positioning(warm)['title']['text']
   end
 
   # ---- btco_table structure --------------------------------------------
