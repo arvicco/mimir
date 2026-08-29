@@ -219,7 +219,7 @@ class TestChartSpecs < Minitest::Test
     sp  = JSON.parse(File.read(File.join(PAYLOADS, 'payload_vol_spread.json')))
     # x axis = the history dates in order; one line series per tenor.
     assert_equal sp['history'].map { |r| r['date'] }, opt['xAxis']['data']
-    assert_equal %w[7d 14d 21d 30d 45d 90d], opt['series'].map { |s| s['name'] }
+    assert_equal %w[7d 14d 21d 30d 45d 90d 180d], opt['series'].map { |s| s['name'] }
     opt['series'].each do |s|
       assert_equal 'line', s['type']
       assert_equal 6, s['symbolSize'] # sparse: a single day reads as a dot
@@ -236,10 +236,10 @@ class TestChartSpecs < Minitest::Test
     # the synthetic null 45d spread on 2026-06-30 is a GAP (nil), never a zero
     idx45 = sp['history'].index { |r| r['date'] == '2026-06-30' }
     assert_nil opt['series'].find { |s| s['name'] == '45d' }['data'][idx45]
-    # empty history still yields a valid option: empty axis + 6 empty series
+    # empty history still yields a valid option: empty axis + 7 empty series
     empty = Publish::Charts.vol_spread_trend('history' => [])
     assert_equal [], empty['xAxis']['data']
-    assert_equal 6, empty['series'].size
+    assert_equal 7, empty['series'].size
     assert(empty['series'].all? { |s| s['data'].empty? })
     assert_match(/Spread trend · 0d history/, empty['title']['text'])
   end

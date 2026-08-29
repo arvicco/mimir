@@ -141,21 +141,22 @@
   <hr>
 
   <section id="gex">
-    <h2>GEX <span class="tabs">tabs: BTC / MSTR / BTC TREND / MSTR TREND</span></h2>
+    <h2>GEX <span class="tabs">tabs: BTC / MSTR &middot; profile over trend</span></h2>
     <p>
       <span class="lbl">What it shows &mdash;</span> <span class="term">GEX</span>
       (gamma exposure) is the dollar amount options dealers must re-hedge
       for every 1% move in the underlying. Dealers who are net
       <span class="term">long gamma</span> sell rallies and buy dips, which
       <em>pins</em> price; net <span class="term">short gamma</span> dealers
-      do the opposite, which <em>amplifies</em> moves. The <b>BTC</b> tab
-      buckets dealer gamma across Deribit and the US spot-ETF option chains
-      on one BTC-equivalent price axis; the <b>MSTR</b> tab shows
-      MicroStrategy's own single-name chain on its equity price axis
+      do the opposite, which <em>amplifies</em> moves. The card stacks two
+      charts &mdash; today's strike-level profile on top, the daily history
+      of spot vs that market's flip and walls below &mdash; and one
+      <b>BTC</b>/<b>MSTR</b> switch flips both together (2026-08-29
+      ruling). <b>BTC</b> buckets dealer gamma across Deribit and the US
+      spot-ETF option chains on one BTC-equivalent price axis; <b>MSTR</b>
+      shows MicroStrategy's own single-name chain on its equity price axis
       (deliberately not merged &mdash; MSTR gamma lives on the stock, not
-      the coin); the <b>BTC TREND</b> and <b>MSTR TREND</b> tabs are daily
-      histories of where spot has sat relative to that market's flip and
-      walls.
+      the coin).
     </p>
     <p>
       <span class="lbl">How to read it &mdash;</span> above zero is long
@@ -386,7 +387,7 @@
       the annualized basis of Deribit's dated futures over spot, per expiry,
       plus the OI-weighted perpetual funding rate. A separate
       <b>MSTR-BTC spread</b> card shows MSTR's ATM IV minus BTC's, tenor by
-      tenor (7 / 14 / 21 / 30 / 45 / 90d) &mdash; the live price of
+      tenor (7 / 14 / 21 / 30 / 45 / 90 / 180d) &mdash; the live price of
       treasury-company leverage &mdash; with its own trend stacked beneath.
     </p>
     <p>
