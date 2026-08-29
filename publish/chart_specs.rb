@@ -202,7 +202,12 @@ module Publish
           # 2026-08-10): the GEX card is now four tabs --
           # [BTC][MSTR][BTC TREND][MSTR TREND]. tab_pos is explicit because the
           # index sorts keys alphabetically yet BTC must be the default/first tab.
-          'tab_group' => 'gex', 'tab_label' => 'BTC', 'tab_pos' => 1
+          # 2026-08-29 owner ruling (the 2-per-card format): the GEX card
+          # becomes TWO STACKED SECTIONS -- profile on top, its trend below
+          # -- each a [BTC][MSTR] tab pair with IDENTICAL labels, which the
+          # renderer links into ONE switcher (linked stacked tabs).
+          'tab_group' => 'gex', 'group_style' => 'stack', 'tab_pos' => 0,
+          'tab_label' => 'BTC', 'height' => 260
         }
       },
       'gex_mstr' => {
@@ -230,7 +235,9 @@ module Publish
           # series does not carry -- the default axis tooltip is correct here.
           # tab-group hook (M6-4, owner ruling D7-c 2026-07-06): shares the
           # BTC gex_profile card as the second [MSTR] tab (BTC is tab_pos 1).
-          'tab_group' => 'gex', 'tab_label' => 'MSTR', 'tab_pos' => 2
+          # shares the profile section (tab_pos 0) as its MSTR tab.
+          'tab_group' => 'gex', 'group_style' => 'stack', 'tab_pos' => 0,
+          'tab_label' => 'MSTR', 'height' => 260
         }
       },
       'scenario_strip' => {
@@ -518,10 +525,11 @@ module Publish
                     'and -- when the Coinglass cross-check is present -- MP ' \
                     'Delta, spot vs their max-pain. Sparse history reads as ' \
                     'filled dots.',
-          # joins the existing GEX card (D7-c) as the third tab after
-          # [BTC](pos 1) and [MSTR](pos 2); pos 3 keeps [BTC TREND] before
-          # [MSTR TREND](pos 4).
-          'tab_group' => 'gex', 'tab_label' => 'BTC TREND', 'tab_pos' => 3,
+          # 2026-08-29: the TREND section stacks below the profile
+          # (tab_pos 1), tab-labelled BTC/MSTR to match the profile pair --
+          # identical labels are what links the two switchers into one.
+          'tab_group' => 'gex', 'group_style' => 'stack', 'tab_pos' => 1,
+          'tab_label' => 'BTC', 'height' => 210,
           # M9-15: the spot / flip / CW / PW legend items explain themselves.
           'terms' => GEX_TREND_TERMS
         }
@@ -550,8 +558,9 @@ module Publish
                     'walls. The title carries flip distance last and the regime ' \
                     'run length. Sparse history reads as filled dots; a day with ' \
                     'no MSTR capture is an honest gap.',
-          # fourth tab of the GEX card, after [BTC TREND](pos 3).
-          'tab_group' => 'gex', 'tab_label' => 'MSTR TREND', 'tab_pos' => 4,
+          # shares the trend section (tab_pos 1) as its MSTR tab.
+          'tab_group' => 'gex', 'group_style' => 'stack', 'tab_pos' => 1,
+          'tab_label' => 'MSTR', 'height' => 210,
           # M9-15: same spot / flip / CW / PW glossary as the BTC trend tab.
           'terms' => GEX_TREND_TERMS
         }
@@ -2191,6 +2200,8 @@ module Publish
         'legend' => { 'top' => 24, 'data' => %w[spot flip CW PW] },
         'grid' => { 'left' => 56, 'right' => 24, 'top' => 52, 'bottom' => 28 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
+        # owner ruling 2026-08-29: date axes zoom/pan (inside, full range)
+        'dataZoom' => [{ 'type' => 'inside', 'xAxisIndex' => [0] }],
         'yAxis' => { 'type' => 'value', 'name' => 'price ($k)', 'scale' => true,
                      'nameLocation' => 'middle', 'nameGap' => 44 },
         'series' => [
@@ -2253,6 +2264,8 @@ module Publish
         'legend' => { 'top' => 24, 'data' => %w[spot flip CW PW] },
         'grid' => { 'left' => 56, 'right' => 24, 'top' => 52, 'bottom' => 28 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
+        # owner ruling 2026-08-29: date axes zoom/pan (inside, full range)
+        'dataZoom' => [{ 'type' => 'inside', 'xAxisIndex' => [0] }],
         'yAxis' => { 'type' => 'value', 'name' => 'price ($)', 'scale' => true,
                      'nameLocation' => 'middle', 'nameGap' => 44 },
         'series' => [

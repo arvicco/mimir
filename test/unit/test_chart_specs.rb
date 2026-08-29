@@ -76,16 +76,14 @@ class TestChartSpecs < Minitest::Test
     # series does not match gex_levels' per-venue C/P input
     assert_nil metas['gex_mstr']['tooltip_formatter']
     assert_nil metas['gex_mstr']['legend_widget']
-    # M6-4 (owner ruling D7-c, 2026-07-06): the two GEX charts share ONE
-    # dashboard card as [BTC][MSTR] tabs. tab_group pairs them; tab_pos
-    # fixes BTC first (the index sorts keys alphabetically, so gex_mstr
-    # would otherwise lead). tab_label is the button text.
-    assert_equal 'gex', metas['gex_btc']['tab_group']
-    assert_equal 'BTC', metas['gex_btc']['tab_label']
-    assert_equal 1, metas['gex_btc']['tab_pos']
-    assert_equal 'gex', metas['gex_mstr']['tab_group']
-    assert_equal 'MSTR', metas['gex_mstr']['tab_label']
-    assert_equal 2, metas['gex_mstr']['tab_pos']
+    # 2026-08-29 owner ruling (the 2-per-card format): the GEX card is a
+    # STACKED card of two [BTC][MSTR] tab pairs -- profile section (pos 0)
+    # over trend section (pos 1). Identical label sequences are what the
+    # renderer links into ONE switcher (linked stacked tabs).
+    assert_equal %w[gex stack 0 260 BTC],
+                 metas['gex_btc'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
+    assert_equal %w[gex stack 0 260 MSTR],
+                 metas['gex_mstr'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
     # btco stays a solo card; LPPL is a two-tab card (M9-13); M10-9 (owner
     # ruling 2026-08-13): scenario + scorecard share one [SCENARIO][SCORES]
     # card -- the audit lives next to what it audits.
@@ -119,14 +117,12 @@ class TestChartSpecs < Minitest::Test
                  metas['vol_spread'].values_at('tab_group', 'group_style', 'tab_pos', 'height').map(&:to_s)
     assert_equal %w[volspread stack 1 235],
                  metas['vol_spread_trend'].values_at('tab_group', 'group_style', 'tab_pos', 'height').map(&:to_s)
-    # M8-18 (owner ruling 2026-08-10): the GEX card is now four tabs --
-    # [BTC][MSTR][BTC TREND][MSTR TREND]. gex_btc_trend keeps pos 3 (relabelled
-    # 'BTC TREND'); gex_mstr_trend is the new pos-4 tab, reading gex:trend's
-    # additive 'mstr' block.
-    assert_equal ['gex', 'BTC TREND', '3'],
-                 metas['gex_btc_trend'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
-    assert_equal ['gex', 'MSTR TREND', '4'],
-                 metas['gex_mstr_trend'].values_at('tab_group', 'tab_label', 'tab_pos').map(&:to_s)
+    # 2026-08-29: the trend charts form the LOWER section of the stacked
+    # GEX card (pos 1), tab-labelled BTC/MSTR to match the profile pair.
+    assert_equal %w[gex stack 1 210 BTC],
+                 metas['gex_btc_trend'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
+    assert_equal %w[gex stack 1 210 MSTR],
+                 metas['gex_mstr_trend'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
     # the vol charts carry no drawn-legend/tooltip renderer hooks;
     # the stacked pairs DO carry height (half a card each)
     %w[vol_surface vol_surface_mstr vol_spread vol_spread_trend vol_basis
@@ -134,8 +130,8 @@ class TestChartSpecs < Minitest::Test
       assert_nil metas[n]['tooltip_formatter'], n
       assert_nil metas[n]['legend_widget'], n
     end
-    assert_nil metas['gex_btc_trend']['height'] # a tab, not a stacked half
-    assert_nil metas['gex_mstr_trend']['height']
+    assert_equal 210, metas['gex_btc_trend']['height'] # lower stacked section
+    assert_equal 210, metas['gex_mstr_trend']['height']
     # M10-4: positioning is a SOLO card (no tab_group), no custom tooltip/
     # legend hooks; it carries only the terms glossary and, like lppl_regime,
     # no height (default card height for its three panels).
@@ -817,7 +813,9 @@ class TestChartSpecs < Minitest::Test
     'vol_spread_trend' => [0],
     'scenario_strip'   => [0],     # NOT the heatmap 'now' column (axis 1)
     'positioning'      => [0, 1, 2],
-    'lppl_regime'      => [0, 1, 2]
+    'lppl_regime'      => [0, 1, 2],
+    'gex_btc_trend'    => [0],
+    'gex_mstr_trend'   => [0]
   }.freeze
 
   def test_time_series_charts_carry_inside_date_zoom
