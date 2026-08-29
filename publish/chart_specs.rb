@@ -1769,6 +1769,23 @@ module Publish
     VOL_AMBER = '#e6a23c' # FLY25 / flip / basis lines
     VOL_MSTR  = '#d0d5db' # MSTR leg (brighter)
     VOL_BTC   = '#7a828c' # BTC leg (dimmer)
+
+    # Owner ruling 2026-08-29 (register R-9): the six vol tenors carry a
+    # spectral gradient -- 7d RED through orange/yellow/green/cyan to 90d
+    # DARK BLUE -- so a tenor reads the same colour on the vol_spread bars/
+    # dots and on the trend lines below (one card, one code). Sign on the
+    # spread bars reads from direction against zero, not colour (this chart
+    # is the sanctioned exception to the teal/red sign anchors). Hues tuned
+    # for the dark theme: red/orange reuse the stress-band anchors; 90d is
+    # brightened just enough to stay legible on dark.
+    VOL_TENOR_COLORS = {
+      7  => '#e04b4b', # red
+      14 => '#e08e0b', # orange
+      21 => '#e2c84b', # yellow
+      30 => '#35c46a', # green
+      45 => '#3fc1d1', # cyan
+      90 => '#4665e6'  # dark blue
+    }.freeze
     VOL_SPOT  = '#d7dce3' # spot level line
     VOL_GREY  = '#6b7178' # invisible carriers / notes
 
@@ -1872,20 +1889,22 @@ module Publish
     # ---- vol_spread (M8-6) --------------------------------------------
     #
     # vol:spread -> MSTR-minus-BTC ATM implied vol per tenor (the live price
-    # of treasury-company leverage). Bars = the spread in vol points (teal
-    # positive / red negative, per bar); two thin lines = each leg's raw ATM
-    # IV (MSTR brighter, BTC dimmer) so a move is attributable. One shared
-    # vol-% axis: the bar height reads against each leg's absolute level. A
-    # failed leg drops its line and that tenor's bar (nil, never zero).
+    # of treasury-company leverage). Bars = the spread in vol points,
+    # colour-coded by TENOR (the R-9 gradient; sign reads from direction
+    # against zero); two thin lines = each leg's raw ATM IV (MSTR brighter,
+    # BTC dimmer) with their dots tenor-coloured to match the bars and the
+    # trend chart below. One shared vol-% axis: the bar height reads against
+    # each leg's absolute level. A failed leg drops its line and that
+    # tenor's bar (nil, never zero).
     def vol_spread(spread)
       tenors = spread['tenors'] || []
       labels = tenors.map { |t| "#{t['tenor_d']}d" }
       bars   = tenors.map do |t|
         v = vol_pct(t['spread_atm'])
-        v.nil? ? nil : { 'value' => v, 'itemStyle' => { 'color' => v.negative? ? GEX_RED : GEX_TEAL } }
+        v.nil? ? nil : { 'value' => v, 'itemStyle' => { 'color' => tenor_color(t) } }
       end
-      mstr = tenors.map { |t| vol_pct(t.dig('mstr', 'atm_iv')) }
-      btc  = tenors.map { |t| vol_pct(t.dig('btc', 'atm_iv')) }
+      mstr = tenors.map { |t| tenor_dot(vol_pct(t.dig('mstr', 'atm_iv')), t) }
+      btc  = tenors.map { |t| tenor_dot(vol_pct(t.dig('btc', 'atm_iv')), t) }
 
       {
         'backgroundColor' => 'transparent',
@@ -1899,9 +1918,9 @@ module Publish
         'yAxis' => { 'type' => 'value', 'name' => 'vol %',
                      'nameLocation' => 'middle', 'nameGap' => 44 },
         'series' => [
-          # series-level teal so the legend swatch matches the (positive)
-          # bars; per-bar itemStyle still overrides negatives to red.
-          { 'name' => 'spread', 'type' => 'bar', 'itemStyle' => { 'color' => GEX_TEAL },
+          # bars are per-tenor coloured (R-9 gradient); the series-level
+          # grey exists only so the legend swatch reads neutral.
+          { 'name' => 'spread', 'type' => 'bar', 'itemStyle' => { 'color' => '#888e98' },
             'data' => bars },
           { 'name' => 'MSTR', 'type' => 'line', 'symbol' => 'circle', 'symbolSize' => 6,
             'itemStyle' => { 'color' => VOL_MSTR }, 'lineStyle' => { 'color' => VOL_MSTR, 'width' => 1 },
@@ -1911,6 +1930,19 @@ module Publish
             'data' => btc }
         ]
       }
+    end
+
+    # The R-9 gradient colour for a tenor row (nil-safe fetch fallback:
+    # an off-grid tenor keeps the neutral grey rather than crashing).
+    def tenor_color(t)
+      VOL_TENOR_COLORS.fetch(t['tenor_d'], '#888e98')
+    end
+
+    # A tenor-coloured line point: value +v+ as a datum whose DOT carries
+    # the tenor colour while the connecting line keeps the series colour.
+    # nil stays nil (a dead leg's gap, never a zero).
+    def tenor_dot(v, t)
+      v.nil? ? nil : { 'value' => v, 'itemStyle' => { 'color' => tenor_color(t) } }
     end
 
     # Title tail '<tenor>d <+spread>': prefer 30d, else the first live spread.
@@ -1931,16 +1963,20 @@ module Publish
     # (spread_atm * 100, 1dp) scaled at build time (design system); a null
     # spread on a date is a gap (nil), never a zero. Filled dots
     # (sparse-data rule) so a single live day reads as a clear point. The
-    # dark theme colours the six series (no semantic pair to preserve).
-    # Empty history still yields a valid option (empty axis + 5 empty
-    # series) -- the acceptable pre-accumulation state.
+    # six series take the R-9 tenor gradient (owner ruling 2026-08-29:
+    # 7d red -> 90d dark blue, VOL_TENOR_COLORS -- same hue per tenor as
+    # the vol_spread bars/dots above). Empty history still yields a valid
+    # option (empty axis + 6 empty series) -- the acceptable
+    # pre-accumulation state.
     VOL_SPREAD_TREND_TENORS = [7, 14, 21, 30, 45, 90].freeze
 
     def vol_spread_trend(spread)
       history = spread['history'] || []
       dates   = history.map { |r| r['date'] }
       series  = VOL_SPREAD_TREND_TENORS.map do |td|
+        color = VOL_TENOR_COLORS.fetch(td)
         { 'name' => "#{td}d", 'type' => 'line', 'symbol' => 'circle', 'symbolSize' => 6,
+          'itemStyle' => { 'color' => color }, 'lineStyle' => { 'color' => color },
           'data' => history.map { |r| vol_spread_trend_point(r, td) } }
       end
 

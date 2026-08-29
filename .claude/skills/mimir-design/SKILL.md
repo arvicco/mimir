@@ -183,6 +183,16 @@ never override into the inversion.
 (text); puts/negative `#c63939` / `#ef6b6b`; flip/bound lines amber
 `#e6a23c`; stress bands green→amber→orange→red.
 
+**Vol tenors carry a spectral gradient.** (Owner ruling 2026-08-29,
+register R-9.) The six vol tenors are colour-coded 7d RED → 14d
+orange → 21d yellow → 30d green → 45d cyan → 90d DARK BLUE
+(`VOL_TENOR_COLORS` in chart_specs.rb, single source), the SAME hue
+per tenor everywhere a tenor renders: the vol_spread bars, the dots
+on its MSTR/BTC leg lines, and the vol_spread_trend lines/legend.
+The spread bars are the sanctioned exception to the teal/red sign
+anchors — sign reads from bar direction against zero. Never recolour
+a tenor ad hoc; a new tenor enters the map, not a series default.
+
 ## Self-review before any owner handoff (.docs/DEV-LOOP.md step 6b)
 
 You design blind unless you look. After any visual change:
