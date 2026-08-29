@@ -250,6 +250,62 @@ test('clicking MSTR swaps the surface section key/badge and resizes; basis untou
   assert.equal(basisSec.querySelector('.key').textContent, 'vol_basis');
 });
 
+// ---- linked stacked tabs (owner ruling 2026-08-29, the GEX card) ---------
+// A stacked card whose tabbed sections carry IDENTICAL label sequences
+// gets ONE switcher: only the top linked section renders a tab bar, and a
+// click flips every linked section to the same label (profile + trend
+// move together). Differing label sets (the vol card) keep per-section
+// bars -- covered by the M8-17 tests above.
+function gexEnv(key, gen, tab_pos, tab_label) {
+  return env(key, gen,
+    { desc: key + ' d', axes: { x: 'x', y: 'y' }, help: 'h',
+      tab_group: 'gex', group_style: 'stack', tab_pos: tab_pos,
+      tab_label: tab_label, height: tab_pos === 0 ? 260 : 210 }, []);
+}
+const GBTC = () => gexEnv('chart:gex_btc', '2026-08-29T16:00:00Z', 0, 'BTC');
+const GMSTR = () => gexEnv('chart:gex_mstr', '2026-08-29T15:00:00Z', 0, 'MSTR');
+const GBTREND = () => gexEnv('chart:gex_btc_trend', '2026-08-29T14:00:00Z', 1, 'BTC');
+const GMTREND = () => gexEnv('chart:gex_mstr_trend', '2026-08-29T13:00:00Z', 1, 'MSTR');
+
+test('identical label sets link stacked sections under ONE tab bar', () => {
+  const { R } = loadRender();
+  const card = R.buildChartCard(GBTC(), 'chart:gex_btc');
+  R.buildChartCard(GMSTR(), 'chart:gex_mstr');
+  R.buildChartCard(GBTREND(), 'chart:gex_btc_trend');
+  R.buildChartCard(GMTREND(), 'chart:gex_mstr_trend');
+
+  const secs = card.querySelectorAll('.stacksec');
+  assert.equal(secs.length, 2, 'profile section over trend section');
+  const bars = card.querySelectorAll('.tabbar');
+  assert.equal(bars.length, 1, 'linked sections share ONE tab bar (the leader)');
+  assert.deepEqual(bars[0].children.map((b) => b.textContent), ['BTC', 'MSTR']);
+  // default: both sections show their BTC member
+  assert.equal(secs[0].querySelector('.key').textContent, 'gex_btc');
+  assert.equal(secs[1].querySelector('.key').textContent, 'gex_btc_trend');
+});
+
+test('clicking MSTR on the linked bar flips BOTH sections', () => {
+  const { R } = loadRender();
+  const card = R.buildChartCard(GBTC(), 'chart:gex_btc');
+  R.buildChartCard(GMSTR(), 'chart:gex_mstr');
+  R.buildChartCard(GBTREND(), 'chart:gex_btc_trend');
+  R.buildChartCard(GMTREND(), 'chart:gex_mstr_trend');
+
+  const tabs = card.querySelector('.tabbar').children;
+  tabs[1].click(); // -> MSTR
+  const secs = card.querySelectorAll('.stacksec');
+  assert.equal(secs[0].querySelector('.key').textContent, 'gex_mstr');
+  assert.equal(secs[1].querySelector('.key').textContent, 'gex_mstr_trend',
+               'the trend section followed the linked switch');
+  assert.equal(secs[1].querySelector('.badge').getAttribute('data-generated-at'),
+               '2026-08-29T13:00:00Z', 'follower badge tracks its own member');
+  // each section shows exactly one chart
+  const visible = card.querySelectorAll('.chart').filter((d) => d.style.display !== 'none');
+  assert.equal(visible.length, 2);
+  tabs[0].click(); // back to BTC
+  assert.equal(secs[1].querySelector('.key').textContent, 'gex_btc_trend');
+});
+
 // ---- staleness bands (owner ruling 2026-08-18) ---------------------------
 // green <= ttl, amber <= 2x, orange <= 3x, red beyond. With the uniform
 // 3600s ttl that is: green 1h after a publish, yellow the next hour,
