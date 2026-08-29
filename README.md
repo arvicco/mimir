@@ -26,8 +26,9 @@ lines, and the caveats -- read it before acting on any output.
 | `scripts/gex.rb` | Deribit BTC/ETH strike-level GEX, gamma flip, walls | mature |
 | `scripts/gex_us.rb` | same for US-listed chains (IBIT, MSTR, ...) via CBOE | mature |
 | `scripts/gex_btc_combined.rb` | cross-venue BTC GEX on one BTC axis | newer, math verified |
-| `scripts/scenario/scenario.rb` | -1/0/+1 regime composite from 7 scored signals (+ positioning at weight 0) | mature |
+| `scripts/scenario/scenario.rb` | -1/0/+1 regime composite from 7 scored signals (+ 2 weight-0 modules) | mature |
 | `scripts/scenario/positioning.rb` | crowd positioning: L/S ratios, OI trend, taker flow, liquidations | new; bands WARMUP until 91 days of history |
+| `scripts/scenario/reserves.rb` | exchange BTC reserves: 30d delta vs its own trailing distribution | new (M11-7); ~676d of source history, bands live day one |
 | `scripts/scorecard.rb` | track record: our published signals vs realized forward BTC returns | new, report-only |
 | `scripts/lppl/lppl.rb` | LPPL regime verdict from 5 falsification tests | new but rigorous; builds caches on first run |
 | `scripts/btco/btco.rb` | treasury-company metrics + stress score | **seed data is placeholder**; US quotes via CBOE + Frankfurter FX, non-US via `manual_px` |
@@ -93,16 +94,28 @@ macro liquidity, hash ribbons, MVRV, stablecoin supply) -> composite in
 is an evidence index (a bounded weighted vote read by band), not a
 probability.
 
-An eighth module, `positioning.rb` (Phase 10), rides the table at
-**weight 0** -- it is displayed but cannot move the composite. Five
-crowd-positioning reads from Coinglass (daily, cached 24h): long/short
-account ratio, top-trader ratio, 7-day open-interest change, taker
-buy share, liquidation skew. Each band is the value's percentile in
-its own trailing 90 days (80/20 cutoffs), so a sub-signal honestly
-reports WARMUP until 91 daily values exist. Its score is -1 only on
-the full flush lineup (crowd LONG + OI RISING + longs liquidated), +1
-on the exact mirror, else 0; kill criteria are pre-registered in the
-file header. Needs `COINGLASS_API_KEY`; fails soft without it.
+Two further modules ride the table at **weight 0** -- displayed,
+never able to move the composite, each with pre-registered kill
+criteria in its file header, both needing `COINGLASS_API_KEY` (fail
+soft without it):
+
+- `positioning.rb` (Phase 10): five crowd-positioning reads from
+  Coinglass (daily, cached 24h): long/short account ratio, top-trader
+  ratio, 7-day open-interest change, taker buy share, liquidation
+  skew. Each band is the value's percentile in its own trailing 90
+  days (80/20 cutoffs), so a sub-signal honestly reports WARMUP until
+  91 daily values exist. Score -1 only on the full flush lineup
+  (crowd LONG + OI RISING + longs liquidated), +1 on the exact
+  mirror, else 0.
+- `reserves.rb` (Phase 11, owner ruling R-11 2026-08-29): aggregate
+  BTC sitting on the exchanges Coinglass tracks. Scores the 30-day
+  percent change against its own trailing-90d distribution (80/20):
+  +1 when coins drain to self-custody unusually fast, -1 when
+  sellable supply builds unusually fast. The delta is
+  window-consistent across exchange delistings (a dead venue can
+  never fake a drain), and the source serves ~676 days of history, so
+  the bands are real from day one. Its reserves curve draws on the
+  positioning card's OI panel (right axis).
 `macro.rb` needs a free `FRED_API_KEY` (degrades to score 0 without).
 `etf_flows.rb` scrapes farside.co.uk, falling back to the Internet
 Archive snapshot and then CoinGlass (`COINGLASS_API_KEY`, free) -- see
@@ -147,15 +160,19 @@ staged history against the organically recorded days field-by-field.
 and fit history (diff, one prompt, timestamped backups) -- it is
 interactive-only (refuses CI and non-TTY), a deliberate human step.
 
-On the dashboard the LPPL card carries a second **SHADOW** tab beside
-the regime chart: six frozen-vs-shadow diagnostics -- each row shows
-the current ("frozen") statistic, an arrow, and a candidate ("shadow")
-revision, and hovers to a plain-language explanation of what it
-measures and which pre-registered decision item (D9-a..g) it feeds. The
-shadow values are additive, report-only fields riding the same
-`lppl:latest` payload; they change no verdict or weight during the
-soak. Owner rulings after the soak decide, per item, whether a shadow
-statistic becomes the headline.
+The Phase-9 shadow soak concluded with the 2026-08-29 owner rulings:
+four shadow statistics ARE now the headlines -- the trend test reads
+the density-invariant per-evaluation MEAN differential (with a
+Newey-West error bar) instead of the cache-density-dependent sum; the
+fit's improvement figure is the fair symmetric-null measurement; the
+oscillation p-value (headline AND score) comes from the realistic
+AR(1)+GARCH bootstrap; and the envelope's bound/floor are FROZEN
+per-trough measurements the daily re-fit can no longer drag around.
+Every demoted number stays as a reference field. The dashboard's
+**SHADOW** tab now reads reference -> operative per row (hover for
+the story); two checks remain deliberately report-only -- the
+1y/2y horizons (await a backtest) and the damping condition (awaits a
+longer soak).
 
 ## BTCo treasury analyser — FROZEN
 
@@ -236,9 +253,9 @@ PUBLISH_DRY_RUN=1 ruby publish/publish.rb   # DEFAULT: artifact set -> data/publ
 PUBLISH_DRY_RUN=0 ruby publish/publish.rb   # KV PUTs; needs CLOUDFLARE_ACCOUNT_ID/CLOUDFLARE_KV_NAMESPACE_ID/CLOUDFLARE_API_TOKEN
 ```
 
-Runs the twelve producers (the four suites, MSTR dealer gamma, the
-five Phase-8A volatility tools, the positioning module, and the
-scorecard), wraps every payload in the frozen envelope
+Runs the fourteen producers (the four suites, MSTR dealer gamma, the
+five Phase-8A volatility tools, the positioning and reserves modules,
+and the scorecard), wraps every payload in the frozen envelope
 (`v/key/generated_at/ttl_hint_s/source/payload`), adds trailing
 history windows (scenario 90d, lppl 365d) and a `v1:index`, and writes
 files (dry) or Cloudflare KV keys (real). A producer that crashes or
@@ -254,10 +271,11 @@ carry the token or payloads.
 
 ## Chart specs + offline preview
 
-The publish run also builds thirteen pre-rendered chart specs under
+The publish run also builds fifteen pre-rendered chart specs under
 `v1:chart:` (`gex_btc / gex_mstr / gex_btc_trend / gex_mstr_trend /
-scenario_strip / lppl_regime / lppl_shadow / btco_table / vol_surface /
-vol_surface_mstr / vol_spread / vol_spread_trend / vol_basis`) --
+scenario_strip / scorecard / positioning / lppl_regime / lppl_shadow /
+btco_table / vol_surface / vol_surface_mstr / vol_spread /
+vol_spread_trend / vol_basis`) --
 each payload is a complete ECharts option the dashboard renders with
 one `setOption` call. Review them offline:
 
@@ -376,12 +394,12 @@ real neutral day.
 - The model has no `cash` / non-BTC-business fields, so mNAV for
   diversified holders (DJT, BLSH, miners) overstates richness by
   construction -- the M7-15b research question.
-- Phase 8 remaining candidates (owner-approved waves,
+- Remaining proposal-pool candidates (owner-approved waves,
   .docs/DEV-PROPOSALS.md; family A -- vol surface, basis, GEX history,
   max-pain cross-check, IV spread -- shipped 2026-07-10/11 as the
-  tools above; the positioning module and the signal scorecard
-  shipped in Phase 10): CFTC COT, exchange reserves, Kalshi implied
-  probabilities, bubble-index cross-ref, ntfy push alerts,
+  tools above; positioning + the signal scorecard shipped in Phase
+  10; exchange reserves shipped in Phase 11): CFTC COT, Kalshi
+  implied probabilities, bubble-index cross-ref, ntfy push alerts,
   deterministic filing-iXBRL parser (M7-13). Scenario history
   seeding/replay.
 - IV rank / percentiles on the vol card: needs weeks of

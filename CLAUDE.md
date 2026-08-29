@@ -196,16 +196,21 @@ same commit (`rake health` fails on registry drift).
 
 ## Current phase
 
-Phase 9 merged 2026-08-11 (LPPL statistics revision; PR #11 -- 27 KV
-keys deployed and live-verified: index + 11 producers + 2 history
-tails + 13 chart specs). Dev is plain phase branches off main;
-worktrees are BANNED (rake health enforces). Next: the SHADOW-tab soak
-and the pre-registered decision items D9-a..g (owner rulings after the
-soak), then phase-10 scoping. SHADOW-FIRST: verdict-affecting changes
-ship as additive report-only fields and flip only on owner rulings
-(Golden Rule 4). BTCo stays FROZEN (2026-08-10 ruling). Production
-agents run the app-managed live clone + data home under ~/Library/
-Application Support/mimir; `rake ops:install` (migration + launchd
-install) is a HUMAN action, pending until the owner runs it. Stage A
-tiering; visual work follows .claude/skills/mimir-design; deploys and
-launchd changes are HUMAN actions. Update this line at each gate.
+Phase 10 (positioning + scorecard) merged and deployed 2026-08-13/18
+(31 keys live-verified; post-gate PRs #16-19: staleness bands,
+scenario self-heal, six-tenor vol grid, vol_basis note). Phase 11 in
+flight on branch phase-11 (Gate 11 pending): the 2026-08-29 owner
+rulings harvested the Phase-9 shadow soak -- per-eval-mean trend
+headline (+NW error bar), symmetric-null improvement + GARCH p
+headlines, FROZEN envelope bound/floor, SHADOW tab reconciled,
+tenor-gradient palette, positioning --history wired, and the
+weight-0 exchange-reserve module (curve on the positioning card;
+31 -> 32 keys). Active owner items live in .docs/DECISION-REGISTER.md
+(ruled items removed; №R-1 Coinglass tier + №R-2 dead-source
+composite remain). SHADOW-FIRST stands: verdict-affecting changes
+ship report-only and flip only on owner rulings (Golden Rule 4).
+BTCo stays FROZEN (2026-08-10 ruling). Production agents run the
+live clone + data home under ~/Library/Application Support/mimir
+(installed and running since Gate 9/10). Stage A tiering; visual work
+follows .claude/skills/mimir-design; deploys and launchd changes are
+HUMAN actions. Update this line at each gate.
