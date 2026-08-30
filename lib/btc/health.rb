@@ -31,7 +31,12 @@ module BTC
       'scripts/scenario/etf_flows.rb' => %w[COINGLASS_API_KEY],
       'lib/btc/coinglass.rb'          => %w[COINGLASS_API_KEY],
       'scripts/scenario/scenario.rb'  => %w[HOME],
-      'publish/publish.rb'            => %w[PUBLISH_DRY_RUN]
+      'publish/publish.rb'            => %w[PUBLISH_DRY_RUN],
+      # M12-2: the staged-backfill window override (a date, not a secret)
+      'scripts/scenario/backfill.rb'  => %w[SCENARIO_BACKFILL_FROM],
+      # M12-5: the alert topic -- treated as a credential (ENV-only, never
+      # logged); the dormant-until-set switch.
+      'lib/btc/ntfy.rb'               => %w[NTFY_TOPIC]
     }.freeze
 
     CM = 'https://community-api.coinmetrics.io/v4/timeseries/asset-metrics'
