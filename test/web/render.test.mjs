@@ -51,7 +51,14 @@ function makeEl(tag) {
     },
     get className() { return [...this._classes].join(' '); },
     set className(v) { this._classes = new Set(String(v).split(/\s+/).filter(Boolean)); },
-    get textContent() { return this._text; },
+    // getter walks appended child text nodes (fillHeadline builds the
+    // headline from text nodes + term spans); the setter still clears
+    get textContent() {
+      if (this.children.length) {
+        return this.children.map((c) => c.textContent ?? '').join('');
+      }
+      return this._text;
+    },
     set textContent(v) { this._text = String(v); this.children = []; },
     get innerHTML() { return this._html; },
     set innerHTML(v) { this._html = String(v); this.children = []; },
@@ -99,7 +106,8 @@ function makeEcharts() {
 // per-load) against fresh stubs, returning { R, echarts }.
 function loadRender() {
   const window = { innerHeight: 1000, innerWidth: 1400 };
-  const document = { createElement: makeEl, createTextNode: makeTextNode };
+  const document = { createElement: makeEl, createTextNode: makeTextNode,
+                     body: makeEl('body') };
   const echarts = makeEcharts();
   const raf = (cb) => { cb(); return 1; }; // synchronous: resize-on-reveal is observable
   const factory = new Function(
@@ -248,6 +256,53 @@ test('clicking MSTR swaps the surface section key/badge and resizes; basis untou
   // the basis section is a separate .stacksec, unaffected by the tab click
   const basisSec = card.querySelectorAll('.stacksec').filter((s) => s !== surfSec)[0];
   assert.equal(basisSec.querySelector('.key').textContent, 'vol_basis');
+});
+
+// ---- headline hoist (owner design ruling 2026-08-30, the mock-up) --------
+// The option's FIRST title entry renders on the head line (.headline) and
+// its canvas copy is hidden; tab switches swap the head text; positional
+// secondary titles are untouched.
+
+test('the headline rides the head line and the canvas copy hides', () => {
+  const { R, echarts } = loadRender();
+  const e = env('chart:solo_hl', '2026-08-30T10:00:00Z',
+    { desc: 'd', axes: { x: 'x', y: 'y' }, help: 'h' }, []);
+  e.payload.title = [{ text: 'GEX $M/1% · spot 78.1k' },
+                     { text: 'a note', top: '70%', right: 24 }];
+  const card = R.buildChartCard(e, 'chart:solo_hl');
+  assert.equal(card.querySelector('.headline').textContent, 'GEX $M/1% · spot 78.1k');
+  const inst = echarts.instances[echarts.instances.length - 1];
+  const titleOpts = inst._opts.map((o) => o.title).filter(Boolean);
+  assert.deepEqual(titleOpts.pop(), [{ show: false }],
+    'only entry 0 hidden -- the positional note stays drawn');
+});
+
+test('a hash (single) title hoists the same way', () => {
+  const { R } = loadRender();
+  const e = env('chart:hash_hl', '2026-08-30T10:00:00Z',
+    { desc: 'd', axes: { x: 'x', y: 'y' }, help: 'h' }, []);
+  e.payload.title = { text: 'BTCo stress 73 STRESSED' };
+  const card = R.buildChartCard(e, 'chart:hash_hl');
+  assert.equal(card.querySelector('.headline').textContent, 'BTCo stress 73 STRESSED');
+});
+
+test('linked stacked tabs swap BOTH section headlines', () => {
+  const { R } = loadRender();
+  const mk = (key, gen, pos, label, title) => {
+    const e = gexEnv(key, gen, pos, label);
+    e.payload.title = { text: title };
+    return e;
+  };
+  const card = R.buildChartCard(mk('chart:gex_btc', '2026-08-30T16:00:00Z', 0, 'BTC', 'GEX btc'), 'chart:gex_btc');
+  R.buildChartCard(mk('chart:gex_mstr', '2026-08-30T15:00:00Z', 0, 'MSTR', 'GEX mstr'), 'chart:gex_mstr');
+  R.buildChartCard(mk('chart:gex_btc_trend', '2026-08-30T14:00:00Z', 1, 'BTC', 'trend btc'), 'chart:gex_btc_trend');
+  R.buildChartCard(mk('chart:gex_mstr_trend', '2026-08-30T13:00:00Z', 1, 'MSTR', 'trend mstr'), 'chart:gex_mstr_trend');
+  const secs = card.querySelectorAll('.stacksec');
+  assert.equal(secs[0].querySelector('.headline').textContent, 'GEX btc');
+  assert.equal(secs[1].querySelector('.headline').textContent, 'trend btc');
+  card.querySelector('.tabbar').children[1].click();
+  assert.equal(secs[0].querySelector('.headline').textContent, 'GEX mstr');
+  assert.equal(secs[1].querySelector('.headline').textContent, 'trend mstr');
 });
 
 // ---- linked stacked tabs (owner ruling 2026-08-29, the GEX card) ---------
