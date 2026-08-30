@@ -25,7 +25,8 @@ NAME = 'cb_premium'
 # the Coinbase price, never from the provider's rate field.
 if Scenario.replay?
   begin
-    rows = BTC::Coinglass.get('coinbase-premium-index', { interval: '1d' })
+    rows = BTC::Coinglass.get('coinbase-premium-index', { interval: '1d' },
+                              cache: 'cg_premium_index', ttl: 86_400)
     rows = Scenario.truncate_ms(rows)
     raise 'no premium history before the replay date' if rows.empty?
 

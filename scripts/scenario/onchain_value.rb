@@ -31,7 +31,17 @@ URL   = 'https://community-api.coinmetrics.io/v4/timeseries/asset-metrics' \
         "#{END_T ? "&end_time=#{END_T}" : ''}"
 
 begin
-  rows = Scenario.get_json(URL)['data']
+  rows = if Scenario.replay?
+           # one cached full-history fetch (5.9k rows in a single page,
+           # probed 2026-08-30) instead of a per-day windowed call
+           require_relative '../../lib/btc/source_cache'
+           full = 'https://community-api.coinmetrics.io/v4/timeseries/asset-metrics' \
+                  '?assets=btc&metrics=CapMVRVCur,PriceUSD' \
+                  '&frequency=1d&page_size=10000&paging_from=start'
+           BTC::SourceCache.fetch_json('cm_mvrv_hist', full, ttl: 86_400)['data']['data']
+         else
+           Scenario.get_json(URL)['data']
+         end
 rescue StandardError => e
   Scenario.fail_soft(NAME, e.message)
 end

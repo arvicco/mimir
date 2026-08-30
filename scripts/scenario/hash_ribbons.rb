@@ -23,7 +23,12 @@ NAME = 'hash_ribbons'
 # replay (context only, never scored).
 URL = Scenario.replay? ? 'https://mempool.space/api/v1/mining/hashrate/all'                        : 'https://mempool.space/api/v1/mining/hashrate/6m'
 begin
-  data = Scenario.get_json(URL)
+  data = if Scenario.replay?
+           require_relative '../../lib/btc/source_cache'
+           BTC::SourceCache.fetch_json('mempool_hashrate_all', URL, ttl: 86_400)['data']
+         else
+           Scenario.get_json(URL)
+         end
 rescue StandardError => e
   Scenario.fail_soft(NAME, e.message)
 end

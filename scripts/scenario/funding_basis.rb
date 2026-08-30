@@ -28,7 +28,13 @@ NAME = 'funding'
 # no dated past) are honestly skipped.
 begin
   limit = Scenario.replay? ? 1000 : 21
-  hist  = Scenario.get_json("https://fapi.binance.com/fapi/v1/fundingRate?symbol=BTCUSDT&limit=#{limit}")
+  url   = "https://fapi.binance.com/fapi/v1/fundingRate?symbol=BTCUSDT&limit=#{limit}"
+  hist  = if Scenario.replay?
+            require_relative '../../lib/btc/source_cache'
+            BTC::SourceCache.fetch_json('binance_funding_hist', url, ttl: 86_400)['data']
+          else
+            Scenario.get_json(url)
+          end
   hist  = Scenario.truncate_ms(hist, 'fundingTime').last(21)
   cur   = Scenario.replay? ? nil : Scenario.get_json('https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT')
 rescue StandardError => e
