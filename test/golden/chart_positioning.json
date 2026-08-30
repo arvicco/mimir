@@ -1,7 +1,7 @@
 {
   "backgroundColor": "transparent",
   "title": {
-    "text": "Positioning · 0 · crowd SHORT",
+    "text": "0 · crowd SHORT",
     "textStyle": {
       "fontSize": 13
     }
@@ -44,20 +44,20 @@
   },
   "grid": [
     {
-      "left": 46,
-      "right": 38,
+      "left": 36,
+      "right": 30,
       "top": 22,
       "height": "27%"
     },
     {
-      "left": 46,
-      "right": 38,
+      "left": 36,
+      "right": 30,
       "top": "37%",
       "height": "27%"
     },
     {
-      "left": 46,
-      "right": 38,
+      "left": 36,
+      "right": 30,
       "top": "68%",
       "height": "27%"
     }
@@ -130,6 +130,7 @@
     {
       "type": "value",
       "gridIndex": 0,
+      "name": "resv M BTC",
       "scale": true,
       "position": "right"
     }

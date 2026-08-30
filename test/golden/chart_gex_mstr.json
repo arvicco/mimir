@@ -1,7 +1,7 @@
 {
   "backgroundColor": "transparent",
   "title": {
-    "text": "MSTR GEX $M/1% · spot 102.22",
+    "text": "GEX $M/1% · spot 102.22",
     "textStyle": {
       "fontSize": 13
     }
@@ -17,9 +17,9 @@
     }
   },
   "grid": {
-    "left": 42,
+    "left": 34,
     "right": 12,
-    "top": 30,
+    "top": 14,
     "bottom": 26
   },
   "xAxis": {
@@ -1796,7 +1796,8 @@
           {
             "xAxis": "91.5",
             "label": {
-              "formatter": "flip"
+              "formatter": "flip",
+              "position": "insideEndTop"
             },
             "lineStyle": {
               "color": "#e6a23c",
@@ -1808,10 +1809,7 @@
             "xAxis": "107",
             "label": {
               "formatter": "CW",
-              "offset": [
-                0,
-                -14
-              ]
+              "position": "insideEndTop"
             },
             "lineStyle": {
               "color": "#0f7a5c",
@@ -1822,10 +1820,7 @@
             "xAxis": "80",
             "label": {
               "formatter": "PW",
-              "offset": [
-                0,
-                -14
-              ]
+              "position": "insideEndTop"
             },
             "lineStyle": {
               "color": "#c63939",

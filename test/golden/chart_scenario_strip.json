@@ -1,7 +1,7 @@
 {
   "backgroundColor": "transparent",
   "title": {
-    "text": "Scenario NEUTRAL +0.08 ↗",
+    "text": "NEUTRAL +0.08 ↗",
     "textStyle": {
       "fontSize": 13
     }
@@ -15,7 +15,7 @@
   },
   "grid": [
     {
-      "left": 60,
+      "left": 40,
       "right": 122,
       "top": 8,
       "bottom": 26

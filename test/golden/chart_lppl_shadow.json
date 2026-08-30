@@ -2,7 +2,7 @@
   "backgroundColor": "transparent",
   "title": [
     {
-      "text": "Shadow checks · 7 rows",
+      "text": "7 checks · ref → op",
       "textStyle": {
         "fontSize": 13
       }

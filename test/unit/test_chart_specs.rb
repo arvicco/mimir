@@ -170,8 +170,9 @@ class TestChartSpecs < Minitest::Test
     mstr = JSON.parse(File.read(File.join(PAYLOADS, 'payload_vol_mstr.json')))
     as_btc  = Publish::Charts.vol_surface(mstr)      # same payload, BTC title
     as_mstr = Publish::Charts.vol_surface_mstr(mstr) # same payload, MSTR title
-    assert_match(/\AMSTR vol surface · ATM /, as_mstr['title']['text'])
-    assert_match(/\AVol surface · ATM /, as_btc['title']['text'])
+    # 2026-08-30: prefixes retired -- both siblings emit the bare headline
+    assert_match(/\AATM /, as_mstr['title']['text'])
+    assert_match(/\AATM /, as_btc['title']['text'])
     # everything but the title text is identical -> one set-up, two labels
     assert_equal as_btc.reject { |k, _| k == 'title' },
                  as_mstr.reject { |k, _| k == 'title' }
@@ -241,7 +242,7 @@ class TestChartSpecs < Minitest::Test
     assert_equal [], empty['xAxis']['data']
     assert_equal 7, empty['series'].size
     assert(empty['series'].all? { |s| s['data'].empty? })
-    assert_match(/Spread trend · 0d history/, empty['title']['text'])
+    assert_match(/\A0d history/, empty['title']['text'])
   end
 
   def test_vol_basis_omits_sub_day_tenors_and_marks_zero
@@ -261,10 +262,10 @@ class TestChartSpecs < Minitest::Test
     trend = JSON.parse(File.read(File.join(PAYLOADS, 'payload_gex_trend.json')))
     check = JSON.parse(File.read(File.join(PAYLOADS, 'payload_gex_check.json')))
     withc = Publish::Charts.gex_trend(trend, check)['title']['text']
-    assert_match(/GEX trend · flip dist \+3\.67% · 5d long_gamma · MP Δ/, withc)
+    assert_match(/\Aflip \+3\.7% · Γ\+ 5d · MPΔ /, withc)
     # gex_check absent => suffix gracefully omitted, chart still renders
     without = Publish::Charts.gex_trend(trend)['title']['text']
-    assert_equal 'GEX trend · flip dist +3.67% · 5d long_gamma', without
+    assert_equal 'flip +3.7% · Γ+ 5d', without
     # price levels scaled to $k with filled dots (sparse-data rule)
     spot = Publish::Charts.gex_trend(trend)['series'].find { |s| s['name'] == 'spot' }
     assert_equal 62.0, spot['data'].first
@@ -276,8 +277,7 @@ class TestChartSpecs < Minitest::Test
   def test_gex_mstr_trend_reads_the_mstr_block_in_raw_dollars
     opt = build('gex_mstr_trend')
     # title from the mstr stats block (no MP cross-check tail -- BTC-only)
-    assert_equal 'MSTR GEX trend · flip dist +8.91% · 5d long_gamma',
-                 opt['title']['text']
+    assert_equal 'flip +8.9% · Γ+ 5d', opt['title']['text']
     refute_includes opt['title']['text'], 'MP'
     # four price lines, filled dots, MSTR's own axis in raw dollars ($)
     assert_equal %w[spot flip CW PW], opt['series'].map { |s| s['name'] }
@@ -295,7 +295,7 @@ class TestChartSpecs < Minitest::Test
     opt = Publish::Charts.gex_mstr_trend({})
     assert_equal [], opt['xAxis']['data']
     assert(opt['series'].all? { |s| s['data'].empty? })
-    assert_equal 'MSTR GEX trend · flip dist n/a · 0d ', opt['title']['text']
+    assert_equal 'flip n/a ·  0d', opt['title']['text']
   end
 
   # ---- gex_profile structure -------------------------------------------
@@ -453,7 +453,7 @@ class TestChartSpecs < Minitest::Test
   def test_gex_mstr_title_carries_spot_from_fixture
     # spot 102.22 rendered raw-dollar (below 1k), one-line 13px title
     opt = build('gex_mstr')
-    assert_equal 'MSTR GEX $M/1% · spot 102.22', opt['title']['text']
+    assert_equal 'GEX $M/1% · spot 102.22', opt['title']['text']
     assert_equal 13, opt['title']['textStyle']['fontSize']
   end
 
@@ -482,11 +482,11 @@ class TestChartSpecs < Minitest::Test
     assert_equal '80', pw['xAxis']
     # spot snaps to the nearest strike (102 for spot 102.22)
     assert_equal '102', marks.first['xAxis']
-    # label banding (Gate 6 owner report): walls raised into the upper
-    # band, spot/flip in the lower (no offset); grid top makes the zone
-    [cw, pw].each { |m| assert_equal [0, -14], m['label']['offset'] }
+    # 2026-08-30 owner round: marks live INSIDE the plot (insideEndTop),
+    # the reserved band above is gone
+    [cw, pw].each { |m| assert_equal 'insideEndTop', m['label']['position'] }
     marks.first(2).each { |m| refute m['label'].key?('offset') }
-    assert_equal 30, build('gex_mstr')['grid']['top'] # headline hoisted (2026-08-30)
+    assert_equal 14, build('gex_mstr')['grid']['top']
   end
 
   def test_gex_profile_wall_labels_raised_and_label_zone
@@ -494,16 +494,16 @@ class TestChartSpecs < Minitest::Test
     marks = opt['series'].map { |s| s['markLine'] }.compact.first['data']
     %w[CW PW].each do |w|
       m = marks.find { |x| x['label']['formatter'] == w }
-      assert_equal [0, -14], m['label']['offset'], "#{w} not raised"
+      assert_equal 'insideEndTop', m['label']['position'], "#{w} not inside"
     end
     flip = marks.find { |x| x['label']['formatter'] == 'flip' }
-    refute flip['label'].key?('offset')
-    # 2026-08-30 (headline hoist): top 44 = the full-width venue toggle
-    # row (~18px) + the raised wall-label band; the title row is gone.
-    assert_equal 44, opt['grid']['top']
+    assert_equal 'insideEndTop', flip['label']['position']
+    # 2026-08-30 round 2: top 26 = the one-row venue toggles only; the
+    # marks live inside the plot now.
+    assert_equal 26, opt['grid']['top']
     # the widened plot: right margin freed for the plot (widget is top now)
     assert_equal 12, opt['grid']['right']
-    assert_equal 42, opt['grid']['left']
+    assert_equal 34, opt['grid']['left'] # 2026-08-30 round 2: name gutter freed
   end
 
   def test_gex_mstr_default_zoom_is_spot_plus_minus_30pct
@@ -556,7 +556,7 @@ class TestChartSpecs < Minitest::Test
     assert_equal 13, opt['title']['textStyle']['fontSize']
     # M8-18 R5: the drift arrow rides the title. The fixture rises
     # (latest +0.083 vs -0.333 four readings back) -> ↗.
-    assert_equal 'Scenario NEUTRAL +0.08 ↗', opt['title']['text']
+    assert_equal 'NEUTRAL +0.08 ↗', opt['title']['text']
   end
 
   # M8-18 R5 (owner ruling 2026-08-10): the composite-drift arrow. drift =
@@ -569,18 +569,18 @@ class TestChartSpecs < Minitest::Test
   end
 
   def test_scenario_title_drift_arrow_rising_falling_flat_and_short_history
-    assert_equal 'Scenario NEUTRAL +0.30 ↗', scn_title(0.30, [0.0, 0.1, 0.30])
-    assert_equal 'Scenario NEUTRAL -0.30 ↘', scn_title(-0.30, [0.2, 0.0, -0.30])
+    assert_equal 'NEUTRAL +0.30 ↗', scn_title(0.30, [0.0, 0.1, 0.30])
+    assert_equal 'NEUTRAL -0.30 ↘', scn_title(-0.30, [0.2, 0.0, -0.30])
     # |drift| within the 0.02 dead-band reads flat (→); +0.02 exactly is flat
-    assert_equal 'Scenario NEUTRAL +0.10 →', scn_title(0.10, [0.09, 0.10])
-    assert_equal 'Scenario NEUTRAL +0.30 →', scn_title(0.30, [0.28, 0.30])
+    assert_equal 'NEUTRAL +0.10 →', scn_title(0.10, [0.09, 0.10])
+    assert_equal 'NEUTRAL +0.30 →', scn_title(0.30, [0.28, 0.30])
     # fewer than 2 readings -> NO arrow at all
-    assert_equal 'Scenario NEUTRAL +0.10', scn_title(0.10, [0.10])
-    assert_equal 'Scenario NEUTRAL +0.10', scn_title(0.10, [])
+    assert_equal 'NEUTRAL +0.10', scn_title(0.10, [0.10])
+    assert_equal 'NEUTRAL +0.10', scn_title(0.10, [])
     # exactly "7 readings earlier": with 9 entries the reference is the
     # 8th-from-last (index 1), so a spike 8 readings back (index 0) is ignored
     comps = [0.9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.05]
-    assert_equal 'Scenario NEUTRAL +0.05 ↗', scn_title(0.05, comps)
+    assert_equal 'NEUTRAL +0.05 ↗', scn_title(0.05, comps)
   end
 
   def test_scenario_visual_map_hidden_and_scoped_to_heatmap
@@ -704,7 +704,7 @@ class TestChartSpecs < Minitest::Test
     title = build('lppl_regime')['title']
     refute title.key?('subtext')
     assert_equal 13, title['textStyle']['fontSize']
-    assert_equal 'LPPL STRESSED +0.00', title['text']
+    assert_equal 'STRESSED +0.00', title['text']
   end
 
   # ---- M9-13 shadow diagnostics (the SHADOW tab) -----------------------
@@ -722,7 +722,7 @@ class TestChartSpecs < Minitest::Test
     assert_equal (0..6).to_a, yax['data'] # 7 slots (M12-4: + bubble x-ref)
     assert_equal false, yax['axisLabel']['show']
     # title carries the honest row count (fontSize 13)
-    assert_equal 'Shadow checks · 7 rows', opt['title'].first['text']
+    assert_equal '7 checks · ref → op', opt['title'].first['text']
     assert_equal 13, opt['title'].first['textStyle']['fontSize']
     # the visible columns and their build-time-scaled values, in order
     stat = shadow_stat_series(opt)
@@ -762,7 +762,7 @@ class TestChartSpecs < Minitest::Test
     lat = JSON.parse(JSON.generate(lppl_latest))
     no_bubble = Publish::Charts.lppl_shadow(lat, nil)
     refute_includes shadow_stat_series(no_bubble)['data'].map { |d| d['title'] }, 'bubble'
-    assert_equal 'Shadow checks · 6 rows', no_bubble['title'].first['text']
+    assert_equal '6 checks · ref → op', no_bubble['title'].first['text']
     failsoft = Publish::Charts.lppl_shadow(lat, { 'unavailable' => true })
     refute_includes shadow_stat_series(failsoft)['data'].map { |d| d['title'] }, 'bubble'
   end
@@ -791,7 +791,7 @@ class TestChartSpecs < Minitest::Test
     refute_includes titles, 'freeze'
     refute_includes titles, 'p(osc)'
     # the title's row count follows the surviving rows
-    assert_equal 'Shadow checks · 4 rows',
+    assert_equal '4 checks · ref → op',
                  Publish::Charts.lppl_shadow(lat)['title'].first['text']
   end
 
@@ -805,7 +805,7 @@ class TestChartSpecs < Minitest::Test
     td.call('logperiodic').delete('p_value_v2')
     opt = Publish::Charts.lppl_shadow(lat)
     assert_empty opt['series'] # no rows -> nothing drawn (fail-soft)
-    assert_equal 'Shadow checks · 0 rows', opt['title'].first['text']
+    assert_equal '0 checks · ref → op', opt['title'].first['text']
     assert_equal 'awaiting shadow fields', opt['title'].last['text']
     assert_equal opt, JSON.parse(JSON.generate(opt)) # still JSON-safe
   end
@@ -921,7 +921,9 @@ class TestChartSpecs < Minitest::Test
     assert_equal Publish::Charts::POS_RESV, resv['itemStyle']['color']
     ax = opt['yAxis'][4]
     assert_equal [0, 'right'], ax.values_at('gridIndex', 'position')
-    refute ax.key?('name'), 'unnamed axis: wide M-BTC ticks + a rotated name collide'
+    # 2026-08-30 round 2: named again -- axis names render as hover
+    # bubbles only, so the old tick/name collision cannot recur
+    assert_equal 'resv M BTC', ax['name']
     # data = the reserves payload's card series CLIPPED (both ends) to the
     # positioning window (each grid owns its time axis; a longer tail on
     # either side would stretch panel 0 and break vertical-slice alignment)
@@ -949,18 +951,18 @@ class TestChartSpecs < Minitest::Test
 
   def test_positioning_title_warmup_and_scored
     # the fixture is a REAL 365d capture (2026-08-29) -> scored title
-    assert_equal 'Positioning · 0 · crowd SHORT', build('positioning')['title']['text']
+    assert_equal '0 · crowd SHORT', build('positioning')['title']['text']
     # scored variants (0 shown bare, not +0)
     scored = JSON.parse(JSON.generate(positioning_doc))
     scored['crowding'] = 'LONG'
     scored['score'] = -1
-    assert_equal 'Positioning · -1 · crowd LONG', Publish::Charts.positioning(scored)['title']['text']
+    assert_equal '-1 · crowd LONG', Publish::Charts.positioning(scored)['title']['text']
     # the designed WARMUP state stays honest (never blank): n/91d from the
     # crowd series length
     warm = JSON.parse(JSON.generate(positioning_doc))
     warm['crowding'] = 'WARMUP'
     warm['series']['global_ls'] = warm['series']['global_ls'].first(30)
-    assert_equal 'Positioning · WARMUP 30/91d', Publish::Charts.positioning(warm)['title']['text']
+    assert_equal 'WARMUP 30/91d', Publish::Charts.positioning(warm)['title']['text']
   end
 
   # ---- btco_table structure --------------------------------------------
@@ -1007,7 +1009,7 @@ class TestChartSpecs < Minitest::Test
     title = build('btco_table')['title']
     refute title.key?('subtext')
     assert_equal 13, title['textStyle']['fontSize']
-    assert_equal 'BTCo stress 69 STRESSED', title['text']
+    assert_equal 'stress 69 STRESSED', title['text']
   end
 
   # ---- meta registry (hover help) --------------------------------------
