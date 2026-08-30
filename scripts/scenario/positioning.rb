@@ -232,11 +232,13 @@ module Positioning
   # caller to fail soft. Rows are fetched ONCE and shared by the band and
   # series computations (no double hit).
   def compute
-    global = BTC::Coinglass.global_long_short_ratio(cache: 'cg_global_ls', ttl: TTL)
-    top    = BTC::Coinglass.top_position_ratio(cache: 'cg_top_position', ttl: TTL)
-    oi     = BTC::Coinglass.oi_aggregated_history(cache: 'cg_oi_aggregated', ttl: TTL)
-    taker  = BTC::Coinglass.taker_buy_sell_history(cache: 'cg_taker_volume', ttl: TTL)
-    liq    = BTC::Coinglass.liquidation_history(cache: 'cg_liquidation', ttl: TTL)
+    # Replay (M12-1): every endpoint already serves dated daily history,
+    # so a replay is a straight complete-days truncation (common.rb).
+    global = Scenario.truncate_ms(BTC::Coinglass.global_long_short_ratio(cache: 'cg_global_ls', ttl: TTL))
+    top    = Scenario.truncate_ms(BTC::Coinglass.top_position_ratio(cache: 'cg_top_position', ttl: TTL))
+    oi     = Scenario.truncate_ms(BTC::Coinglass.oi_aggregated_history(cache: 'cg_oi_aggregated', ttl: TTL))
+    taker  = Scenario.truncate_ms(BTC::Coinglass.taker_buy_sell_history(cache: 'cg_taker_volume', ttl: TTL))
+    liq    = Scenario.truncate_ms(BTC::Coinglass.liquidation_history(cache: 'cg_liquidation', ttl: TTL))
 
     crowding    = crowding_band(global)
     top_traders = top_traders_band(top)
@@ -282,7 +284,7 @@ module Positioning
   # ---- runnable surface -----------------------------------------------
 
   def run
-    ts = Time.now.utc
+    ts = Scenario.now_utc
 
     result = begin
       compute
@@ -290,7 +292,8 @@ module Positioning
       Scenario.fail_soft(NAME, failsoft_reason(e)) # reports score 0, exits 0
     end
 
-    append_history(history_file, history_row(result, ts)) if ARGV.include?('--history')
+    # replay never writes the live history (staging is the backfill's job)
+    append_history(history_file, history_row(result, ts)) if ARGV.include?('--history') && !Scenario.replay?
 
     subs  = result[:subs]
     bands = Hash[subs.map { |name, (band, _pct, _v)| [name, band] }]
