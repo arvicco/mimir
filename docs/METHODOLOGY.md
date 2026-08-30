@@ -114,6 +114,38 @@ Extras shown but not scored: annualized basis of the nearest Deribit
 future (negative basis has historically marked terminal capitulation);
 recent difficulty adjustments; realized price vs spot.
 
+### Replay fidelity (D12-b, M12-1 -- the `--as-of` mode)
+
+Every module supports `--as-of YYYY-MM-DD`: the score computed as a
+live run on DATE would have, from dated-history sources truncated to
+COMPLETE DAYS strictly before DATE (a live morning run reliably had
+data through DATE-1; same-day partial rows are not reconstructible and
+replays never pretend otherwise). The aggregator passes the flag
+through; `rake scenario:backfill` chains replays into a STAGED history
+that is research input for `scripts/backtest.rb` -- never merged into
+the live evidence trail. Per-module honesty:
+
+| module | replay source | depth | fidelity |
+|---|---|---|---|
+| `etf_flows` | Coinglass flow-history | ~677d (to 2024-01) | honest; always the Coinglass leg (HTML has no dated past), `source` says so |
+| `funding_basis` | Binance funding history | ~500 8h rows (~5.5mo) -- the family's floor, and the default backfill start | honest for the scored 7d avg; the unscored now-rate + Deribit basis context are skipped |
+| `cb_premium` | Coinglass premium index | ~1000d | PROXY: their composite leg, not our Binance one -- direction-consistent, not identical; headline says `replay-proxy` |
+| `macro` | FRED (revised) | full | REVISED series as published today, not the vintage a live run saw; direction usually survives revision, levels can move (ALFRED vintages would be fully honest at ~4 queries per replayed day -- documented, not default) |
+| `hash_ribbons` | mempool hashrate/all | to 2009 | honest; difficulty-adjustment context skipped (unscored) |
+| `onchain_value` | Coin Metrics | to 2010 | honest; minor upstream revisions possible |
+| `stables` | DefiLlama charts | ~3200d | honest; DefiLlama occasionally restates supply |
+| `positioning` | its five Coinglass series | ~1000d (bands need +90d warmup) | honest |
+| `reserves` | Coinglass balance chart | ~676d | honest, window-consistent across delistings |
+
+`rake scenario:backfill_diff` prints staged-vs-organic divergences on
+shared dates; expected classes: the complete-days window vs a partial
+same-day point, the cb_premium proxy, revised FRED, weight-0 modules
+absent from older organic rows, and organic DEGRADED days (an outage
+zeroed the organic row; the replay shows what the data actually said
+-- observed live on 2026-08-02/03, organic 0.000 vs replayed -0.583).
+Staged rows carry `"replayed": true`; the backtester prefers organic
+rows on shared dates and prints the provenance mix.
+
 ### Composite and bands
 
 `composite = sum(weight * score) / 12`, mapped to:
