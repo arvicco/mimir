@@ -34,9 +34,13 @@ if Scenario.replay?
     raise 'stablecoin ids not found' if ids.size < 2
 
     cut = Scenario.as_of.to_i
+    require_relative '../../lib/btc/source_cache'
     ids.each do |id|
-      rows = Scenario.get_json("https://stablecoins.llama.fi/stablecoincharts/all?stablecoin=#{id}")
-                     .select { |r| r['date'].to_i < cut }
+      rows = BTC::SourceCache
+             .fetch_json("llama_charts_#{id}",
+                         "https://stablecoins.llama.fi/stablecoincharts/all?stablecoin=#{id}",
+                         ttl: 86_400)['data']
+             .select { |r| r['date'].to_i < cut }
       raise 'not enough supply history' if rows.size < 31
 
       # charts rows may carry the total as a hash or a bare number
