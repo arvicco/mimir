@@ -1,7 +1,7 @@
 {
   "backgroundColor": "transparent",
   "title": {
-    "text": "LPPL STRESSED +0.00",
+    "text": "STRESSED +0.00",
     "textStyle": {
       "fontSize": 13
     }
@@ -35,22 +35,22 @@
   ],
   "grid": [
     {
-      "left": 60,
+      "left": 34,
       "right": 24,
-      "top": 40,
-      "height": "26%"
+      "top": 16,
+      "height": "28%"
     },
     {
-      "left": 60,
+      "left": 34,
       "right": 24,
-      "top": "36%",
-      "height": "26%"
+      "top": "34%",
+      "height": "27%"
     },
     {
-      "left": 60,
+      "left": 34,
       "right": 24,
-      "top": "64%",
-      "height": "29%"
+      "top": "63%",
+      "height": "30%"
     }
   ],
   "xAxis": [
@@ -91,6 +91,9 @@
       "gridIndex": 0,
       "name": "ratio",
       "scale": true,
+      "axisLabel": {
+        "margin": 3
+      },
       "nameLocation": "middle",
       "nameGap": 44,
       "min": 0.34
@@ -100,6 +103,9 @@
       "gridIndex": 1,
       "name": "log10 BF",
       "scale": true,
+      "axisLabel": {
+        "margin": 3
+      },
       "nameLocation": "middle",
       "nameGap": 44
     },
@@ -108,6 +114,9 @@
       "gridIndex": 2,
       "name": "Z",
       "scale": true,
+      "axisLabel": {
+        "margin": 3
+      },
       "nameLocation": "middle",
       "nameGap": 44
     }

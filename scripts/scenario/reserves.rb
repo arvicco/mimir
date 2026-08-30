@@ -148,9 +148,23 @@ module Reserves
     err.is_a?(BTC::Coinglass::TierGated) ? 'tier-gated' : err.message
   end
 
+  # Replay (M12-1): drop every column dated on/after the replay day --
+  # complete days only, the common.rb truncation contract applied to the
+  # {time_list, price_list, data_map} shape.
+  def truncate_chart(chart)
+    return chart unless Scenario.replay?
+
+    cut  = Scenario.as_of.to_i * 1000
+    keep = (chart['time_list'] || []).each_index.select { |i| chart['time_list'][i].to_i < cut }
+    { 'time_list'  => keep.map { |i| chart['time_list'][i] },
+      'price_list' => keep.map { |i| (chart['price_list'] || [])[i] },
+      'data_map'   => (chart['data_map'] || {}).transform_values { |s| keep.map { |i| s[i] } } }
+  end
+
   def compute
-    chart = BTC::Coinglass.exchange_balance_chart(cache: 'cg_exchange_balance_chart',
-                                                  ttl: TTL)
+    chart = truncate_chart(
+      BTC::Coinglass.exchange_balance_chart(cache: 'cg_exchange_balance_chart',
+                                            ttl: TTL))
     deltas = delta_pct_series(chart)
     raise 'no reserve data in the chart response' if deltas.empty?
 
@@ -186,7 +200,7 @@ module Reserves
   # ---- runnable surface -----------------------------------------------
 
   def run
-    ts = Time.now.utc
+    ts = Scenario.now_utc
 
     result = begin
       compute
@@ -194,7 +208,8 @@ module Reserves
       Scenario.fail_soft(NAME, failsoft_reason(e)) # reports score 0, exits 0
     end
 
-    append_history(history_file, history_row(result, ts)) if ARGV.include?('--history')
+    # replay never writes the live history (staging is the backfill's job)
+    append_history(history_file, history_row(result, ts)) if ARGV.include?('--history') && !Scenario.replay?
 
     s = score(result[:band])
     headline = format('score %+d | 30d %+.2f%% | band %s%s | total %.3fM BTC',

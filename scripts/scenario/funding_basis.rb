@@ -21,9 +21,22 @@ require_relative '../../lib/btc/deribit'
 
 NAME = 'funding'
 
+# Replay (M12-1): Binance serves ~500 dated 8h funding rows (~5.5 months
+# -- the SHALLOWEST replay depth in the family, D12-b caveat). Under
+# --as-of the 21-row window is the last 21 complete-day rows before the
+# replay date; the live now-rate and the Deribit basis context (now-data,
+# no dated past) are honestly skipped.
 begin
-  hist = Scenario.get_json('https://fapi.binance.com/fapi/v1/fundingRate?symbol=BTCUSDT&limit=21')
-  cur  = Scenario.get_json('https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT')
+  limit = Scenario.replay? ? 1000 : 21
+  url   = "https://fapi.binance.com/fapi/v1/fundingRate?symbol=BTCUSDT&limit=#{limit}"
+  hist  = if Scenario.replay?
+            require_relative '../../lib/btc/source_cache'
+            BTC::SourceCache.fetch_json('binance_funding_hist', url, ttl: 86_400)['data']
+          else
+            Scenario.get_json(url)
+          end
+  hist  = Scenario.truncate_ms(hist, 'fundingTime').last(21)
+  cur   = Scenario.replay? ? nil : Scenario.get_json('https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT')
 rescue StandardError => e
   Scenario.fail_soft(NAME, e.message)
 end
@@ -31,10 +44,12 @@ end
 rates = hist.map { |h| h['fundingRate'].to_f }
 Scenario.fail_soft(NAME, 'no funding history') if rates.empty?
 avg7  = rates.inject(:+) / rates.size
-now_r = cur['lastFundingRate'].to_f
+now_r = cur ? cur['lastFundingRate'].to_f : rates.last
 
 basis = nil
 begin
+  raise 'no basis under replay' if Scenario.replay?
+
   spot = BTC::Deribit.index_price('btc_usd')
   futs = BTC::Deribit.book_summary('BTC', 'future')
   nearest = futs.map do |f|

@@ -182,6 +182,14 @@ module BTC
           cache: cache, ttl: ttl)
     end
 
+    # Bitcoin bubble-index daily history (Q-12/M12-4): ~5.9k rows back to
+    # 2010-07; each row {price, bubble_index, mining_difficulty,
+    # transaction_count, address_send_count, date_string}. An independent
+    # composite bubble gauge -- advisory cross-reference only.
+    def bubble_index(cache: nil, ttl: nil)
+      get('index/bitcoin/bubble-index', {}, cache: cache, ttl: ttl)
+    end
+
     # Exchange BTC balance snapshot (P-8/M11-7): one row per exchange with
     # total_balance plus 1d/7d/30d absolute and percent changes (21 venues
     # at probe time 2026-08-29).

@@ -30,9 +30,9 @@
     ]
   },
   "grid": {
-    "left": 42,
+    "left": 28,
     "right": 12,
-    "top": 66,
+    "top": 26,
     "bottom": 26
   },
   "xAxis": {
@@ -207,7 +207,11 @@
     ]
   },
   "yAxis": {
-    "type": "value"
+    "type": "value",
+    "name": "$M / 1%",
+    "axisLabel": {
+      "margin": 3
+    }
   },
   "dataZoom": [
     {
@@ -775,7 +779,8 @@
           {
             "xAxis": "61k",
             "label": {
-              "formatter": "flip"
+              "formatter": "flip",
+              "position": "insideEndTop"
             },
             "lineStyle": {
               "color": "#e6a23c",
@@ -787,10 +792,7 @@
             "xAxis": "63k",
             "label": {
               "formatter": "CW",
-              "offset": [
-                0,
-                -14
-              ]
+              "position": "insideEndTop"
             },
             "lineStyle": {
               "color": "#0f7a5c",
@@ -801,10 +803,7 @@
             "xAxis": "60k",
             "label": {
               "formatter": "PW",
-              "offset": [
-                0,
-                -14
-              ]
+              "position": "insideEndTop"
             },
             "lineStyle": {
               "color": "#c63939",

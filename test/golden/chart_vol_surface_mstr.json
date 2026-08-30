@@ -1,7 +1,7 @@
 {
   "backgroundColor": "transparent",
   "title": {
-    "text": "MSTR vol surface · ATM 30d 86.2%",
+    "text": "ATM 30d 86.2%",
     "textStyle": {
       "fontSize": 13
     }
@@ -14,7 +14,7 @@
     }
   },
   "legend": {
-    "top": 24,
+    "top": 2,
     "data": [
       "ATM IV",
       "RR25",
@@ -22,9 +22,9 @@
     ]
   },
   "grid": {
-    "left": 56,
-    "right": 56,
-    "top": 52,
+    "left": 28,
+    "right": 28,
+    "top": 28,
     "bottom": 28
   },
   "xAxis": {
@@ -44,6 +44,9 @@
       "type": "value",
       "name": "ATM IV %",
       "position": "left",
+      "axisLabel": {
+        "margin": 3
+      },
       "scale": true,
       "nameLocation": "middle",
       "nameGap": 44
@@ -52,6 +55,9 @@
       "type": "value",
       "name": "vol pts",
       "position": "right",
+      "axisLabel": {
+        "margin": 3
+      },
       "scale": true,
       "nameLocation": "middle",
       "nameGap": 40

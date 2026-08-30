@@ -31,7 +31,12 @@ module BTC
       'scripts/scenario/etf_flows.rb' => %w[COINGLASS_API_KEY],
       'lib/btc/coinglass.rb'          => %w[COINGLASS_API_KEY],
       'scripts/scenario/scenario.rb'  => %w[HOME],
-      'publish/publish.rb'            => %w[PUBLISH_DRY_RUN]
+      'publish/publish.rb'            => %w[PUBLISH_DRY_RUN],
+      # M12-2: the staged-backfill window override (a date, not a secret)
+      'scripts/scenario/backfill.rb'  => %w[SCENARIO_BACKFILL_FROM],
+      # M12-5: the alert topic -- treated as a credential (ENV-only, never
+      # logged); the dormant-until-set switch.
+      'lib/btc/ntfy.rb'               => %w[NTFY_TOPIC]
     }.freeze
 
     CM = 'https://community-api.coinmetrics.io/v4/timeseries/asset-metrics'
@@ -138,6 +143,12 @@ module BTC
       { name: 'coinglass liquidations', src: 'lib/btc/coinglass.rb',
         marker: 'liquidation/aggregated-history', env: 'COINGLASS_API_KEY', soft: true,
         url: 'https://open-api-v4.coinglass.com/api/futures/liquidation/aggregated-history?symbol=BTC&interval=1d&exchange_list=Binance,OKX,Bybit',
+        headers: -> { { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] } },
+        check: ->(b) { j = JSON.parse(b); j['code'].to_s == '0' && !j['data'].to_a.empty? } },
+      # M12-4 (Q-12): the independent bubble-index cross-reference.
+      { name: 'coinglass bubble index', src: 'lib/btc/coinglass.rb',
+        marker: 'index/bitcoin/bubble-index', env: 'COINGLASS_API_KEY', soft: true,
+        url: 'https://open-api-v4.coinglass.com/api/index/bitcoin/bubble-index',
         headers: -> { { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] } },
         check: ->(b) { j = JSON.parse(b); j['code'].to_s == '0' && !j['data'].to_a.empty? } },
       # M11-7 (P-8): exchange BTC reserves -- snapshot list + daily history.

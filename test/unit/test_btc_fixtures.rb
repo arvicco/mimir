@@ -40,6 +40,18 @@ class TestBtcFixtures < Minitest::Test
     'BTC-USD/ticker'     => '{"price":"62000.0"}',
     'hashrate/6m'        => JSON.generate('hashrates' => (1..200).map { |i| { 'avgHashrate' => i } },
                                           'difficulty' => (1..9).map { |i| { 'difficulty' => i } }),
+    'hashrate/all'       => JSON.generate('hashrates' => (1..400).map { |i|
+      { 'timestamp' => 1_600_000_000 + i * 86_400, 'avgHashrate' => 1.0e18 + i, 'extra' => 'drop-me' } }),
+    'stablecoincharts/all?stablecoin=1' => JSON.generate((1..60).map { |i|
+      { 'date' => (1_700_000_000 + i * 86_400).to_s,
+        'totalCirculating' => { 'peggedUSD' => 1.8e11 + i } } }),
+    'stablecoincharts/all?stablecoin=2' => JSON.generate((1..60).map { |i|
+      { 'date' => (1_700_000_000 + i * 86_400).to_s,
+        'totalCirculating' => { 'peggedUSD' => 7.0e10 + i } } }),
+    'coinbase-premium-index' => JSON.generate('code' => '0',
+      'data' => (1..60).map { |i| { 'time' => 1_700_000_000_000 + i * 86_400_000,
+                                    'premium' => 12.5, 'premium_rate' => 0.02,
+                                    'coinbase_price' => 60_000.0 + i } }),
     'stablecoins'        => JSON.generate('peggedAssets' => [
       { 'symbol' => 'USDT', 'circulating' => { 'peggedUSD' => 1 }, 'circulatingPrevWeek' => {}, 'circulatingPrevMonth' => {}, 'chains' => %w[big list] },
       { 'symbol' => 'DAI',  'circulating' => { 'peggedUSD' => 1 } },
@@ -61,6 +73,11 @@ class TestBtcFixtures < Minitest::Test
       'data' => (1..12).map { |i| { 'time' => 1_700_000_000_000 + i * 86_400_000, 'taker_buy_volume_usd' => '5e8', 'taker_sell_volume_usd' => '4e8' } }),
     'liquidation/aggregated-history'   => JSON.generate('code' => '0',
       'data' => (1..12).map { |i| { 'time' => 1_700_000_000_000 + i * 86_400_000, 'aggregated_long_liquidation_usd' => '3e6', 'aggregated_short_liquidation_usd' => '2e6' } }),
+    'index/bitcoin/bubble-index'       => JSON.generate('code' => '0',
+      'data' => (1..320).map { |i| { 'price' => 100.0 + i, 'bubble_index' => -30.0 + i * 0.1,
+                                     'mining_difficulty' => 1, 'transaction_count' => 2,
+                                     'address_send_count' => 3,
+                                     'date_string' => (Time.utc(2025, 1, 1) + i * 86_400).strftime('%Y-%m-%d') } }),
     # M11-7 (P-8): exchange reserves -- snapshot list + {time_list,
     # price_list, data_map} chart (140 canned days so the 130-day trim
     # provably trims and still clears the 121-day stat floor).

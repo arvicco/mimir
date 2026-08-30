@@ -14,7 +14,7 @@
     }
   },
   "legend": {
-    "top": 24,
+    "top": 2,
     "data": [
       "spread",
       "MSTR",
@@ -22,9 +22,9 @@
     ]
   },
   "grid": {
-    "left": 56,
-    "right": 24,
-    "top": 52,
+    "left": 28,
+    "right": 16,
+    "top": 28,
     "bottom": 28
   },
   "xAxis": {
@@ -42,6 +42,9 @@
   "yAxis": {
     "type": "value",
     "name": "vol %",
+    "axisLabel": {
+      "margin": 3
+    },
     "nameLocation": "middle",
     "nameGap": 44
   },

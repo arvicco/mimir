@@ -38,8 +38,15 @@ COINGLASS = 'https://open-api-v4.coinglass.com/api/etf/bitcoin/flow-history'
 daily  = nil
 source = nil
 
-[['farside',         -> { Scenario.get(FARSIDE) }],
- ['farside-archive', -> { BTC::Http.get_follow(ARCHIVE, { 'User-Agent' => 'scenario.rb' }, read_timeout: 60) }]].each do |name, fetch|
+# Replay (M12-1): HTML scrapes have no dated past -- the replay rides the
+# Coinglass flow-history leg EXCLUSIVELY (677 daily rows at adoption),
+# truncated to complete days. The row's source field says 'coinglass', so
+# a replayed row is honest about which leg answered.
+live_legs = Scenario.replay? ? [] :
+  [['farside',         -> { Scenario.get(FARSIDE) }],
+   ['farside-archive', -> { BTC::Http.get_follow(ARCHIVE, { 'User-Agent' => 'scenario.rb' }, read_timeout: 60) }]]
+
+live_legs.each do |name, fetch|
   rows = begin
     BTC::Flows.parse_flows(fetch.call)
   rescue StandardError
@@ -54,8 +61,18 @@ end
 
 if daily.nil? && !ENV['COINGLASS_API_KEY'].to_s.empty?
   begin
-    j = Scenario.get_json(COINGLASS, { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] })
+    # replay backfills chain hundreds of day-runs: the history is fetched
+    # ONCE per day via SourceCache (24h ttl), not once per replayed day
+    j = if Scenario.replay?
+          require_relative '../../lib/btc/source_cache'
+          BTC::SourceCache.fetch_json('cg_etf_flows_hist', COINGLASS,
+                                      { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] },
+                                      ttl: 86_400)['data']
+        else
+          Scenario.get_json(COINGLASS, { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] })
+        end
     rows = BTC::Flows.from_coinglass(j['data'])
+    rows = rows.select { |t, _| t < Scenario.as_of } if Scenario.replay?
     if rows.size >= 10
       daily  = rows
       source = 'coinglass'

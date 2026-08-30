@@ -1,7 +1,7 @@
 {
   "backgroundColor": "transparent",
   "title": {
-    "text": "Scorecard · fwd returns 7/30/90d · n_eff honest",
+    "text": "fwd returns 7/30/90d",
     "textStyle": {
       "fontSize": 13
     }
@@ -20,7 +20,7 @@
     {
       "left": 10,
       "right": 10,
-      "top": 34,
+      "top": 12,
       "bottom": 12
     }
   ],

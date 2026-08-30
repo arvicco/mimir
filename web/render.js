@@ -245,12 +245,12 @@ var WIDGETS = {
           cell.appendChild(el);
           return el;
         }
+        // compact '(p)IBIT(c)' cells (owner round 2026-08-30: the venue
+        // toggles must fit ONE row even at 3-column card widths)
         var p = piece("(p)", "cp-p", function () { setTo([sides[v].P], !sel[sides[v].P]); });
-        cell.appendChild(document.createTextNode(" "));
         var name = piece(v, "cp-v", function () {
           setTo([sides[v].P, sides[v].C], !(sel[sides[v].P] && sel[sides[v].C]));
         });
-        cell.appendChild(document.createTextNode(" "));
         var c = piece("(c)", "cp-c", function () { setTo([sides[v].C], !sel[sides[v].C]); });
         // M9-15 (owner ruling 2026-08-11): the venue label gets an instant CSS
         // bubble (the house hover pattern, never native title=) explaining what
@@ -502,6 +502,138 @@ function refreshBadge(badge) {
 // for a solo chart, or (default, when null) the chart div itself for a
 // tabbed member, so the floating widget hides with its tab. Pushes onto
 // `charts` for window-resize. Returns { div, chart }.
+// The option's HEADLINE: the first title entry's text (spec convention --
+// entry 0 is the load-bearing one-liner; positional later entries are
+// in-canvas notes). 2026-08-30 owner design ruling: this text renders on
+// the card/section HEAD LINE, not in the canvas.
+function headlineOf(option) {
+  var t = option && option.title;
+  if (Array.isArray(t)) t = t[0];
+  return (t && t.text) || "";
+}
+
+function makeHeadline() {
+  var el = document.createElement("span");
+  el.className = "headline";
+  return el;
+}
+
+// Fill a headline span, wrapping every meta.terms key found in the text
+// as a hover term (owner ruling 2026-08-30: hovering 'flip dist', 'MP \u0394',
+// 'ATM 30d'... explains what the number means). Longest keys win ties, the
+// leftmost match wins position; matching is text-node based (no HTML
+// injection from payload text or term keys). The explanation shows in a
+// VIEWPORT-FIXED .terms-pop (the M9-15 axis-popover pattern -- the
+// headline is overflow:hidden for ellipsis, so a CSS-child bubble would
+// clip); keyboard reaches it via focus, and it is pointer-events:none so
+// it never steals the hover.
+function fillHeadline(el, text, terms) {
+  while (el.firstChild) el.removeChild(el.firstChild);
+  var keys = Object.keys(terms || {}).sort(function (a, b) { return b.length - a.length; });
+  var rest = String(text || "");
+  var pop = null;
+  function popover() {
+    if (pop) return pop;
+    pop = document.createElement("div");
+    pop.className = "terms-pop";
+    pop.style.display = "none";
+    document.body.appendChild(pop);
+    return pop;
+  }
+  function show(term) {
+    var r = term.getBoundingClientRect();
+    var pp = popover();
+    pp.innerHTML = termsBlock(term.dataset.term, terms[term.dataset.term]);
+    pp.style.left = r.left + "px";
+    pp.style.top = (r.bottom + 6) + "px";
+    pp.style.display = "block";
+    requestAnimationFrame(function () {
+      var pr = pp.getBoundingClientRect();
+      var vw = window.innerWidth || Infinity, vh = window.innerHeight || Infinity;
+      if (pr.width && pr.right > vw) pp.style.left = Math.max(4, vw - pr.width - 8) + "px";
+      if (pr.height && pr.bottom > vh) pp.style.top = Math.max(4, r.top - pr.height - 6) + "px";
+    });
+  }
+  function hide() { if (pop) pop.style.display = "none"; }
+  while (rest.length) {
+    var best = null, at = -1;
+    for (var i = 0; i < keys.length; i += 1) {
+      var p = rest.indexOf(keys[i]);
+      if (p !== -1 && (at === -1 || p < at)) { at = p; best = keys[i]; }
+    }
+    if (!best) break;
+    if (at > 0) el.appendChild(document.createTextNode(rest.slice(0, at)));
+    var t = document.createElement("span");
+    t.className = "hl-term";
+    t.tabIndex = 0;
+    t.dataset.term = best;
+    t.appendChild(document.createTextNode(best));
+    t.addEventListener("mouseenter", function (ev) { show(ev.currentTarget); });
+    t.addEventListener("mouseleave", hide);
+    t.addEventListener("focus", function (ev) {
+      if (ev.currentTarget.matches(":focus-visible")) show(ev.currentTarget);
+    });
+    t.addEventListener("blur", hide);
+    el.appendChild(t);
+    rest = rest.slice(at + best.length);
+  }
+  if (rest.length) el.appendChild(document.createTextNode(rest));
+}
+
+// Collect every named value axis from the option, strip the names from
+// the RENDERED chart (index-matched partial merge; the payload is
+// untouched), enable label events on those axes, and hover the tick
+// numbers to a viewport-fixed house bubble: bold axis name (+ units as
+// written in the spec's name) and optional context from
+// meta.axis_terms[name]. Same popover mechanics as the scenario
+// scoreboard glossary (wireAxisTerms).
+function hoistAxisNames(chart, option, meta, host) {
+  var axisTerms = (meta && meta.axis_terms) || {};
+  var pop = null;
+  function popover() {
+    if (pop) return pop;
+    pop = document.createElement("div");
+    pop.className = "terms-pop";
+    pop.style.display = "none";
+    host.appendChild(pop);
+    return pop;
+  }
+  ["xAxis", "yAxis"].forEach(function (dim) {
+    var axes = option[dim];
+    if (!axes) return;
+    var list = Array.isArray(axes) ? axes : [axes];
+    var names = list.map(function (a) { return (a && a.name) || null; });
+    if (!names.some(Boolean)) return;
+    var patch = list.map(function (a, i) {
+      return names[i] ? { name: "", triggerEvent: true } : { triggerEvent: true };
+    });
+    var opt = {}; opt[dim] = Array.isArray(axes) ? patch : patch[0];
+    chart.setOption(opt);
+    chart.on("mouseover", function (ev) {
+      if (!ev || ev.componentType !== dim || ev.targetType !== "axisLabel") return;
+      var name = names[ev.componentIndex || 0];
+      if (!name) return;
+      var oe = ev.event && ev.event.event;
+      var cx = oe ? oe.clientX : 0, cy = oe ? oe.clientY : 0;
+      var pp = popover();
+      pp.innerHTML = termsBlock(name, axisTerms[name] || "This axis's unit/scale.");
+      pp.style.left = (cx + 12) + "px";
+      pp.style.top = (cy + 12) + "px";
+      pp.style.display = "block";
+      requestAnimationFrame(function () {
+        var r = pp.getBoundingClientRect();
+        var vw = window.innerWidth || Infinity, vh = window.innerHeight || Infinity;
+        if (r.width && r.right > vw) pp.style.left = Math.max(4, cx - r.width - 12) + "px";
+        if (r.height && r.bottom > vh) pp.style.top = Math.max(4, cy - r.height - 12) + "px";
+      });
+    });
+    chart.on("mouseout", function (ev) {
+      if (ev && ev.componentType === dim && pop) pop.style.display = "none";
+    });
+    chart.on("globalout", function () { if (pop) pop.style.display = "none"; });
+  });
+}
+
 function buildChartInstance(env, key, meta, legendHost) {
   var div = document.createElement("div");
   div.className = "chart";
@@ -521,6 +653,16 @@ function buildChartInstance(env, key, meta, legendHost) {
   // position callback and would clamp a flipped tooltip back into the
   // (below-the-fold) container -- the callback owns containment now.
   chart.setOption({ tooltip: { position: tooltipPosition(div), confine: false } });
+  // 2026-08-30 owner design ruling: the headline lives on the head line;
+  // hide the canvas copy (render-layer only -- the payload keeps its
+  // title for any consumer of the raw option). Entry 0 only; secondary
+  // positional titles (notes/subtitles) stay drawn.
+  if (headlineOf(env.payload)) chart.setOption({ title: [{ show: false }] });
+  // 2026-08-30 owner round 2: AXIS NAMES leave the canvas too -- the
+  // payload keeps them (raw consumers see labelled axes), the renderer
+  // strips them and instead shows a hover bubble over the axis NUMBERS:
+  // bold axis name + optional context from meta.axis_terms[name].
+  hoistAxisNames(chart, env.payload, meta, div);
   if (meta && meta.tooltip_formatter && FORMATTERS[meta.tooltip_formatter]) {
     var fmtTip = { formatter: FORMATTERS[meta.tooltip_formatter] };
     if (meta.tooltip_formatter === "lppl_shadow" ||
@@ -580,6 +722,7 @@ function activateGroup(g, member) {
   });
   g.card.dataset.key = member.key;   // reflect the visible key
   g.keySpan.textContent = dispKey(member.key); // owner always sees which key this is
+  if (g.headline) fillHeadline(g.headline, headlineOf(member.env.payload), member.meta && member.meta.terms);
   var nb = buildBubble(member.meta);  // swap the hover help to this tab
   while (g.bubble.firstChild) g.bubble.removeChild(g.bubble.firstChild);
   while (nb.firstChild) g.bubble.appendChild(nb.firstChild);
@@ -614,6 +757,8 @@ function buildGroupedCard(env, key, meta, groupId) {
     tabbar.setAttribute("role", "tablist");
     tabbar.setAttribute("aria-label", "chart variant");
     head.appendChild(tabbar);
+    var hl = makeHeadline();
+    head.appendChild(hl);
     var badge = makeBadge();
     head.appendChild(badge);
     card.appendChild(head);
@@ -634,7 +779,8 @@ function buildGroupedCard(env, key, meta, groupId) {
     head.addEventListener("mouseover", orient);
     head.addEventListener("focusin", orient);
     g = GROUPS[groupId] = { card: card, keySpan: keySpan, tabbar: tabbar,
-                            badge: badge, bubble: bubble, members: [], active: null };
+                            headline: hl, badge: badge, bubble: bubble,
+                            members: [], active: null };
   }
 
   // Each member owns its chart div (hidden until its tab is active) and a
@@ -772,6 +918,8 @@ function stackShell(withTabbar) {
     tabbar.setAttribute("aria-label", "surface underlying");
     head.appendChild(tabbar);
   }
+  var hl = makeHeadline();
+  head.appendChild(hl);
   var badge = makeBadge();
   head.appendChild(badge);
   section.appendChild(head);
@@ -787,7 +935,8 @@ function stackShell(withTabbar) {
   }
   head.addEventListener("mouseover", orient);
   head.addEventListener("focusin", orient);
-  return { section: section, keySpan: keySpan, tabbar: tabbar, badge: badge, bubble: bubble };
+  return { section: section, keySpan: keySpan, tabbar: tabbar, headline: hl,
+           badge: badge, bubble: bubble };
 }
 
 // Replace a bubble element's contents with the structured help for `meta`.
@@ -801,6 +950,7 @@ function fillBubble(target, meta) {
 function plainStackSection(m) {
   var s = stackShell(false);
   s.keySpan.textContent = dispKey(m.key);
+  fillHeadline(s.headline, headlineOf(m.env.payload), m.meta && m.meta.terms);
   fillBubble(s.bubble, m.meta);
   setBadge(s.badge, m.env);
   m.chartDiv.style.display = "";
@@ -833,6 +983,7 @@ function tabbedStackSection(ms, link) {
       }
     });
     s.keySpan.textContent = dispKey(m.key);
+    fillHeadline(s.headline, headlineOf(m.env.payload), m.meta && m.meta.terms);
     fillBubble(s.bubble, m.meta);
     setBadge(s.badge, m.env);
     requestAnimationFrame(function () { m.chart.resize(); });
@@ -894,6 +1045,9 @@ function buildChartCard(env, key) {
     info.tabIndex = 0; // keyboard-reachable: focus opens the bubble (.hover:focus rule)
     head.appendChild(info);
   }
+  var hl = makeHeadline();
+  fillHeadline(hl, headlineOf(env.payload), meta && meta.terms);
+  head.appendChild(hl);
   var badge = makeBadge();
   setBadge(badge, env);
   head.appendChild(badge);

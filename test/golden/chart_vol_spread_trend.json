@@ -1,7 +1,7 @@
 {
   "backgroundColor": "transparent",
   "title": {
-    "text": "Spread trend · 10d history",
+    "text": "10d history",
     "textStyle": {
       "fontSize": 13
     }
@@ -14,7 +14,7 @@
     }
   },
   "legend": {
-    "top": 24,
+    "top": 2,
     "data": [
       "7d",
       "14d",
@@ -26,9 +26,9 @@
     ]
   },
   "grid": {
-    "left": 56,
+    "left": 28,
     "right": 24,
-    "top": 52,
+    "top": 28,
     "bottom": 28
   },
   "xAxis": {
@@ -49,6 +49,9 @@
   "yAxis": {
     "type": "value",
     "name": "spread vol pts",
+    "axisLabel": {
+      "margin": 3
+    },
     "scale": true,
     "nameLocation": "middle",
     "nameGap": 44
@@ -67,6 +70,7 @@
       "type": "line",
       "symbol": "circle",
       "symbolSize": 6,
+      "connectNulls": true,
       "itemStyle": {
         "color": "#e04b4b"
       },
@@ -91,6 +95,7 @@
       "type": "line",
       "symbol": "circle",
       "symbolSize": 6,
+      "connectNulls": true,
       "itemStyle": {
         "color": "#e08e0b"
       },
@@ -115,6 +120,7 @@
       "type": "line",
       "symbol": "circle",
       "symbolSize": 6,
+      "connectNulls": true,
       "itemStyle": {
         "color": "#e2c84b"
       },
@@ -139,6 +145,7 @@
       "type": "line",
       "symbol": "circle",
       "symbolSize": 6,
+      "connectNulls": true,
       "itemStyle": {
         "color": "#35c46a"
       },
@@ -163,6 +170,7 @@
       "type": "line",
       "symbol": "circle",
       "symbolSize": 6,
+      "connectNulls": true,
       "itemStyle": {
         "color": "#3fc1d1"
       },
@@ -187,6 +195,7 @@
       "type": "line",
       "symbol": "circle",
       "symbolSize": 6,
+      "connectNulls": true,
       "itemStyle": {
         "color": "#4665e6"
       },
@@ -211,6 +220,7 @@
       "type": "line",
       "symbol": "circle",
       "symbolSize": 6,
+      "connectNulls": true,
       "itemStyle": {
         "color": "#2e3f9e"
       },

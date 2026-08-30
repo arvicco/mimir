@@ -1,7 +1,7 @@
 {
   "backgroundColor": "transparent",
   "title": {
-    "text": "Positioning · 0 · crowd SHORT",
+    "text": "0 · crowd SHORT",
     "textStyle": {
       "fontSize": 13
     }
@@ -34,7 +34,7 @@
     }
   ],
   "legend": {
-    "top": 22,
+    "top": 0,
     "data": [
       "global L/S",
       "top L/S",
@@ -44,22 +44,22 @@
   },
   "grid": [
     {
-      "left": 46,
-      "right": 38,
-      "top": 42,
-      "height": "24%"
+      "left": 36,
+      "right": 30,
+      "top": 22,
+      "height": "27%"
     },
     {
-      "left": 46,
-      "right": 38,
-      "top": "40%",
-      "height": "24%"
+      "left": 36,
+      "right": 30,
+      "top": "37%",
+      "height": "27%"
     },
     {
-      "left": 46,
-      "right": 38,
-      "top": "69%",
-      "height": "25%"
+      "left": 36,
+      "right": 30,
+      "top": "68%",
+      "height": "27%"
     }
   ],
   "xAxis": [
@@ -100,6 +100,9 @@
       "gridIndex": 0,
       "name": "OI $B",
       "scale": true,
+      "axisLabel": {
+        "margin": 3
+      },
       "nameLocation": "middle",
       "nameGap": 32
     },
@@ -108,6 +111,9 @@
       "gridIndex": 1,
       "name": "L/S",
       "scale": true,
+      "axisLabel": {
+        "margin": 3
+      },
       "nameLocation": "middle",
       "nameGap": 32
     },
@@ -116,6 +122,9 @@
       "gridIndex": 1,
       "name": "buy %",
       "scale": true,
+      "axisLabel": {
+        "margin": 3
+      },
       "position": "right",
       "nameLocation": "middle",
       "nameGap": 26
@@ -124,12 +133,19 @@
       "type": "value",
       "gridIndex": 2,
       "name": "liq $M",
+      "axisLabel": {
+        "margin": 3
+      },
       "nameLocation": "middle",
       "nameGap": 32
     },
     {
       "type": "value",
       "gridIndex": 0,
+      "name": "resv M BTC",
+      "axisLabel": {
+        "margin": 3
+      },
       "scale": true,
       "position": "right"
     }

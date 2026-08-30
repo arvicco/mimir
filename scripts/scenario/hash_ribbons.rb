@@ -16,13 +16,26 @@ require_relative 'common'
 
 NAME = 'hash_ribbons'
 
+# Replay (M12-1): the 6m window cannot see an arbitrary past date; the
+# replay fetches the FULL history (/all, daily points back to 2009) and
+# truncates to complete days before the replay day (timestamps here are
+# SECONDS-epoch). The difficulty-adjustment context is skipped under
+# replay (context only, never scored).
+URL = Scenario.replay? ? 'https://mempool.space/api/v1/mining/hashrate/all'                        : 'https://mempool.space/api/v1/mining/hashrate/6m'
 begin
-  data = Scenario.get_json('https://mempool.space/api/v1/mining/hashrate/6m')
+  data = if Scenario.replay?
+           require_relative '../../lib/btc/source_cache'
+           BTC::SourceCache.fetch_json('mempool_hashrate_all', URL, ttl: 86_400)['data']
+         else
+           Scenario.get_json(URL)
+         end
 rescue StandardError => e
   Scenario.fail_soft(NAME, e.message)
 end
 
-hs = (data['hashrates'] || []).map { |h| h['avgHashrate'].to_f }
+raw = data['hashrates'] || []
+raw = raw.select { |h| h['timestamp'].to_i < Scenario.as_of.to_i } if Scenario.replay?
+hs = raw.map { |h| h['avgHashrate'].to_f }
 Scenario.fail_soft(NAME, 'not enough hashrate history') if hs.size < 75
 
 sma = lambda do |arr, n, at|
@@ -45,7 +58,8 @@ unless below_now
   end
 end
 
-diffs = (data['difficulty'] || []).map { |d| d['difficulty'].to_f }.last(3)
+diffs = Scenario.replay? ? [] :
+        (data['difficulty'] || []).map { |d| d['difficulty'].to_f }.last(3)
 adj   = diffs.each_cons(2).map { |a, b| (b / a - 1.0) * 100 }
 
 score = below_now ? -1 : (crossed_up ? 1 : 0)

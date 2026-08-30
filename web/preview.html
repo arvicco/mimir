@@ -114,7 +114,24 @@
     background: #1b1f26; border: 1px solid #2a2f38; border-radius: 8px;
     padding: 10px 12px; min-width: 0;
   }
-  .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  /* 2026-08-30 owner design ruling: the chart headline rides the head
+     line (between tabs and the dot), not the canvas -- plots get the
+     freed rows. Ellipsized, centered in the leftover space. */
+  .headline {
+    font-weight: 600; font-size: 13px; margin-left: auto;
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  /* 2026-08-30: headline tokens with a glossary entry hover to the house
+     block in a VIEWPORT-FIXED .terms-pop (the headline clips children for
+     ellipsis, so no CSS-child bubble; render.js anchors + flips it).
+     Keyboard shows it on :focus-visible only -- clicks never pin (the
+     08-29 lesson). */
+  .hl-term {
+    text-decoration: underline dotted #4a515c; text-underline-offset: 3px;
+    cursor: help;
+  }
+  .hl-term:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
   .card-head .key { font-weight: 600; font-size: 13px; }
   .card { position: relative; }
   /* Instant structured hover bubble (native title= tooltips are slow and
@@ -208,12 +225,16 @@
      BTC GEX chart (an owner-ruled EXCEPTION to "side panels go right"), so
      the plot reclaims the old right-margin column. Bright = shown, dim =
      hidden; sides keep their series colors. */
+  /* 2026-08-30 owner design ruling (mock-up): the venue toggles form ONE
+     full-width row under the head instead of the top-right 2x3 block --
+     the plot keeps its whole top band. */
   .cp-legend {
-    position: absolute; right: 12px; top: 4px; z-index: 30;
-    display: flex; flex-direction: column; gap: 2px; align-items: flex-end;
+    position: absolute; left: 4px; right: 4px; top: 0; z-index: 30;
+    display: flex; flex-direction: row; flex-wrap: nowrap; overflow: hidden;
+    gap: 2px 8px; justify-content: space-between;
     font-size: 11px; line-height: 1.25; user-select: none;
   }
-  .cp-row { display: flex; justify-content: flex-end; gap: 10px; white-space: nowrap; }
+  .cp-row { display: contents; } /* rows flatten into the single flex line */
   .cp-cell { white-space: nowrap; position: relative; }
   /* M9-15: per-venue glossary bubble (instant CSS hover, never native title=).
      Opens DOWNWARD from the top-right widget (room in the plot) and is
