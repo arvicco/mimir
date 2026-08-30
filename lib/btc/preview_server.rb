@@ -73,7 +73,11 @@ module BTC
     end
 
     def write_ok(client, body, content_type)
+      # no-store (2026-08-30): a review server must NEVER serve stale
+      # assets -- a cached render.js against fresh payloads showed the
+      # owner a broken half-old board mid design review.
       client.write "HTTP/1.1 200 OK\r\nContent-Type: #{content_type}\r\n" \
+                   "Cache-Control: no-store\r\n" \
                    "Content-Length: #{body.bytesize}\r\nConnection: close\r\n\r\n"
       client.write body
     end
