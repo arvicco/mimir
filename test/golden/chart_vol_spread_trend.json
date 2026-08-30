@@ -26,8 +26,8 @@
     ]
   },
   "grid": {
-    "left": 12,
-    "right": 12,
+    "left": 28,
+    "right": 24,
     "top": 28,
     "bottom": 28
   },
@@ -50,7 +50,7 @@
     "type": "value",
     "name": "spread vol pts",
     "axisLabel": {
-      "inside": true
+      "margin": 3
     },
     "scale": true,
     "nameLocation": "middle",

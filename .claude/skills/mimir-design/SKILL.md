@@ -225,19 +225,23 @@ EVERY value axis must be named + have an AXIS_TERMS entry — an
 unnamed value axis silently loses its explanation (the round-3
 gex_btc complaint).
 
-**Tick labels sit inside the plot; margins collapse to the
-gridline.** (Owner ruling 2026-08-30, round 3: "left/right margins
-could still be cut in half".) Value y-axes set
-`'axisLabel' => { 'inside' => true }` and grid left/right drop
-to 12. Exceptions: category gutters that hold words (btco tickers,
-left 100), the scenario composite axis (ticks hidden — its dashed
-band threshold lines carry the numbers), and side-panel gutters
-(scenario scoreboard right 122). Costs accepted: a dense series may
-run over a tick number. Costs NOT accepted — anything that leaned on
-the old margins must move inside too: markLine labels
-(`insideStartTop`; below the line for negative thresholds so ±0.10
-don't collide) and last-value markPoints (a 40px pin half-clips at
-the canvas edge; use a `position: 'left'` label chip instead).
+**Tick labels stay OUTSIDE the plot — inside labels are BANNED.**
+(Owner ruling 2026-08-30, round 4: "Axis inside charts don't work" —
+they reverted round 3's `axisLabel.inside` experiment.) Two failure
+modes, both structural: (1) inside tick numbers sit in the grid's
+hover zone, so the axis-term bubble and the chart data tooltip fire
+TOGETHER and overlap; (2) they collide with first/last data points
+(the vol_spread_trend first-day dots rendered into the tick column).
+The sanctioned compactness lever is the label GAP, not the label
+side: value axes set `'axisLabel' => { 'margin' => 3 }` (default 8)
+and the gutter is sized to the widest tick string — gex/vol 28, lppl
+34, positioning 36/30. Right margins on date-axis charts stay >= 24:
+the end-of-axis DATE label and the lppl last-value pin live there
+and silently vanish when the margin shrinks (the round-3 "end date
+markers disappeared" complaint). Scenario is the one no-tick axis:
+its dashed band threshold lines carry the numbers (labeled inside,
+positives above / negatives below the line), so its composite axis
+hides ticks and keeps left 12.
 
 **Paired series toggles collapse to one line per entity.** Not one
 legend row per series: `(p) DERI (c)` — click `(p)`/`(c)` for one

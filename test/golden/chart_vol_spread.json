@@ -22,8 +22,8 @@
     ]
   },
   "grid": {
-    "left": 12,
-    "right": 12,
+    "left": 28,
+    "right": 16,
     "top": 28,
     "bottom": 28
   },
@@ -43,7 +43,7 @@
     "type": "value",
     "name": "vol %",
     "axisLabel": {
-      "inside": true
+      "margin": 3
     },
     "nameLocation": "middle",
     "nameGap": 44
