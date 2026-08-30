@@ -277,8 +277,20 @@ a tenor ad hoc; a new tenor enters the map, not a series default.
 
 You design blind unless you look. After any visual change:
 
-1. Rebuild artifacts (offline from committed payloads, or
-   `PUBLISH_DRY_RUN=1 ruby publish/publish.rb`), `rake preview`.
+1. Rebuild artifacts from a SNAPSHOT of the production data home —
+   never from the dev checkout's in-tree data/ dirs. The dev tree's
+   history files are sparse/stale (dev doesn't run the daily
+   producers; production does, under ~/Library/Application Support/
+   mimir/data), and a preview built from them shows broken-looking
+   charts the owner reads as design regressions (2026-08-30: three
+   review rounds burned on exactly this — "two weeks of data lost").
+   Copy first — dry-run producers APPEND to history files, so never
+   point BTC_DATA_DIR at the real production home:
+   `SNAP=<scratch>/preview_data && rm -rf "$SNAP" &&
+   cp -R "$HOME/Library/Application Support/mimir/data" "$SNAP"`
+   then (env-sourced, keys needed for the live producers)
+   `BTC_DATA_DIR="$SNAP" PUBLISH_DRY_RUN=1 ruby publish/publish.rb`,
+   `rake preview`.
 2. Screenshot headlessly and READ the image; crop-zoom suspect cards.
    Reproduce at the element's REAL rendered geometry: renderer hooks
    (meta.height) shrink cards, and a repro page at a comfortable size
