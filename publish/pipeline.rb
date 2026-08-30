@@ -39,8 +39,8 @@
 #   is attempted. Error text stays redacted (kv_client's pattern).
 # - STATUS (frozen --tmux contract): /tmp/publish.status carries
 #   `PUB DRY|LIVE <published>/<expected> keys HH:MM UTC` where
-#   expected = producers + tails + charts + 1 (the index) = n/32
-#   (13 producers + 2 tails + 15 charts + index). Pinned in the tests.
+#   expected = producers + tails + charts + 1 (the index) = n/33
+#   (15 producers + 2 tails + 15 charts + index). Pinned in the tests.
 #   ADDITIVE (M7-5, 2026-07-07 frozen-evidence incident): when a PUBLISHED
 #   tail's newest entry is older than STALE_EVIDENCE_H (30h), the line gains
 #   a trailing ` OLD:<key>[,<key>...]` marker (TAILS order), e.g.
@@ -101,7 +101,11 @@ module Publish
       # M11-7 (P-8, R-11/D11-a): the exchange-reserve module -- weight 0,
       # daily cadence (24h source-cache ttl); its --json carries the
       # reserves series the positioning card draws on its right axis.
-      ['reserves:latest',  ['ruby', 'scripts/scenario/reserves.rb', '--json'],         60,  3_600]
+      ['reserves:latest',  ['ruby', 'scripts/scenario/reserves.rb', '--json'],         60,  3_600],
+      # M12-4 (Q-12): the independent bubble-index cross-reference --
+      # ADVISORY payload for the SHADOW tab's x-ref row, never a score
+      # input. Daily cadence (24h source-cache ttl).
+      ['bubble:ref',       ['ruby', 'scripts/bubble_ref.rb', '--json'],                60,  3_600]
     ].freeze
 
     # key, suite, in-tree default dir, filename, window_days, ttl_hint_s.
@@ -191,7 +195,11 @@ module Publish
                          dir: status_dir)
 
       { keys: records.map(&:first), skipped: skipped,
-        mode: dry_run ? 'DRY' : 'LIVE', out_dir: dry_run ? out_dir : nil }
+        mode: dry_run ? 'DRY' : 'LIVE', out_dir: dry_run ? out_dir : nil,
+        # M12-5 (additive): the run's envelopes + health markers, so the
+        # publish bin can dispatch transition alerts (real mode only)
+        # without re-fetching anything.
+        envelopes: envelopes, old_keys: old, blind_tails: blind }
     end
 
     # Run one producer; parse its full stdout as a single JSON document.

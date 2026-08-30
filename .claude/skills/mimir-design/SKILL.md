@@ -19,7 +19,7 @@ another. When a new ruling lands, add it here in the same commit.
   text/axis/legend colors the theme already tunes — the light-theme
   defaults (near-black titles, inactive-brighter-than-active legends)
   are exactly what the owner rejected.
-- Exactly six renderer hooks exist, declared in envelope meta:
+- Exactly seven renderer hooks exist, declared in envelope meta:
   `tooltip_formatter` (a NAME in the renderer's formatter registry),
   `height` (card pixels), `legend_widget` (a NAME in the renderer's
   HTML widget registry; the spec ships `legend.show=false` but keeps
@@ -43,8 +43,16 @@ another. When a new ruling lands, add it here in the same commit.
   plus a viewport-fixed styled popover, the gex_cp venue widget via a
   CSS bubble. ADDITIVE meta only: the chart OPTION and its golden are
   byte-identical, so a `terms` addition never drifts a golden; an
-  unknown term simply gets no tooltip. Never a native `title=`). Add a
-  new hook only with an owner ruling.
+  unknown term simply gets no tooltip. Never a native `title=`), and
+  `axis_terms` (owner ruling 2026-08-30: `{ axis-name => context }`.
+  AXIS NAMES NEVER DRAW -- the renderer strips every named value axis
+  from the render (the payload keeps the name for raw consumers) and
+  instead hovers the axis TICK NUMBERS to a fixed-position house
+  bubble: bold name (units as written in the spec's `name`) + the
+  map's context. Self-explaining date/tenor axes carry no name and get
+  no hover; the freed name gutters went back to the plots -- margins
+  are tuned for the nameless render). Add a new hook only with an
+  owner ruling.
 
 - Card placement (owner ruling 2026-08-10): the dashboard is a 3x2
   grid -- row 1 GEX · Volatility(stacked) · Vol-Spread, row 2
@@ -67,6 +75,31 @@ load-bearing number inline (`GEX $M/1% · spot 62.7k`,
 `BTCo stress 70 STRESSED`); no subtexts; tight grid margins; no zoom
 sliders (inside zoom with a sensible default window); no paginated or
 scrolling legends. Whitespace is not a feature here — density is.
+
+**The headline rides the HEAD LINE, not the canvas.** (Owner mock-up
+ruling 2026-08-30.) Every card/section head reads `key ⓘ [tabs]
+<headline> ●` — the option's FIRST title entry is hoisted there by the
+renderer (hidden in-canvas via `title: [{show:false}]`; the payload
+keeps its title for raw consumers) and the freed grid top goes to the
+PLOT. Specs still emit the title (entry 0 = headline, positional later
+entries = in-canvas notes) but reserve no title band. Tab/stack
+switches swap the head headline with the active chart.
+
+**Headline terms hover.** (Owner ruling 2026-08-30.) Any `meta.terms`
+key appearing in the headline text renders as a dotted-underline
+term; hover (or keyboard `:focus-visible` — clicks never pin, the
+08-29 lesson) shows the house block in a VIEWPORT-FIXED `.terms-pop`
+(the headline clips children for ellipsis, so never a CSS-child
+bubble). Longest key wins ties — add whole-phrase keys (`MSTR-BTC
+IV`) so fragments don't half-match. Every chart's headline tokens
+(`flip dist`, `MP Δ`, `ATM 30d`, regime/verdict words, …) have
+entries; a new headline token gets its term in the same commit.
+
+**The venue toggles are ONE full-width row.** (Owner mock-up ruling
+2026-08-30, superseding the M8-18 R3 2x3 block.) The `(p) VENUE (c)`
+widget spans the plot width directly under the head line
+(`.cp-legend` flex row, `justify-content: space-between`); the gex
+grid top reserves ~18px for it plus the wall-label band.
 
 **Side panels go right, not below.** Legends, scoreboards, module
 strips: vertical columns to the right of the plot, so rows stack
@@ -168,14 +201,47 @@ size ≥ 6) — the ECharts default emptyCircle ring is an invisible speck
 on dark. A single point must read as a clear dot.
 
 **Labels never collide.** Near-equal markLines (bound/floor) get
-labels at opposite line ends; panel grids clear the title row. If two
-labels CAN overlap for plausible data, they eventually will.
+labels at opposite line ends. If two labels CAN overlap for plausible
+data, they eventually will. The gex wall/flip marks live INSIDE the
+plot (`insideEndTop`, rotated along the line -- owner round
+2026-08-30, superseding the raised-band `offset [0,-14]` idiom; the
+reserved band above the plot is gone).
 
-**Axis names ride the axis, not the title row.** A y-axis `name` at
-the default top position lands in the title's line (round 4: scenario
-and LPPL collided). Use `nameLocation: 'middle'` (rotated, in the left
-gutter, `nameGap` ~44 with grid left ~60); the bottom would collide
-with the time labels instead.
+**Headlines never repeat the card name, and compress.** (Owner round
+2026-08-30.) The section key/tab already names the chart -- headline
+prefixes like 'GEX trend ·', 'Scenario', 'LPPL', 'Positioning ·',
+'BTCo', 'Vol surface ·' are banned. Long tokens compress to glyphs
+with hover terms: `long_gamma` -> `Γ+`, `short_gamma` -> `Γ-`,
+`MP Δ` -> `MPΔ`, `flip dist` -> `flip`. A new compact token gets its
+`meta.terms` entry in the same commit.
+
+**Axis names never draw — they ARE the hover.** (Owner rulings
+2026-08-30, design rounds 2-3.) A named value axis on a chart whose
+meta carries `axis_terms` is stripped by the renderer
+(hoistAxisNames: name -> '', triggerEvent on) and its tick numbers
+hover to a `name + units + context` bubble. Self-explaining axes
+(dates, tenor days, strike levels) stay nameless and get no hover.
+EVERY value axis must be named + have an AXIS_TERMS entry — an
+unnamed value axis silently loses its explanation (the round-3
+gex_btc complaint).
+
+**Tick labels stay OUTSIDE the plot — inside labels are BANNED.**
+(Owner ruling 2026-08-30, round 4: "Axis inside charts don't work" —
+they reverted round 3's `axisLabel.inside` experiment.) Two failure
+modes, both structural: (1) inside tick numbers sit in the grid's
+hover zone, so the axis-term bubble and the chart data tooltip fire
+TOGETHER and overlap; (2) they collide with first/last data points
+(the vol_spread_trend first-day dots rendered into the tick column).
+The sanctioned compactness lever is the label GAP, not the label
+side: value axes set `'axisLabel' => { 'margin' => 3 }` (default 8)
+and the gutter is sized to the widest tick string — gex/vol 28, lppl
+34, positioning 36/30. Right margins on date-axis charts stay >= 24:
+the end-of-axis DATE label and the lppl last-value pin live there
+and silently vanish when the margin shrinks (the round-3 "end date
+markers disappeared" complaint). Scenario is the one no-tick axis:
+its dashed band threshold lines carry the numbers (labeled inside,
+positives above / negatives below the line), so its composite axis
+hides ticks and keeps left 12.
 
 **Paired series toggles collapse to one line per entity.** Not one
 legend row per series: `(p) DERI (c)` — click `(p)`/`(c)` for one
@@ -211,8 +277,20 @@ a tenor ad hoc; a new tenor enters the map, not a series default.
 
 You design blind unless you look. After any visual change:
 
-1. Rebuild artifacts (offline from committed payloads, or
-   `PUBLISH_DRY_RUN=1 ruby publish/publish.rb`), `rake preview`.
+1. Rebuild artifacts from a SNAPSHOT of the production data home —
+   never from the dev checkout's in-tree data/ dirs. The dev tree's
+   history files are sparse/stale (dev doesn't run the daily
+   producers; production does, under ~/Library/Application Support/
+   mimir/data), and a preview built from them shows broken-looking
+   charts the owner reads as design regressions (2026-08-30: three
+   review rounds burned on exactly this — "two weeks of data lost").
+   Copy first — dry-run producers APPEND to history files, so never
+   point BTC_DATA_DIR at the real production home:
+   `SNAP=<scratch>/preview_data && rm -rf "$SNAP" &&
+   cp -R "$HOME/Library/Application Support/mimir/data" "$SNAP"`
+   then (env-sourced, keys needed for the live producers)
+   `BTC_DATA_DIR="$SNAP" PUBLISH_DRY_RUN=1 ruby publish/publish.rb`,
+   `rake preview`.
 2. Screenshot headlessly and READ the image; crop-zoom suspect cards.
    Reproduce at the element's REAL rendered geometry: renderer hooks
    (meta.height) shrink cards, and a repro page at a comfortable size

@@ -19,12 +19,33 @@ NAME = 'macro'
 KEY  = ENV['FRED_API_KEY']
 Scenario.fail_soft(NAME, 'FRED_API_KEY not set') if KEY.nil? || KEY.empty?
 
+# Replay (M12-1): FRED serves full history; the replay fetches each
+# series ONCE (2000 obs, SourceCache 24h -- a chained backfill must not
+# re-hit FRED per day) and windows CLIENT-SIDE to observations dated
+# before the replay day. D12-b caveat: these are the REVISED series as
+# published today, not the vintage a live run saw (macro data gets
+# restated) -- direction usually survives revision, levels can move.
+# (ALFRED realtime vintages would be fully honest but cost one query per
+# replayed day per series; documented, not default.)
 def fred(series, key, limit)
-  url = 'https://api.stlouisfed.org/fred/series/observations' \
-        "?series_id=#{series}&api_key=#{key}&file_type=json" \
-        "&sort_order=desc&limit=#{limit}"
-  obs = Scenario.get_json(url)['observations'] || []
-  obs.reject { |o| o['value'] == '.' }.map { |o| o['value'].to_f }
+  if Scenario.replay?
+    require_relative '../../lib/btc/source_cache'
+    url = 'https://api.stlouisfed.org/fred/series/observations' \
+          "?series_id=#{series}&api_key=#{key}&file_type=json" \
+          '&sort_order=desc&limit=2000'
+    cut = (Scenario.as_of - 86_400).strftime('%Y-%m-%d')
+    obs = BTC::SourceCache.fetch_json("fred_#{series.downcase}_hist", url,
+                                      ttl: 86_400)['data']['observations'] || []
+    obs.select { |o| o['date'].to_s <= cut }
+       .reject { |o| o['value'] == '.' }
+       .first(limit).map { |o| o['value'].to_f }
+  else
+    url = 'https://api.stlouisfed.org/fred/series/observations' \
+          "?series_id=#{series}&api_key=#{key}&file_type=json" \
+          "&sort_order=desc&limit=#{limit}"
+    obs = Scenario.get_json(url)['observations'] || []
+    obs.reject { |o| o['value'] == '.' }.map { |o| o['value'].to_f }
+  end
 end
 
 begin

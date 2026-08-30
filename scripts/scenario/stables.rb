@@ -22,12 +22,44 @@ end
 grab = ->(h) { h.is_a?(Hash) ? h['peggedUSD'].to_f : 0.0 }
 tot  = { now: 0.0, week: 0.0, month: 0.0 }
 
-(data['peggedAssets'] || []).each do |a|
-  next unless %w[USDT USDC].include?(a['symbol'])
+if Scenario.replay?
+  # Replay (M12-1): per-coin daily history via stablecoincharts (ids
+  # resolved from the index by symbol -- never hardcoded), truncated to
+  # complete days; now/week/month = D-1 and the rows 7/30 days earlier.
+  # D12-b caveat: DefiLlama occasionally restates supply series.
+  begin
+    ids = (data['peggedAssets'] || [])
+          .select { |a| %w[USDT USDC].include?(a['symbol']) }
+          .map { |a| a['id'] }
+    raise 'stablecoin ids not found' if ids.size < 2
 
-  tot[:now]   += grab.(a['circulating'])
-  tot[:week]  += grab.(a['circulatingPrevWeek'])
-  tot[:month] += grab.(a['circulatingPrevMonth'])
+    cut = Scenario.as_of.to_i
+    require_relative '../../lib/btc/source_cache'
+    ids.each do |id|
+      rows = BTC::SourceCache
+             .fetch_json("llama_charts_#{id}",
+                         "https://stablecoins.llama.fi/stablecoincharts/all?stablecoin=#{id}",
+                         ttl: 86_400)['data']
+             .select { |r| r['date'].to_i < cut }
+      raise 'not enough supply history' if rows.size < 31
+
+      # charts rows may carry the total as a hash or a bare number
+      read = ->(r) { v = r['totalCirculating']; v.is_a?(Hash) ? v['peggedUSD'].to_f : v.to_f }
+      tot[:now]   += read.(rows[-1])
+      tot[:week]  += read.(rows[-8])
+      tot[:month] += read.(rows[-31])
+    end
+  rescue StandardError => e
+    Scenario.fail_soft(NAME, e.message)
+  end
+else
+  (data['peggedAssets'] || []).each do |a|
+    next unless %w[USDT USDC].include?(a['symbol'])
+
+    tot[:now]   += grab.(a['circulating'])
+    tot[:week]  += grab.(a['circulatingPrevWeek'])
+    tot[:month] += grab.(a['circulatingPrevMonth'])
+  end
 end
 
 Scenario.fail_soft(NAME, 'no supply data') if tot[:now] <= 0 || tot[:month] <= 0

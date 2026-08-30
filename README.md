@@ -87,6 +87,10 @@ since the Phase 8 deploy.
 ruby scripts/scenario/scenario.rb            # table + composite + regime
 ruby scripts/scenario/scenario.rb --history  # also append data/history.jsonl
 ruby scripts/scenario/etf_flows.rb           # any module runs standalone
+ruby scripts/scenario/scenario.rb --as-of 2026-06-01  # replay: the composite as of that day
+rake scenario:backfill                       # staged history rebuild via replay (network)
+rake scenario:backfill_diff                  # staged-vs-organic overlap report
+ruby scripts/backtest.rb --bands "-0.5,-0.2,0.2,0.5"  # CURRENT-vs-PROPOSED band backtest
 ```
 
 Seven weighted signals (ETF flows, funding/basis, Coinbase premium,
@@ -125,6 +129,28 @@ the source-chain note in the script header. Its history entries before
 as daily totals (internal review finding F-22).
 Everything else is keyless public APIs; `etf_flows` is the one HTML
 scrape (degrades gracefully on layout drift).
+
+**Replay & backtests (Phase 12, Q-20):** every module supports
+`--as-of` (scores recomputed from dated-history sources, complete days
+only, clock frozen, nothing written -- the per-module fidelity table
+with its caveats is in docs/METHODOLOGY.md). `rake scenario:backfill`
+stages a replayed history (never merged into the live trail);
+`scripts/backtest.rb` scores CURRENT vs PROPOSED regime bands against
+realized forward BTC returns over organic + staged days -- future
+threshold/band proposals attach its output. Descriptive only; small
+samples are dimmed honestly.
+
+**Push alerts (Phase 12, Q-17, dormant):** transition-only ntfy.sh
+pushes -- scenario regime change, LPPL verdict change, spot crossing
+the BTC gamma flip, publish-health OLD/BLIND appearing/clearing --
+with a hard 8/day cap. DORMANT until `NTFY_TOPIC` is set in the env
+(enabling is the owner's call; the topic name acts as a credential).
+
+**Bubble cross-ref (Phase 12, Q-12):** `scripts/bubble_ref.rb`
+publishes an independent Coinglass bubble-index read (value +
+own-history percentile since 2010) as an ADVISORY row on the LPPL
+card's SHADOW tab -- an outside gauge to disagree with, never an
+input.
 
 ## LPPL suite
 

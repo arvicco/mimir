@@ -45,6 +45,7 @@ require 'time'
 require_relative '../../lib/btc/env'
 require_relative '../../lib/btc/suite'
 require_relative '../../lib/btc/report'
+require_relative 'common' # M12-2: the --as-of replay seam (Scenario.as_of)
 
 DIR = File.expand_path(__dir__)
 
@@ -68,9 +69,18 @@ LABELS = {
   'stables' => 'stb', 'positioning' => 'pos', 'reserves' => 'rsv'
 }.freeze
 
+# M12-2 (Q-20): under --as-of every module replays the same day (the
+# flag passes through; each module's fidelity note is the D12-b table).
+# --tmux is refused under replay so a backfill can never clobber the
+# live status token; the live history append is likewise guarded below.
+abort 'scenario: --tmux is refused under --as-of (replay)' if Scenario.replay? && ARGV.include?('--tmux')
+extra = Scenario.replay? ? ['--as-of', Scenario.as_of.strftime('%Y-%m-%d')] : []
+# replay day-runs fetch bigger (cached) histories; give modules headroom
+mod_timeout = Scenario.replay? ? 120 : 45
+
 results = MODULES.map do |mod, w|
   begin
-    r = BTC::Suite.run_module(DIR, mod, 45)
+    r = BTC::Suite.run_module(DIR, mod, mod_timeout, extra)
     { mod: mod, w: w, score: r['score'].to_i, headline: r['headline'].to_s,
       unavailable: r['unavailable'] == true } # M8-8: F-12 fail-soft marker
   rescue StandardError => e
@@ -95,9 +105,9 @@ regime = if composite <= -0.40
            'RECOVERY'
          end
 
-ts = Time.now.utc
+ts = Scenario.now_utc
 
-if ARGV.include?('--history')
+if ARGV.include?('--history') && !Scenario.replay?
   require 'fileutils'
   hist_dir = BTC::Env.data_dir('scenario', File.join(DIR, 'data'))
   FileUtils.mkdir_p(hist_dir)
@@ -132,8 +142,11 @@ if ARGV.include?('--tmux')
 end
 
 if ARGV.include?('--json')
-  puts JSON.pretty_generate(ts: ts.iso8601, composite: composite.round(3),
-                            regime: regime, modules: results)
+  out = { ts: ts.iso8601, composite: composite.round(3),
+          regime: regime, modules: results }
+  # additive under replay only (the lppl precedent): absent on live runs
+  out = { as_of: Scenario.as_of.strftime('%Y-%m-%d') }.merge(out) if Scenario.replay?
+  puts JSON.pretty_generate(out)
   exit
 end
 
