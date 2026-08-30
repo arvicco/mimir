@@ -38,4 +38,12 @@ dest = summary[:out_dir] || 'KV'
 puts format('publish %s: %d written, %d skipped -> %s',
             summary[:mode], summary[:keys].size, summary[:skipped].size, dest)
 
+# M12-5 (Q-17): transition alerts from THIS run's payloads -- REAL mode
+# only (previews/replays never alert), dormant until the owner sets
+# NTFY_TOPIC, and Alerts.dispatch never raises or changes the exit code.
+unless dry_run
+  require_relative 'alerts'
+  Publish::Alerts.dispatch(summary)
+end
+
 exit 0
