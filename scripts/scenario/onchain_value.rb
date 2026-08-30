@@ -20,16 +20,22 @@
 require_relative 'common'
 
 NAME  = 'onchain'
-start = (Time.now.utc - 10 * 86_400).strftime('%Y-%m-%d')
+start = (Scenario.now_utc - 10 * 86_400).strftime('%Y-%m-%d')
+# Replay (M12-1): Coin Metrics serves the full daily history -- the
+# window just ends at the day before the replay date (URL param AND a
+# client-side filter: a cached/faked response may carry later rows).
+END_T = Scenario.replay? ? (Scenario.as_of - 86_400).strftime('%Y-%m-%d') : nil
 URL   = 'https://community-api.coinmetrics.io/v4/timeseries/asset-metrics' \
         '?assets=btc&metrics=CapMVRVCur,PriceUSD' \
-        "&frequency=1d&start_time=#{start}&page_size=100"
+        "&frequency=1d&start_time=#{start}&page_size=100" \
+        "#{END_T ? "&end_time=#{END_T}" : ''}"
 
 begin
   rows = Scenario.get_json(URL)['data']
 rescue StandardError => e
   Scenario.fail_soft(NAME, e.message)
 end
+rows = rows.to_a.select { |r| r['time'].to_s[0, 10] <= END_T } if END_T
 Scenario.fail_soft(NAME, 'no data rows') if rows.nil? || rows.empty?
 
 r    = rows.last
