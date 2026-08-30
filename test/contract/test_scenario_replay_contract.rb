@@ -134,6 +134,34 @@ class TestScenarioReplayContract < Minitest::Test
     assert_match(/USDT\+USDC/, j['headline'])
   end
 
+  # ---- aggregator replay (M12-2) ---------------------------------------
+
+  def test_aggregator_replay_composite_with_as_of_field
+    j = run_json('scripts/scenario/scenario.rb', '--json', '--as-of', '2026-07-02',
+                 env: { 'FRED_API_KEY' => 'contract-test-key' }.merge(COINGLASS_ENV))
+    assert_equal '2026-07-02', j['as_of'], 'additive replay marker'
+    assert_equal '2026-07-02T00:00:00Z', j['ts'], 'aggregator clock frozen'
+    assert_kind_of Float, j['composite']
+    assert_equal 9, j['modules'].size
+    # the replayed weight-0 modules carry honest states too
+    mods = j['modules'].to_h { |m| [m['mod'], m] }
+    assert mods.key?('reserves')
+  end
+
+  def test_aggregator_replay_refuses_tmux_and_never_writes_history
+    _, _, st = run_script('scripts/scenario/scenario.rb', '--tmux', '--as-of', '2026-07-02',
+                          env: COINGLASS_ENV)
+    refute st.success?, 'replay must never clobber the live status token'
+
+    Dir.mktmpdir('mimir-agg-replay') do |dir|
+      run_script('scripts/scenario/scenario.rb', '--json', '--history', '--as-of', '2026-07-02',
+                 env: { 'FRED_API_KEY' => 'contract-test-key',
+                        'BTC_DATA_DIR' => dir }.merge(COINGLASS_ENV))
+      refute File.exist?(File.join(dir, 'scenario', 'history.jsonl')),
+             'replay + --history must not touch the live history'
+    end
+  end
+
   # replay never appends history (staging is the backfill's job)
   def test_replay_never_writes_history
     Dir.mktmpdir('mimir-replay-nowrite') do |dir|
