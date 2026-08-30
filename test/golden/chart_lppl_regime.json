@@ -35,20 +35,20 @@
   ],
   "grid": [
     {
-      "left": 44,
-      "right": 24,
+      "left": 12,
+      "right": 12,
       "top": 16,
       "height": "28%"
     },
     {
-      "left": 44,
-      "right": 24,
+      "left": 12,
+      "right": 12,
       "top": "34%",
       "height": "27%"
     },
     {
-      "left": 44,
-      "right": 24,
+      "left": 12,
+      "right": 12,
       "top": "63%",
       "height": "30%"
     }
@@ -91,6 +91,9 @@
       "gridIndex": 0,
       "name": "ratio",
       "scale": true,
+      "axisLabel": {
+        "inside": true
+      },
       "nameLocation": "middle",
       "nameGap": 44,
       "min": 0.34
@@ -100,6 +103,9 @@
       "gridIndex": 1,
       "name": "log10 BF",
       "scale": true,
+      "axisLabel": {
+        "inside": true
+      },
       "nameLocation": "middle",
       "nameGap": 44
     },
@@ -108,6 +114,9 @@
       "gridIndex": 2,
       "name": "Z",
       "scale": true,
+      "axisLabel": {
+        "inside": true
+      },
       "nameLocation": "middle",
       "nameGap": 44
     }
@@ -168,8 +177,19 @@
         ]
       },
       "markPoint": {
-        "symbol": "pin",
-        "symbolSize": 40,
+        "symbol": "circle",
+        "symbolSize": 1,
+        "label": {
+          "show": true,
+          "position": "left",
+          "color": "#fff",
+          "backgroundColor": "inherit",
+          "padding": [
+            2,
+            5
+          ],
+          "borderRadius": 3
+        },
         "data": [
           {
             "coord": [

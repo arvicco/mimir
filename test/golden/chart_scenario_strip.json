@@ -15,7 +15,7 @@
   },
   "grid": [
     {
-      "left": 40,
+      "left": 12,
       "right": 122,
       "top": 8,
       "bottom": 26
@@ -61,8 +61,9 @@
       "min": -1,
       "max": 1,
       "name": "composite",
-      "nameLocation": "middle",
-      "nameGap": 44
+      "axisLabel": {
+        "show": false
+      }
     },
     {
       "type": "category",
@@ -160,7 +161,7 @@
               "color": "#c9ccd1"
             },
             "label": {
-              "position": "start",
+              "position": "insideStartBottom",
               "formatter": "-0.40"
             }
           },
@@ -171,7 +172,7 @@
               "color": "#c9ccd1"
             },
             "label": {
-              "position": "start",
+              "position": "insideStartBottom",
               "formatter": "-0.10"
             }
           },
@@ -182,7 +183,7 @@
               "color": "#c9ccd1"
             },
             "label": {
-              "position": "start",
+              "position": "insideStartTop",
               "formatter": "+0.10"
             }
           },
@@ -193,7 +194,7 @@
               "color": "#c9ccd1"
             },
             "label": {
-              "position": "start",
+              "position": "insideStartTop",
               "formatter": "+0.40"
             }
           },

@@ -26,8 +26,8 @@
     }
   },
   "grid": {
-    "left": 38,
-    "right": 24,
+    "left": 12,
+    "right": 12,
     "top": 24,
     "bottom": 32
   },
@@ -42,6 +42,9 @@
   "yAxis": {
     "type": "value",
     "name": "ann basis %",
+    "axisLabel": {
+      "inside": true
+    },
     "scale": true,
     "nameLocation": "middle",
     "nameGap": 44

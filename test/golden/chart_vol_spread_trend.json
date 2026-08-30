@@ -26,8 +26,8 @@
     ]
   },
   "grid": {
-    "left": 38,
-    "right": 24,
+    "left": 12,
+    "right": 12,
     "top": 28,
     "bottom": 28
   },
@@ -49,6 +49,9 @@
   "yAxis": {
     "type": "value",
     "name": "spread vol pts",
+    "axisLabel": {
+      "inside": true
+    },
     "scale": true,
     "nameLocation": "middle",
     "nameGap": 44

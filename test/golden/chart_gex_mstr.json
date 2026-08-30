@@ -17,7 +17,7 @@
     }
   },
   "grid": {
-    "left": 34,
+    "left": 12,
     "right": 12,
     "top": 14,
     "bottom": 26
@@ -276,7 +276,11 @@
     ]
   },
   "yAxis": {
-    "type": "value"
+    "type": "value",
+    "name": "$M / 1%",
+    "axisLabel": {
+      "inside": true
+    }
   },
   "dataZoom": [
     {

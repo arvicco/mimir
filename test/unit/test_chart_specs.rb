@@ -338,13 +338,21 @@ class TestChartSpecs < Minitest::Test
     end
   end
 
-  def test_value_axis_names_ride_the_axis_not_the_title_row
-    # round 4: names at the axis top collided with the one-line titles;
-    # rotated mid-axis placement in the left gutter cannot
+  def test_value_axis_names_are_hover_only_and_ticks_sit_inside
+    # 2026-08-30 round 3: axis names never draw (the renderer strips
+    # them into hover bubbles); tick labels move INSIDE the plot so the
+    # margins shrink to the gridline. Scenario is the exception: its
+    # dashed band lines label the same values, so its ticks hide.
     y0 = build('scenario_strip')['yAxis'].first
-    assert_equal %w[middle 44], [y0['nameLocation'], y0['nameGap'].to_s]
+    assert_equal 'composite', y0['name']
+    assert_equal false, y0['axisLabel']['show']
     build('lppl_regime')['yAxis'].each do |y|
-      assert_equal 'middle', y['nameLocation'], y['name']
+      assert y['name'], 'named for the hover'
+      assert_equal true, y['axisLabel']['inside'], y['name']
+    end
+    build('gex_btc')['yAxis'].tap do |y|
+      assert_equal '$M / 1%', y['name']
+      assert_equal true, y['axisLabel']['inside']
     end
   end
 
@@ -501,9 +509,9 @@ class TestChartSpecs < Minitest::Test
     # 2026-08-30 round 2: top 26 = the one-row venue toggles only; the
     # marks live inside the plot now.
     assert_equal 26, opt['grid']['top']
-    # the widened plot: right margin freed for the plot (widget is top now)
+    # round 3: ticks inside -> margins collapse to the gridline
     assert_equal 12, opt['grid']['right']
-    assert_equal 34, opt['grid']['left'] # 2026-08-30 round 2: name gutter freed
+    assert_equal 12, opt['grid']['left']
   end
 
   def test_gex_mstr_default_zoom_is_spot_plus_minus_30pct
@@ -654,7 +662,7 @@ class TestChartSpecs < Minitest::Test
     opt = build('lppl_regime')
     assert_equal 3, opt['grid'].size
     assert_equal %w[ratio log10\ BF Z], opt['series'].map { |s| s['name'] }
-    assert_equal 24, opt['grid'].first['right'] # full-width panels, tight margin
+    assert_equal 12, opt['grid'].first['right'] # round 3: ticks inside, margins collapse
     assert_equal [{ 'xAxisIndex' => 'all' }], opt['axisPointer']['link']
     refute opt['series'].any? { |s| s['name'] == 'shadow' }
     # each panel bound to its own grid via matching axis indices
