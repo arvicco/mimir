@@ -61,6 +61,11 @@ class TestBtcFixtures < Minitest::Test
       'data' => (1..12).map { |i| { 'time' => 1_700_000_000_000 + i * 86_400_000, 'taker_buy_volume_usd' => '5e8', 'taker_sell_volume_usd' => '4e8' } }),
     'liquidation/aggregated-history'   => JSON.generate('code' => '0',
       'data' => (1..12).map { |i| { 'time' => 1_700_000_000_000 + i * 86_400_000, 'aggregated_long_liquidation_usd' => '3e6', 'aggregated_short_liquidation_usd' => '2e6' } }),
+    'index/bitcoin/bubble-index'       => JSON.generate('code' => '0',
+      'data' => (1..320).map { |i| { 'price' => 100.0 + i, 'bubble_index' => -30.0 + i * 0.1,
+                                     'mining_difficulty' => 1, 'transaction_count' => 2,
+                                     'address_send_count' => 3,
+                                     'date_string' => (Time.utc(2025, 1, 1) + i * 86_400).strftime('%Y-%m-%d') } }),
     # M11-7 (P-8): exchange reserves -- snapshot list + {time_list,
     # price_list, data_map} chart (140 canned days so the 130-day trim
     # provably trims and still clears the 121-day stat floor).

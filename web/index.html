@@ -664,7 +664,7 @@ function startAutoRefresh() {
     eb.style.display = "block";
     eb.textContent = "The published index lists no chart:* keys -- KV holds a publish " +
                      "older than the chart pipeline. Run: PUBLISH_DRY_RUN=0 ruby publish/publish.rb " +
-                     "(expect PUB LIVE 32/32), then reload.";
+                     "(expect PUB LIVE 33/33), then reload.";
   }
   for (var i = 0; i < chartKeys.length; i += 1) {
     await loadChart(chartKeys[i]);
