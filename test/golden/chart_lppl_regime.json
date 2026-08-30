@@ -1,7 +1,7 @@
 {
   "backgroundColor": "transparent",
   "title": {
-    "text": "LPPL STRESSED +0.00",
+    "text": "STRESSED +0.00",
     "textStyle": {
       "fontSize": 13
     }
@@ -35,19 +35,19 @@
   ],
   "grid": [
     {
-      "left": 60,
+      "left": 44,
       "right": 24,
       "top": 16,
       "height": "28%"
     },
     {
-      "left": 60,
+      "left": 44,
       "right": 24,
       "top": "34%",
       "height": "27%"
     },
     {
-      "left": 60,
+      "left": 44,
       "right": 24,
       "top": "63%",
       "height": "30%"

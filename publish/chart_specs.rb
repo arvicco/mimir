@@ -76,17 +76,16 @@ module Publish
               'price falling through it.',
       # headline tokens (owner ruling 2026-08-30: hovering a headline term
       # explains what the number means)
-      'flip dist' => 'How far spot sits from the gamma flip, in percent. ' \
-                     'Positive = above the flip (dealer hedging dampens moves); ' \
-                     'the distance is the cushion before the market turns ' \
-                     'short-gamma and moves start amplifying.',
-      'long_gamma' => 'The current dealer-gamma regime and how many days it has ' \
-                      'run. long_gamma = hedging dampens moves (pinning); ' \
-                      'short_gamma = hedging amplifies them.',
-      'MP \u0394' => 'Max-pain delta: how far Coinglass\'s Deribit max-pain level ' \
-                    'sits from our computed structure, in percent -- an ' \
-                    'independent cross-check on the walls/flip math. Large ' \
-                    'divergence = our math or crowd positioning shifted.'
+      'Γ+' => 'Long-gamma regime, with the run length in days: dealer hedging ' \
+              'DAMPENS moves (they sell rallies, buy dips -- pinning). The ' \
+              'headline number before it is how far spot sits above the flip.',
+      'Γ-' => 'Short-gamma regime, with the run length in days: dealer hedging ' \
+              'AMPLIFIES moves (they sell weakness, buy strength). The ' \
+              'headline number before it is how far spot sits below the flip.',
+      'MPΔ' => 'Max-pain delta: how far Coinglass\'s Deribit max-pain level ' \
+               'sits from spot, in percent -- an independent cross-check on ' \
+               'the walls/flip math. Large divergence = our math or crowd ' \
+               'positioning shifted.'
     }.freeze
 
     # gex_cp venue widget (gex_btc): Deribit plus the five US spot-ETF chains.
@@ -185,10 +184,13 @@ module Publish
                 'base forming / constructive conditions.',
       'RECOVERY' => 'Composite at or above +0.40: the weighted evidence leans ' \
                     'hard toward recovery conditions.',
-      'Scenario' => 'The regime composite: a bounded weighted vote of the ' \
-                    'scored modules, in [-1, +1], read by band. An evidence ' \
-                    'index, not a probability; the drift across days is the ' \
-                    'signal, not any single print.'
+      '↗' => 'The drift arrow: the composite\'s direction over recent ' \
+             'readings -- the methodology\'s actual signal. Up = improving ' \
+             'evidence, down = deteriorating, flat = no drift.',
+      '↘' => 'The drift arrow: the composite\'s direction over recent ' \
+             'readings. Down = the weighted evidence is deteriorating.',
+      '→' => 'The drift arrow: flat -- the composite has not moved ' \
+             'meaningfully across recent readings.'
     }.freeze
 
     # positioning card (M10-4): the panel-2 crowd-ratio legend items each
@@ -220,10 +222,6 @@ module Publish
     # lppl_regime headline tokens (2026-08-30): the verdict word explains
     # itself on hover.
     LPPL_TERMS = {
-      'LPPL' => 'The anti-bubble diagnostic suite: five independently ' \
-                'falsifiable tests of the claim that BTC trades as a damped ' \
-                'post-peak decline around a genesis-anchored power law. The ' \
-                'headline number is the tests\' weighted composite.',
       'REGIME-INTACT' => 'Every heavyweight test supports the model; the ' \
                          'strongest reading the suite can print.',
       'SUPPORTED' => 'The evidence nets positive: the model is holding.',
@@ -249,10 +247,60 @@ module Publish
 
     # btco headline tokens (2026-08-30).
     BTCO_TERMS = {
-      'BTCo stress' => 'The treasury-company stress score (0-100): how much of ' \
-                       'the BTC-weighted universe trades below net-asset parity, ' \
-                       'with leverage. Higher = the sector is priced at a ' \
-                       'discount to its coins -- historically a stressed tape.'
+      'stress' => 'The treasury-company stress score (0-100): how much of ' \
+                  'the BTC-weighted universe trades below net-asset parity, ' \
+                  'with leverage. Higher = the sector is priced at a ' \
+                  'discount to its coins -- historically a stressed tape.'
+    }.freeze
+
+    # 2026-08-30 owner round 2: axis names never draw -- the renderer
+    # strips them and hovers the tick numbers to 'name + context' bubbles
+    # (meta.axis_terms, keyed by the axis's spec name). Self-explaining
+    # date/tenor axes carry no name and get no hover. One shared map;
+    # each chart's meta references it (unknown names fall back to the
+    # bare name, which at least carries the units).
+    AXIS_TERMS = {
+      'composite' => 'The scenario composite: the weighted module vote in ' \
+                     '[-1, +1]. Dashed lines mark the regime band cutoffs.',
+      'ratio' => 'Price divided by the fitted power-law trend. 1.0 = exactly ' \
+                 'on trend; the dashed bound is the frozen envelope support.',
+      'log10 BF' => 'The trend test\'s cumulative log predictive-score ' \
+                    'differential (log10): power law vs its best rival. More ' \
+                    'negative = rivals keep out-forecasting the power law. ' \
+                    'Read the drift, not the level (it scales with history ' \
+                    'density).',
+      'Z' => 'The age-adjusted valuation z-score (Perrenod-style): how many ' \
+             'sigmas price sits from its age-trend. Negative = cheap vs ' \
+             'trend; records mark cycle extremes.',
+      'OI $B' => 'Aggregate futures open interest across venues, billions of ' \
+                 'dollars -- how much leveraged exposure exists.',
+      'L/S' => 'Long/short ratios: accounts (retail crowd, green) and ' \
+               'top-trader positions (blue). Above 1 = net long.',
+      'buy %' => 'The share of aggressive taker volume hitting the BUY side. ' \
+                 'Above 50% = demand-led tape.',
+      'liq $M' => 'Daily liquidations, millions of dollars: longs plotted ' \
+                  'DOWN (red), shorts UP (teal), overlaid per day.',
+      'resv M BTC' => 'Aggregate BTC held on tracked exchanges, millions of ' \
+                      'BTC. Falling = self-custody drain; rising = sellable ' \
+                      'overhang building.',
+      'x NAV' => 'Multiples of net asset value: where each treasury company ' \
+                 'trades relative to the value of its coins. The dashed line ' \
+                 'is parity (1x).',
+      'ATM IV %' => 'At-the-money implied volatility per tenor, annualized ' \
+                    'percent -- how much movement options are pricing.',
+      'vol pts' => 'Vol points (percentage points of implied volatility) -- ' \
+                   'the RR25/FLY25 skew measures on the right axis.',
+      'vol %' => 'Implied volatility, annualized percent: the spread bars and ' \
+                 'both legs\' ATM levels share this axis.',
+      'spread vol pts' => 'The MSTR-minus-BTC ATM implied-vol gap, in vol ' \
+                          'points, one line per option tenor.',
+      'ann basis %' => 'Annualized basis: each dated future\'s premium over ' \
+                       'spot, as a yearly percent. Negative = backwardation ' \
+                       '(historically capitulation regimes).',
+      'price ($k)' => 'BTC price levels in thousands of dollars: daily spot ' \
+                      'close vs the flip and both walls.',
+      'price ($)' => 'MSTR share price in dollars: daily spot close vs the ' \
+                     'flip and both walls.'
     }.freeze
 
     # meta (additive envelope field, 2026-07-05): METHODOLOGY-grade
@@ -334,6 +382,7 @@ module Publish
         inputs: %w[payload_scenario_latest.json payload_scenario_history.json],
         fn: :scenario_strip,
         meta: {
+          'axis_terms' => AXIS_TERMS,
           'desc' => 'Seven cheap, independent signals -- ETF flows, funding, ' \
                     'Coinbase premium, macro liquidity, hash ribbons, MVRV, ' \
                     'stablecoin supply -- each scored -1/0/+1 for whether the ' \
@@ -367,6 +416,7 @@ module Publish
         inputs: %w[payload_lppl_latest.json payload_lppl_ledger.json],
         fn: :lppl_regime,
         meta: {
+          'axis_terms' => AXIS_TERMS,
           'desc' => 'The LPPL-as-regime claim -- BTC log price is an ' \
                     'anti-bubble around a genesis-anchored power law -- is not ' \
                     'proven but continually FALSIFIED: four independent tests ' \
@@ -426,6 +476,7 @@ module Publish
       'btco_table' => {
         inputs: %w[payload_btco_latest.json], fn: :btco_table,
         meta: {
+          'axis_terms' => AXIS_TERMS,
           'desc' => 'Bitcoin treasury companies are levered, reflexive ' \
                     'holders: above BTC NAV they issue shares to buy more ' \
                     '(flywheel on), below NAV they risk becoming forced ' \
@@ -457,6 +508,7 @@ module Publish
       'vol_surface' => {
         inputs: %w[payload_vol_latest.json], fn: :vol_surface,
         meta: {
+          'axis_terms' => AXIS_TERMS,
           'desc' => 'The implied-vol term structure from Deribit\'s BTC option ' \
                     'chain at five nominal tenors: ATM IV is the at-the-money ' \
                     'level, RR25 the 25-delta risk reversal (call IV minus put ' \
@@ -497,6 +549,7 @@ module Publish
       'vol_surface_mstr' => {
         inputs: %w[payload_vol_mstr.json], fn: :vol_surface_mstr,
         meta: {
+          'axis_terms' => AXIS_TERMS,
           'desc' => 'The implied-vol term structure from MicroStrategy\'s ' \
                     'own option chain (CBOE single-name, USD cash-settled) at ' \
                     'five nominal tenors: ATM IV is the at-the-money level, ' \
@@ -531,6 +584,7 @@ module Publish
       'vol_spread' => {
         inputs: %w[payload_vol_spread.json], fn: :vol_spread,
         meta: {
+          'axis_terms' => AXIS_TERMS,
           'desc' => 'The market\'s live price of treasury-company leverage: ' \
                     'MSTR\'s ATM implied vol minus BTC\'s, tenor by tenor. MSTR ' \
                     'is a levered, reflexive BTC holder, so its options ' \
@@ -560,6 +614,7 @@ module Publish
         # daily "history"), a different builder -- the trend view below the bars.
         inputs: %w[payload_vol_spread.json], fn: :vol_spread_trend,
         meta: {
+          'axis_terms' => AXIS_TERMS,
           'desc' => 'The MSTR-minus-BTC ATM vol spread over time, one line per ' \
                     'tenor (7/14/21/30/45/90/180d). This is the same treasury-company ' \
                     'leverage premium as the bars above, but as a term-structure ' \
@@ -581,6 +636,7 @@ module Publish
       'vol_basis' => {
         inputs: %w[payload_basis_latest.json], fn: :vol_basis,
         meta: {
+          'axis_terms' => AXIS_TERMS,
           'desc' => 'The annualized basis of Deribit\'s dated BTC futures over ' \
                     'spot, per expiry, plus the perpetual funding rate. Positive ' \
                     'basis / positive funding = the market pays to be long ' \
@@ -606,6 +662,7 @@ module Publish
       'gex_btc_trend' => {
         inputs: %w[payload_gex_trend.json payload_gex_check.json], fn: :gex_trend,
         meta: {
+          'axis_terms' => AXIS_TERMS,
           'desc' => 'A time series over the daily BTC-combined GEX snapshots ' \
                     '(accumulating since 2026-07-06): where spot sat each day ' \
                     'relative to the gamma flip and the call/put walls, and how ' \
@@ -640,6 +697,7 @@ module Publish
       'gex_mstr_trend' => {
         inputs: %w[payload_gex_trend.json], fn: :gex_mstr_trend,
         meta: {
+          'axis_terms' => AXIS_TERMS,
           'desc' => 'A time series over the daily MSTR GEX snapshots ' \
                     '(accumulating since 2026-07-06): where MSTR spot sat each ' \
                     'day relative to its own gamma flip and call/put walls, on ' \
@@ -710,6 +768,7 @@ module Publish
         inputs: %w[payload_positioning_latest.json], fn: :positioning,
         optional: %w[payload_reserves_latest.json],
         meta: {
+          'axis_terms' => AXIS_TERMS,
           'desc' => 'The derivatives crowd\'s stance in one vertical slice: ' \
                     'aggregate open interest ($B), the long/short crowd ratios ' \
                     '(retail account + top-trader position) with aggressive ' \
@@ -789,7 +848,7 @@ module Publish
         # the raised wall labels (grid.top - 14) sit a clear row BELOW the 2-row
         # widget (which ends ~34px): screenshot showed CW brushing the DERI
         # toggle at top 56.
-        'grid' => { 'left' => 42, 'right' => 12, 'top' => 44, 'bottom' => 26 },
+        'grid' => { 'left' => 34, 'right' => 12, 'top' => 26, 'bottom' => 26 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
         'yAxis' => { 'type' => 'value' },
         # all levels stay in the data; the default window shows the
@@ -887,7 +946,9 @@ module Publish
     # labels are raised into the upper band of the grid-top label zone
     # so an adjacent wall+flip pair can never garble ("PWlip") and no
     # label reaches the title (owner report, Gate 6 preview).
-    WALL_RAISE = { 'offset' => [0, -14] }.freeze
+    # 2026-08-30 owner round: the wall/flip marks live INSIDE the plot
+    # (insideEndTop), not in a reserved band above it -- the band is gone.
+    WALL_INSIDE = { 'position' => 'insideEndTop' }.freeze
 
     def mark_lines(gex, levels)
       c = gex['combined'] || {}
@@ -902,17 +963,17 @@ module Publish
       end
       if c['gamma_flip']
         lines << { 'xAxis' => nearest_label(levels, c['gamma_flip']),
-                   'label' => { 'formatter' => 'flip' },
+                   'label' => { 'formatter' => 'flip', 'position' => 'insideEndTop' },
                    'lineStyle' => { 'color' => '#e6a23c', 'type' => 'solid', 'width' => 2 } }
       end
       if c['call_wall']
         lines << { 'xAxis' => nearest_label(levels, c['call_wall']['level']),
-                   'label' => { 'formatter' => 'CW' }.merge(WALL_RAISE),
+                   'label' => { 'formatter' => 'CW' }.merge(WALL_INSIDE),
                    'lineStyle' => { 'color' => '#0f7a5c', 'type' => 'dashed' } }
       end
       if c['put_wall']
         lines << { 'xAxis' => nearest_label(levels, c['put_wall']['level']),
-                   'label' => { 'formatter' => 'PW' }.merge(WALL_RAISE),
+                   'label' => { 'formatter' => 'PW' }.merge(WALL_INSIDE),
                    'lineStyle' => { 'color' => '#c63939', 'type' => 'dashed' } }
       end
       { 'symbol' => 'none', 'data' => lines }
@@ -953,14 +1014,14 @@ module Publish
         'backgroundColor' => 'transparent',
         # ' · stale' when the CBOE chain came from cache (M7-8, gex_us
         # top-level 'stale'); absent on all-fresh payloads
-        'title' => { 'text' => format('MSTR GEX $M/1%% · spot %s%s', mstr_label(gex['spot']),
+        'title' => { 'text' => format('GEX $M/1%% · spot %s%s', mstr_label(gex['spot']),
                                       gex['stale'] ? ' · stale' : ''),
                      'textStyle' => { 'fontSize' => 13 } },
         'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 }, 'axisPointer' => { 'type' => 'shadow' } },
         # M8-18 R4 (owner ruling 2026-08-10): left/right tightened to match the
         # BTC tab (42/12; no widget here) for a visibly wider plot. top 56 keeps
         # the two-band markline label zone (flip/spot lower, walls raised).
-        'grid' => { 'left' => 42, 'right' => 12, 'top' => 30, 'bottom' => 26 },
+        'grid' => { 'left' => 34, 'right' => 12, 'top' => 14, 'bottom' => 26 },
         'xAxis' => { 'type' => 'category', 'data' => levels.map { |l| mstr_label(l) } },
         'yAxis' => { 'type' => 'value' },
         # all strikes stay in the data; the default window shows the
@@ -1001,17 +1062,17 @@ module Publish
       end
       if gex['gamma_flip']
         lines << { 'xAxis' => nearest_mstr_label(levels, gex['gamma_flip']),
-                   'label' => { 'formatter' => 'flip' },
+                   'label' => { 'formatter' => 'flip', 'position' => 'insideEndTop' },
                    'lineStyle' => { 'color' => '#e6a23c', 'type' => 'solid', 'width' => 2 } }
       end
       if gex['call_wall']
         lines << { 'xAxis' => nearest_mstr_label(levels, gex['call_wall']['strike']),
-                   'label' => { 'formatter' => 'CW' }.merge(WALL_RAISE),
+                   'label' => { 'formatter' => 'CW' }.merge(WALL_INSIDE),
                    'lineStyle' => { 'color' => GEX_TEAL, 'type' => 'dashed' } }
       end
       if gex['put_wall']
         lines << { 'xAxis' => nearest_mstr_label(levels, gex['put_wall']['strike']),
-                   'label' => { 'formatter' => 'PW' }.merge(WALL_RAISE),
+                   'label' => { 'formatter' => 'PW' }.merge(WALL_INSIDE),
                    'lineStyle' => { 'color' => GEX_RED, 'type' => 'dashed' } }
       end
       { 'symbol' => 'none', 'data' => lines }
@@ -1059,7 +1120,7 @@ module Publish
         # transparent bg lets the card surface show through
         'backgroundColor' => 'transparent',
         'title' => {
-          'text' => format('Scenario %s %+.2f%s', latest['regime'].to_s,
+          'text' => format('%s %+.2f%s', latest['regime'].to_s,
                            latest['composite'].to_f,
                            scenario_drift_suffix(latest, history)),
           'textStyle' => { 'fontSize' => 13 }
@@ -1067,7 +1128,7 @@ module Publish
         'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 } },
         # main grid (composite) left, tight; narrow heatmap column right of it
         'grid' => [
-          { 'left' => 60, 'right' => 122, 'top' => 8, 'bottom' => 26 },
+          { 'left' => 40, 'right' => 122, 'top' => 8, 'bottom' => 26 },
           { 'right' => 12, 'width' => 20, 'top' => 8, 'bottom' => 26 }
         ],
         'xAxis' => [
@@ -1188,7 +1249,7 @@ module Publish
       end
 
       titles = [{
-        'text' => format('LPPL %s %+.2f', latest['verdict'].to_s,
+        'text' => format('%s %+.2f', latest['verdict'].to_s,
                         latest['composite'].to_f),
         'textStyle' => { 'fontSize' => 13 }
       }]
@@ -1219,9 +1280,9 @@ module Publish
         # M10-9 follow-up (owner ruling 2026-08-13): the bottom margin was
         # still wide -- panels stretch down to ~93%, leaving only the date row.
         'grid' => [
-          { 'left' => 60, 'right' => 24, 'top' => 16, 'height' => '28%' },
-          { 'left' => 60, 'right' => 24, 'top' => '34%', 'height' => '27%' },
-          { 'left' => 60, 'right' => 24, 'top' => '63%', 'height' => '30%' }
+          { 'left' => 44, 'right' => 24, 'top' => 16, 'height' => '28%' },
+          { 'left' => 44, 'right' => 24, 'top' => '34%', 'height' => '27%' },
+          { 'left' => 44, 'right' => 24, 'top' => '63%', 'height' => '30%' }
         ],
         'xAxis' => [
           { 'type' => 'time', 'gridIndex' => 0, 'axisLabel' => { 'show' => false },
@@ -1448,7 +1509,7 @@ module Publish
     def lppl_shadow(latest, bubble = nil)
       rows = lppl_shadow_rows(latest, bubble)
 
-      titles = [{ 'text' => format('Shadow checks · %d rows', rows.size),
+      titles = [{ 'text' => format('%d checks · ref → op', rows.size),
                   'textStyle' => { 'fontSize' => 13 } }]
       titles << { 'text' => rows.empty? ? 'awaiting shadow fields' :
                     'reference → operative · rulings 2026-08-29 · hover a row for the story',
@@ -1594,7 +1655,7 @@ module Publish
 
       {
         'backgroundColor' => 'transparent',
-        'title' => { 'text' => 'Scorecard · fwd returns 7/30/90d · n_eff honest',
+        'title' => { 'text' => 'fwd returns 7/30/90d',
                      'textStyle' => { 'fontSize' => 13 } },
         # axis trigger on the category rows: hovering anywhere on a row fires
         # the tooltip. confine:true + fontSize 11 satisfy the frozen tooltip
@@ -1811,9 +1872,9 @@ module Publish
         # M10-9 (owner ruling 2026-08-13): margins at minimum -- the panels
         # take every px the y-gutters and the date row do not strictly need.
         'grid' => [
-          { 'left' => 46, 'right' => 38, 'top' => 22,    'height' => '27%' },
-          { 'left' => 46, 'right' => 38, 'top' => '37%', 'height' => '27%' },
-          { 'left' => 46, 'right' => 38, 'top' => '68%', 'height' => '27%' }
+          { 'left' => 36, 'right' => 30, 'top' => 22,    'height' => '27%' },
+          { 'left' => 36, 'right' => 30, 'top' => '37%', 'height' => '27%' },
+          { 'left' => 36, 'right' => 30, 'top' => '68%', 'height' => '27%' }
         ],
         'xAxis' => [
           positioning_hidden_time_axis(0),
@@ -1835,12 +1896,10 @@ module Publish
             'position' => 'right', 'nameLocation' => 'middle', 'nameGap' => 26 },
           { 'type' => 'value', 'gridIndex' => 2, 'name' => 'liq $M',
             'nameLocation' => 'middle', 'nameGap' => 32 },
-          # no axis name: its M-BTC tick labels are wide (2.53x, 3dp) and a
-          # rotated name collides with them inside the shared 38px right
-          # margin (screenshot-caught). The legend entry + its glossary
-          # term carry the name and unit instead.
-          { 'type' => 'value', 'gridIndex' => 0, 'scale' => true,
-            'position' => 'right' }
+          # named again 2026-08-30: axis names render as HOVER bubbles
+          # only (never drawn), so the old tick/name collision is gone
+          { 'type' => 'value', 'gridIndex' => 0, 'name' => 'resv M BTC',
+            'scale' => true, 'position' => 'right' }
         ],
         'series' => [
           positioning_line('OI $B', series['oi_close'], POS_OI, 0, 0),
@@ -1871,9 +1930,9 @@ module Publish
       crowd = doc['crowding'].to_s
       if crowd == 'WARMUP'
         n = (doc.dig('series', 'global_ls') || []).size
-        format('Positioning · WARMUP %d/91d', n)
+        format('WARMUP %d/91d', n)
       else
-        format('Positioning · %s · crowd %s', positioning_score_str(doc['score']), crowd)
+        format('%s · crowd %s', positioning_score_str(doc['score']), crowd)
       end
     end
 
@@ -1933,13 +1992,13 @@ module Publish
         # 'spot_stale'): the whole NAV axis is on a stale coin price.
         # Absent on all-fresh payloads -> byte-identical golden.
         'title' => {
-          'text' => format('BTCo stress %s %s%s', latest['stress'], latest['band'].to_s,
+          'text' => format('stress %s %s%s', latest['stress'], latest['band'].to_s,
                            latest['spot_stale'] ? ' · spot stale' : ''),
           'textStyle' => { 'fontSize' => 13 }
         },
         'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 }, 'axisPointer' => { 'type' => 'shadow' } },
         'legend' => { 'top' => 2, 'data' => %w[mNAV netNAV] },
-        'grid' => { 'left' => 100, 'right' => '32%', 'top' => 28, 'bottom' => 32 },
+        'grid' => { 'left' => 100, 'right' => '32%', 'top' => 28, 'bottom' => 24 },
         'xAxis' => { 'type' => 'value', 'name' => 'x NAV' },
         'yAxis' => { 'type' => 'category', 'data' => labels, 'inverse' => true },
         'series' => [
@@ -2035,12 +2094,12 @@ module Publish
     # prefix, keeping the existing vol_surface golden byte-identical
     # (format('%s · ATM %s','Vol surface',head) == the old literal).
     def vol_surface(vol)
-      vol_surface_option(vol, 'Vol surface')
+      vol_surface_option(vol, nil)
     end
 
     # MSTR sibling (reads vol:mstr) -- identical body, MSTR title.
     def vol_surface_mstr(vol)
-      vol_surface_option(vol, 'MSTR vol surface')
+      vol_surface_option(vol, nil)
     end
 
     def vol_surface_option(vol, title_prefix)
@@ -2054,12 +2113,15 @@ module Publish
 
       {
         'backgroundColor' => 'transparent',
-        'title' => { 'text' => format('%s · ATM %s', title_prefix, head),
+        # title_prefix retired 2026-08-30 (the section key/tab names the
+        # card; headlines never repeat it) -- parameter kept so the two
+        # sibling builders share this body unchanged.
+        'title' => { 'text' => format('ATM %s', head),
                      'textStyle' => { 'fontSize' => 13 } },
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 } },
         'legend' => { 'top' => 2, 'data' => %w[ATM\ IV RR25 FLY25] },
-        'grid' => { 'left' => 56, 'right' => 56, 'top' => 28, 'bottom' => 28 },
+        'grid' => { 'left' => 38, 'right' => 40, 'top' => 28, 'bottom' => 28 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
         'yAxis' => [
           # names ride the axes (rotated, in the gutters) so they never land
@@ -2133,7 +2195,7 @@ module Publish
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 } },
         'legend' => { 'top' => 2, 'data' => %w[spread MSTR BTC] },
-        'grid' => { 'left' => 56, 'right' => 24, 'top' => 28, 'bottom' => 28 },
+        'grid' => { 'left' => 38, 'right' => 24, 'top' => 28, 'bottom' => 28 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
         'yAxis' => { 'type' => 'value', 'name' => 'vol %',
                      'nameLocation' => 'middle', 'nameGap' => 44 },
@@ -2202,12 +2264,12 @@ module Publish
 
       {
         'backgroundColor' => 'transparent',
-        'title' => { 'text' => format('Spread trend · %dd history', dates.size),
+        'title' => { 'text' => format('%dd history', dates.size),
                      'textStyle' => { 'fontSize' => 13 } },
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 } },
         'legend' => { 'top' => 2, 'data' => VOL_SPREAD_TREND_TENORS.map { |td| "#{td}d" } },
-        'grid' => { 'left' => 56, 'right' => 24, 'top' => 28, 'bottom' => 28 },
+        'grid' => { 'left' => 38, 'right' => 24, 'top' => 28, 'bottom' => 28 },
         'xAxis' => { 'type' => 'category', 'data' => dates },
         'yAxis' => { 'type' => 'value', 'name' => 'spread vol pts',
                      'scale' => true, 'nameLocation' => 'middle', 'nameGap' => 44 },
@@ -2261,7 +2323,7 @@ module Publish
         'title' => titles.size == 1 ? titles.first : titles,
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 } },
-        'grid' => { 'left' => 56, 'right' => 24, 'top' => 24, 'bottom' => 32 },
+        'grid' => { 'left' => 38, 'right' => 24, 'top' => 24, 'bottom' => 32 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
         'yAxis' => { 'type' => 'value', 'name' => 'ann basis %',
                      'scale' => true, 'nameLocation' => 'middle', 'nameGap' => 44 },
@@ -2313,7 +2375,7 @@ module Publish
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 } },
         'legend' => { 'top' => 2, 'data' => %w[spot flip CW PW] },
-        'grid' => { 'left' => 56, 'right' => 24, 'top' => 28, 'bottom' => 28 },
+        'grid' => { 'left' => 38, 'right' => 24, 'top' => 28, 'bottom' => 28 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
         # owner ruling 2026-08-29: date axes zoom/pan (inside, full range)
         'dataZoom' => [{ 'type' => 'inside', 'xAxisIndex' => [0] }],
@@ -2348,11 +2410,11 @@ module Publish
     # is present, ' · MP Δ<+d>%' (spot vs Coinglass nearest max-pain).
     def gex_trend_title(stats, check)
       dist = stats['flip_dist_pct_last']
-      base = format('GEX trend · flip dist %s · %dd %s',
-                    dist.nil? ? 'n/a' : format('%+.2f%%', dist.to_f),
-                    stats['regime_days'].to_i, stats['regime'].to_s)
+      base = format('flip %s · %s %dd',
+                    dist.nil? ? 'n/a' : format('%+.1f%%', dist.to_f),
+                    gamma_glyph(stats['regime']), stats['regime_days'].to_i)
       mp = check && check['deltas'] && check['deltas']['nearest_vs_spot_pct']
-      mp.nil? ? base : base + format(' · MP Δ%+.2f%%', mp.to_f)
+      mp.nil? ? base : base + format(' · MPΔ %+.2f%%', mp.to_f)
     end
 
     # ---- gex_mstr_trend (M8-18) ---------------------------------------
@@ -2377,7 +2439,7 @@ module Publish
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 } },
         'legend' => { 'top' => 2, 'data' => %w[spot flip CW PW] },
-        'grid' => { 'left' => 56, 'right' => 24, 'top' => 28, 'bottom' => 28 },
+        'grid' => { 'left' => 38, 'right' => 24, 'top' => 28, 'bottom' => 28 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
         # owner ruling 2026-08-29: date axes zoom/pan (inside, full range)
         'dataZoom' => [{ 'type' => 'inside', 'xAxisIndex' => [0] }],
@@ -2396,9 +2458,15 @@ module Publish
     # (max-pain is a BTC-only check).
     def gex_mstr_trend_title(stats)
       dist = stats['flip_dist_pct_last']
-      format('MSTR GEX trend · flip dist %s · %dd %s',
-             dist.nil? ? 'n/a' : format('%+.2f%%', dist.to_f),
-             stats['regime_days'].to_i, stats['regime'].to_s)
+      format('flip %s · %s %dd',
+             dist.nil? ? 'n/a' : format('%+.1f%%', dist.to_f),
+             gamma_glyph(stats['regime']), stats['regime_days'].to_i)
+    end
+
+    # 2026-08-30 owner round: compact regime glyphs for headlines --
+    # long_gamma reads Γ+, short_gamma Γ- (hover terms explain them).
+    def gamma_glyph(regime)
+      { 'long_gamma' => 'Γ+', 'short_gamma' => 'Γ-' }.fetch(regime.to_s, regime.to_s)
     end
   end
 end

@@ -1,7 +1,7 @@
 {
   "backgroundColor": "transparent",
   "title": {
-    "text": "MSTR GEX trend · flip dist +8.91% · 5d long_gamma",
+    "text": "flip +8.9% · Γ+ 5d",
     "textStyle": {
       "fontSize": 13
     }
@@ -23,7 +23,7 @@
     ]
   },
   "grid": {
-    "left": 56,
+    "left": 38,
     "right": 24,
     "top": 28,
     "bottom": 28

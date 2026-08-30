@@ -245,12 +245,12 @@ var WIDGETS = {
           cell.appendChild(el);
           return el;
         }
+        // compact '(p)IBIT(c)' cells (owner round 2026-08-30: the venue
+        // toggles must fit ONE row even at 3-column card widths)
         var p = piece("(p)", "cp-p", function () { setTo([sides[v].P], !sel[sides[v].P]); });
-        cell.appendChild(document.createTextNode(" "));
         var name = piece(v, "cp-v", function () {
           setTo([sides[v].P, sides[v].C], !(sel[sides[v].P] && sel[sides[v].C]));
         });
-        cell.appendChild(document.createTextNode(" "));
         var c = piece("(c)", "cp-c", function () { setTo([sides[v].C], !sel[sides[v].C]); });
         // M9-15 (owner ruling 2026-08-11): the venue label gets an instant CSS
         // bubble (the house hover pattern, never native title=) explaining what
@@ -580,6 +580,60 @@ function fillHeadline(el, text, terms) {
   if (rest.length) el.appendChild(document.createTextNode(rest));
 }
 
+// Collect every named value axis from the option, strip the names from
+// the RENDERED chart (index-matched partial merge; the payload is
+// untouched), enable label events on those axes, and hover the tick
+// numbers to a viewport-fixed house bubble: bold axis name (+ units as
+// written in the spec's name) and optional context from
+// meta.axis_terms[name]. Same popover mechanics as the scenario
+// scoreboard glossary (wireAxisTerms).
+function hoistAxisNames(chart, option, meta, host) {
+  var axisTerms = (meta && meta.axis_terms) || {};
+  var pop = null;
+  function popover() {
+    if (pop) return pop;
+    pop = document.createElement("div");
+    pop.className = "terms-pop";
+    pop.style.display = "none";
+    host.appendChild(pop);
+    return pop;
+  }
+  ["xAxis", "yAxis"].forEach(function (dim) {
+    var axes = option[dim];
+    if (!axes) return;
+    var list = Array.isArray(axes) ? axes : [axes];
+    var names = list.map(function (a) { return (a && a.name) || null; });
+    if (!names.some(Boolean)) return;
+    var patch = list.map(function (a, i) {
+      return names[i] ? { name: "", triggerEvent: true } : { triggerEvent: true };
+    });
+    var opt = {}; opt[dim] = Array.isArray(axes) ? patch : patch[0];
+    chart.setOption(opt);
+    chart.on("mouseover", function (ev) {
+      if (!ev || ev.componentType !== dim || ev.targetType !== "axisLabel") return;
+      var name = names[ev.componentIndex || 0];
+      if (!name) return;
+      var oe = ev.event && ev.event.event;
+      var cx = oe ? oe.clientX : 0, cy = oe ? oe.clientY : 0;
+      var pp = popover();
+      pp.innerHTML = termsBlock(name, axisTerms[name] || "This axis's unit/scale.");
+      pp.style.left = (cx + 12) + "px";
+      pp.style.top = (cy + 12) + "px";
+      pp.style.display = "block";
+      requestAnimationFrame(function () {
+        var r = pp.getBoundingClientRect();
+        var vw = window.innerWidth || Infinity, vh = window.innerHeight || Infinity;
+        if (r.width && r.right > vw) pp.style.left = Math.max(4, cx - r.width - 12) + "px";
+        if (r.height && r.bottom > vh) pp.style.top = Math.max(4, cy - r.height - 12) + "px";
+      });
+    });
+    chart.on("mouseout", function (ev) {
+      if (ev && ev.componentType === dim && pop) pop.style.display = "none";
+    });
+    chart.on("globalout", function () { if (pop) pop.style.display = "none"; });
+  });
+}
+
 function buildChartInstance(env, key, meta, legendHost) {
   var div = document.createElement("div");
   div.className = "chart";
@@ -604,6 +658,11 @@ function buildChartInstance(env, key, meta, legendHost) {
   // title for any consumer of the raw option). Entry 0 only; secondary
   // positional titles (notes/subtitles) stay drawn.
   if (headlineOf(env.payload)) chart.setOption({ title: [{ show: false }] });
+  // 2026-08-30 owner round 2: AXIS NAMES leave the canvas too -- the
+  // payload keeps them (raw consumers see labelled axes), the renderer
+  // strips them and instead shows a hover bubble over the axis NUMBERS:
+  // bold axis name + optional context from meta.axis_terms[name].
+  hoistAxisNames(chart, env.payload, meta, div);
   if (meta && meta.tooltip_formatter && FORMATTERS[meta.tooltip_formatter]) {
     var fmtTip = { formatter: FORMATTERS[meta.tooltip_formatter] };
     if (meta.tooltip_formatter === "lppl_shadow" ||

@@ -305,6 +305,29 @@ test('linked stacked tabs swap BOTH section headlines', () => {
   assert.equal(secs[1].querySelector('.headline').textContent, 'trend mstr');
 });
 
+// ---- axis-name hoist (owner round 2 2026-08-30) --------------------------
+// Named value axes render nameless (the payload keeps the name); the
+// renderer wires their tick labels to hover bubbles instead. Nameless
+// (self-explaining date/tenor) axes are left untouched.
+
+test('axis names are stripped from the render and wired for hover', () => {
+  const { R, echarts } = loadRender();
+  const e = env('chart:ax', '2026-08-30T10:00:00Z',
+    { desc: 'd', axes: { x: 'x', y: 'y' }, help: 'h',
+      axis_terms: { 'OI $B': 'open interest, billions' } }, []);
+  e.payload.yAxis = [{ type: 'value', name: 'OI $B' }, { type: 'value' }];
+  e.payload.xAxis = [{ type: 'time' }]; // nameless: must NOT be patched
+  R.buildChartCard(e, 'chart:ax');
+  const inst = echarts.instances[echarts.instances.length - 1];
+  const yPatches = inst._opts.slice(1).map((o) => o.yAxis).filter(Boolean); // slice(1): skip the payload itself
+  assert.ok(yPatches.length, 'a yAxis patch was applied');
+  const patch = yPatches.pop();
+  assert.equal(patch[0].name, '', 'named axis stripped');
+  assert.equal(patch[0].triggerEvent, true, 'tick labels wired for hover');
+  const xPatches = inst._opts.slice(1).map((o) => o.xAxis).filter(Boolean);
+  assert.equal(xPatches.length, 0, 'nameless x axis untouched (self-explaining)');
+});
+
 // ---- linked stacked tabs (owner ruling 2026-08-29, the GEX card) ---------
 // A stacked card whose tabbed sections carry IDENTICAL label sequences
 // gets ONE switcher: only the top linked section renders a tab bar, and a

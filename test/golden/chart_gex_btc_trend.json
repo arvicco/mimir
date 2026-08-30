@@ -1,7 +1,7 @@
 {
   "backgroundColor": "transparent",
   "title": {
-    "text": "GEX trend · flip dist +3.67% · 5d long_gamma · MP Δ+0.59%",
+    "text": "flip +3.7% · Γ+ 5d · MPΔ +0.59%",
     "textStyle": {
       "fontSize": 13
     }
@@ -23,7 +23,7 @@
     ]
   },
   "grid": {
-    "left": 56,
+    "left": 38,
     "right": 24,
     "top": 28,
     "bottom": 28

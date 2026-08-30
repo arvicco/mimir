@@ -551,11 +551,11 @@ class TestPublishPipeline < Minitest::Test
     # gex_btc_trend has TWO inputs (gex:trend + gex:check, both 3600) -> MIN 3600.
     trend = JSON.parse(File.read(File.join(out_dir, 'chart_gex_btc_trend.json')))
     assert_equal 3_600, trend['ttl_hint_s']
-    assert trend['payload']['title']['text'].include?('MP Δ') # cross-check suffix present
+    assert trend['payload']['title']['text'].include?('MPΔ') # cross-check suffix (compact token, 2026-08-30)
     # gex_mstr_trend has ONE input (gex:trend 3600) -> 3600; no MP cross-check.
     mtrend = JSON.parse(File.read(File.join(out_dir, 'chart_gex_mstr_trend.json')))
     assert_equal 3_600, mtrend['ttl_hint_s']
-    assert_match(/\AMSTR GEX trend · /, mtrend['payload']['title']['text'])
+    assert_match(/\Aflip /, mtrend['payload']['title']['text']) # prefixes retired 2026-08-30
     refute_includes mtrend['payload']['title']['text'], 'MP'
   end
 

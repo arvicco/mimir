@@ -1,7 +1,7 @@
 {
   "backgroundColor": "transparent",
   "title": {
-    "text": "MSTR vol surface · ATM 30d 86.2%",
+    "text": "ATM 30d 86.2%",
     "textStyle": {
       "fontSize": 13
     }
@@ -22,8 +22,8 @@
     ]
   },
   "grid": {
-    "left": 56,
-    "right": 56,
+    "left": 38,
+    "right": 40,
     "top": 28,
     "bottom": 28
   },

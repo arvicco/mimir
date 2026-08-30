@@ -19,7 +19,7 @@ another. When a new ruling lands, add it here in the same commit.
   text/axis/legend colors the theme already tunes — the light-theme
   defaults (near-black titles, inactive-brighter-than-active legends)
   are exactly what the owner rejected.
-- Exactly six renderer hooks exist, declared in envelope meta:
+- Exactly seven renderer hooks exist, declared in envelope meta:
   `tooltip_formatter` (a NAME in the renderer's formatter registry),
   `height` (card pixels), `legend_widget` (a NAME in the renderer's
   HTML widget registry; the spec ships `legend.show=false` but keeps
@@ -43,8 +43,16 @@ another. When a new ruling lands, add it here in the same commit.
   plus a viewport-fixed styled popover, the gex_cp venue widget via a
   CSS bubble. ADDITIVE meta only: the chart OPTION and its golden are
   byte-identical, so a `terms` addition never drifts a golden; an
-  unknown term simply gets no tooltip. Never a native `title=`). Add a
-  new hook only with an owner ruling.
+  unknown term simply gets no tooltip. Never a native `title=`), and
+  `axis_terms` (owner ruling 2026-08-30: `{ axis-name => context }`.
+  AXIS NAMES NEVER DRAW -- the renderer strips every named value axis
+  from the render (the payload keeps the name for raw consumers) and
+  instead hovers the axis TICK NUMBERS to a fixed-position house
+  bubble: bold name (units as written in the spec's `name`) + the
+  map's context. Self-explaining date/tenor axes carry no name and get
+  no hover; the freed name gutters went back to the plots -- margins
+  are tuned for the nameless render). Add a new hook only with an
+  owner ruling.
 
 - Card placement (owner ruling 2026-08-10): the dashboard is a 3x2
   grid -- row 1 GEX · Volatility(stacked) · Vol-Spread, row 2
@@ -193,8 +201,19 @@ size ≥ 6) — the ECharts default emptyCircle ring is an invisible speck
 on dark. A single point must read as a clear dot.
 
 **Labels never collide.** Near-equal markLines (bound/floor) get
-labels at opposite line ends; panel grids clear the title row. If two
-labels CAN overlap for plausible data, they eventually will.
+labels at opposite line ends. If two labels CAN overlap for plausible
+data, they eventually will. The gex wall/flip marks live INSIDE the
+plot (`insideEndTop`, rotated along the line -- owner round
+2026-08-30, superseding the raised-band `offset [0,-14]` idiom; the
+reserved band above the plot is gone).
+
+**Headlines never repeat the card name, and compress.** (Owner round
+2026-08-30.) The section key/tab already names the chart -- headline
+prefixes like 'GEX trend ·', 'Scenario', 'LPPL', 'Positioning ·',
+'BTCo', 'Vol surface ·' are banned. Long tokens compress to glyphs
+with hover terms: `long_gamma` -> `Γ+`, `short_gamma` -> `Γ-`,
+`MP Δ` -> `MPΔ`, `flip dist` -> `flip`. A new compact token gets its
+`meta.terms` entry in the same commit.
 
 **Axis names ride the axis, not the title row.** A y-axis `name` at
 the default top position lands in the title's line (round 4: scenario
