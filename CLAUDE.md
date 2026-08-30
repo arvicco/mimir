@@ -196,21 +196,20 @@ same commit (`rake health` fails on registry drift).
 
 ## Current phase
 
-Phase 10 (positioning + scorecard) merged and deployed 2026-08-13/18
-(31 keys live-verified; post-gate PRs #16-19: staleness bands,
-scenario self-heal, six-tenor vol grid, vol_basis note). Phase 11 in
-flight on branch phase-11 (Gate 11 pending): the 2026-08-29 owner
-rulings harvested the Phase-9 shadow soak -- per-eval-mean trend
-headline (+NW error bar), symmetric-null improvement + GARCH p
-headlines, FROZEN envelope bound/floor, SHADOW tab reconciled,
-tenor-gradient palette, positioning --history wired, and the
-weight-0 exchange-reserve module (curve on the positioning card;
-31 -> 32 keys). Active owner items live in .docs/DECISION-REGISTER.md
-(ruled items removed; №R-1 Coinglass tier + №R-2 dead-source
-composite remain). SHADOW-FIRST stands: verdict-affecting changes
-ship report-only and flip only on owner rulings (Golden Rule 4).
-BTCo stays FROZEN (2026-08-10 ruling). Production agents run the
-live clone + data home under ~/Library/Application Support/mimir
-(installed and running since Gate 9/10). Stage A tiering; visual work
-follows .claude/skills/mimir-design; deploys and launchd changes are
-HUMAN actions. Update this line at each gate.
+Phase 11 (LPPL headline flips + exchange reserves) merged + deployed,
+Gate 11 CLOSED 2026-08-30 (PR #20; 32 keys live-verified; the design
+rounds added zoomable date axes, 365d module windows, the one-switch
+stacked GEX card, the 180d vol tenor). Phase 12 in flight on branch
+phase-12 (owner-picked slate A, 2026-08-30): Q-20 scenario
+replay/backtest harness, Q-17 ntfy push alerts (ship dormant; owner
+enables via NTFY_TOPIC), Q-12 bubble-index cross-ref row. Queue items
+are Q-n since 2026-08-30 (P reserved for phases). Active owner items
+live in .docs/DECISION-REGISTER.md (№R-1 Coinglass tier + №R-2
+dead-source composite remain; graduation reviews ~2026-12-29).
+SHADOW-FIRST stands: verdict-affecting changes ship report-only and
+flip only on owner rulings (Golden Rule 4). Design sign-off before
+any PR leaves draft (owner ruling 2026-08-29). BTCo stays FROZEN
+(2026-08-10 ruling). Production agents run the live clone + data home
+under ~/Library/Application Support/mimir. Stage A tiering; visual
+work follows .claude/skills/mimir-design; deploys and launchd changes
+are HUMAN actions. Update this line at each gate.
