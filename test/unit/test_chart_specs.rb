@@ -338,21 +338,25 @@ class TestChartSpecs < Minitest::Test
     end
   end
 
-  def test_value_axis_names_are_hover_only_and_ticks_sit_inside
-    # 2026-08-30 round 3: axis names never draw (the renderer strips
-    # them into hover bubbles); tick labels move INSIDE the plot so the
-    # margins shrink to the gridline. Scenario is the exception: its
-    # dashed band lines label the same values, so its ticks hide.
+  def test_value_axis_names_are_hover_only_and_ticks_hug_the_axis
+    # 2026-08-30 rounds 3-4: axis names never draw (the renderer strips
+    # them into hover bubbles). Tick labels stay OUTSIDE the plot --
+    # inside labels clashed with chart tooltips and first-point data
+    # (owner round-4 ruling) -- but hug the axis (margin 3, not 8) so
+    # the gutters stay tight. Scenario is the exception: its dashed
+    # band lines label the same values, so its ticks hide entirely.
     y0 = build('scenario_strip')['yAxis'].first
     assert_equal 'composite', y0['name']
     assert_equal false, y0['axisLabel']['show']
     build('lppl_regime')['yAxis'].each do |y|
       assert y['name'], 'named for the hover'
-      assert_equal true, y['axisLabel']['inside'], y['name']
+      refute y['axisLabel']['inside'], y['name']
+      assert_equal 3, y['axisLabel']['margin'], y['name']
     end
     build('gex_btc')['yAxis'].tap do |y|
       assert_equal '$M / 1%', y['name']
-      assert_equal true, y['axisLabel']['inside']
+      refute y['axisLabel']['inside']
+      assert_equal 3, y['axisLabel']['margin']
     end
   end
 
@@ -509,9 +513,10 @@ class TestChartSpecs < Minitest::Test
     # 2026-08-30 round 2: top 26 = the one-row venue toggles only; the
     # marks live inside the plot now.
     assert_equal 26, opt['grid']['top']
-    # round 3: ticks inside -> margins collapse to the gridline
+    # round 4: outside ticks hugging the axis (inside labels clashed
+    # with tooltips and data -- owner ruling)
     assert_equal 12, opt['grid']['right']
-    assert_equal 12, opt['grid']['left']
+    assert_equal 28, opt['grid']['left']
   end
 
   def test_gex_mstr_default_zoom_is_spot_plus_minus_30pct
@@ -662,7 +667,7 @@ class TestChartSpecs < Minitest::Test
     opt = build('lppl_regime')
     assert_equal 3, opt['grid'].size
     assert_equal %w[ratio log10\ BF Z], opt['series'].map { |s| s['name'] }
-    assert_equal 12, opt['grid'].first['right'] # round 3: ticks inside, margins collapse
+    assert_equal 24, opt['grid'].first['right'] # round 4: room for the end date + pin
     assert_equal [{ 'xAxisIndex' => 'all' }], opt['axisPointer']['link']
     refute opt['series'].any? { |s| s['name'] == 'shadow' }
     # each panel bound to its own grid via matching axis indices

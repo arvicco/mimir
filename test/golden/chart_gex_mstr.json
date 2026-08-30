@@ -17,7 +17,7 @@
     }
   },
   "grid": {
-    "left": 12,
+    "left": 28,
     "right": 12,
     "top": 14,
     "bottom": 26
@@ -279,7 +279,7 @@
     "type": "value",
     "name": "$M / 1%",
     "axisLabel": {
-      "inside": true
+      "margin": 3
     }
   },
   "dataZoom": [
