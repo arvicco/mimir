@@ -2,7 +2,7 @@
   "backgroundColor": "transparent",
   "title": [
     {
-      "text": "Shadow checks · 6 rows",
+      "text": "Shadow checks · 7 rows",
       "textStyle": {
         "fontSize": 13
       }
@@ -54,7 +54,8 @@
         2,
         3,
         4,
-        5
+        5,
+        6
       ],
       "boundaryGap": true,
       "axisLabel": {
@@ -200,6 +201,26 @@
           "shadow": ".358",
           "verdict": "adopted 08-29",
           "explanation": "The envelope's support bound. GRADUATED 2026-08-29: the operative bound is now FROZEN at the last cycle low, measured against the trend as it stood then -- the old bound drifted upward with every re-fit, flattering the \"envelope intact\" reading. The drifting value stays as the reference shown here. Honest side-effect: measured this way, trough damping already failed between 2018 and 2022 -- recorded in the methodology, not hidden."
+        },
+        {
+          "value": [
+            0.01,
+            6
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "bubble",
+            "fontSize": 12,
+            "fontWeight": "bold",
+            "color": "#e6e9ec"
+          },
+          "title": "bubble",
+          "frozen": "-0.99",
+          "shadow": "pct 61",
+          "verdict": "MID · advisory",
+          "explanation": "An OUTSIDE check: Coinglass's composite bubble index (daily history back to 2010), shown as its latest value and where that sits in its own full history (percentile; HIGH >= 80th, LOW <= 20th). It is advisory only -- never an input to any verdict or score. Read it AGAINST the LPPL verdict above: an independent gauge screaming bubble while the suite reads calm (or the reverse) is exactly the disagreement worth noticing."
         }
       ]
     },
@@ -301,6 +322,21 @@
             "fontWeight": "normal",
             "color": "#9aa0a6"
           }
+        },
+        {
+          "value": [
+            0.44,
+            6
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "right",
+            "formatter": "-0.99",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#9aa0a6"
+          }
         }
       ]
     },
@@ -387,6 +423,20 @@
           "value": [
             0.49,
             5
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "center",
+            "formatter": "→",
+            "fontSize": 12,
+            "color": "#e6a23c"
+          }
+        },
+        {
+          "value": [
+            0.49,
+            6
           ],
           "label": {
             "show": true,
@@ -497,6 +547,21 @@
             "fontWeight": "normal",
             "color": "#e6e9ec"
           }
+        },
+        {
+          "value": [
+            0.53,
+            6
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "pct 61",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#e6e9ec"
+          }
         }
       ]
     },
@@ -594,6 +659,21 @@
             "position": "inside",
             "align": "left",
             "formatter": "adopted 08-29",
+            "fontSize": 12,
+            "fontWeight": "normal",
+            "color": "#8a93a0"
+          }
+        },
+        {
+          "value": [
+            0.74,
+            6
+          ],
+          "label": {
+            "show": true,
+            "position": "inside",
+            "align": "left",
+            "formatter": "MID · advisory",
             "fontSize": 12,
             "fontWeight": "normal",
             "color": "#8a93a0"

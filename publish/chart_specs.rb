@@ -308,7 +308,11 @@ module Publish
       # 'lppl_shadow' registry formatter). Reads lppl:latest (same payload
       # as lppl_regime); a missing shadow field drops its row (fail-soft).
       'lppl_shadow' => {
+        # M12-4 (Q-12): bubble:ref rides along as an OPTIONAL input --
+        # the independent bubble-gauge x-ref row. Absent/fail-soft ->
+        # the row drops, the tab never skips.
         inputs: %w[payload_lppl_latest.json], fn: :lppl_shadow,
+        optional: %w[payload_bubble_ref.json],
         meta: {
           'desc' => 'Phase-9 SHADOW diagnostics: each of six frozen LPPL ' \
                     'numbers shown beside the honest "shadow" recomputation ' \
@@ -1225,6 +1229,14 @@ module Publish
         'reference shown here. Both sit far above the usual 0.05 bar: the ' \
         'wobble is NOT statistically proven, and the suite is right to ' \
         'say so.',
+      'bubble' =>
+        'An OUTSIDE check: Coinglass\'s composite bubble index (daily ' \
+        'history back to 2010), shown as its latest value and where that ' \
+        'sits in its own full history (percentile; HIGH >= 80th, LOW <= ' \
+        '20th). It is advisory only -- never an input to any verdict or ' \
+        'score. Read it AGAINST the LPPL verdict above: an independent ' \
+        'gauge screaming bubble while the suite reads calm (or the ' \
+        'reverse) is exactly the disagreement worth noticing.',
       'freeze' =>
         'The envelope\'s support bound. GRADUATED 2026-08-29: the ' \
         'operative bound is now FROZEN at the last cycle low, measured ' \
@@ -1247,7 +1259,7 @@ module Publish
     # demoted number), the OPERATIVE value ('shadow' column -- the number
     # now in force), and a one-phrase verdict. Values are scaled/compacted
     # at build time per the design system.
-    def lppl_shadow_rows(latest)
+    def lppl_shadow_rows(latest, bubble = nil)
       trend = lppl_detail(latest, 'trend') || {}
       env   = lppl_detail(latest, 'envelope') || {}
       fit   = lppl_detail(latest, 'fit') || {}
@@ -1318,6 +1330,15 @@ module Publish
                   'verdict' => 'adopted 08-29' }
       end
 
+      # (Q-12, M12-4) the OUTSIDE bubble gauge, ADVISORY: value -> its
+      # own-history percentile, verdict = the band. Optional input --
+      # absent or fail-soft drops the row.
+      if bubble.is_a?(Hash) && !bubble['unavailable'] && bubble['value'] && bubble['pct']
+        rows << { 'stat' => 'bubble', 'frozen' => format('%+.2f', bubble['value'].to_f),
+                  'shadow' => format('pct %.0f', bubble['pct'].to_f),
+                  'verdict' => format('%s · advisory', bubble['band']) }
+      end
+
       rows
     end
 
@@ -1331,8 +1352,8 @@ module Publish
     # shadow/verdict/explanation so the 'lppl_shadow' formatter can render
     # the owner-approved hover block. With no shadow fields (fail-soft) the
     # card shows the title and an 'awaiting shadow fields' note.
-    def lppl_shadow(latest)
-      rows = lppl_shadow_rows(latest)
+    def lppl_shadow(latest, bubble = nil)
+      rows = lppl_shadow_rows(latest, bubble)
 
       titles = [{ 'text' => format('Shadow checks · %d rows', rows.size),
                   'textStyle' => { 'fontSize' => 13 } }]

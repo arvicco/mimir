@@ -713,33 +713,34 @@ class TestChartSpecs < Minitest::Test
     opt['series'].find { |s| s['name'] == 'stat' }
   end
 
-  def test_lppl_shadow_six_rows_frozen_shadow_verdict
+  def test_lppl_shadow_rows_frozen_shadow_verdict
     opt = build('lppl_shadow')
     # one grid, hidden value x + category y with a slot per row
     assert_equal 1, opt['grid'].size
     yax = opt['yAxis'].first
     assert_equal 'category', yax['type']
-    assert_equal (0..5).to_a, yax['data'] # 6 slots, labels hidden
+    assert_equal (0..6).to_a, yax['data'] # 7 slots (M12-4: + bubble x-ref)
     assert_equal false, yax['axisLabel']['show']
     # title carries the honest row count (fontSize 13)
-    assert_equal 'Shadow checks · 6 rows', opt['title'].first['text']
+    assert_equal 'Shadow checks · 7 rows', opt['title'].first['text']
     assert_equal 13, opt['title'].first['textStyle']['fontSize']
     # the visible columns and their build-time-scaled values, in order
     stat = shadow_stat_series(opt)
     assert_equal 0, stat['symbolSize']
     assert_equal true, stat['silent']
-    assert_equal %w[mean/eval 365/730 damping impr p(osc) freeze],
+    assert_equal %w[mean/eval 365/730 damping impr p(osc) freeze bubble],
                  stat['data'].map { |d| d['title'] }
     # M11-6 (rulings 2026-08-29): reference column = the old/demoted
     # value, operative column = the number now in force; graduated rows
     # say so in the verdict. mean/eval carries the NW error bar.
-    assert_equal ['-427.34', '-0.11', '>=1', '43.5%', '.19', '.435'],
+    assert_equal ['-427.34', '-0.11', '>=1', '43.5%', '.19', '.435', '-0.99'],
                  stat['data'].map { |d| d['frozen'] }
-    assert_equal ['-1.17±.17', '+0.15', '0.41', '27.9%', '.24', '.358'],
+    assert_equal ['-1.17±.17', '+0.15', '0.41', '27.9%', '.24', '.358', 'pct 61'],
                  stat['data'].map { |d| d['shadow'] }
     assert_equal ['headline 08-29', 'wins at 2y · report-only',
                   'not met · report-only', 'headline 08-29',
-                  'still noise · headline 08-29', 'adopted 08-29'],
+                  'still noise · headline 08-29', 'adopted 08-29',
+                  'MID · advisory'],
                  stat['data'].map { |d| d['verdict'] }
   end
 
@@ -753,6 +754,17 @@ class TestChartSpecs < Minitest::Test
     mean = stat['data'].find { |d| d['title'] == 'mean/eval' }
     assert_match(/GRADUATED 2026-08-29/, mean['explanation'])
     assert_match(/Newey-West error bar/, mean['explanation'])
+  end
+
+  # M12-4: the bubble x-ref row rides the OPTIONAL bubble:ref input --
+  # nil or fail-soft drops JUST that row (the tab never skips).
+  def test_lppl_shadow_bubble_row_optional
+    lat = JSON.parse(JSON.generate(lppl_latest))
+    no_bubble = Publish::Charts.lppl_shadow(lat, nil)
+    refute_includes shadow_stat_series(no_bubble)['data'].map { |d| d['title'] }, 'bubble'
+    assert_equal 'Shadow checks · 6 rows', no_bubble['title'].first['text']
+    failsoft = Publish::Charts.lppl_shadow(lat, { 'unavailable' => true })
+    refute_includes shadow_stat_series(failsoft)['data'].map { |d| d['title'] }, 'bubble'
   end
 
   def test_lppl_shadow_axis_tooltip_contract

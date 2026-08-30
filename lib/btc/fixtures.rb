@@ -303,6 +303,25 @@ module BTC
       cg.call('coinglass_liquidation.json', 'futures/liquidation/aggregated-history',
               'symbol=BTC&interval=1d&exchange_list=Binance,OKX,Bybit', 10,
               'aggregated_long_liquidation_usd', 'liq'),
+      # M12-4 (Q-12): bubble index -- trimmed to the trailing 400 daily
+      # rows (percentile math is unit-tested synthetically; the fixture
+      # only needs shape + enough depth for a stable contract run).
+      { file: 'coinglass_bubble_index.json', env: 'COINGLASS_API_KEY',
+        url: 'https://open-api-v4.coinglass.com/api/index/bitcoin/bubble-index',
+        headers: -> { { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] } },
+        trim: lambda { |b|
+          j = JSON.parse(b)
+          JSON.generate('code' => j['code'], 'data' => j['data'].to_a.last(400))
+        },
+        stat: lambda { |b|
+          data = JSON.parse(b)['data'].to_a
+          raise "only #{data.size} rows (need >= 300)" if data.size < 300
+          raise 'row missing bubble_index' unless data.last.key?('bubble_index')
+          raise 'row missing date_string' unless data.last.key?('date_string')
+
+          format('bubble: %d rows, last %s idx %.2f', data.size,
+                 data.last['date_string'], data.last['bubble_index'].to_f)
+        } },
       # M11-7 (P-8): exchange reserves. The list is a small per-exchange
       # snapshot (kept whole); the chart is {time_list, price_list,
       # data_map} -- trimmed to the trailing 400 days per series (the
