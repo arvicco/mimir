@@ -142,6 +142,25 @@ namespace :lppl do
   end
 end
 
+namespace :scenario do
+  desc 'Staged scenario-history backfill via --as-of replay (M12-2, Q-20: ' \
+       'writes ONLY to data/scenario_backfill_staging/; resumable; NETWORK ' \
+       '-- fetches each history source once via the staged cache)'
+  task :backfill do
+    require_relative 'scripts/scenario/backfill'
+    exit 1 unless ScenarioBackfill.run
+  end
+
+  desc 'Staged-vs-live scenario history overlap diff (read-only)'
+  task :backfill_diff do
+    require_relative 'scripts/scenario/backfill'
+    unless File.exist?(ScenarioBackfill.staged_history)
+      abort "no staged history at #{ScenarioBackfill.staged_history} -- run rake scenario:backfill first"
+    end
+    ScenarioBackfill.diff
+  end
+end
+
 namespace :golden do
   desc 'Bless chart goldens after visual review in preview.html (deterministic: regenerates from test/fixtures/payloads/)'
   task :approve do
