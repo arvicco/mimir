@@ -34,7 +34,10 @@ module FakeTransport
     ['premiumIndex',                'binance_premium.json'],
     ['ticker/price',                'binance_spot.json'],
     ['BTC-USD/ticker',              'coinbase_ticker.json'],
+    ['hashrate/all',                'mempool_hashrate_all.json'], # MUST precede the bare 'hashrate' fragment
     ['hashrate',                    'mempool_hashrate.json'],
+    ['stablecoincharts/all?stablecoin=1', 'llama_charts_usdt.json'], # MUST precede the bare 'stablecoins' host fragment
+    ['stablecoincharts/all?stablecoin=2', 'llama_charts_usdc.json'],
     ['stablecoins',                 'defillama_stables.json'],
     ['farside',                     'farside_flows.html'], # also matches the archive-proxy URL
     ['flow-history',                'coinglass_flows.json'],
@@ -47,6 +50,7 @@ module FakeTransport
     ['taker-buy-sell-volume',            'coinglass_taker_volume.json'],
     ['liquidation/aggregated-history',   'coinglass_liquidation.json'],
     ['index/bitcoin/bubble-index',       'coinglass_bubble_index.json'],
+    ['coinbase-premium-index',           'coinglass_premium_index.json'],
     ['exchange/balance/list',            'coinglass_exchange_balance_list.json'],
     ['exchange/balance/chart',           'coinglass_exchange_balance_chart.json'],
     ['delayed_quotes/options/MSTR', 'cboe_options_mstr.json'],

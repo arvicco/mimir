@@ -19,10 +19,15 @@ NAME = 'macro'
 KEY  = ENV['FRED_API_KEY']
 Scenario.fail_soft(NAME, 'FRED_API_KEY not set') if KEY.nil? || KEY.empty?
 
+# Replay (M12-1): FRED serves full history windowed by observation_end
+# (the day before the replay date). D12-b caveat: these are the REVISED
+# series as published today, not the vintage a live run saw (macro data
+# gets restated) -- direction usually survives revision, levels can move.
 def fred(series, key, limit)
+  end_p = Scenario.replay? ? "&observation_end=#{(Scenario.as_of - 86_400).strftime('%Y-%m-%d')}" : ''
   url = 'https://api.stlouisfed.org/fred/series/observations' \
         "?series_id=#{series}&api_key=#{key}&file_type=json" \
-        "&sort_order=desc&limit=#{limit}"
+        "&sort_order=desc&limit=#{limit}#{end_p}"
   obs = Scenario.get_json(url)['observations'] || []
   obs.reject { |o| o['value'] == '.' }.map { |o| o['value'].to_f }
 end

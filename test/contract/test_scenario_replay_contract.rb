@@ -93,6 +93,47 @@ class TestScenarioReplayContract < Minitest::Test
     assert_match(/n\/a\z/, j['headline'], 'difficulty context skipped under replay')
   end
 
+  # funding: the recorded 21-row fixture serves the replay path too (the
+  # limit=1000 URL matches the same fragment); the basis/now-rate extras
+  # are honestly skipped.
+  def test_funding_replay_skips_now_rate_and_basis
+    j = replay_json('funding_basis', '2026-07-04')
+    assert_equal 'funding', j['name']
+    assert_match(/basis n\/a/, j['headline'], 'no dated basis exists -- skipped')
+    assert_includes [-1, 0, 1], j['score']
+  end
+
+  # macro: FRED windows by observation_end (revised-series caveat, D12-b).
+  def test_macro_replay_runs_with_frozen_clock
+    j = replay_json('macro', '2026-07-04', env: { 'FRED_API_KEY' => 'contract-test-key' })
+    assert_equal '2026-07-04T00:00:00Z', j['ts']
+    assert_includes [-1, 0, 1], j['score']
+  end
+
+  # cb_premium: replay rides the Coinglass premium-index PROXY -- the
+  # headline says so. Skips until the premium fixture records.
+  def test_cb_premium_replay_uses_proxy
+    unless File.exist?(File.join(ROOT, 'test/fixtures/coinglass_premium_index.json'))
+      skip 'coinglass_premium_index.json not yet recorded (M12-1) -- owner: rake fixtures:record SOURCES=premium_index'
+    end
+    j = replay_json('cb_premium', '2026-08-25', env: COINGLASS_ENV)
+    assert_match(/replay-proxy/, j['headline'])
+    assert_includes [-1, 0, 1], j['score']
+  end
+
+  # stables: per-coin llama charts, ids resolved from the index (needs the
+  # re-recorded index fixture carrying ids + the two chart fixtures).
+  def test_stables_replay_via_charts
+    idx = JSON.parse(File.read(File.join(ROOT, 'test/fixtures/defillama_stables.json')))
+    unless File.exist?(File.join(ROOT, 'test/fixtures/llama_charts_usdt.json')) &&
+           idx['peggedAssets'].to_a.all? { |a| a.key?('id') }
+      skip 'llama chart fixtures / id-carrying index not yet recorded (M12-1) -- owner: rake fixtures:record SOURCES=llama_charts,defillama_stables'
+    end
+    j = replay_json('stables', '2026-08-25')
+    assert_includes [-1, 0, 1], j['score']
+    assert_match(/USDT\+USDC/, j['headline'])
+  end
+
   # replay never appends history (staging is the backfill's job)
   def test_replay_never_writes_history
     Dir.mktmpdir('mimir-replay-nowrite') do |dir|
