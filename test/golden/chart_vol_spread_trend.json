@@ -70,6 +70,7 @@
       "type": "line",
       "symbol": "circle",
       "symbolSize": 6,
+      "connectNulls": true,
       "itemStyle": {
         "color": "#e04b4b"
       },
@@ -94,6 +95,7 @@
       "type": "line",
       "symbol": "circle",
       "symbolSize": 6,
+      "connectNulls": true,
       "itemStyle": {
         "color": "#e08e0b"
       },
@@ -118,6 +120,7 @@
       "type": "line",
       "symbol": "circle",
       "symbolSize": 6,
+      "connectNulls": true,
       "itemStyle": {
         "color": "#e2c84b"
       },
@@ -142,6 +145,7 @@
       "type": "line",
       "symbol": "circle",
       "symbolSize": 6,
+      "connectNulls": true,
       "itemStyle": {
         "color": "#35c46a"
       },
@@ -166,6 +170,7 @@
       "type": "line",
       "symbol": "circle",
       "symbolSize": 6,
+      "connectNulls": true,
       "itemStyle": {
         "color": "#3fc1d1"
       },
@@ -190,6 +195,7 @@
       "type": "line",
       "symbol": "circle",
       "symbolSize": 6,
+      "connectNulls": true,
       "itemStyle": {
         "color": "#4665e6"
       },
@@ -214,6 +220,7 @@
       "type": "line",
       "symbol": "circle",
       "symbolSize": 6,
+      "connectNulls": true,
       "itemStyle": {
         "color": "#2e3f9e"
       },

@@ -245,6 +245,25 @@ class TestChartSpecs < Minitest::Test
     assert_match(/\A0d history/, empty['title']['text'])
   end
 
+  def test_vol_spread_trend_drops_all_null_days_and_bridges_gaps
+    # 2026-08-30 owner report: a recorded day where EVERY tenor's spread
+    # is null (one vol leg down, e.g. the 08-11 BTC outage) rendered as a
+    # phantom category that broke every line into orphan dots. Such days
+    # are dropped at build time; a single tenor's missing day on a
+    # surviving row bridges (connectNulls) instead of shattering.
+    mk = lambda do |date, val|
+      { 'date' => date, 'tenors' => [{ 'tenor_d' => 7, 'spread_atm' => val },
+                                     { 'tenor_d' => 14, 'spread_atm' => val }] }
+    end
+    opt = Publish::Charts.vol_spread_trend(
+      'history' => [mk.call('2026-08-10', 0.40), mk.call('2026-08-11', nil),
+                    mk.call('2026-08-12', 0.38)])
+    assert_equal %w[2026-08-10 2026-08-12], opt['xAxis']['data']
+    assert_equal [40.0, 38.0], opt['series'].find { |s| s['name'] == '7d' }['data']
+    assert_match(/\A2d history/, opt['title']['text'])
+    opt['series'].each { |s| assert_equal true, s['connectNulls'], s['name'] }
+  end
+
   def test_vol_basis_omits_sub_day_tenors_and_marks_zero
     opt = build('vol_basis')
     line = opt['series'].first
@@ -632,6 +651,25 @@ class TestChartSpecs < Minitest::Test
         assert_equal [e['ts'], e['composite']], pt
       end
     end
+  end
+
+  def test_scenario_strip_reaches_latest_when_history_lags
+    # 2026-08-30 owner report: the head said +0.42 while the line ended
+    # days earlier at -0.25 (daily tick lagging / stale offline history)
+    # -- reads as lost data. When latest is from a NEWER day than the
+    # last history row, the strip gains latest as its final point.
+    history = { 'entries' => [{ 'ts' => '2026-08-11T04:45:00Z', 'composite' => -0.25 }] }
+    opt = Publish::Charts.scenario_strip(
+      { 'regime' => 'BASE', 'composite' => 0.42, 'ts' => '2026-08-30T13:00:00Z',
+        'modules' => [] }, history)
+    data = opt['series'].first['data']
+    assert_equal 2, data.size
+    assert_equal ['2026-08-30T13:00:00Z', 0.42], data.last
+    # a same-day latest never duplicates the daily row
+    same = Publish::Charts.scenario_strip(
+      { 'regime' => 'BASE', 'composite' => 0.3, 'ts' => '2026-08-11T14:00:00Z',
+        'modules' => [] }, history)
+    assert_equal 1, same['series'].first['data'].size
   end
 
   # M8-10: a blind day renders as a hollow (transparent-fill) grey marker,

@@ -1116,6 +1116,16 @@ module Publish
         e['blind'] ? { 'value' => pt, 'symbol' => 'circle', 'symbolSize' => 6,
                        'itemStyle' => SCN_BLIND_ITEM } : pt
       end
+      # the headline shows latest's composite; when latest is from a NEWER
+      # day than the last history row (the daily tick hasn't run yet, or a
+      # stale offline history), the strip must reach it too -- a head that
+      # says +0.42 over a line ending days earlier at -0.25 reads as lost
+      # data (owner report 2026-08-30)
+      last_hist = (history['entries'] || []).last
+      if latest['ts'] && latest['composite'] &&
+         (last_hist.nil? || latest['ts'][0, 10] > last_hist['ts'].to_s[0, 10])
+        comp << [latest['ts'], latest['composite']]
+      end
       # heatmap is now a vertical column: [col 0, row = module index, score]
       heat     = modules.each_with_index.map { |m, i| [0, i, m['score']] }
 
@@ -2277,10 +2287,20 @@ module Publish
 
     def vol_spread_trend(spread)
       history = spread['history'] || []
+      # a recorded day where EVERY tenor's spread is null (a failed leg,
+      # e.g. 2026-08-11's BTC outage) carries nothing to plot -- as a
+      # category it only shatters every line into orphan dots. Drop it.
+      history = history.reject do |r|
+        VOL_SPREAD_TREND_TENORS.all? { |td| vol_spread_trend_point(r, td).nil? }
+      end
       dates   = history.map { |r| r['date'] }
       series  = VOL_SPREAD_TREND_TENORS.map do |td|
         color = VOL_TENOR_COLORS.fetch(td)
         { 'name' => "#{td}d", 'type' => 'line', 'symbol' => 'circle', 'symbolSize' => 6,
+          # bridge a tenor's missing day instead of breaking the line
+          # (leading nulls -- a tenor newer than the window -- still just
+          # start the line late)
+          'connectNulls' => true,
           'itemStyle' => { 'color' => color }, 'lineStyle' => { 'color' => color },
           'data' => history.map { |r| vol_spread_trend_point(r, td) } }
       end
