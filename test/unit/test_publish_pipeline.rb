@@ -194,6 +194,18 @@ class TestPublishPipeline < Minitest::Test
                     scenario_history.json scenario_latest.json], got
   end
 
+  # M12-5: the summary additively carries the run's envelopes + health
+  # markers so the publish bin can dispatch transition alerts without
+  # re-fetching (real mode reads them; dry runs never dispatch).
+  def test_summary_carries_envelopes_and_health_markers
+    s = dry_run
+    assert_kind_of Hash, s[:envelopes]
+    assert s[:envelopes].key?('scenario:latest')
+    assert_kind_of Array, s[:old_keys]
+    assert_kind_of Array, s[:blind_tails]
+    assert_includes s[:old_keys], 'lppl:ledger' # the synthetic 10d-old tail
+  end
+
   def test_summary_keys_and_skips
     s = dry_run
     # gex:combined + gex:mstr published, scenario fail-soft published

@@ -191,7 +191,11 @@ module Publish
                          dir: status_dir)
 
       { keys: records.map(&:first), skipped: skipped,
-        mode: dry_run ? 'DRY' : 'LIVE', out_dir: dry_run ? out_dir : nil }
+        mode: dry_run ? 'DRY' : 'LIVE', out_dir: dry_run ? out_dir : nil,
+        # M12-5 (additive): the run's envelopes + health markers, so the
+        # publish bin can dispatch transition alerts (real mode only)
+        # without re-fetching anything.
+        envelopes: envelopes, old_keys: old, blind_tails: blind }
     end
 
     # Run one producer; parse its full stdout as a single JSON document.
