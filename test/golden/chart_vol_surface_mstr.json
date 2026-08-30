@@ -14,7 +14,7 @@
     }
   },
   "legend": {
-    "top": 24,
+    "top": 2,
     "data": [
       "ATM IV",
       "RR25",
@@ -24,7 +24,7 @@
   "grid": {
     "left": 56,
     "right": 56,
-    "top": 52,
+    "top": 28,
     "bottom": 28
   },
   "xAxis": {

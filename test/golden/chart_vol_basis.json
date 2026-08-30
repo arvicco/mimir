@@ -9,7 +9,7 @@
     },
     {
       "text": "funding 1d 0.008 · 7d 0.007 · 30d 0.007 (%/8h)",
-      "top": 24,
+      "top": 2,
       "right": 12,
       "textStyle": {
         "fontSize": 11,
@@ -28,7 +28,7 @@
   "grid": {
     "left": 56,
     "right": 24,
-    "top": 44,
+    "top": 24,
     "bottom": 32
   },
   "xAxis": {

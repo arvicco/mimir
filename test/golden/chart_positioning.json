@@ -34,7 +34,7 @@
     }
   ],
   "legend": {
-    "top": 22,
+    "top": 0,
     "data": [
       "global L/S",
       "top L/S",
@@ -46,20 +46,20 @@
     {
       "left": 46,
       "right": 38,
-      "top": 42,
-      "height": "24%"
+      "top": 22,
+      "height": "27%"
     },
     {
       "left": 46,
       "right": 38,
-      "top": "40%",
-      "height": "24%"
+      "top": "37%",
+      "height": "27%"
     },
     {
       "left": 46,
       "right": 38,
-      "top": "69%",
-      "height": "25%"
+      "top": "68%",
+      "height": "27%"
     }
   ],
   "xAxis": [

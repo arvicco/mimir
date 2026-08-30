@@ -73,7 +73,20 @@ module Publish
               'price rising through it.',
       'PW' => 'Put wall: the strike with the largest concentration of put gamma. ' \
               'Often acts as short-term support -- dealer hedging leans against ' \
-              'price falling through it.'
+              'price falling through it.',
+      # headline tokens (owner ruling 2026-08-30: hovering a headline term
+      # explains what the number means)
+      'flip dist' => 'How far spot sits from the gamma flip, in percent. ' \
+                     'Positive = above the flip (dealer hedging dampens moves); ' \
+                     'the distance is the cushion before the market turns ' \
+                     'short-gamma and moves start amplifying.',
+      'long_gamma' => 'The current dealer-gamma regime and how many days it has ' \
+                      'run. long_gamma = hedging dampens moves (pinning); ' \
+                      'short_gamma = hedging amplifies them.',
+      'MP \u0394' => 'Max-pain delta: how far Coinglass\'s Deribit max-pain level ' \
+                    'sits from our computed structure, in percent -- an ' \
+                    'independent cross-check on the walls/flip math. Large ' \
+                    'divergence = our math or crowd positioning shifted.'
     }.freeze
 
     # gex_cp venue widget (gex_btc): Deribit plus the five US spot-ETF chains.
@@ -85,7 +98,13 @@ module Publish
       'BITB' => 'US spot-ETF option chain (Bitwise), cash-settled, CBOE delayed quotes.',
       'ARKB' => 'US spot-ETF option chain (ARK 21Shares), cash-settled, ' \
                 'CBOE delayed quotes.',
-      'GBTC' => 'US spot-ETF option chain (Grayscale), cash-settled, CBOE delayed quotes.'
+      'GBTC' => 'US spot-ETF option chain (Grayscale), cash-settled, CBOE delayed quotes.',
+      # headline tokens (2026-08-30)
+      'GEX $M/1%' => 'Gamma exposure: the dollars (millions) dealers must ' \
+                     're-hedge for every 1% move at each strike. Above zero = ' \
+                     'long gamma (hedging pins price), below = short gamma ' \
+                     '(hedging amplifies moves).',
+      'spot' => 'The current market price -- the white line on the profile.'
     }.freeze
 
     VOL_SURFACE_TERMS = {
@@ -97,7 +116,11 @@ module Publish
                 'protection costs more (the market fears falls more than rallies).',
       'FLY25' => '25-delta butterfly: how much more the wings (far strikes) cost ' \
                  'than the middle. Higher = the market pays up for tail scenarios ' \
-                 'in either direction.'
+                 'in either direction.',
+      # headline token (2026-08-30)
+      'ATM 30d' => 'The headline number: at-the-money implied volatility at the ' \
+                   'standard 1-month tenor -- the single cleanest read of how ' \
+                   'much movement the market is pricing right now.'
     }.freeze
 
     VOL_SPREAD_TERMS = {
@@ -106,7 +129,12 @@ module Publish
       'MSTR' => 'The MSTR single-name leg\'s own at-the-money implied vol, so you ' \
                 'can see which side moved the spread.',
       'BTC' => 'The BTC Deribit leg\'s own at-the-money implied vol, so you can ' \
-               'see which side moved the spread.'
+               'see which side moved the spread.',
+      # headline token (2026-08-30; longest-first matching keeps this whole)
+      'MSTR-BTC IV' => 'The card\'s subject: MSTR\'s at-the-money implied vol ' \
+                       'minus BTC\'s per tenor -- the option market\'s live ' \
+                       'price of holding leveraged-BTC equity instead of BTC. ' \
+                       'The headline shows the 1-month gap in vol points.'
     }.freeze
 
     # vol_spread_trend tenor legends: one series per requested tenor.
@@ -143,7 +171,24 @@ module Publish
       'reserves' => 'BTC sitting on exchanges (weight 0 -- shown, never ' \
                     'weighted). Scores the 30-day change vs its own trailing ' \
                     'history: +1 coins leaving unusually fast (self-custody ' \
-                    'drain), -1 piling up unusually fast (sellable overhang).'
+                    'drain), -1 piling up unusually fast (sellable overhang).',
+      # headline regime tokens (2026-08-30): hovering the band word in the
+      # head explains the reading. Composite bands: <=-0.40 / <=-0.10 /
+      # <0.10 / <0.40 / >=0.40.
+      'FLUSH' => 'The composite sits at or below -0.40: the weighted evidence ' \
+                 'leans hard toward capitulation conditions.',
+      'LEAN-FLUSH' => 'Composite between -0.40 and -0.10: evidence tilts toward ' \
+                      'flush, without conviction.',
+      'NEUTRAL' => 'Composite between -0.10 and +0.10: the signals net out to ' \
+                   'no lean either way.',
+      'BASE' => 'Composite between +0.10 and +0.40: evidence tilts toward a ' \
+                'base forming / constructive conditions.',
+      'RECOVERY' => 'Composite at or above +0.40: the weighted evidence leans ' \
+                    'hard toward recovery conditions.',
+      'Scenario' => 'The regime composite: a bounded weighted vote of the ' \
+                    'scored modules, in [-1, +1], read by band. An evidence ' \
+                    'index, not a probability; the drift across days is the ' \
+                    'signal, not any single print.'
     }.freeze
 
     # positioning card (M10-4): the panel-2 crowd-ratio legend items each
@@ -162,7 +207,52 @@ module Publish
       'reserves' => 'Aggregate BTC held on the exchanges Coinglass tracks (M BTC, ' \
                     'right axis). Falling = coins moving to self-custody (supply ' \
                     'drain); rising = sellable supply building up. The reserves ' \
-                    'module scores its 30-day change at weight 0.'
+                    'module scores its 30-day change at weight 0.',
+      # headline tokens (2026-08-30)
+      'crowd' => 'The retail long/short crowding band from the trailing-90-day ' \
+                 'percentile of the account ratio: LONG / BALANCED / SHORT. ' \
+                 'Extremes are contrarian fuel.',
+      'WARMUP' => 'A band needs 91 daily values of its own history before it ' \
+                  'can honestly place today in a percentile; until then the ' \
+                  'module reports WARMUP and scores 0.'
+    }.freeze
+
+    # lppl_regime headline tokens (2026-08-30): the verdict word explains
+    # itself on hover.
+    LPPL_TERMS = {
+      'LPPL' => 'The anti-bubble diagnostic suite: five independently ' \
+                'falsifiable tests of the claim that BTC trades as a damped ' \
+                'post-peak decline around a genesis-anchored power law. The ' \
+                'headline number is the tests\' weighted composite.',
+      'REGIME-INTACT' => 'Every heavyweight test supports the model; the ' \
+                         'strongest reading the suite can print.',
+      'SUPPORTED' => 'The evidence nets positive: the model is holding.',
+      'INDETERMINATE' => 'The tests disagree or net to zero -- no verdict ' \
+                         'either way.',
+      'STRESSED' => 'A heavyweight test is failing (out-of-sample forecasting ' \
+                    'currently rejects the trend claim); the verdict is capped ' \
+                    'here no matter how good the rest looks.',
+      'FALSIFIED' => 'Trend AND envelope both broken: the model has failed its ' \
+                     'own kill criteria.'
+    }.freeze
+
+    # vol_basis headline tokens (2026-08-30).
+    VOL_BASIS_TERMS = {
+      'Basis ann%' => 'The annualized premium of each dated Deribit future ' \
+                      'over spot. Steep contango = leverage appetite; a ' \
+                      'collapse toward (or below) zero has historically marked ' \
+                      'capitulation regimes.',
+      'funding' => 'The perpetual-swap funding rate (OI-weighted, %/8h): what ' \
+                   'longs pay shorts to hold leverage right now. The note ' \
+                   'shows 1d/7d/30d means when the source answers.'
+    }.freeze
+
+    # btco headline tokens (2026-08-30).
+    BTCO_TERMS = {
+      'BTCo stress' => 'The treasury-company stress score (0-100): how much of ' \
+                       'the BTC-weighted universe trades below net-asset parity, ' \
+                       'with leverage. Higher = the sector is priced at a ' \
+                       'discount to its coins -- historically a stressed tape.'
     }.freeze
 
     # meta (additive envelope field, 2026-07-05): METHODOLOGY-grade
@@ -295,6 +385,7 @@ module Publish
                     'size; a trough note appears over Z only when the fit ' \
                     'names an interior bottom. The Phase-9 shadow diagnostics ' \
                     'live on the SHADOW tab of this card.',
+          'terms' => LPPL_TERMS,
           # M9-13 (owner ruling 2026-08-11): the LPPL panels reclaim their
           # full width; the shadow diagnostics move to a SHADOW tab on the
           # SAME card (tab_group 'lppl'). LPPL is tab_pos 0 (the default tab).
@@ -352,7 +443,8 @@ module Publish
                     '(premium on the equity claim after senior claims), nulls ' \
                     'left as gaps. The gauge shows aggregate stress 0-100 in ' \
                     'green/amber/orange/red bands with the regime band as its ' \
-                    'detail text.'
+                    'detail text.',
+          'terms' => BTCO_TERMS,
         }
       },
       # ---- M8-6: the GEX/volatility family (Phase 8A stage 2) ----------
@@ -504,6 +596,7 @@ module Publish
                     '(%/8h) and its 1d/7d/30d means. If the futures leg is down ' \
                     'the line is empty and only funding remains.',
           # stacked card (owner ruling 2026-08-10) -- below vol_surface
+          'terms' => VOL_BASIS_TERMS,
           'tab_group' => 'vol', 'group_style' => 'stack', 'tab_pos' => 2,
           'height' => 235
         }
@@ -696,7 +789,7 @@ module Publish
         # the raised wall labels (grid.top - 14) sit a clear row BELOW the 2-row
         # widget (which ends ~34px): screenshot showed CW brushing the DERI
         # toggle at top 56.
-        'grid' => { 'left' => 42, 'right' => 12, 'top' => 66, 'bottom' => 26 },
+        'grid' => { 'left' => 42, 'right' => 12, 'top' => 44, 'bottom' => 26 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
         'yAxis' => { 'type' => 'value' },
         # all levels stay in the data; the default window shows the
@@ -867,7 +960,7 @@ module Publish
         # M8-18 R4 (owner ruling 2026-08-10): left/right tightened to match the
         # BTC tab (42/12; no widget here) for a visibly wider plot. top 56 keeps
         # the two-band markline label zone (flip/spot lower, walls raised).
-        'grid' => { 'left' => 42, 'right' => 12, 'top' => 56, 'bottom' => 26 },
+        'grid' => { 'left' => 42, 'right' => 12, 'top' => 30, 'bottom' => 26 },
         'xAxis' => { 'type' => 'category', 'data' => levels.map { |l| mstr_label(l) } },
         'yAxis' => { 'type' => 'value' },
         # all strikes stay in the data; the default window shows the
@@ -974,8 +1067,8 @@ module Publish
         'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 } },
         # main grid (composite) left, tight; narrow heatmap column right of it
         'grid' => [
-          { 'left' => 60, 'right' => 122, 'top' => 30, 'bottom' => 26 },
-          { 'right' => 12, 'width' => 20, 'top' => 30, 'bottom' => 26 }
+          { 'left' => 60, 'right' => 122, 'top' => 8, 'bottom' => 26 },
+          { 'right' => 12, 'width' => 20, 'top' => 8, 'bottom' => 26 }
         ],
         'xAxis' => [
           { 'type' => 'time', 'gridIndex' => 0 },
@@ -1126,9 +1219,9 @@ module Publish
         # M10-9 follow-up (owner ruling 2026-08-13): the bottom margin was
         # still wide -- panels stretch down to ~93%, leaving only the date row.
         'grid' => [
-          { 'left' => 60, 'right' => 24, 'top' => 40, 'height' => '26%' },
-          { 'left' => 60, 'right' => 24, 'top' => '36%', 'height' => '26%' },
-          { 'left' => 60, 'right' => 24, 'top' => '64%', 'height' => '29%' }
+          { 'left' => 60, 'right' => 24, 'top' => 16, 'height' => '28%' },
+          { 'left' => 60, 'right' => 24, 'top' => '34%', 'height' => '27%' },
+          { 'left' => 60, 'right' => 24, 'top' => '63%', 'height' => '30%' }
         ],
         'xAxis' => [
           { 'type' => 'time', 'gridIndex' => 0, 'axisLabel' => { 'show' => false },
@@ -1359,7 +1452,7 @@ module Publish
                   'textStyle' => { 'fontSize' => 13 } }]
       titles << { 'text' => rows.empty? ? 'awaiting shadow fields' :
                     'reference → operative · rulings 2026-08-29 · hover a row for the story',
-                  'top' => 26, 'left' => 8,
+                  'top' => 2, 'left' => 8,
                   'textStyle' => { 'fontSize' => 11, 'fontWeight' => 'normal',
                                    'color' => '#8a93a0' } }
 
@@ -1416,7 +1509,7 @@ module Publish
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 },
                        'axisPointer' => { 'type' => 'shadow' } },
-        'grid' => [{ 'left' => 10, 'right' => 10, 'top' => 52, 'bottom' => 18 }],
+        'grid' => [{ 'left' => 10, 'right' => 10, 'top' => 26, 'bottom' => 18 }],
         'xAxis' => [{ 'type' => 'value', 'min' => 0, 'max' => 1, 'show' => false }],
         'yAxis' => [{
           'type' => 'category', 'inverse' => true, 'data' => cats,
@@ -1510,7 +1603,7 @@ module Publish
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 },
                        'axisPointer' => { 'type' => 'shadow' } },
-        'grid' => [{ 'left' => 10, 'right' => 10, 'top' => 34, 'bottom' => 12 }],
+        'grid' => [{ 'left' => 10, 'right' => 10, 'top' => 12, 'bottom' => 12 }],
         'xAxis' => [{ 'type' => 'value', 'min' => 0, 'max' => 1, 'show' => false }],
         'yAxis' => [{
           'type' => 'category', 'inverse' => true, 'data' => cats,
@@ -1711,16 +1804,16 @@ module Publish
         # (they get the terms hover); OI and the liquidation bars are named
         # by their axes. 'reserves' is listed even when its optional input
         # is absent -- ECharts ignores a legend name with no series data.
-        'legend' => { 'top' => 22,
+        'legend' => { 'top' => 0,
                       'data' => ['global L/S', 'top L/S', 'taker buy%', 'reserves'] },
         # three grids, identical left/right so the panels align exactly (the
         # two upper panels hide their date furniture; only the bottom draws it).
         # M10-9 (owner ruling 2026-08-13): margins at minimum -- the panels
         # take every px the y-gutters and the date row do not strictly need.
         'grid' => [
-          { 'left' => 46, 'right' => 38, 'top' => 42,    'height' => '24%' },
-          { 'left' => 46, 'right' => 38, 'top' => '40%', 'height' => '24%' },
-          { 'left' => 46, 'right' => 38, 'top' => '69%', 'height' => '25%' }
+          { 'left' => 46, 'right' => 38, 'top' => 22,    'height' => '27%' },
+          { 'left' => 46, 'right' => 38, 'top' => '37%', 'height' => '27%' },
+          { 'left' => 46, 'right' => 38, 'top' => '68%', 'height' => '27%' }
         ],
         'xAxis' => [
           positioning_hidden_time_axis(0),
@@ -1845,8 +1938,8 @@ module Publish
           'textStyle' => { 'fontSize' => 13 }
         },
         'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 }, 'axisPointer' => { 'type' => 'shadow' } },
-        'legend' => { 'top' => 26, 'data' => %w[mNAV netNAV] },
-        'grid' => { 'left' => 100, 'right' => '32%', 'top' => 50, 'bottom' => 32 },
+        'legend' => { 'top' => 2, 'data' => %w[mNAV netNAV] },
+        'grid' => { 'left' => 100, 'right' => '32%', 'top' => 28, 'bottom' => 32 },
         'xAxis' => { 'type' => 'value', 'name' => 'x NAV' },
         'yAxis' => { 'type' => 'category', 'data' => labels, 'inverse' => true },
         'series' => [
@@ -1965,8 +2058,8 @@ module Publish
                      'textStyle' => { 'fontSize' => 13 } },
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 } },
-        'legend' => { 'top' => 24, 'data' => %w[ATM\ IV RR25 FLY25] },
-        'grid' => { 'left' => 56, 'right' => 56, 'top' => 52, 'bottom' => 28 },
+        'legend' => { 'top' => 2, 'data' => %w[ATM\ IV RR25 FLY25] },
+        'grid' => { 'left' => 56, 'right' => 56, 'top' => 28, 'bottom' => 28 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
         'yAxis' => [
           # names ride the axes (rotated, in the gutters) so they never land
@@ -2039,8 +2132,8 @@ module Publish
                      'textStyle' => { 'fontSize' => 13 } },
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 } },
-        'legend' => { 'top' => 24, 'data' => %w[spread MSTR BTC] },
-        'grid' => { 'left' => 56, 'right' => 24, 'top' => 52, 'bottom' => 28 },
+        'legend' => { 'top' => 2, 'data' => %w[spread MSTR BTC] },
+        'grid' => { 'left' => 56, 'right' => 24, 'top' => 28, 'bottom' => 28 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
         'yAxis' => { 'type' => 'value', 'name' => 'vol %',
                      'nameLocation' => 'middle', 'nameGap' => 44 },
@@ -2113,8 +2206,8 @@ module Publish
                      'textStyle' => { 'fontSize' => 13 } },
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 } },
-        'legend' => { 'top' => 24, 'data' => VOL_SPREAD_TREND_TENORS.map { |td| "#{td}d" } },
-        'grid' => { 'left' => 56, 'right' => 24, 'top' => 52, 'bottom' => 28 },
+        'legend' => { 'top' => 2, 'data' => VOL_SPREAD_TREND_TENORS.map { |td| "#{td}d" } },
+        'grid' => { 'left' => 56, 'right' => 24, 'top' => 28, 'bottom' => 28 },
         'xAxis' => { 'type' => 'category', 'data' => dates },
         'yAxis' => { 'type' => 'value', 'name' => 'spread vol pts',
                      'scale' => true, 'nameLocation' => 'middle', 'nameGap' => 44 },
@@ -2159,7 +2252,7 @@ module Publish
         # overprinted the right-side x-axis labels. This chart has no legend,
         # so the legend band (top 24, where every other card's legend sits,
         # above grid top 44) is guaranteed free at any data shape.
-        titles << { 'text' => note, 'top' => 24, 'right' => 12,
+        titles << { 'text' => note, 'top' => 2, 'right' => 12,
                     'textStyle' => { 'fontSize' => 11, 'fontWeight' => 'normal', 'color' => VOL_GREY } }
       end
 
@@ -2168,7 +2261,7 @@ module Publish
         'title' => titles.size == 1 ? titles.first : titles,
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 } },
-        'grid' => { 'left' => 56, 'right' => 24, 'top' => 44, 'bottom' => 32 },
+        'grid' => { 'left' => 56, 'right' => 24, 'top' => 24, 'bottom' => 32 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
         'yAxis' => { 'type' => 'value', 'name' => 'ann basis %',
                      'scale' => true, 'nameLocation' => 'middle', 'nameGap' => 44 },
@@ -2219,8 +2312,8 @@ module Publish
                      'textStyle' => { 'fontSize' => 13 } },
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 } },
-        'legend' => { 'top' => 24, 'data' => %w[spot flip CW PW] },
-        'grid' => { 'left' => 56, 'right' => 24, 'top' => 52, 'bottom' => 28 },
+        'legend' => { 'top' => 2, 'data' => %w[spot flip CW PW] },
+        'grid' => { 'left' => 56, 'right' => 24, 'top' => 28, 'bottom' => 28 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
         # owner ruling 2026-08-29: date axes zoom/pan (inside, full range)
         'dataZoom' => [{ 'type' => 'inside', 'xAxisIndex' => [0] }],
@@ -2283,8 +2376,8 @@ module Publish
                      'textStyle' => { 'fontSize' => 13 } },
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 } },
-        'legend' => { 'top' => 24, 'data' => %w[spot flip CW PW] },
-        'grid' => { 'left' => 56, 'right' => 24, 'top' => 52, 'bottom' => 28 },
+        'legend' => { 'top' => 2, 'data' => %w[spot flip CW PW] },
+        'grid' => { 'left' => 56, 'right' => 24, 'top' => 28, 'bottom' => 28 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
         # owner ruling 2026-08-29: date axes zoom/pan (inside, full range)
         'dataZoom' => [{ 'type' => 'inside', 'xAxisIndex' => [0] }],

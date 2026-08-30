@@ -14,7 +14,7 @@
     }
   },
   "legend": {
-    "top": 24,
+    "top": 2,
     "data": [
       "spot",
       "flip",
@@ -25,7 +25,7 @@
   "grid": {
     "left": 56,
     "right": 24,
-    "top": 52,
+    "top": 28,
     "bottom": 28
   },
   "xAxis": {

@@ -68,6 +68,31 @@ load-bearing number inline (`GEX $M/1% · spot 62.7k`,
 sliders (inside zoom with a sensible default window); no paginated or
 scrolling legends. Whitespace is not a feature here — density is.
 
+**The headline rides the HEAD LINE, not the canvas.** (Owner mock-up
+ruling 2026-08-30.) Every card/section head reads `key ⓘ [tabs]
+<headline> ●` — the option's FIRST title entry is hoisted there by the
+renderer (hidden in-canvas via `title: [{show:false}]`; the payload
+keeps its title for raw consumers) and the freed grid top goes to the
+PLOT. Specs still emit the title (entry 0 = headline, positional later
+entries = in-canvas notes) but reserve no title band. Tab/stack
+switches swap the head headline with the active chart.
+
+**Headline terms hover.** (Owner ruling 2026-08-30.) Any `meta.terms`
+key appearing in the headline text renders as a dotted-underline
+term; hover (or keyboard `:focus-visible` — clicks never pin, the
+08-29 lesson) shows the house block in a VIEWPORT-FIXED `.terms-pop`
+(the headline clips children for ellipsis, so never a CSS-child
+bubble). Longest key wins ties — add whole-phrase keys (`MSTR-BTC
+IV`) so fragments don't half-match. Every chart's headline tokens
+(`flip dist`, `MP Δ`, `ATM 30d`, regime/verdict words, …) have
+entries; a new headline token gets its term in the same commit.
+
+**The venue toggles are ONE full-width row.** (Owner mock-up ruling
+2026-08-30, superseding the M8-18 R3 2x3 block.) The `(p) VENUE (c)`
+widget spans the plot width directly under the head line
+(`.cp-legend` flex row, `justify-content: space-between`); the gex
+grid top reserves ~18px for it plus the wall-label band.
+
 **Side panels go right, not below.** Legends, scoreboards, module
 strips: vertical columns to the right of the plot, so rows stack
 line-by-line and the plot keeps its height. EXCEPTION (owner ruling

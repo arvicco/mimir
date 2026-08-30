@@ -486,7 +486,7 @@ class TestChartSpecs < Minitest::Test
     # band, spot/flip in the lower (no offset); grid top makes the zone
     [cw, pw].each { |m| assert_equal [0, -14], m['label']['offset'] }
     marks.first(2).each { |m| refute m['label'].key?('offset') }
-    assert_equal 56, build('gex_mstr')['grid']['top']
+    assert_equal 30, build('gex_mstr')['grid']['top'] # headline hoisted (2026-08-30)
   end
 
   def test_gex_profile_wall_labels_raised_and_label_zone
@@ -498,9 +498,9 @@ class TestChartSpecs < Minitest::Test
     end
     flip = marks.find { |x| x['label']['formatter'] == 'flip' }
     refute flip['label'].key?('offset')
-    # M8-18 R4: top 66 clears the 2-row top-right toggle widget above the
-    # raised wall labels (the (p) VENUE (c) grid moved off the right margin).
-    assert_equal 66, opt['grid']['top']
+    # 2026-08-30 (headline hoist): top 44 = the full-width venue toggle
+    # row (~18px) + the raised wall-label band; the title row is gone.
+    assert_equal 44, opt['grid']['top']
     # the widened plot: right margin freed for the plot (widget is top now)
     assert_equal 12, opt['grid']['right']
     assert_equal 42, opt['grid']['left']
