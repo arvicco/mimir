@@ -40,6 +40,18 @@ class TestBtcFixtures < Minitest::Test
     'BTC-USD/ticker'     => '{"price":"62000.0"}',
     'hashrate/6m'        => JSON.generate('hashrates' => (1..200).map { |i| { 'avgHashrate' => i } },
                                           'difficulty' => (1..9).map { |i| { 'difficulty' => i } }),
+    'hashrate/all'       => JSON.generate('hashrates' => (1..400).map { |i|
+      { 'timestamp' => 1_600_000_000 + i * 86_400, 'avgHashrate' => 1.0e18 + i, 'extra' => 'drop-me' } }),
+    'stablecoincharts/all?stablecoin=1' => JSON.generate((1..60).map { |i|
+      { 'date' => (1_700_000_000 + i * 86_400).to_s,
+        'totalCirculating' => { 'peggedUSD' => 1.8e11 + i } } }),
+    'stablecoincharts/all?stablecoin=2' => JSON.generate((1..60).map { |i|
+      { 'date' => (1_700_000_000 + i * 86_400).to_s,
+        'totalCirculating' => { 'peggedUSD' => 7.0e10 + i } } }),
+    'coinbase-premium-index' => JSON.generate('code' => '0',
+      'data' => (1..60).map { |i| { 'time' => 1_700_000_000_000 + i * 86_400_000,
+                                    'premium' => 12.5, 'premium_rate' => 0.02,
+                                    'coinbase_price' => 60_000.0 + i } }),
     'stablecoins'        => JSON.generate('peggedAssets' => [
       { 'symbol' => 'USDT', 'circulating' => { 'peggedUSD' => 1 }, 'circulatingPrevWeek' => {}, 'circulatingPrevMonth' => {}, 'chains' => %w[big list] },
       { 'symbol' => 'DAI',  'circulating' => { 'peggedUSD' => 1 } },

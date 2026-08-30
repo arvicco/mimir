@@ -242,7 +242,7 @@ module BTC
         trim: lambda { |b|
           keep = JSON.parse(b)['peggedAssets'].to_a
                      .select { |a| %w[USDT USDC].include?(a['symbol']) }
-                     .map { |a| a.select { |k, _| %w[symbol circulating circulatingPrevWeek circulatingPrevMonth].include?(k) } }
+                     .map { |a| a.select { |k, _| %w[id symbol circulating circulatingPrevWeek circulatingPrevMonth].include?(k) } } # id: M12-1 replay resolves chart ids from it
           JSON.generate('peggedAssets' => keep)
         },
         stat: lambda { |b|
@@ -303,6 +303,61 @@ module BTC
       cg.call('coinglass_liquidation.json', 'futures/liquidation/aggregated-history',
               'symbol=BTC&interval=1d&exchange_list=Binance,OKX,Bybit', 10,
               'aggregated_long_liquidation_usd', 'liq'),
+      # M12-1 (Q-20) replay-history fixtures: the dated-past sources the
+      # scenario replays ride. Trims keep enough depth for contract-test
+      # truncation around the recording date.
+      { file: 'mempool_hashrate_all.json', pending_ok: true,
+        url: 'https://mempool.space/api/v1/mining/hashrate/all',
+        trim: lambda { |b|
+          j = JSON.parse(b)
+          JSON.generate('hashrates' => j['hashrates'].to_a.last(400)
+                          .map { |h| h.select { |k, _| %w[timestamp avgHashrate].include?(k) } })
+        },
+        stat: lambda { |b|
+          hs = JSON.parse(b)['hashrates'].to_a
+          raise "only #{hs.size} hashrate points (need >= 300)" if hs.size < 300
+
+          format('hashrate/all: %d points, last %s', hs.size,
+                 Time.at(hs.last['timestamp'].to_i).utc.strftime('%d %b %Y'))
+        } },
+      { file: 'coinglass_premium_index.json', env: 'COINGLASS_API_KEY',
+        url: 'https://open-api-v4.coinglass.com/api/coinbase-premium-index?interval=1d',
+        headers: -> { { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] } },
+        trim: lambda { |b|
+          j = JSON.parse(b)
+          JSON.generate('code' => j['code'], 'data' => j['data'].to_a.last(60))
+        },
+        stat: lambda { |b|
+          data = JSON.parse(b)['data'].to_a
+          raise "only #{data.size} rows (need >= 40)" if data.size < 40
+          raise 'row missing coinbase_price' unless data.last.key?('coinbase_price')
+
+          format('premium: %d rows, last cb %.0f', data.size, data.last['coinbase_price'].to_f)
+        } },
+      { file: 'llama_charts_usdt.json', pending_ok: true,
+        url: 'https://stablecoins.llama.fi/stablecoincharts/all?stablecoin=1',
+        trim: ->(b) { JSON.generate(JSON.parse(b).last(60)) },
+        stat: lambda { |b|
+          rows = JSON.parse(b)
+          raise "only #{rows.size} rows" if rows.size < 40
+          v = rows.last['totalCirculating']
+          v = v['peggedUSD'] if v.is_a?(Hash)
+          raise 'USDT total implausibly small -- id drift?' if v.to_f < 5e10
+
+          format('USDT charts: %d rows, %.0fB', rows.size, v.to_f / 1e9)
+        } },
+      { file: 'llama_charts_usdc.json', pending_ok: true,
+        url: 'https://stablecoins.llama.fi/stablecoincharts/all?stablecoin=2',
+        trim: ->(b) { JSON.generate(JSON.parse(b).last(60)) },
+        stat: lambda { |b|
+          rows = JSON.parse(b)
+          raise "only #{rows.size} rows" if rows.size < 40
+          v = rows.last['totalCirculating']
+          v = v['peggedUSD'] if v.is_a?(Hash)
+          raise 'USDC total implausibly small -- id drift?' if v.to_f < 1e10
+
+          format('USDC charts: %d rows, %.0fB', rows.size, v.to_f / 1e9)
+        } },
       # M12-4 (Q-12): bubble index -- trimmed to the trailing 400 daily
       # rows (percentile math is unit-tested synthetically; the fixture
       # only needs shape + enough depth for a stable contract run).
@@ -504,6 +559,10 @@ module BTC
     def verify_one(dir, f, now)
       path = File.join(dir, f[:file])
       unless File.exist?(path)
+        # pending_ok (M12-1): a keyless fixture registered in the same
+        # phase as its owner-run recording gate step WARNs instead of
+        # failing until it lands; drop the flag once recorded.
+        return [f[:file], :warn, 'not recorded yet (gate step)'] if f[:pending_ok]
         return [f[:file], :fail, 'missing'] unless f[:env]
 
         return [f[:file], :warn, "#{f[:env]} fixture not recorded yet"]
