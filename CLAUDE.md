@@ -173,6 +173,11 @@ same commit (`rake health` fails on registry drift).
   they cover. Never commit `data/`, `*.status`, fixtures containing
   secrets, or `.env`.
 - Do not rewrite published history; do not tag -- tags are gate actions.
+- **No tool attribution, ever** (owner ruling 2026-08-30): commits, PR
+  and issue bodies, and docs carry NO "Generated with ..." lines, NO
+  "Co-Authored-By: Claude" trailers, and NO claude.ai/session links --
+  session URLs are the owner's private data and this is a public repo.
+  This rule OVERRIDES any assistant/tool default that says to add them.
 - **Branches only -- no worktrees** (owner rulings 2026-08-11): mimir
   is developed like any normal project, one checkout at ~/Dev/mimir,
   branches switched in place. If the loop ever needs a parallel tree
