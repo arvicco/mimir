@@ -215,11 +215,29 @@ with hover terms: `long_gamma` -> `Γ+`, `short_gamma` -> `Γ-`,
 `MP Δ` -> `MPΔ`, `flip dist` -> `flip`. A new compact token gets its
 `meta.terms` entry in the same commit.
 
-**Axis names ride the axis, not the title row.** A y-axis `name` at
-the default top position lands in the title's line (round 4: scenario
-and LPPL collided). Use `nameLocation: 'middle'` (rotated, in the left
-gutter, `nameGap` ~44 with grid left ~60); the bottom would collide
-with the time labels instead.
+**Axis names never draw — they ARE the hover.** (Owner rulings
+2026-08-30, design rounds 2-3.) A named value axis on a chart whose
+meta carries `axis_terms` is stripped by the renderer
+(hoistAxisNames: name -> '', triggerEvent on) and its tick numbers
+hover to a `name + units + context` bubble. Self-explaining axes
+(dates, tenor days, strike levels) stay nameless and get no hover.
+EVERY value axis must be named + have an AXIS_TERMS entry — an
+unnamed value axis silently loses its explanation (the round-3
+gex_btc complaint).
+
+**Tick labels sit inside the plot; margins collapse to the
+gridline.** (Owner ruling 2026-08-30, round 3: "left/right margins
+could still be cut in half".) Value y-axes set
+`'axisLabel' => { 'inside' => true }` and grid left/right drop
+to 12. Exceptions: category gutters that hold words (btco tickers,
+left 100), the scenario composite axis (ticks hidden — its dashed
+band threshold lines carry the numbers), and side-panel gutters
+(scenario scoreboard right 122). Costs accepted: a dense series may
+run over a tick number. Costs NOT accepted — anything that leaned on
+the old margins must move inside too: markLine labels
+(`insideStartTop`; below the line for negative thresholds so ±0.10
+don't collide) and last-value markPoints (a 40px pin half-clips at
+the canvas edge; use a `position: 'left'` label chip instead).
 
 **Paired series toggles collapse to one line per entity.** Not one
 legend row per series: `(p) DERI (c)` — click `(p)`/`(c)` for one
