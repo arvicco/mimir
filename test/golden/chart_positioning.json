@@ -44,20 +44,20 @@
   },
   "grid": [
     {
-      "left": 36,
-      "right": 30,
+      "left": 12,
+      "right": 12,
       "top": 22,
       "height": "27%"
     },
     {
-      "left": 36,
-      "right": 30,
+      "left": 12,
+      "right": 12,
       "top": "37%",
       "height": "27%"
     },
     {
-      "left": 36,
-      "right": 30,
+      "left": 12,
+      "right": 12,
       "top": "68%",
       "height": "27%"
     }
@@ -100,6 +100,9 @@
       "gridIndex": 0,
       "name": "OI $B",
       "scale": true,
+      "axisLabel": {
+        "inside": true
+      },
       "nameLocation": "middle",
       "nameGap": 32
     },
@@ -108,6 +111,9 @@
       "gridIndex": 1,
       "name": "L/S",
       "scale": true,
+      "axisLabel": {
+        "inside": true
+      },
       "nameLocation": "middle",
       "nameGap": 32
     },
@@ -116,6 +122,9 @@
       "gridIndex": 1,
       "name": "buy %",
       "scale": true,
+      "axisLabel": {
+        "inside": true
+      },
       "position": "right",
       "nameLocation": "middle",
       "nameGap": 26
@@ -124,6 +133,9 @@
       "type": "value",
       "gridIndex": 2,
       "name": "liq $M",
+      "axisLabel": {
+        "inside": true
+      },
       "nameLocation": "middle",
       "nameGap": 32
     },
@@ -131,6 +143,9 @@
       "type": "value",
       "gridIndex": 0,
       "name": "resv M BTC",
+      "axisLabel": {
+        "inside": true
+      },
       "scale": true,
       "position": "right"
     }

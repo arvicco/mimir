@@ -22,8 +22,8 @@
     ]
   },
   "grid": {
-    "left": 38,
-    "right": 40,
+    "left": 12,
+    "right": 12,
     "top": 28,
     "bottom": 28
   },
@@ -44,6 +44,9 @@
       "type": "value",
       "name": "ATM IV %",
       "position": "left",
+      "axisLabel": {
+        "inside": true
+      },
       "scale": true,
       "nameLocation": "middle",
       "nameGap": 44
@@ -52,6 +55,9 @@
       "type": "value",
       "name": "vol pts",
       "position": "right",
+      "axisLabel": {
+        "inside": true
+      },
       "scale": true,
       "nameLocation": "middle",
       "nameGap": 40

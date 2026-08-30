@@ -260,6 +260,9 @@ module Publish
     # each chart's meta references it (unknown names fall back to the
     # bare name, which at least carries the units).
     AXIS_TERMS = {
+      '$M / 1%' => 'Net dealer gamma exposure per strike: the millions of ' \
+                   'dollars dealers must re-hedge for a 1% move. Above zero = ' \
+                   'long gamma (pinning); below = short gamma (amplifying).',
       'composite' => 'The scenario composite: the weighted module vote in ' \
                      '[-1, +1]. Dashed lines mark the regime band cutoffs.',
       'ratio' => 'Price divided by the fitted power-law trend. 1.0 = exactly ' \
@@ -312,6 +315,7 @@ module Publish
       'gex_btc' => {
         inputs: %w[payload_gex_combined.json], fn: :gex_profile,
         meta: {
+          'axis_terms' => AXIS_TERMS,
           'desc' => 'Dollar gamma dealers must re-hedge per 1% BTC move, ' \
                     'bucketed by BTC-equivalent strike across Deribit and the ' \
                     'US spot-ETF option chains. Above zero = long gamma ' \
@@ -351,6 +355,7 @@ module Publish
       'gex_mstr' => {
         inputs: %w[payload_gex_mstr.json], fn: :gex_mstr,
         meta: {
+          'axis_terms' => AXIS_TERMS,
           'desc' => 'Dollar gamma dealers must re-hedge per 1% MSTR move, ' \
                     'bucketed by strike on MSTR\'s own price axis (CBOE ' \
                     'single-name chain). Above zero = long gamma (dealer ' \
@@ -848,9 +853,9 @@ module Publish
         # the raised wall labels (grid.top - 14) sit a clear row BELOW the 2-row
         # widget (which ends ~34px): screenshot showed CW brushing the DERI
         # toggle at top 56.
-        'grid' => { 'left' => 34, 'right' => 12, 'top' => 26, 'bottom' => 26 },
+        'grid' => { 'left' => 12, 'right' => 12, 'top' => 26, 'bottom' => 26 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
-        'yAxis' => { 'type' => 'value' },
+        'yAxis' => { 'type' => 'value', 'name' => '$M / 1%', 'axisLabel' => { 'inside' => true } },
         # all levels stay in the data; the default window shows the
         # +-30% band around spot (deep-OTM tails reachable by zoom-out)
         'dataZoom' => [
@@ -1021,9 +1026,9 @@ module Publish
         # M8-18 R4 (owner ruling 2026-08-10): left/right tightened to match the
         # BTC tab (42/12; no widget here) for a visibly wider plot. top 56 keeps
         # the two-band markline label zone (flip/spot lower, walls raised).
-        'grid' => { 'left' => 34, 'right' => 12, 'top' => 14, 'bottom' => 26 },
+        'grid' => { 'left' => 12, 'right' => 12, 'top' => 14, 'bottom' => 26 },
         'xAxis' => { 'type' => 'category', 'data' => levels.map { |l| mstr_label(l) } },
-        'yAxis' => { 'type' => 'value' },
+        'yAxis' => { 'type' => 'value', 'name' => '$M / 1%', 'axisLabel' => { 'inside' => true } },
         # all strikes stay in the data; the default window shows the
         # +-30% band around spot (deep-OTM tails reachable by zoom-out)
         'dataZoom' => [
@@ -1128,7 +1133,7 @@ module Publish
         'tooltip' => { 'trigger' => 'axis', 'confine' => true, 'textStyle' => { 'fontSize' => 11 } },
         # main grid (composite) left, tight; narrow heatmap column right of it
         'grid' => [
-          { 'left' => 40, 'right' => 122, 'top' => 8, 'bottom' => 26 },
+          { 'left' => 12, 'right' => 122, 'top' => 8, 'bottom' => 26 },
           { 'right' => 12, 'width' => 20, 'top' => 8, 'bottom' => 26 }
         ],
         'xAxis' => [
@@ -1145,7 +1150,10 @@ module Publish
           # position it collided with the one-line title, and at the bottom
           # it would collide with the time labels (owner review round 4)
           { 'type' => 'value', 'gridIndex' => 0, 'min' => -1, 'max' => 1,
-            'name' => 'composite', 'nameLocation' => 'middle', 'nameGap' => 44 },
+            'name' => 'composite',
+            # ticks off: the dashed band lines label the same values, and
+            # the axis name/context lives in the hover (2026-08-30 r3)
+            'axisLabel' => { 'show' => false } },
           { 'type' => 'category', 'gridIndex' => 1, 'data' => names,
             'inverse' => true, 'axisTick' => { 'show' => false },
             'axisLabel' => { 'interval' => 0, 'fontSize' => 11 } }
@@ -1195,7 +1203,11 @@ module Publish
     def scenario_bands
       thresholds = SCN_THRESHOLDS.map do |t|
         { 'yAxis' => t, 'lineStyle' => { 'type' => 'dashed', 'color' => '#c9ccd1' },
-          'label' => { 'position' => 'start', 'formatter' => format('%+.2f', t) } }
+          # inside, not 'start': round 3 collapsed the left margin, so an
+          # outside label clips to its last glyph. Positives above their
+          # line, negatives below -- +/-0.10 sit too close to both label up
+          'label' => { 'position' => t.negative? ? 'insideStartBottom' : 'insideStartTop',
+                       'formatter' => format('%+.2f', t) } }
       end
       # band labels sit INSIDE the plot at the left edge so the narrow
       # heatmap column can hug the right without a wide right margin.
@@ -1242,8 +1254,14 @@ module Publish
       ratio_min = [ratio.map { |_, v| v.to_f }.min, env['bound']&.to_f].compact.min
       ratio_axis_min = ratio_min && (ratio_min * 0.97).floor(2)
       unless ratio.empty?
+        # a pin at the last point half-clips at the canvas edge now that
+        # the right margin is the gridline (round 3); the value reads to
+        # the LEFT of the point instead, series-coloured chip
         ratio_series['markPoint'] = {
-          'symbol' => 'pin', 'symbolSize' => 40,
+          'symbol' => 'circle', 'symbolSize' => 1,
+          'label' => { 'show' => true, 'position' => 'left',
+                       'color' => '#fff', 'backgroundColor' => 'inherit',
+                       'padding' => [2, 5], 'borderRadius' => 3 },
           'data' => [{ 'coord' => ratio.last, 'value' => format('%.3f', ratio.last[1].to_f) }]
         }
       end
@@ -1280,9 +1298,9 @@ module Publish
         # M10-9 follow-up (owner ruling 2026-08-13): the bottom margin was
         # still wide -- panels stretch down to ~93%, leaving only the date row.
         'grid' => [
-          { 'left' => 44, 'right' => 24, 'top' => 16, 'height' => '28%' },
-          { 'left' => 44, 'right' => 24, 'top' => '34%', 'height' => '27%' },
-          { 'left' => 44, 'right' => 24, 'top' => '63%', 'height' => '30%' }
+          { 'left' => 12, 'right' => 12, 'top' => 16, 'height' => '28%' },
+          { 'left' => 12, 'right' => 12, 'top' => '34%', 'height' => '27%' },
+          { 'left' => 12, 'right' => 12, 'top' => '63%', 'height' => '30%' }
         ],
         'xAxis' => [
           { 'type' => 'time', 'gridIndex' => 0, 'axisLabel' => { 'show' => false },
@@ -1295,11 +1313,14 @@ module Publish
         # they collided with the title row (owner review round 4)
         'yAxis' => [
           { 'type' => 'value', 'gridIndex' => 0, 'name' => 'ratio', 'scale' => true,
+            'axisLabel' => { 'inside' => true },
             'nameLocation' => 'middle', 'nameGap' => 44 }
             .merge(ratio_axis_min ? { 'min' => ratio_axis_min } : {}),
           { 'type' => 'value', 'gridIndex' => 1, 'name' => 'log10 BF', 'scale' => true,
+            'axisLabel' => { 'inside' => true },
             'nameLocation' => 'middle', 'nameGap' => 44 },
           { 'type' => 'value', 'gridIndex' => 2, 'name' => 'Z', 'scale' => true,
+            'axisLabel' => { 'inside' => true },
             'nameLocation' => 'middle', 'nameGap' => 44 }
         ],
         'series' => [
@@ -1872,9 +1893,9 @@ module Publish
         # M10-9 (owner ruling 2026-08-13): margins at minimum -- the panels
         # take every px the y-gutters and the date row do not strictly need.
         'grid' => [
-          { 'left' => 36, 'right' => 30, 'top' => 22,    'height' => '27%' },
-          { 'left' => 36, 'right' => 30, 'top' => '37%', 'height' => '27%' },
-          { 'left' => 36, 'right' => 30, 'top' => '68%', 'height' => '27%' }
+          { 'left' => 12, 'right' => 12, 'top' => 22,    'height' => '27%' },
+          { 'left' => 12, 'right' => 12, 'top' => '37%', 'height' => '27%' },
+          { 'left' => 12, 'right' => 12, 'top' => '68%', 'height' => '27%' }
         ],
         'xAxis' => [
           positioning_hidden_time_axis(0),
@@ -1889,16 +1910,21 @@ module Publish
         # existing renumbers.
         'yAxis' => [
           { 'type' => 'value', 'gridIndex' => 0, 'name' => 'OI $B', 'scale' => true,
+            'axisLabel' => { 'inside' => true },
             'nameLocation' => 'middle', 'nameGap' => 32 },
           { 'type' => 'value', 'gridIndex' => 1, 'name' => 'L/S', 'scale' => true,
+            'axisLabel' => { 'inside' => true },
             'nameLocation' => 'middle', 'nameGap' => 32 },
           { 'type' => 'value', 'gridIndex' => 1, 'name' => 'buy %', 'scale' => true,
+            'axisLabel' => { 'inside' => true },
             'position' => 'right', 'nameLocation' => 'middle', 'nameGap' => 26 },
           { 'type' => 'value', 'gridIndex' => 2, 'name' => 'liq $M',
+            'axisLabel' => { 'inside' => true },
             'nameLocation' => 'middle', 'nameGap' => 32 },
           # named again 2026-08-30: axis names render as HOVER bubbles
           # only (never drawn), so the old tick/name collision is gone
           { 'type' => 'value', 'gridIndex' => 0, 'name' => 'resv M BTC',
+            'axisLabel' => { 'inside' => true },
             'scale' => true, 'position' => 'right' }
         ],
         'series' => [
@@ -2121,14 +2147,16 @@ module Publish
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 } },
         'legend' => { 'top' => 2, 'data' => %w[ATM\ IV RR25 FLY25] },
-        'grid' => { 'left' => 38, 'right' => 40, 'top' => 28, 'bottom' => 28 },
+        'grid' => { 'left' => 12, 'right' => 12, 'top' => 28, 'bottom' => 28 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
         'yAxis' => [
           # names ride the axes (rotated, in the gutters) so they never land
           # in the one-line title row (owner review round 4)
           { 'type' => 'value', 'name' => 'ATM IV %', 'position' => 'left',
+            'axisLabel' => { 'inside' => true },
             'scale' => true, 'nameLocation' => 'middle', 'nameGap' => 44 },
           { 'type' => 'value', 'name' => 'vol pts', 'position' => 'right',
+            'axisLabel' => { 'inside' => true },
             'scale' => true, 'nameLocation' => 'middle', 'nameGap' => 40 },
           # hidden carrier axis for exp(d): its ~355 range must not distort
           # the ATM/skew axes, so it draws nothing.
@@ -2195,9 +2223,10 @@ module Publish
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 } },
         'legend' => { 'top' => 2, 'data' => %w[spread MSTR BTC] },
-        'grid' => { 'left' => 38, 'right' => 24, 'top' => 28, 'bottom' => 28 },
+        'grid' => { 'left' => 12, 'right' => 12, 'top' => 28, 'bottom' => 28 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
         'yAxis' => { 'type' => 'value', 'name' => 'vol %',
+                     'axisLabel' => { 'inside' => true },
                      'nameLocation' => 'middle', 'nameGap' => 44 },
         'series' => [
           # bars are per-tenor coloured (R-9 gradient); the series-level
@@ -2269,9 +2298,10 @@ module Publish
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 } },
         'legend' => { 'top' => 2, 'data' => VOL_SPREAD_TREND_TENORS.map { |td| "#{td}d" } },
-        'grid' => { 'left' => 38, 'right' => 24, 'top' => 28, 'bottom' => 28 },
+        'grid' => { 'left' => 12, 'right' => 12, 'top' => 28, 'bottom' => 28 },
         'xAxis' => { 'type' => 'category', 'data' => dates },
         'yAxis' => { 'type' => 'value', 'name' => 'spread vol pts',
+                     'axisLabel' => { 'inside' => true },
                      'scale' => true, 'nameLocation' => 'middle', 'nameGap' => 44 },
         # owner ruling 2026-08-29: date axes zoom/pan (inside, no slider,
         # full range by default -- the gex_btc idiom on the time dimension)
@@ -2323,9 +2353,10 @@ module Publish
         'title' => titles.size == 1 ? titles.first : titles,
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 } },
-        'grid' => { 'left' => 38, 'right' => 24, 'top' => 24, 'bottom' => 32 },
+        'grid' => { 'left' => 12, 'right' => 12, 'top' => 24, 'bottom' => 32 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
         'yAxis' => { 'type' => 'value', 'name' => 'ann basis %',
+                     'axisLabel' => { 'inside' => true },
                      'scale' => true, 'nameLocation' => 'middle', 'nameGap' => 44 },
         'series' => [
           { 'name' => 'ann basis', 'type' => 'line', 'symbol' => 'circle', 'symbolSize' => 7,
@@ -2375,11 +2406,12 @@ module Publish
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 } },
         'legend' => { 'top' => 2, 'data' => %w[spot flip CW PW] },
-        'grid' => { 'left' => 38, 'right' => 24, 'top' => 28, 'bottom' => 28 },
+        'grid' => { 'left' => 12, 'right' => 12, 'top' => 28, 'bottom' => 28 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
         # owner ruling 2026-08-29: date axes zoom/pan (inside, full range)
         'dataZoom' => [{ 'type' => 'inside', 'xAxisIndex' => [0] }],
-        'yAxis' => { 'type' => 'value', 'name' => 'price ($k)', 'scale' => true,
+        'yAxis' => { 'type' => 'value', 'name' => 'price ($k)',
+                     'axisLabel' => { 'inside' => true }, 'scale' => true,
                      'nameLocation' => 'middle', 'nameGap' => 44 },
         'series' => [
           gex_trend_line('spot', rows, 'spot', VOL_SPOT),
@@ -2439,11 +2471,12 @@ module Publish
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 } },
         'legend' => { 'top' => 2, 'data' => %w[spot flip CW PW] },
-        'grid' => { 'left' => 38, 'right' => 24, 'top' => 28, 'bottom' => 28 },
+        'grid' => { 'left' => 12, 'right' => 12, 'top' => 28, 'bottom' => 28 },
         'xAxis' => { 'type' => 'category', 'data' => labels },
         # owner ruling 2026-08-29: date axes zoom/pan (inside, full range)
         'dataZoom' => [{ 'type' => 'inside', 'xAxisIndex' => [0] }],
-        'yAxis' => { 'type' => 'value', 'name' => 'price ($)', 'scale' => true,
+        'yAxis' => { 'type' => 'value', 'name' => 'price ($)',
+                     'axisLabel' => { 'inside' => true }, 'scale' => true,
                      'nameLocation' => 'middle', 'nameGap' => 44 },
         'series' => [
           gex_trend_line('spot', rows, 'spot', VOL_SPOT, 1.0),
