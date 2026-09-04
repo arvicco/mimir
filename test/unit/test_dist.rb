@@ -115,15 +115,16 @@ class TestDistBuilders < Minitest::Test
     built = Dist.build_day(flat_board, 80_000.0, closes_series,
                            '2026-09-01', 'K', as_of: '2026-09-01')
     p = built['payload']
-    assert_equal %w[as_of calendar_violations date divergence headline
+    assert_equal %w[as_of calendar_violations date divergence edge headline
                     horizons n_degraded n_slices name scoring spot ts],
                  p.keys.sort
     assert_equal 'dist', p['name']
     assert_equal '2026-09-01', p['as_of']
     assert_nil p['scoring'] # the pure builder never carries scores
     assert_nil p['divergence'] # no second venue passed
+    assert_nil p['edge'] # no VRP history passed
     assert_equal %w[d degraded extrapolated forward median p05 p95
-                    sigma_atm sigma_rw],
+                    sigma_atm sigma_rw tilt_scale vrp],
                  p['horizons'].first.keys.sort
     assert_match(/med30 .* slices/, p['headline'])
   end
@@ -335,5 +336,93 @@ class TestDistIbitLeg < Minitest::Test
 
       assert_operator h['kl'], :>=, 0.0
     end
+  end
+end
+
+# M13-8: the VRP tilt -- the phase's one Golden-Rule-4 item. Zero VRP
+# tilts to the identity EXACTLY; estimates only ever see data strictly
+# before the build date (replay safety).
+class TestDistVrpTilt < Minitest::Test
+  BTC_SPOT = 80_000.0
+
+  def flat_board
+    %w[25SEP26 25DEC26].flat_map do |exp|
+      (55_000..110_000).step(5_000).flat_map do |strike|
+        %w[C P].map do |cp|
+          { 'instrument_name' => "BTC-#{exp}-#{strike}-#{cp}",
+            'open_interest' => 5.0, 'mark_iv' => 55.0, 'underlying_price' => BTC_SPOT }
+        end
+      end
+    end
+  end
+
+  def const_closes(from, days, px = 100.0)
+    (0..days).to_h { |i| [Dist.date_add(from, i), px] }
+  end
+
+  def test_estimate_vrp_exact_on_constant_closes
+    vol_hist = (0...12).to_h { |i| [Dist.date_add('2026-06-01', i), { 7 => 0.5 }] }
+    closes = const_closes('2026-06-01', 25)
+    vrp = Dist.estimate_vrp(vol_hist, closes)
+    assert_equal [7], vrp.keys # no 30/90 ivs in history
+    assert_in_delta 0.25, vrp[7]['vrp'], 1e-9 # iv^2 - 0
+    assert_equal 12, vrp[7]['n']
+  end
+
+  def test_estimate_vrp_requires_min_samples_and_matured_windows
+    vol_hist = (0...5).to_h { |i| [Dist.date_add('2026-06-01', i), { 7 => 0.5 }] }
+    assert_empty Dist.estimate_vrp(vol_hist, const_closes('2026-06-01', 25))
+    # 12 days of ivs but closes stop before any 7d window completes
+    vol_hist = (0...12).to_h { |i| [Dist.date_add('2026-06-01', i), { 7 => 0.5 }] }
+    assert_empty Dist.estimate_vrp(vol_hist, const_closes('2026-06-01', 3))
+  end
+
+  def test_tilt_scale_identity_floor_and_cap
+    t = 30 / 365.25
+    assert_in_delta 1.0, Dist.tilt_scale(0.04, 0.0, t), 1e-12
+    assert_in_delta Dist::VRP_SCALE_LO, Dist.tilt_scale(0.01, 5.0, t), 1e-12
+    assert_in_delta Dist::VRP_SCALE_HI, Dist.tilt_scale(0.01, -5.0, t), 1e-12
+  end
+
+  def test_zero_vrp_rwm_equals_rn_exactly
+    slices = BTC::Density.slices(Dist.parse_book(flat_board, Time.utc(2026, 9, 1, 12), BTC_SPOT))
+    rec = Dist.horizon_record(slices, 30, BTC_SPOT, nil, vrp: { 'vrp' => 0.0, 'n' => 30 })
+    assert_equal rec['components']['rn']['quantiles'],
+                 rec['components']['rwm']['quantiles']
+    assert_in_delta 1.0, rec['components']['rwm']['scale'], 1e-12
+  end
+
+  def test_build_day_with_vrp_history_carries_rwm_and_edge
+    vol_hist = (0...15).to_h do |i|
+      [Dist.date_add('2026-06-01', i), { 7 => 0.7, 30 => 0.7, 90 => 0.7 }]
+    end
+    closes = const_closes('2026-06-01', 120)
+    built = Dist.build_day(flat_board, BTC_SPOT, [], '2026-09-01', 'K',
+                           vol_hist: vol_hist, closes_map: closes)
+    h30 = built['row']['horizons'][1]
+    rwm = h30['components']['rwm']
+    refute_nil rwm
+    assert_in_delta 0.49, rwm['vrp'], 1e-6
+    assert_operator rwm['scale'], :<, 1.0 # positive VRP narrows the density
+    # narrower: rwm 5..95 range inside the rn range
+    span = ->(c) { qs = c['quantiles'].to_h; qs[0.95] - qs[0.05] }
+    assert_operator span.call(rwm), :<, span.call(h30['components']['rn'])
+
+    edge = built['payload']['edge']
+    refute_nil edge
+    assert_equal edge['ladder'].size, edge['expiries'].first['ratio'].size
+    mid = edge['expiries'].first['ratio'][edge['ladder'].size / 2]
+    assert_operator mid, :>, 1.0 # narrower density peaks higher at the middle
+  end
+
+  def test_vrp_never_sees_data_on_or_after_the_build_date
+    vol_hist = (0...15).to_h do |i|
+      [Dist.date_add('2026-09-01', i), { 7 => 0.7 }] # all >= build date
+    end
+    built = Dist.build_day(flat_board, BTC_SPOT, [], '2026-09-01', 'K',
+                           vol_hist: vol_hist,
+                           closes_map: const_closes('2026-09-01', 40))
+    assert_nil built['row']['horizons'][0]['components']['rwm']
+    assert_nil built['payload']['edge']
   end
 end
