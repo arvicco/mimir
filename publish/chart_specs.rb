@@ -2705,15 +2705,19 @@ module Publish
                      'scale' => true, 'axisLabel' => { 'margin' => 3 } }
       }
       unless edge
-        # designed empty state: the tilt refuses to guess without history
+        # designed empty state: the tilt refuses to guess without history.
+        # NOTE the placeholder ['']/[nil] content -- EMPTY []/{} are banned
+        # in options: Ruby 3.3 (CI) pretty-prints empty JSON containers
+        # differently than newer local rubies, so an empty-array golden is
+        # green locally and red on CI (M13-9 incident).
         return base.merge(
           'title' => [{ 'text' => 'tilt warming up',
                         'textStyle' => { 'fontSize' => 13 } },
                       { 'text' => 'needs 10+ matured IV/RV windows in the vol history',
                         'left' => 'center', 'top' => '48%',
                         'textStyle' => { 'fontSize' => 11 } }],
-          'xAxis' => { 'type' => 'category', 'data' => [] },
-          'series' => []
+          'xAxis' => { 'type' => 'category', 'data' => [''] },
+          'series' => [{ 'type' => 'line', 'data' => [nil] }]
         )
       end
 
@@ -2753,14 +2757,17 @@ module Publish
                      'axisLabel' => { 'margin' => 3 } } # bars: zero baseline
       }
       if horizons.empty?
+        # placeholder ['']/[nil] content on purpose -- see dist_edge's
+        # empty state: empty []/{} in an option break golden byte-parity
+        # between Ruby 3.3 (CI) and newer local json pretty-printing.
         return base.merge(
           'title' => [{ 'text' => 'awaiting first resolutions',
                         'textStyle' => { 'fontSize' => 13 } },
                       { 'text' => 'the 7d horizons mature a week after the first publish',
                         'left' => 'center', 'top' => '48%',
                         'textStyle' => { 'fontSize' => 11 } }],
-          'xAxis' => { 'type' => 'category', 'data' => [] },
-          'series' => []
+          'xAxis' => { 'type' => 'category', 'data' => [''] },
+          'series' => [{ 'type' => 'bar', 'data' => [nil] }]
         )
       end
 

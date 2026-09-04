@@ -65,6 +65,13 @@ another. When a new ruling lands, add it here in the same commit.
 - Goldens regenerate deterministically from test/fixtures/payloads/. A
   red golden is a question for a human; bless only via
   `rake golden:approve` after LOOKING at the rendered result.
+- **Empty `[]`/`{}` are BANNED in chart options** (M13-9 incident,
+  2026-09-04): Ruby 3.3's json (CI, the 3.3 authority) pretty-prints
+  empty containers as `[\n\n]` while newer local rubies print `[]`,
+  so an empty-array golden is green locally and red on CI. Designed
+  empty states carry placeholder content instead: `'data' => ['']`
+  categories and one `{'type'=>..., 'data'=>[nil]}` series -- renders
+  identically empty, byte-stable across rubies.
 - web/ stays single-file, inline CSS, vanilla JS, ECharts via one
   pinned CDN tag, no npm, no build step, served by `rake preview`.
 
