@@ -253,6 +253,31 @@ module Publish
                   'discount to its coins -- historically a stressed tape.'
     }.freeze
 
+    # dist headline/legend tokens (M13-9, skuld S-B).
+    DIST_TERMS = {
+      'med30' => 'The market-implied median BTC price 30 days out, read ' \
+                 'from the option-smile density (risk-neutral).',
+      'rn' => 'Risk-neutral: the density the option market itself prices. ' \
+              'It embeds the volatility risk premium, so its tails are ' \
+              'paid-for insurance, not pure forecasts.',
+      'rwm' => 'Real-world (market): the risk-neutral density with the ' \
+               'volatility risk premium subtracted at the money -- our ' \
+               'best-estimate forecast density. Scored against rn daily; ' \
+               'the scoreboard decides which one you should believe.',
+      'vrp' => 'Volatility risk premium: implied variance minus ' \
+               'subsequently realized variance, estimated from our own ' \
+               'vol history. Positive = options were overpriced on average.',
+      'tilt' => 'The variance scale applied to the risk-neutral curve to ' \
+                'get the real-world one: (ATM var - VRP)/ATM var, bounded ' \
+                '[0.25, 2]. 1.0 = no tilt.',
+      'median' => 'The 50% quantile of the risk-neutral density per horizon.',
+      'rwm median' => 'The 50% quantile of the real-world (VRP-tilted) ' \
+                      'density -- only drawn once enough vol history exists.',
+      'resolved' => 'Horizons whose maturity day has passed: each published ' \
+                    'density was scored against the realized close ' \
+                    '(log score, CRPS, PIT, Brier).'
+    }.freeze
+
     # 2026-08-30 owner round 2: axis names never draw -- the renderer
     # strips them and hovers the tick numbers to 'name + context' bubbles
     # (meta.axis_terms, keyed by the axis's spec name). Self-explaining
@@ -303,7 +328,18 @@ module Publish
       'price ($k)' => 'BTC price levels in thousands of dollars: daily spot ' \
                       'close vs the flip and both walls.',
       'price ($)' => 'MSTR share price in dollars: daily spot close vs the ' \
-                     'flip and both walls.'
+                     'flip and both walls.',
+      'BTC $k' => 'BTC price in thousands of dollars -- the quantile fan\'s ' \
+                  'price axis. Wider fan = the market prices more ' \
+                  'uncertainty at that horizon.',
+      'p(rwm)/p(rn)' => 'The edge ratio: our real-world density divided by ' \
+                        'the market\'s risk-neutral one at each strike. ' \
+                        '~1 everywhere = no disagreement, no trade; above 1 ' \
+                        '= we think that outcome is likelier than the ' \
+                        'market prices.',
+      'share' => 'Share of resolved horizons whose realized outcome fell in ' \
+                 'this PIT bin. A calibrated density is flat at the dashed ' \
+                 '0.10 line; a U-shape = too narrow, a hump = too wide.'
     }.freeze
 
     # meta (additive envelope field, 2026-07-05): METHODOLOGY-grade
@@ -799,6 +835,81 @@ module Publish
           # M9-15 terms hook: the panel-2 crowd-ratio legend items explain
           # themselves (drawn legend -> legend.tooltip, the house block).
           'terms' => POSITIONING_TERMS
+        }
+      },
+      # ---- the dist card (M13-9, skuld S-B): one stacked card, three
+      # sections -- quantile fan / edge ratio / PIT calibration. All read
+      # the single dist:latest payload.
+      'dist_fan' => {
+        inputs: %w[payload_dist_latest.json], fn: :dist_fan,
+        meta: {
+          'axis_terms' => AXIS_TERMS,
+          'desc' => 'The market-implied BTC price distribution at 7/30/90 ' \
+                    'days, read from the option smile (Deribit, SVI fit + ' \
+                    'Breeden-Litzenberger). Five quantile lines fan out from ' \
+                    'spot: 5/25/50/75/95%. The teal dashed line is the ' \
+                    'real-world median once the VRP tilt has history. A * on ' \
+                    'a horizon = extrapolated beyond the last liquid expiry ' \
+                    '(METHODOLOGY.md).',
+          'axes' => { 'x' => 'horizon -- now, then 7/30/90 days out ' \
+                             '(* = extrapolated past the last liquid expiry)',
+                      'y' => 'BTC price, thousands of dollars' },
+          'help' => 'Hover a horizon for all five quantiles. The distance ' \
+                    'between the 5% and 95% lines is what the option market ' \
+                    'charges for uncertainty at that horizon; the median ' \
+                    'sits below the forward (lognormal drift). rwm median ' \
+                    'appearing above/below the rn median shows which way ' \
+                    'the VRP tilt moves the forecast.',
+          'terms' => DIST_TERMS,
+          'tab_group' => 'dist', 'group_style' => 'stack', 'tab_pos' => 0,
+          'height' => 250
+        }
+      },
+      'dist_edge' => {
+        inputs: %w[payload_dist_latest.json], fn: :dist_edge,
+        meta: {
+          'axis_terms' => AXIS_TERMS,
+          'desc' => 'The edge ratio: our real-world density divided by the ' \
+                    'market\'s risk-neutral one, per strike, one line per ' \
+                    'liquid expiry. This is the one trading output -- where ' \
+                    'the ratio is ~1 there is no trade regardless of ' \
+                    'narrative; sustained deviations are priced ' \
+                    'disagreements (METHODOLOGY.md).',
+          'axes' => { 'x' => 'strike, thousands of dollars (the day\'s ' \
+                             'spot-relative ladder)',
+                      'y' => 'p(rwm)/p(rn) -- the dashed line at 1.0 is ' \
+                             '"no disagreement"' },
+          'help' => 'Each line is one listed expiry. Above 1.0 = the ' \
+                    'VRP-tilted view rates that strike likelier than the ' \
+                    'market prices it. Empty until the vol history has 10+ ' \
+                    'matured IV/RV windows -- the tilt refuses to guess.',
+          'terms' => DIST_TERMS,
+          'tab_group' => 'dist', 'group_style' => 'stack', 'tab_pos' => 1,
+          'height' => 185
+        }
+      },
+      'dist_pit' => {
+        inputs: %w[payload_dist_latest.json], fn: :dist_pit,
+        meta: {
+          'axis_terms' => AXIS_TERMS,
+          'desc' => 'The calibration audit: where realized closes actually ' \
+                    'landed inside the published risk-neutral density (PIT, ' \
+                    '10 bins), one bar series per horizon. A calibrated ' \
+                    'density is flat at 0.10; a U-shape means the published ' \
+                    'tails were too thin, a hump too fat. Fills in as ' \
+                    'horizons mature -- 7d first (METHODOLOGY.md).',
+          'axes' => { 'x' => 'PIT bin -- where the realized close fell in the ' \
+                             'published cumulative distribution (0 = below ' \
+                             'everything, 1 = above everything)',
+                      'y' => 'share of that horizon\'s resolutions in the bin' },
+          'help' => 'Bars per horizon (7/30/90d), share of resolutions per ' \
+                    'bin against the dashed uniform line. Early on the card ' \
+                    'says how many horizons have resolved; judge nothing ' \
+                    'before a few dozen. This chart is the referee for the ' \
+                    'pre-registered VRP question.',
+          'terms' => DIST_TERMS,
+          'tab_group' => 'dist', 'group_style' => 'stack', 'tab_pos' => 2,
+          'height' => 165
         }
       }
     }.freeze
@@ -2514,6 +2625,163 @@ module Publish
     # long_gamma reads Γ+, short_gamma Γ- (hover terms explain them).
     def gamma_glyph(regime)
       { 'long_gamma' => 'Γ+', 'short_gamma' => 'Γ-' }.fetch(regime.to_s, regime.to_s)
+    end
+
+    # ---- dist family (M13-9, skuld S-B) --------------------------------
+    #
+    # All three sections read the ONE dist:latest payload. The fan is a
+    # quantile-line family (NOT stacked areas: stacked deltas poison the
+    # axis tooltip, and five honest lines hover to their real values).
+    # The family shares one hue so it reads as one object; the rwm
+    # median is the teal exception (it is a different density).
+
+    DIST_HUE = '84,112,198' # the dark-theme lead blue, rgba-composable
+
+    # $ -> $k at build time (the axis unit the human reads); nil-safe.
+    def dist_k(val)
+      val && (val / 1000.0).round(1)
+    end
+
+    def dist_fan(dist)
+      hs = dist['horizons'] || []
+      cats = ['now'] + hs.map { |h| "#{h['d']}d#{h['extrapolated'] ? '*' : ''}" }
+      spot = dist_k(dist['spot'])
+      line = lambda do |key, width, dash, alpha|
+        { 'name' => key, 'type' => 'line',
+          'symbol' => 'circle', 'symbolSize' => 5,
+          'lineStyle' => { 'width' => width, 'type' => dash,
+                           'color' => "rgba(#{DIST_HUE},#{alpha})" },
+          'itemStyle' => { 'color' => "rgba(#{DIST_HUE},#{alpha})" },
+          'data' => [spot] + hs.map { |h| dist_k(h[key]) } }
+      end
+      series = [line.call('p05', 1, 'dashed', 0.55),
+                line.call('p25', 1, 'solid', 0.75),
+                line.call('median', 2.5, 'solid', 1.0),
+                line.call('p75', 1, 'solid', 0.75),
+                line.call('p95', 1, 'dashed', 0.55)]
+      if hs.any? { |h| h['median_rwm'] }
+        series << { 'name' => 'rwm median', 'type' => 'line',
+                    'symbol' => 'circle', 'symbolSize' => 5,
+                    'lineStyle' => { 'width' => 2, 'type' => 'dashed',
+                                     'color' => '#2fbf8f' },
+                    'itemStyle' => { 'color' => '#2fbf8f' },
+                    'data' => [spot] + hs.map { |h| dist_k(h['median_rwm']) } }
+      end
+
+      {
+        'backgroundColor' => 'transparent',
+        'title' => [{ 'text' => dist_fan_title(dist),
+                      'textStyle' => { 'fontSize' => 13 } }],
+        'tooltip' => { 'trigger' => 'axis', 'confine' => true,
+                       'textStyle' => { 'fontSize' => 11 } },
+        'legend' => { 'top' => 2, 'data' => ['median', 'rwm median'] },
+        'grid' => { 'left' => 34, 'right' => 18, 'top' => 28, 'bottom' => 24 },
+        'xAxis' => { 'type' => 'category', 'data' => cats },
+        'yAxis' => { 'type' => 'value', 'name' => 'BTC $k', 'scale' => true,
+                     'axisLabel' => { 'margin' => 3 } },
+        'series' => series
+      }
+    end
+
+    # 'med30 82.4k [59.7..108.4] · vrp 0.49' (vrp token only when the
+    # tilt is live; the headline never names the card).
+    def dist_fan_title(dist)
+      h30 = (dist['horizons'] || []).find { |h| h['d'] == 30 }
+      return 'no horizons' unless h30
+
+      head = format('med30 %sk [%s..%s]', dist_k(h30['median']),
+                    dist_k(h30['p05']), dist_k(h30['p95']))
+      h30['vrp'] ? head + format(' · vrp %.2f', h30['vrp']) : head
+    end
+
+    def dist_edge(dist)
+      edge = dist['edge']
+      base = {
+        'backgroundColor' => 'transparent',
+        'tooltip' => { 'trigger' => 'axis', 'confine' => true,
+                       'textStyle' => { 'fontSize' => 11 } },
+        'grid' => { 'left' => 30, 'right' => 18, 'top' => 28, 'bottom' => 24 },
+        'yAxis' => { 'type' => 'value', 'name' => 'p(rwm)/p(rn)',
+                     'scale' => true, 'axisLabel' => { 'margin' => 3 } }
+      }
+      unless edge
+        # designed empty state: the tilt refuses to guess without history
+        return base.merge(
+          'title' => [{ 'text' => 'tilt warming up',
+                        'textStyle' => { 'fontSize' => 13 } },
+                      { 'text' => 'needs 10+ matured IV/RV windows in the vol history',
+                        'left' => 'center', 'top' => '48%',
+                        'textStyle' => { 'fontSize' => 11 } }],
+          'xAxis' => { 'type' => 'category', 'data' => [] },
+          'series' => []
+        )
+      end
+
+      lad = edge['ladder'].map { |k| dist_k(k) }
+      scale = edge['expiries'].first && edge['expiries'].first['scale']
+      base.merge(
+        'title' => [{ 'text' => format('tilt %s · %d expiries',
+                                       scale ? format('%.2f', scale) : 'n/a',
+                                       edge['expiries'].size),
+                      'textStyle' => { 'fontSize' => 13 } }],
+        'legend' => { 'top' => 2,
+                      'data' => edge['expiries'].map { |e| "#{e['days'].round}d" } },
+        'xAxis' => { 'type' => 'category', 'data' => lad },
+        'series' => edge['expiries'].map do |e|
+          { 'name' => "#{e['days'].round}d", 'type' => 'line',
+            'symbol' => 'circle', 'symbolSize' => 4, 'connectNulls' => true,
+            'data' => e['ratio'],
+            'markLine' => {
+              'symbol' => 'none', 'silent' => true,
+              'lineStyle' => { 'type' => 'dashed' },
+              'label' => { 'position' => 'insideEndTop', 'formatter' => 'fair' },
+              'data' => [{ 'yAxis' => 1.0 }]
+            } }
+        end
+      )
+    end
+
+    def dist_pit(dist)
+      scoring = dist['scoring']
+      horizons = (scoring && scoring['horizons'] || []).select { |h| h['n'].positive? }
+      base = {
+        'backgroundColor' => 'transparent',
+        'tooltip' => { 'trigger' => 'axis', 'confine' => true,
+                       'textStyle' => { 'fontSize' => 11 } },
+        'grid' => { 'left' => 30, 'right' => 18, 'top' => 28, 'bottom' => 24 },
+        'yAxis' => { 'type' => 'value', 'name' => 'share',
+                     'axisLabel' => { 'margin' => 3 } } # bars: zero baseline
+      }
+      if horizons.empty?
+        return base.merge(
+          'title' => [{ 'text' => 'awaiting first resolutions',
+                        'textStyle' => { 'fontSize' => 13 } },
+                      { 'text' => 'the 7d horizons mature a week after the first publish',
+                        'left' => 'center', 'top' => '48%',
+                        'textStyle' => { 'fontSize' => 11 } }],
+          'xAxis' => { 'type' => 'category', 'data' => [] },
+          'series' => []
+        )
+      end
+
+      bins = (0...10).map { |i| format('.%d', i) }
+      base.merge(
+        'title' => [{ 'text' => format('rn calibration · resolved %d',
+                                       scoring['n_resolved']),
+                      'textStyle' => { 'fontSize' => 13 } }],
+        'legend' => { 'top' => 2, 'data' => horizons.map { |h| "#{h['d']}d" } },
+        'xAxis' => { 'type' => 'category', 'data' => bins },
+        'series' => horizons.map do |h|
+          { 'name' => "#{h['d']}d", 'type' => 'bar',
+            'data' => h.dig('pit_bins', 'rn') || [],
+            'markLine' => {
+              'symbol' => 'none', 'silent' => true,
+              'lineStyle' => { 'type' => 'dashed' },
+              'label' => { 'position' => 'insideEndTop', 'formatter' => 'uniform' },
+              'data' => [{ 'yAxis' => 0.10 }]
+            } }
+        end
+      )
     end
   end
 end
