@@ -38,7 +38,16 @@
   ],
   "xAxis": {
     "type": "category",
-    "data": []
+    "data": [
+      ""
+    ]
   },
-  "series": []
+  "series": [
+    {
+      "type": "bar",
+      "data": [
+        null
+      ]
+    }
+  ]
 }

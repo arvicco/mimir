@@ -39,7 +39,16 @@
   ],
   "xAxis": {
     "type": "category",
-    "data": []
+    "data": [
+      ""
+    ]
   },
-  "series": []
+  "series": [
+    {
+      "type": "line",
+      "data": [
+        null
+      ]
+    }
+  ]
 }
