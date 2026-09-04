@@ -10,10 +10,10 @@
 require_relative 'contract_helper'
 
 class TestDistContract < Minitest::Test
-  DIST_KEYS = %w[name ts headline date as_of scoring divergence spot
+  DIST_KEYS = %w[name ts headline date as_of scoring divergence edge spot
                  n_slices n_degraded calendar_violations horizons].freeze
-  HORIZON_KEYS = %w[d forward median p05 p95 sigma_atm sigma_rw
-                    extrapolated degraded].freeze
+  HORIZON_KEYS = %w[d forward median p05 p95 sigma_atm sigma_rw vrp
+                    tilt_scale extrapolated degraded].freeze
   UNAVAILABLE_KEYS = %w[name ts headline unavailable].freeze
 
   def test_dist_json_contract

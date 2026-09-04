@@ -69,8 +69,20 @@
 #   * The strike ladder is spot-relative (0.70..1.30 x spot, step 0.05,
 #     rounded to $500) and stored per row, so scoring always reads the
 #     ladder the row was published with.
-#   * No VRP tilt yet in this packet -- rn IS the market's density;
-#     the real-world tilt + edge ratio land in M13-8.
+#   * VRP TILT (M13-8, the phase's one analytics-semantics item): the
+#     real-world density 'rwm' = the rn curve with total variance
+#     scaled by (w_atm - VRP*t)/w_atm. VRP_d = mean over the own vol
+#     history of (atm_iv_d^2 - realized_var_d) for days whose d-day
+#     window has completed -- a regime-free v1 estimator, >= 10
+#     samples required, else no rwm that horizon. The scale is bounded
+#     to [0.25, 2.0]. Zero VRP tilts to the identity. BOTH densities
+#     are published and scored side by side PERMANENTLY -- the
+#     pre-registered question 1 (does the tilt beat raw rn on PIT?)
+#     decides the tilt's fate on the scoreboard, never a re-tune. The
+#     90d anchor usually lacks history at first: rwm honestly absent.
+#   * EDGE RATIO: p_rwm / p_rn on the day's ladder, per liquid expiry
+#     (up to 6), using the 30d-anchor VRP for every expiry (v1). ~1
+#     everywhere = no trade regardless of narrative.
 #
 # CAVEATS: wing masses and integral_raw ride every rn record -- tail
 #   numbers beyond the last liquid strike are wing-model numbers.
@@ -96,6 +108,10 @@ module Dist
   HORIZONS_D = [7, 30, 90].freeze
   RW_WINDOW  = 90            # trailing daily returns for realized vol
   MIN_T_D    = 1.5           # drop slices expiring within 36h
+  MIN_VRP_N  = 10            # matured IV/RV samples needed per horizon
+  VRP_SCALE_LO = 0.25        # tilt bounds (frozen pending question 1)
+  VRP_SCALE_HI = 2.0
+  EDGE_EXPIRIES = 6          # liquid expiries carried on the edge strip
   LADDER     = (0.70..1.301).step(0.05).map { |m| m.round(2) }.freeze
   SCHEMA     = 1
 
@@ -181,6 +197,86 @@ module Dist
       'horizons' => horizons }
   end
 
+  # ---- VRP tilt (M13-8) ------------------------------------------------------
+
+  VOL_HISTORY_DIR = BTC::Env.data_dir('vol_history', 'data/vol_history')
+
+  # vol_history/*.json -> { date => { 7 => atm_iv, 30 => ..., 90 => ... } }.
+  def load_vol_history(dir = VOL_HISTORY_DIR)
+    return {} unless Dir.exist?(dir)
+
+    out = {}
+    Dir.glob(File.join(dir, '*.json')).sort.each do |path|
+      j = JSON.parse(File.read(path))
+      tenors = j.dig('vol', 'tenors') or next
+      ivs = HORIZONS_D.filter_map do |d|
+        row = tenors.find { |t| t['tenor_d'] == d && t['atm_iv'] }
+        row && [d, row['atm_iv'].to_f]
+      end.to_h
+      out[j['date']] = ivs unless ivs.empty?
+    rescue JSON::ParserError
+      next
+    end
+    out
+  end
+
+  # Annualized realized variance over (d0, d0+d] from the close map.
+  # nil when fewer than 80% of the window's days have closes.
+  def realized_var(closes_map, d0, d)
+    dates = (1..d).map { |i| date_add(d0, i) }
+    px = [closes_map[d0], *dates.map { |dt| closes_map[dt] }].compact
+    return nil if px.size < (0.8 * d).ceil + 1
+
+    rets = px.each_cons(2).map { |a, b| Math.log(b / a) }
+    rets.sum { |r| r * r } / rets.size * 365.25
+  end
+
+  # VRP per horizon: mean(iv^2 - realized_var) over matured history
+  # days. { d => { 'vrp' =>, 'n' => } } -- horizons below MIN_VRP_N
+  # samples are absent.
+  def estimate_vrp(vol_hist, closes_map)
+    HORIZONS_D.filter_map do |d|
+      samples = vol_hist.filter_map do |d0, ivs|
+        iv = ivs[d] or next
+        rv = realized_var(closes_map, d0, d) or next
+        iv * iv - rv
+      end
+      next if samples.size < MIN_VRP_N
+
+      [d, { 'vrp' => (samples.sum / samples.size).round(4), 'n' => samples.size }]
+    end.to_h
+  end
+
+  # Bounded variance scale for the tilt; 1.0 at zero VRP.
+  def tilt_scale(w_atm, vrp, t)
+    return 1.0 if w_atm <= 0
+
+    ((w_atm - vrp * t) / w_atm).clamp(VRP_SCALE_LO, VRP_SCALE_HI)
+  end
+
+  # Edge-ratio strip: p_rwm/p_rn on the ladder for up to EDGE_EXPIRIES
+  # liquid (svi) slices, all tilted at the 30d-anchor VRP.
+  def edge_strip(slices, spot, vrp30)
+    lad = ladder(spot)
+    expiries = slices.select { |s| s[:method] == 'svi' }.first(EDGE_EXPIRIES)
+    rows = expiries.map do |sl|
+      rn = BTC::Density.expiry_density(sl)
+      scale = tilt_scale(sl[:params] ? BTC::Density.total_variance(sl, 0.0) : 0.0,
+                         vrp30, sl[:t])
+      rwm = BTC::Density.density_from_w(sl[:forward],
+                                        ->(k) { BTC::Density.total_variance(sl, k) * scale },
+                                        sl[:k_lo], sl[:k_hi])
+      ratio = lad.map do |k|
+        p_rn = BTC::Density.pdf_at(rn, k)
+        p_rw = BTC::Density.pdf_at(rwm, k)
+        p_rn <= 1e-12 ? nil : (p_rw / p_rn).clamp(0.0, 99.0).round(3)
+      end
+      { 'days' => sl[:days], 'forward' => sl[:forward].round(1),
+        'scale' => scale.round(4), 'ratio' => ratio }
+    end
+    { 'ladder' => lad, 'expiries' => rows }
+  end
+
   # Trailing annualized realized vol from a close series (oldest-first).
   # nil below 2 usable returns.
   def realized_sigma(closes, window: RW_WINDOW)
@@ -212,8 +308,8 @@ module Dist
   end
 
   # One horizon's ledger record: rn from the fitted surface, ln_atm and
-  # rw analytic. Returns nil when the surface has no slices.
-  def horizon_record(slices, d_days, spot, sigma_rw)
+  # rw analytic, rwm (VRP-tilted rn) when the horizon has a VRP estimate.
+  def horizon_record(slices, d_days, spot, sigma_rw, vrp: nil)
     t = d_days / 365.25
     h = BTC::Density.horizon(slices, t)
     den = BTC::Density.density_from_w(h[:forward], h[:w_fn], h[:k_lo], h[:k_hi])
@@ -246,6 +342,17 @@ module Dist
         'digitals' => lad.map { |k| lognormal_digital(spot, w_rw, k).round(4) }
       }
     end
+    if vrp
+      scale = tilt_scale(w_atm, vrp['vrp'], t)
+      rwm = BTC::Density.density_from_w(h[:forward],
+                                        ->(k) { h[:w_fn].call(k) * scale },
+                                        h[:k_lo], h[:k_hi])
+      rec['components']['rwm'] = {
+        'vrp' => vrp['vrp'], 'n_vrp' => vrp['n'], 'scale' => scale.round(4),
+        'quantiles' => round_q(rwm[:quantiles]),
+        'digitals' => lad.map { |k| BTC::Density.digital(rwm, k).round(4) }
+      }
+    end
     rec['touch_rn'] = lad.map { |k| BTC::Density.touch(den, k).round(4) }
     rec
   end
@@ -258,7 +365,11 @@ module Dist
   # { 'row' =>, 'payload' => } out (both JSON-shaped). +ibit+ is the
   # optional second venue ({'data'=>chain body,'as_of'=>,'stale'=>});
   # nil or an unparseable chain degrades to divergence: null.
-  def build_day(raw_rows, spot, closes, date, known_at, as_of: nil, ibit: nil)
+  # +vol_hist+/+closes_map+ feed the VRP estimator; both are filtered
+  # to strictly-before-date here, so a replay on D can never see what
+  # was not knowable on D.
+  def build_day(raw_rows, spot, closes, date, known_at, as_of: nil, ibit: nil,
+                vol_hist: {}, closes_map: {})
     now = Time.parse("#{date}T00:00:00Z") + 43_200 # mid-day anchor for t
     book = parse_book(raw_rows, now, spot)
     raise 'no live instruments parsed' if book.empty?
@@ -266,7 +377,12 @@ module Dist
     slices = BTC::Density.slices(book)
     violations = BTC::Density.calendar_violations(slices)
     sigma_rw = realized_sigma(closes)
-    horizons = HORIZONS_D.map { |d| horizon_record(slices, d, spot, sigma_rw) }
+    vrp = estimate_vrp(vol_hist.select { |d, _| d < date },
+                       closes_map.select { |d, _| d < date })
+    horizons = HORIZONS_D.map do |d|
+      horizon_record(slices, d, spot, sigma_rw, vrp: vrp[d])
+    end
+    edge = vrp[30] ? edge_strip(slices, spot, vrp[30]['vrp']) : nil
 
     div = nil
     if ibit && (ib_book = parse_ibit(ibit['data'] || {}, spot, now))
@@ -282,14 +398,15 @@ module Dist
       'input_hash' => Digest::SHA256.hexdigest(JSON.generate(book.map(&:to_a))),
       'horizons' => horizons
     }
-    { 'row' => row, 'payload' => payload(row, as_of: as_of, divergence: div) }
+    { 'row' => row,
+      'payload' => payload(row, as_of: as_of, divergence: div, edge: edge) }
   end
 
   # The --json face, derived from a ledger row (frozen field set).
   # +scoring+ is the resolution summary (live runs only; replays and
   # the pure builder report null -- a past day must not carry scores
   # that resolved after it).
-  def payload(row, as_of: nil, scoring: nil, divergence: nil)
+  def payload(row, as_of: nil, scoring: nil, divergence: nil, edge: nil)
     h30 = row['horizons'].find { |h| h['d'] == 30 } || row['horizons'].first
     med = quantile_at(h30, 0.5)
     p05 = quantile_at(h30, 0.05)
@@ -301,7 +418,7 @@ module Dist
     {
       'name' => 'dist', 'ts' => Time.now.utc.iso8601, 'headline' => headline,
       'date' => row['date'], 'as_of' => as_of, 'scoring' => scoring,
-      'divergence' => divergence, 'spot' => row['spot'],
+      'divergence' => divergence, 'edge' => edge, 'spot' => row['spot'],
       'n_slices' => row['n_slices'], 'n_degraded' => row['n_degraded'],
       'calendar_violations' => row['calendar_violations'],
       'horizons' => row['horizons'].map do |h|
@@ -311,6 +428,8 @@ module Dist
           'p95' => quantile_at(h, 0.95),
           'sigma_atm' => h.dig('components', 'ln_atm', 'sigma'),
           'sigma_rw' => h.dig('components', 'rw', 'sigma'),
+          'vrp' => h.dig('components', 'rwm', 'vrp'),
+          'tilt_scale' => h.dig('components', 'rwm', 'scale'),
           'extrapolated' => h['extrapolated'], 'degraded' => h['degraded']
         }
       end
@@ -534,7 +653,8 @@ module Dist
     snap = read_snapshot(date) or unavailable("no snapshot for #{date}")
     closes = load_closes(date)
     built = build_day(snap['rows'], snap['spot'].to_f, closes, date,
-                      snap['known_at'], as_of: date, ibit: snap['ibit'])
+                      snap['known_at'], as_of: date, ibit: snap['ibit'],
+                      vol_hist: load_vol_history, closes_map: load_closes_map)
     emit(built['payload'])
   rescue StandardError => e
     unavailable("#{e.class}: #{e.message}")
@@ -558,12 +678,15 @@ module Dist
       nil # second venue is optional; Deribit-only day, divergence null
     end
     sha = write_snapshot(today, known_at, spot, raw, ibit: ibit)
-    built = build_day(raw, spot, load_closes(today), today, known_at, ibit: ibit)
+    closes_map = load_closes_map
+    built = build_day(raw, spot, load_closes(today), today, known_at,
+                      ibit: ibit, vol_hist: load_vol_history,
+                      closes_map: closes_map)
     built['row']['snapshot_sha256'] = sha
     append_ledger(built['row'])
 
     prior = read_jsonl(SCORES)
-    fresh = resolve(read_jsonl(LEDGER), scored_keys, load_closes_map)
+    fresh = resolve(read_jsonl(LEDGER), scored_keys, closes_map)
     append_scores(fresh)
     built['payload']['scoring'] = scoring_summary(prior + fresh)
 
