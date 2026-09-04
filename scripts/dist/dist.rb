@@ -31,8 +31,20 @@
 #   ledger.jsonl        append-only, one row per day: quantiles,
 #                       digitals, provenance (snapshot sha256, input
 #                       hash, known_at, schema version). Never rewritten.
-#   scores.jsonl        resolution ledger (M13-6): matured horizons
-#                       scored log/CRPS/PIT + Brier per component.
+#   scores.jsonl        resolution ledger (M13-6): each live run finds
+#                       matured, not-yet-scored (date, horizon) pairs
+#                       -- publication date + d days has a completed
+#                       close in the price cache -- and appends one
+#                       record scoring EVERY component (log/CRPS/PIT +
+#                       mean Brier over the row's own ladder) against
+#                       that close. Idempotent by construction: the
+#                       (date, d) key set is re-read each run. The
+#                       --json payload carries the additive 'scoring'
+#                       summary: per horizon, mean CRPS per component
+#                       and the log-score skill differential vs the rw
+#                       benchmark with a Newey-West SE (lag d-1 -- the
+#                       overlap of daily-published d-day horizons).
+#                       Replays never score and report scoring: null.
 #   snapshots/D.json.gz the RAW Deribit board that day (books cannot be
 #                       backfilled -- the raw archive is the asset).
 #   latest.json         the day's full payload (same-day re-emit cache).
@@ -69,6 +81,7 @@ require 'time'
 require 'digest'
 require 'zlib'
 require 'fileutils'
+require 'set'
 require_relative '../../lib/btc/env'
 require_relative '../../lib/btc/deribit'
 require_relative '../../lib/btc/density'
@@ -217,7 +230,10 @@ module Dist
   end
 
   # The --json face, derived from a ledger row (frozen field set).
-  def payload(row, as_of: nil)
+  # +scoring+ is the resolution summary (live runs only; replays and
+  # the pure builder report null -- a past day must not carry scores
+  # that resolved after it).
+  def payload(row, as_of: nil, scoring: nil)
     h30 = row['horizons'].find { |h| h['d'] == 30 } || row['horizons'].first
     med = quantile_at(h30, 0.5)
     p05 = quantile_at(h30, 0.05)
@@ -228,7 +244,8 @@ module Dist
                       row['n_slices'], dgr, row['calendar_violations'])
     {
       'name' => 'dist', 'ts' => Time.now.utc.iso8601, 'headline' => headline,
-      'date' => row['date'], 'as_of' => as_of, 'spot' => row['spot'],
+      'date' => row['date'], 'as_of' => as_of, 'scoring' => scoring,
+      'spot' => row['spot'],
       'n_slices' => row['n_slices'], 'n_degraded' => row['n_degraded'],
       'calendar_violations' => row['calendar_violations'],
       'horizons' => row['horizons'].map do |h|
@@ -254,6 +271,115 @@ module Dist
     return '?' unless v
 
     v >= 1000 ? format('%.1fk', v / 1000.0) : format('%.0f', v)
+  end
+
+  # ---- resolution + scoring (M13-6) ------------------------------------------
+
+  # date string + n days -> date string (UTC calendar arithmetic).
+  def date_add(date, days)
+    (Time.parse("#{date}T00:00:00Z") + days * 86_400).strftime('%Y-%m-%d')
+  end
+
+  # Score one component record against realized close y.
+  def score_component(comp, ladder, y)
+    q = comp['quantiles']
+    ls = BTC::DistScoring.log_score(q, y)
+    briers = ladder.zip(comp['digitals']).map do |strike, p|
+      BTC::DistScoring.brier(p, y > strike)
+    end
+    { 'log' => ls&.round(4),
+      'crps' => BTC::DistScoring.crps(q, y).round(2),
+      'pit' => BTC::DistScoring.pit(q, y).round(4),
+      'brier_mean' => (briers.sum / briers.size).round(4) }
+  end
+
+  # Pure resolution pass: ledger rows + already-scored keys + the
+  # date->close map -> the NEW score records (oldest first).
+  def resolve(ledger_rows, scored, closes_map)
+    out = []
+    ledger_rows.each do |row|
+      row['horizons'].each do |h|
+        key = "#{row['date']}:#{h['d']}"
+        next if scored.include?(key)
+
+        matured = date_add(row['date'], h['d'])
+        y = closes_map[matured] or next
+
+        out << {
+          'date' => row['date'], 'd' => h['d'], 'matured' => matured,
+          'y' => y.round(1),
+          'scores' => h['components'].transform_values do |comp|
+            score_component(comp, h['ladder'], y)
+          end
+        }
+      end
+    end
+    out
+  end
+
+  def read_jsonl(path)
+    return [] unless File.exist?(path)
+
+    File.foreach(path).map { |ln| JSON.parse(ln) }
+  end
+
+  def scored_keys(path = SCORES)
+    read_jsonl(path).map { |r| "#{r['date']}:#{r['d']}" }.to_set
+  end
+
+  def append_scores(records, path = SCORES)
+    return if records.empty?
+
+    FileUtils.mkdir_p(File.dirname(path))
+    File.open(path, 'a') { |f| records.each { |r| f.puts(JSON.generate(r)) } }
+  end
+
+  # Full date->close map from the LPPL price cache (completed days only).
+  def load_closes_map(path = LPPL_PRICES)
+    return {} unless File.exist?(path)
+
+    out = {}
+    File.foreach(path) do |ln|
+      d, c = ln.strip.split(',')
+      next if d.nil? || d == 'date'
+
+      v = c.to_f
+      out[d] = v if v > 0.05
+    end
+    out
+  end
+
+  # Aggregate the scoring ledger for the payload: per horizon, n, mean
+  # CRPS per component, and each component's log-score skill vs the rw
+  # benchmark (mean differential + Newey-West SE at lag d-1). nil-safe:
+  # off-grid log scores drop from the differential, not from n.
+  def scoring_summary(scores)
+    horizons = HORIZONS_D.map do |d|
+      recs = scores.select { |r| r['d'] == d }
+      next { 'd' => d, 'n' => 0, 'crps' => {}, 'skill_log_vs_rw' => {} } if recs.empty?
+
+      comps = recs.flat_map { |r| r['scores'].keys }.uniq.sort
+      crps = comps.to_h do |c|
+        vals = recs.filter_map { |r| r.dig('scores', c, 'crps') }
+        [c, vals.empty? ? nil : (vals.sum / vals.size).round(2)]
+      end
+      skill = (comps - ['rw']).to_h do |c|
+        diffs = recs.filter_map do |r|
+          a = r.dig('scores', c, 'log')
+          b = r.dig('scores', 'rw', 'log')
+          a && b && (a - b)
+        end
+        if diffs.empty?
+          [c, nil]
+        else
+          se = BTC::Stats.newey_west_se(diffs, lag: d - 1)
+          [c, { 'mean' => (diffs.sum / diffs.size).round(4),
+                'se' => se&.round(4), 'n' => diffs.size }]
+        end
+      end
+      { 'd' => d, 'n' => recs.size, 'crps' => crps, 'skill_log_vs_rw' => skill }
+    end
+    { 'n_resolved' => scores.size, 'horizons' => horizons }
   end
 
   # ---- ledger / snapshot IO --------------------------------------------------
@@ -371,6 +497,12 @@ module Dist
     built = build_day(raw, spot, load_closes(today), today, known_at)
     built['row']['snapshot_sha256'] = sha
     append_ledger(built['row'])
+
+    prior = read_jsonl(SCORES)
+    fresh = resolve(read_jsonl(LEDGER), scored_keys, load_closes_map)
+    append_scores(fresh)
+    built['payload']['scoring'] = scoring_summary(prior + fresh)
+
     FileUtils.mkdir_p(DATA)
     File.write(LATEST, JSON.generate(built['payload']))
     emit(built['payload'])

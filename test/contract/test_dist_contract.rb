@@ -10,8 +10,8 @@
 require_relative 'contract_helper'
 
 class TestDistContract < Minitest::Test
-  DIST_KEYS = %w[name ts headline date as_of spot n_slices n_degraded
-                 calendar_violations horizons].freeze
+  DIST_KEYS = %w[name ts headline date as_of scoring spot n_slices
+                 n_degraded calendar_violations horizons].freeze
   HORIZON_KEYS = %w[d forward median p05 p95 sigma_atm sigma_rw
                     extrapolated degraded].freeze
   UNAVAILABLE_KEYS = %w[name ts headline unavailable].freeze
@@ -22,6 +22,8 @@ class TestDistContract < Minitest::Test
     assert_equal 'dist', j['name']
     assert_nil j['as_of']
     assert_equal [7, 30, 90], j['horizons'].map { |h| h['d'] }
+    # live run, nothing matured on a fresh ledger: summary present, empty
+    assert_equal 0, j.dig('scoring', 'n_resolved')
     j['horizons'].each { |h| assert_contract_keys HORIZON_KEYS, h, 'dist horizon' }
   end
 

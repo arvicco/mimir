@@ -116,10 +116,11 @@ class TestDistBuilders < Minitest::Test
                            '2026-09-01', 'K', as_of: '2026-09-01')
     p = built['payload']
     assert_equal %w[as_of calendar_violations date headline horizons
-                    n_degraded n_slices name spot ts],
+                    n_degraded n_slices name scoring spot ts],
                  p.keys.sort
     assert_equal 'dist', p['name']
     assert_equal '2026-09-01', p['as_of']
+    assert_nil p['scoring'] # the pure builder never carries scores
     assert_equal %w[d degraded extrapolated forward median p05 p95
                     sigma_atm sigma_rw],
                  p['horizons'].first.keys.sort
@@ -190,5 +191,68 @@ class TestDistFullBookQuality < Minitest::Test
     qs = den[:quantiles].map(&:last)
     assert_equal qs.sort, qs
     assert_kind_of Array, BTC::Density.calendar_violations(slices)
+  end
+end
+
+# M13-6: the resolution pass. A synthetic backdated ledger must resolve
+# to hand-computed scores, exactly once.
+class TestDistResolution < Minitest::Test
+  def ledger_row(date)
+    { 'date' => date, 'horizons' => [
+      { 'd' => 7, 'ladder' => [90.0, 100.0, 110.0],
+        'components' => {
+          'rn' => { 'quantiles' => [[0.25, 90.0], [0.5, 100.0], [0.75, 110.0]],
+                    'digitals' => [0.8, 0.5, 0.2] },
+          'rw' => { 'quantiles' => [[0.25, 80.0], [0.5, 100.0], [0.75, 120.0]],
+                    'digitals' => [0.7, 0.5, 0.3] }
+        } }
+    ] }
+  end
+
+  def test_resolve_scores_matured_rows_exactly_once
+    rows = [ledger_row('2026-08-01'), ledger_row('2026-08-20')]
+    closes = { '2026-08-08' => 105.0 } # only the first row's 7d matured
+    recs = Dist.resolve(rows, Set.new, closes)
+    assert_equal 1, recs.size
+    r = recs.first
+    assert_equal ['2026-08-01', 7, '2026-08-08', 105.0],
+                 [r['date'], r['d'], r['matured'], r['y']]
+
+    rn = r['scores']['rn']
+    # crps: grid [[.25,90],[.5,100],[.75,110]], y=105:
+    # rho(90)=15*.25, rho(100)=5*.5, rho(110)=5*.25 -> sum 7.5 -> 2/3*7.5 = 5.0
+    assert_in_delta 5.0, rn['crps'], 1e-9
+    # pit: halfway 100..110 between taus .5..: .5 + .25*0.5 = .625
+    assert_in_delta 0.625, rn['pit'], 1e-9
+    # log: bracket .5->.75 over 100->110: ln(0.025)
+    assert_in_delta Math.log(0.025).round(4), rn['log'], 1e-9
+    # brier over ladder: y=105 -> hits [T,T,F] vs p [.8,.5,.2]:
+    # (.04 + .25 + .04)/3
+    assert_in_delta 0.11, rn['brier_mean'], 1e-9
+
+    # idempotence: the scored key suppresses a second pass
+    assert_empty Dist.resolve(rows, Set.new(['2026-08-01:7']), closes)
+  end
+
+  def test_scoring_summary_aggregates_and_skills
+    recs = [
+      { 'd' => 7, 'scores' => { 'rn' => { 'crps' => 4.0, 'log' => -3.0 },
+                                'rw' => { 'crps' => 6.0, 'log' => -3.5 } } },
+      { 'd' => 7, 'scores' => { 'rn' => { 'crps' => 6.0, 'log' => -2.0 },
+                                'rw' => { 'crps' => 8.0, 'log' => -3.0 } } }
+    ]
+    s = Dist.scoring_summary(recs)
+    assert_equal 2, s['n_resolved']
+    h7 = s['horizons'].find { |h| h['d'] == 7 }
+    assert_equal 2, h7['n']
+    assert_in_delta 5.0, h7['crps']['rn'], 1e-9
+    assert_in_delta 7.0, h7['crps']['rw'], 1e-9
+    skill = h7['skill_log_vs_rw']['rn']
+    assert_in_delta 0.75, skill['mean'], 1e-9 # (0.5 + 1.0)/2
+    assert_equal 2, skill['n']
+    assert_in_delta BTC::Stats.newey_west_se([0.5, 1.0], lag: 6).round(4),
+                    skill['se'], 1e-9
+    # horizons with no resolutions report n 0, empty maps
+    assert_equal 0, s['horizons'].find { |h| h['d'] == 30 }['n']
   end
 end
