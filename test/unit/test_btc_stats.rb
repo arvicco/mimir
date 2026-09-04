@@ -50,6 +50,14 @@ class TestBtcStats < Minitest::Test
     assert_equal run.call, run.call
   end
 
+  def test_norm_ppf_inverts_norm_cdf_at_known_points
+    assert_in_delta 0.0, BTC::Stats.norm_ppf(0.5), 1e-12
+    assert_in_delta 1.6448536269514722, BTC::Stats.norm_ppf(0.95), 1e-9
+    assert_in_delta(-2.3263478740408408, BTC::Stats.norm_ppf(0.01), 1e-9)
+    assert_in_delta 0.25, BTC::Stats.norm_cdf(BTC::Stats.norm_ppf(0.25)), 1e-12
+    assert_raises(ArgumentError) { BTC::Stats.norm_ppf(0.0) }
+  end
+
   def test_lppl_delegations_match_the_new_home
     require_relative '../../scripts/lppl/common'
     assert_equal BTC::Stats.newey_west_se([1.0, 2.0, 3.0, 4.0], lag: 1),

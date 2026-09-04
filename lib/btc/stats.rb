@@ -84,5 +84,25 @@ module BTC
       bi = (0..n).min_by { |i| fx[i] }
       [sx[bi], fx[bi]]
     end
+
+    # Standard normal CDF / inverse CDF (M13-5 -- the dist benchmarks'
+    # analytic lognormal quantiles). The inverse is a deterministic
+    # 80-step bisection on the erfc-based CDF: ~1e-16 accurate over
+    # p in (1e-9, 1-1e-9), no rational-approximation magic constants.
+    def norm_cdf(x)
+      0.5 * Math.erfc(-x / Math.sqrt(2))
+    end
+
+    def norm_ppf(p)
+      raise ArgumentError, "p out of (0,1): #{p}" if p <= 0 || p >= 1
+
+      lo = -8.0
+      hi = 8.0
+      80.times do
+        mid = 0.5 * (lo + hi)
+        norm_cdf(mid) < p ? lo = mid : hi = mid
+      end
+      0.5 * (lo + hi)
+    end
   end
 end
