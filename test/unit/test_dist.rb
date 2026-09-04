@@ -115,12 +115,13 @@ class TestDistBuilders < Minitest::Test
     built = Dist.build_day(flat_board, 80_000.0, closes_series,
                            '2026-09-01', 'K', as_of: '2026-09-01')
     p = built['payload']
-    assert_equal %w[as_of calendar_violations date headline horizons
-                    n_degraded n_slices name scoring spot ts],
+    assert_equal %w[as_of calendar_violations date divergence headline
+                    horizons n_degraded n_slices name scoring spot ts],
                  p.keys.sort
     assert_equal 'dist', p['name']
     assert_equal '2026-09-01', p['as_of']
     assert_nil p['scoring'] # the pure builder never carries scores
+    assert_nil p['divergence'] # no second venue passed
     assert_equal %w[d degraded extrapolated forward median p05 p95
                     sigma_atm sigma_rw],
                  p['horizons'].first.keys.sort
@@ -254,5 +255,85 @@ class TestDistResolution < Minitest::Test
                     skill['se'], 1e-9
     # horizons with no resolutions report n 0, empty maps
     assert_equal 0, s['horizons'].find { |h| h['d'] == 30 }['n']
+  end
+end
+
+# M13-7: the IBIT second venue -- BTC-axis conversion, KL divergence.
+class TestDistIbitLeg < Minitest::Test
+  NOW = Time.utc(2026, 9, 1, 12)
+  BTC_SPOT = 80_000.0
+
+  # OSI: IBIT + YYMMDD + C/P + strike*1000 (8 digits). Strike 45 -> 00045000.
+  def osi(yymmdd, cp, strike)
+    format('IBIT%s%s%08d', yymmdd, cp, (strike * 1000).round)
+  end
+
+  def chain(strikes, iv: 0.55, spot: 45.0)
+    { 'current_price' => spot,
+      'options' => strikes.flat_map do |s|
+        %w[C P].map do |cp|
+          { 'option' => osi('270326', cp, s), 'open_interest' => 10.0, 'iv' => iv }
+        end
+      end }
+  end
+
+  def test_parse_ibit_converts_strikes_to_the_btc_axis
+    rows = Dist.parse_ibit(chain([45.0]), BTC_SPOT, NOW)
+    assert_equal 2, rows.size
+    r = rows.first
+    assert_in_delta BTC_SPOT, r[:k], 1e-6 # 45 / (45/80000)
+    assert_equal BTC_SPOT, r[:u]
+    assert_in_delta 0.55, r[:iv], 1e-12
+  end
+
+  def test_parse_ibit_nil_on_empty_or_priceless_chains
+    assert_nil Dist.parse_ibit({ 'options' => [] }, BTC_SPOT, NOW)
+    assert_nil Dist.parse_ibit({ 'current_price' => 0.0 }, BTC_SPOT, NOW)
+  end
+
+  def test_kl_zero_for_identical_and_matches_lognormal_closed_form
+    mk = lambda do |sigma|
+      t = 30 / 365.25
+      strikes = (50_000..130_000).step(5_000)
+      book = strikes.flat_map do |k|
+        %w[C P].map { |cp| { k: k.to_f, cp: cp, t: t, iv: sigma, oi: 1.0, u: BTC_SPOT } }
+      end
+      BTC::Density.horizon_density(BTC::Density.slices(book), t)
+    end
+    a = mk.call(0.5)
+    assert_in_delta 0.0, BTC::Density.kl(a, a), 1e-8
+
+    b = mk.call(0.6)
+    t = 30 / 365.25
+    s1 = 0.5 * Math.sqrt(t)
+    s2 = 0.6 * Math.sqrt(t)
+    mu1 = -0.5 * s1**2
+    mu2 = -0.5 * s2**2
+    closed = Math.log(s2 / s1) + (s1**2 + (mu1 - mu2)**2) / (2 * s2**2) - 0.5
+    assert_in_delta closed, BTC::Density.kl(a, b), closed * 0.05
+  end
+
+  def test_build_day_divergence_present_with_second_venue
+    board = %w[25SEP26 25DEC26].flat_map do |exp|
+      (55_000..110_000).step(5_000).flat_map do |strike|
+        %w[C P].map do |cp|
+          { 'instrument_name' => "BTC-#{exp}-#{strike}-#{cp}",
+            'open_interest' => 5.0, 'mark_iv' => 55.0, 'underlying_price' => BTC_SPOT }
+        end
+      end
+    end
+    ibit_strikes = (30.0..62.0).step(2.5).to_a
+    ibit = { 'data' => chain(ibit_strikes, iv: 0.55, spot: 45.0),
+             'as_of' => '2026-09-01T00:00:00Z', 'stale' => false }
+    built = Dist.build_day(board, BTC_SPOT, [], '2026-09-01', 'K', ibit: ibit)
+    div = built['payload']['divergence']
+    refute_nil div
+    assert_equal false, div['stale']
+    assert_equal [7, 30, 90], div['horizons'].map { |h| h['d'] }
+    div['horizons'].each do |h|
+      next if h['kl'].nil?
+
+      assert_operator h['kl'], :>=, 0.0
+    end
   end
 end

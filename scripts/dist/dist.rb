@@ -84,6 +84,7 @@ require 'fileutils'
 require 'set'
 require_relative '../../lib/btc/env'
 require_relative '../../lib/btc/deribit'
+require_relative '../../lib/btc/source_cache'
 require_relative '../../lib/btc/density'
 require_relative '../../lib/btc/dist_scoring'
 require_relative '../../lib/btc/stats'
@@ -97,6 +98,8 @@ module Dist
   MIN_T_D    = 1.5           # drop slices expiring within 36h
   LADDER     = (0.70..1.301).step(0.05).map { |m| m.round(2) }.freeze
   SCHEMA     = 1
+
+  IBIT_URL = 'https://cdn.cboe.com/api/global/delayed_quotes/options/IBIT.json'
 
   DATA    = BTC::Env.data_dir('dist', File.join(File.expand_path(__dir__), 'data'))
   LEDGER  = File.join(DATA, 'ledger.jsonl')
@@ -130,6 +133,52 @@ module Dist
       { k: strike.to_f, cp: cp, t: t, iv: iv, oi: oi,
         u: (r['underlying_price'] || spot).to_f }
     end
+  end
+
+  # CBOE IBIT chain body -> density-ready book rows on the BTC price
+  # axis (M13-7): strikes divided by the live ETF/BTC ratio, exactly the
+  # gex_btc_combined.rb conversion. u = btc_spot on every row (no
+  # per-expiry ETF forward is published -- v1 carry-free limitation,
+  # documented). nil when the chain is empty/degenerate.
+  def parse_ibit(data, btc_spot, now)
+    spot = (data['current_price'] || data['close']).to_f
+    return nil if spot <= 0
+
+    ratio = spot / btc_spot
+    rows = (data['options'] || []).filter_map do |o|
+      oi = o['open_interest'].to_f
+      next if oi <= 0
+
+      expiry, cp, k = BTC::Options.parse_osi(o['option'])
+      next unless expiry
+
+      t = (expiry - now) / BTC::Options::YEAR_S
+      next if t * 365.25 < MIN_T_D
+
+      iv = o['iv'].to_f
+      next if iv <= 0
+
+      { k: k / ratio, cp: cp, t: t, iv: iv, oi: oi, u: btc_spot }
+    end
+    rows.empty? ? nil : rows
+  end
+
+  # Cross-venue divergence: KL(Deribit || IBIT) per horizon, both
+  # densities built by the same SVI/BL path. nil KLs (no overlap) pass
+  # through honestly.
+  def divergence(deribit_slices, ibit_book, stale, as_of)
+    ibit_slices = BTC::Density.slices(ibit_book)
+    horizons = HORIZONS_D.map do |d|
+      t = d / 365.25
+      p = BTC::Density.horizon_density(deribit_slices, t)
+      q = BTC::Density.horizon_density(ibit_slices, t)
+      kl = BTC::Density.kl(p, q)
+      { 'd' => d, 'kl' => kl&.round(4) }
+    end
+    { 'stale' => !!stale, 'as_of' => as_of,
+      'n_ibit_slices' => ibit_slices.size,
+      'n_ibit_degraded' => ibit_slices.count { |s| s[:degraded] },
+      'horizons' => horizons }
   end
 
   # Trailing annualized realized vol from a close series (oldest-first).
@@ -206,8 +255,10 @@ module Dist
   end
 
   # The whole day, pure: raw rows + spot + closes + stamps in,
-  # { 'row' =>, 'payload' => } out (both JSON-shaped).
-  def build_day(raw_rows, spot, closes, date, known_at, as_of: nil)
+  # { 'row' =>, 'payload' => } out (both JSON-shaped). +ibit+ is the
+  # optional second venue ({'data'=>chain body,'as_of'=>,'stale'=>});
+  # nil or an unparseable chain degrades to divergence: null.
+  def build_day(raw_rows, spot, closes, date, known_at, as_of: nil, ibit: nil)
     now = Time.parse("#{date}T00:00:00Z") + 43_200 # mid-day anchor for t
     book = parse_book(raw_rows, now, spot)
     raise 'no live instruments parsed' if book.empty?
@@ -216,6 +267,11 @@ module Dist
     violations = BTC::Density.calendar_violations(slices)
     sigma_rw = realized_sigma(closes)
     horizons = HORIZONS_D.map { |d| horizon_record(slices, d, spot, sigma_rw) }
+
+    div = nil
+    if ibit && (ib_book = parse_ibit(ibit['data'] || {}, spot, now))
+      div = divergence(slices, ib_book, ibit['stale'], ibit['as_of'])
+    end
 
     row = {
       'date' => date, 'known_at' => known_at, 'spot' => spot.round(1),
@@ -226,14 +282,14 @@ module Dist
       'input_hash' => Digest::SHA256.hexdigest(JSON.generate(book.map(&:to_a))),
       'horizons' => horizons
     }
-    { 'row' => row, 'payload' => payload(row, as_of: as_of) }
+    { 'row' => row, 'payload' => payload(row, as_of: as_of, divergence: div) }
   end
 
   # The --json face, derived from a ledger row (frozen field set).
   # +scoring+ is the resolution summary (live runs only; replays and
   # the pure builder report null -- a past day must not carry scores
   # that resolved after it).
-  def payload(row, as_of: nil, scoring: nil)
+  def payload(row, as_of: nil, scoring: nil, divergence: nil)
     h30 = row['horizons'].find { |h| h['d'] == 30 } || row['horizons'].first
     med = quantile_at(h30, 0.5)
     p05 = quantile_at(h30, 0.05)
@@ -245,7 +301,7 @@ module Dist
     {
       'name' => 'dist', 'ts' => Time.now.utc.iso8601, 'headline' => headline,
       'date' => row['date'], 'as_of' => as_of, 'scoring' => scoring,
-      'spot' => row['spot'],
+      'divergence' => divergence, 'spot' => row['spot'],
       'n_slices' => row['n_slices'], 'n_degraded' => row['n_degraded'],
       'calendar_violations' => row['calendar_violations'],
       'horizons' => row['horizons'].map do |h|
@@ -405,12 +461,13 @@ module Dist
     File.join(dir, "#{date}.json.gz")
   end
 
-  # Writes the raw board snapshot; returns the sha256 of the UNCOMPRESSED
-  # JSON (stable across gzip metadata).
-  def write_snapshot(date, known_at, spot, raw_rows, dir: SNAPDIR)
+  # Writes the raw board snapshot (both venues); returns the sha256 of
+  # the UNCOMPRESSED JSON (stable across gzip metadata).
+  def write_snapshot(date, known_at, spot, raw_rows, ibit: nil, dir: SNAPDIR)
     FileUtils.mkdir_p(dir)
     body = JSON.generate({ 'date' => date, 'known_at' => known_at,
-                           'spot' => spot, 'rows' => raw_rows })
+                           'spot' => spot, 'rows' => raw_rows,
+                           'ibit' => ibit })
     sha = Digest::SHA256.hexdigest(body)
     Zlib::GzipWriter.open(snapshot_path(date, dir: dir)) { |gz| gz.write(body) }
     sha
@@ -477,7 +534,7 @@ module Dist
     snap = read_snapshot(date) or unavailable("no snapshot for #{date}")
     closes = load_closes(date)
     built = build_day(snap['rows'], snap['spot'].to_f, closes, date,
-                      snap['known_at'], as_of: date)
+                      snap['known_at'], as_of: date, ibit: snap['ibit'])
     emit(built['payload'])
   rescue StandardError => e
     unavailable("#{e.class}: #{e.message}")
@@ -493,8 +550,15 @@ module Dist
     known_at = Time.now.utc.iso8601
     spot = BTC::Deribit.index('btc_usd')[:price]
     raw = BTC::Deribit.book_summary('BTC', 'option')
-    sha = write_snapshot(today, known_at, spot, raw)
-    built = build_day(raw, spot, load_closes(today), today, known_at)
+    ibit = begin
+      r = BTC::SourceCache.fetch_json('cboe_ibit', IBIT_URL,
+                                      { 'User-Agent' => 'dist.rb' })
+      { 'data' => r['data']['data'], 'as_of' => r['as_of'], 'stale' => r['stale'] }
+    rescue StandardError
+      nil # second venue is optional; Deribit-only day, divergence null
+    end
+    sha = write_snapshot(today, known_at, spot, raw, ibit: ibit)
+    built = build_day(raw, spot, load_closes(today), today, known_at, ibit: ibit)
     built['row']['snapshot_sha256'] = sha
     append_ledger(built['row'])
 
