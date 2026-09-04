@@ -365,6 +365,45 @@ module BTC
       1.0 - cdf_at(den[:xs], den[:cdf], strike)
     end
 
+    # pdf interpolated at x (0 outside the grid).
+    def pdf_at(den, x)
+      xs = den[:xs]
+      return 0.0 if x <= xs.first || x >= xs.last
+
+      i = xs.bsearch_index { |v| v >= x }
+      x0 = xs[i - 1]
+      x1 = xs[i]
+      y0 = den[:pdf][i - 1]
+      y1 = den[:pdf][i]
+      x1 == x0 ? y1 : y0 + (y1 - y0) * (x - x0) / (x1 - x0)
+    end
+
+    # KL(P || Q) between two density records (M13-7 -- cross-venue
+    # divergence). Evaluated on the overlap of the two supports, both
+    # renormalized over that window first (so support truncation is not
+    # misread as divergence); q floored at 1e-12. nil when the supports
+    # do not overlap or either mass vanishes.
+    def kl(p, q, n: 201)
+      lo = [p[:xs].first, q[:xs].first].max
+      hi = [p[:xs].last, q[:xs].last].min
+      return nil if hi <= lo
+
+      step = (hi - lo) / (n - 1)
+      xs = (0...n).map { |i| lo + i * step }
+      ps = xs.map { |x| pdf_at(p, x) }
+      qs = xs.map { |x| pdf_at(q, x) }
+      zp = trapezoid(xs, ps)
+      zq = trapezoid(xs, qs)
+      return nil if zp <= 0 || zq <= 0
+
+      vals = (0...n).map do |i|
+        pi = ps[i] / zp
+        qi = [qs[i] / zq, 1e-12].max
+        pi <= 0 ? 0.0 : pi * Math.log(pi / qi)
+      end
+      trapezoid(xs, vals)
+    end
+
     # Driftless one-touch approximation: ~2x the terminal probability of
     # ending beyond the barrier (paths that touch and come back are the
     # other half). Capped at 1; anything better needs simulated paths
