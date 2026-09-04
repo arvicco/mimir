@@ -470,7 +470,94 @@ balance-sheet posture, not cash flow.
 = stress score, band, BTC-weighted share below mNAV 1, median mNAV,
 aggregate leverage, count of stale entries.
 
-## 5. Quick score reference
+## 5. dist -- the market-implied price distribution (scripts/dist/)
+
+Phase 13 (skuld S-A+S-B, plan-13, ruling №R-12). The object is a
+DISTRIBUTION over the BTC price at fixed horizons, not a target: the
+option market's own implied density, converted to a real-world
+estimate, with every published component scored daily so later
+additions (mechanisms, a simulator, an AI panel -- future slices)
+must beat this scoreboard to earn any weight.
+
+**Pipeline.** Deribit BTC board (raw board snapshotted daily, gzip +
+sha256 -- books cannot be backfilled, the raw archive is the asset)
+-> per-expiry SVI total-variance fits (deterministic Nelder-Mead, box
+penalties; Durrleman butterfly + cross-slice calendar checks
+REPORTED, never silently fixed; slices under 5 strikes per side fall
+back to nearest-strike, flagged `degraded`) -> Breeden-Litzenberger
+central differences inside the 10-delta span, lognormal wings matched
+in level+slope beyond it (wing mass always reported -- tail numbers
+beyond the last liquid strike are wing-model numbers) -> linear-in-
+time total-variance interpolation to the 7/30/90d horizons (beyond
+the last liquid expiry = flagged `extrapolated`). IBIT rides as a
+second venue (CBOE chain converted to the BTC axis by the live
+ETF/BTC ratio); the per-horizon KL divergence between the two venues'
+densities is published, never averaged in.
+
+**Components, all published as 21-level quantile grids + digitals on
+a spot-relative strike ladder (0.70..1.30 x spot, stored per row):**
+- `rn` -- the risk-neutral (smile-implied) density: what the market
+  prices, volatility risk premium included.
+- `ln_atm` -- lognormal at the ATM implied vol: the smile thrown
+  away. Exists to show what the smile is worth.
+- `rw` -- random walk: lognormal at trailing realized vol (90 daily
+  returns, annualized 365.25), centered on spot. The market-free
+  null and the skill benchmark.
+- `rwm` -- real-world (market): `rn` with the VRP subtracted at the
+  money. VRP_d = mean of (ATM implied var - subsequently realized
+  var) over our own vol history's matured d-day windows; >= 10
+  samples required per horizon or `rwm` is honestly absent; the
+  variance scale (w_atm - VRP*t)/w_atm is bounded [0.25, 2.0]. All
+  parameters are frozen in the script header pending question 1
+  below -- never a silent re-tune (Golden Rule 4).
+
+**Edge ratio** = p_rwm / p_rn per strike per liquid expiry (30d-
+anchor VRP, v1). The one trading output: ~1 everywhere means no
+disagreement with the market and therefore no trade, regardless of
+any narrative's confidence.
+
+**Scoring.** One append-only ledger row per UTC day; when a horizon
+matures (publication date + d has a completed close), EVERY component
+is scored against the realized close -- log score (adjacent-quantile
+density, honestly unscorable off-grid), CRPS (pinball average over
+the grid), PIT, mean Brier over the row's own ladder -- exactly once
+(idempotent). Skill = the log-score differential vs `rw` with a
+Newey-West SE at lag d-1 (daily-published d-day horizons overlap).
+The PIT histogram (10 bins, shares) is the calibration audit: flat at
+0.10 = calibrated; a U-shape = tails too thin; a persistent shape is
+a documented defect with a decision item, not a re-tune.
+
+**Replay fidelity.** `--as-of D` rebuilds D entirely from D's stored
+snapshot and data strictly before D (closes, vol history) -- the
+contract suite proves a same-day replay reproduces the organic run
+EXACTLY. The VRP estimator structurally cannot see data on or after
+the build date. Same class of honesty as the section-2 replay table.
+
+**Pre-registered research questions (skuld; registered 2026-09-04,
+BEFORE any component can be tuned -- blessing this list is a Gate-13
+step). Questions 2-4 concern future slices and are registered now so
+their evaluation cannot be designed after the fact:**
+1. Does the RW-tilted market density beat the raw RN density on PIT
+   uniformity at 30/90d? (Decides whether the VRP layer earns its
+   place.)
+2. Does the regime model with the buyback calendar improve 30d log
+   score over the HMM without it? (Tests the 2026 lesson directly.)
+3. Do mechanism impulses improve *touch* Brier scores without hurting
+   terminal CRPS? (Mechanisms should mostly shape paths, not
+   endpoints.)
+4. Does the blind AI panel show positive skill vs the RW market prior
+   after 26 resolutions, and is its herding correlation < 0.7?
+5. Is Deribit-vs-IBIT density divergence predictive of subsequent
+   realized skew? (Belief-arbitrage hypothesis.)
+
+**Caveats.** IBIT rows use spot as the forward (no per-expiry ETF
+forward is published -- carry-free v1). The one-touch numbers are the
+driftless 2x-digital approximation; anything better needs simulated
+paths (a later slice). OPRA open interest is T-1. The slow-module
+cadence means intra-day the published distribution is the morning's
+-- by ruling, not by accident.
+
+## 6. Quick score reference
 
 | tool | +1 | 0 | -1 |
 |---|---|---|---|
