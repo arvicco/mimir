@@ -1,0 +1,53 @@
+{
+  "backgroundColor": "transparent",
+  "tooltip": {
+    "trigger": "axis",
+    "confine": true,
+    "textStyle": {
+      "fontSize": 11
+    }
+  },
+  "grid": {
+    "left": 30,
+    "right": 18,
+    "top": 28,
+    "bottom": 24
+  },
+  "yAxis": {
+    "type": "value",
+    "name": "share",
+    "axisLabel": {
+      "margin": 3
+    }
+  },
+  "title": [
+    {
+      "text": "awaiting first resolutions",
+      "textStyle": {
+        "fontSize": 13
+      }
+    },
+    {
+      "text": "the 7d horizons mature a week after the first publish",
+      "left": "center",
+      "top": "48%",
+      "textStyle": {
+        "fontSize": 11
+      }
+    }
+  ],
+  "xAxis": {
+    "type": "category",
+    "data": [
+      ""
+    ]
+  },
+  "series": [
+    {
+      "type": "bar",
+      "data": [
+        null
+      ]
+    }
+  ]
+}

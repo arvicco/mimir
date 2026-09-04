@@ -1,0 +1,54 @@
+{
+  "backgroundColor": "transparent",
+  "tooltip": {
+    "trigger": "axis",
+    "confine": true,
+    "textStyle": {
+      "fontSize": 11
+    }
+  },
+  "grid": {
+    "left": 30,
+    "right": 18,
+    "top": 28,
+    "bottom": 24
+  },
+  "yAxis": {
+    "type": "value",
+    "name": "p(rwm)/p(rn)",
+    "scale": true,
+    "axisLabel": {
+      "margin": 3
+    }
+  },
+  "title": [
+    {
+      "text": "tilt warming up",
+      "textStyle": {
+        "fontSize": 13
+      }
+    },
+    {
+      "text": "needs 10+ matured IV/RV windows in the vol history",
+      "left": "center",
+      "top": "48%",
+      "textStyle": {
+        "fontSize": 11
+      }
+    }
+  ],
+  "xAxis": {
+    "type": "category",
+    "data": [
+      ""
+    ]
+  },
+  "series": [
+    {
+      "type": "line",
+      "data": [
+        null
+      ]
+    }
+  ]
+}

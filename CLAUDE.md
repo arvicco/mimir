@@ -201,14 +201,19 @@ same commit (`rake health` fails on registry drift).
 
 ## Current phase
 
-Phase 11 (LPPL headline flips + exchange reserves) merged + deployed,
-Gate 11 CLOSED 2026-08-30 (PR #20; 32 keys live-verified; the design
-rounds added zoomable date axes, 365d module windows, the one-switch
-stacked GEX card, the 180d vol tenor). Phase 12 in flight on branch
-phase-12 (owner-picked slate A, 2026-08-30): Q-20 scenario
-replay/backtest harness, Q-17 ntfy push alerts (ship dormant; owner
-enables via NTFY_TOPIC), Q-12 bubble-index cross-ref row. Queue items
-are Q-n since 2026-08-30 (P reserved for phases). Active owner items
+Phase 12 (replay/backtest harness + dormant ntfy + bubble x-ref)
+merged 2026-08-30 (PR #21, 33 keys); Gate-12 leftovers outstanding:
+the five-fixture recording (its runbook step 1) + deploy. Phase 13 =
+skuld S-A+S-B (№R-12 ruling: the price-distribution module family
+INSIDE mimir; plan-13 approved 2026-09-04) built on branch phase-13:
+BTC::Stats extraction, scoring rules, the SVI/BL density engine,
+the dist producer (daily ledger + raw board snapshots + --as-of
+replay + resolution scoring), IBIT KL divergence, the VRP tilt
+(Golden-Rule-4 item, both densities scored forever), publish 33->39
+keys + the three-section dist card. Gate 13 pending
+(.docs/Gate-13-runbook.md; five pre-registered research questions
+bless at the gate). Queue items are Q-n since 2026-08-30 (P reserved
+for phases); skuld slices S-C..S-H in .docs/SKULD-PLAN.md. Active owner items
 live in .docs/DECISION-REGISTER.md (№R-1 Coinglass tier + №R-2
 dead-source composite remain; graduation reviews ~2026-12-29).
 SHADOW-FIRST stands: verdict-affecting changes ship report-only and

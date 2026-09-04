@@ -105,14 +105,24 @@ module Publish
       # M12-4 (Q-12): the independent bubble-index cross-reference --
       # ADVISORY payload for the SHADOW tab's x-ref row, never a score
       # input. Daily cadence (24h source-cache ttl).
-      ['bubble:ref',       ['ruby', 'scripts/bubble_ref.rb', '--json'],                60,  3_600]
+      ['bubble:ref',       ['ruby', 'scripts/bubble_ref.rb', '--json'],                60,  3_600],
+      # M13-5..9 (skuld S-A/S-B, plan-13): the market-implied distribution.
+      # SLOW module by ruling (2026-09-04): one fresh compute per UTC day,
+      # same-day re-runs re-emit from cache -- so the bi-hourly publisher
+      # costs one Deribit book fetch per day. dist:edge extracts the edge
+      # ratio from the SAME day build (never disagrees with dist:latest).
+      ['dist:latest',      ['ruby', 'scripts/dist/dist.rb', '--json'],                 120, 3_600],
+      ['dist:edge',        ['ruby', 'scripts/dist/dist.rb', '--json', '--edge'],       120, 3_600]
     ].freeze
 
     # key, suite, in-tree default dir, filename, window_days, ttl_hint_s.
     # The data dir is resolved at RUN time so BTC_DATA_DIR is honored.
     TAILS = [
       ['scenario:history', 'scenario', 'scripts/scenario/data', 'history.jsonl', 90,  3_600],
-      ['lppl:ledger',      'lppl',     'scripts/lppl/data',     'ledger.jsonl',  365, 3_600]
+      ['lppl:ledger',      'lppl',     'scripts/lppl/data',     'ledger.jsonl',  365, 3_600],
+      # M13-9: the dist publication ledger (one row per day; 90d window
+      # keeps the key size bounded -- the full ledger stays on disk).
+      ['dist:ledger',      'dist',     'scripts/dist/data',     'ledger.jsonl',  90,  3_600]
     ].freeze
 
     DAY = 86_400
