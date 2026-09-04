@@ -1132,6 +1132,7 @@ var CARD_ORDER = ["chart:gex_btc", "chart:gex_mstr", "chart:gex_btc_trend",
                   "chart:vol_spread", "chart:vol_spread_trend",
                   "chart:scenario_strip", "chart:scorecard",
                   "chart:positioning",
+                  "chart:dist_fan", "chart:dist_edge", "chart:dist_pit",
                   "chart:lppl_regime", "chart:lppl_shadow",
                   "chart:btco_table"];
 function cardRank(key) {

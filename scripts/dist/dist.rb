@@ -8,6 +8,7 @@
 #   ruby scripts/dist/dist.rb --json             # one machine line (frozen)
 #   ruby scripts/dist/dist.rb --tmux             # one line -> /tmp/dist.status
 #   ruby scripts/dist/dist.rb --as-of 2026-09-01 # replay from that day's snapshot
+#   ruby scripts/dist/dist.rb --json --edge      # the dist:edge extract (same build)
 #
 # WHAT IT PUBLISHES (per UTC day, one publication-ledger row)
 #   The option market's own implied density (Deribit book -> SVI slices
@@ -390,7 +391,12 @@ module Dist
     end
 
     row = {
-      'date' => date, 'known_at' => known_at, 'spot' => spot.round(1),
+      'date' => date, 'known_at' => known_at,
+      # 'ts' duplicates known_at for the publish tail's content-progress
+      # guard (stale_tails reads entries[].ts) -- the OLD: flag must
+      # cover dist:ledger like every scheduled producer's output.
+      'ts' => known_at,
+      'spot' => spot.round(1),
       'schema' => SCHEMA,
       'n_slices' => slices.size,
       'n_degraded' => slices.count { |s| s[:degraded] },
@@ -425,7 +431,9 @@ module Dist
         {
           'd' => h['d'], 'forward' => h['forward'],
           'median' => quantile_at(h, 0.5), 'p05' => quantile_at(h, 0.05),
+          'p25' => quantile_at(h, 0.25), 'p75' => quantile_at(h, 0.75),
           'p95' => quantile_at(h, 0.95),
+          'median_rwm' => quantile_at(h, 0.5, component: 'rwm'),
           'sigma_atm' => h.dig('components', 'ln_atm', 'sigma'),
           'sigma_rw' => h.dig('components', 'rw', 'sigma'),
           'vrp' => h.dig('components', 'rwm', 'vrp'),
@@ -436,9 +444,9 @@ module Dist
     }
   end
 
-  def quantile_at(horizon_rec, tau)
-    q = horizon_rec.dig('components', 'rn', 'quantiles')
-    pair = q.find { |t, _| (t - tau).abs < 1e-9 }
+  def quantile_at(horizon_rec, tau, component: 'rn')
+    q = horizon_rec.dig('components', component, 'quantiles')
+    pair = q&.find { |t, _| (t - tau).abs < 1e-9 }
     pair && pair[1]
   end
 
@@ -531,7 +539,10 @@ module Dist
   def scoring_summary(scores)
     horizons = HORIZONS_D.map do |d|
       recs = scores.select { |r| r['d'] == d }
-      next { 'd' => d, 'n' => 0, 'crps' => {}, 'skill_log_vs_rw' => {} } if recs.empty?
+      if recs.empty?
+        next { 'd' => d, 'n' => 0, 'crps' => {}, 'skill_log_vs_rw' => {},
+               'pit_bins' => {} }
+      end
 
       comps = recs.flat_map { |r| r['scores'].keys }.uniq.sort
       crps = comps.to_h do |c|
@@ -552,9 +563,32 @@ module Dist
                 'se' => se&.round(4), 'n' => diffs.size }]
         end
       end
-      { 'd' => d, 'n' => recs.size, 'crps' => crps, 'skill_log_vs_rw' => skill }
+      { 'd' => d, 'n' => recs.size, 'crps' => crps,
+        'skill_log_vs_rw' => skill,
+        'pit_bins' => comps.to_h { |c| [c, pit_bins(recs, c)] } }
     end
     { 'n_resolved' => scores.size, 'horizons' => horizons }
+  end
+
+  # 10-bin PIT histogram as SHARES (2dp) -- uniform calibration = 0.10
+  # per bin regardless of n. The dist_pit card reads these directly.
+  def pit_bins(recs, component)
+    pits = recs.filter_map { |r| r.dig('scores', component, 'pit') }
+    return [0.0] * 10 if pits.empty?
+
+    counts = Array.new(10, 0)
+    pits.each { |p| counts[[(p * 10).floor, 9].min] += 1 }
+    counts.map { |c| (c.to_f / pits.size).round(2) }
+  end
+
+  # --edge: the standalone dist:edge payload (frozen field set) -- the
+  # trading number without the full latest envelope. Extracted from the
+  # SAME day build, so it can never disagree with dist:latest.
+  def edge_payload(latest)
+    { 'name' => 'dist_edge', 'ts' => Time.now.utc.iso8601,
+      'headline' => latest['edge'] ? 'edge p(rwm)/p(rn) per expiry' : 'edge unavailable (no VRP history yet)',
+      'date' => latest['date'], 'spot' => latest['spot'],
+      'edge' => latest['edge'] }
   end
 
   # ---- ledger / snapshot IO --------------------------------------------------
@@ -619,6 +653,11 @@ module Dist
   # ---- run modes -------------------------------------------------------------
 
   def emit(payload)
+    if ARGV.include?('--edge')
+      # the dist:edge producer face -- one JSON line, always
+      puts JSON.generate(edge_payload(payload))
+      return
+    end
     if ARGV.include?('--json')
       puts JSON.generate(payload)
     elsif ARGV.include?('--tmux')

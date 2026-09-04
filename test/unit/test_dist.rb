@@ -81,8 +81,9 @@ class TestDistBuilders < Minitest::Test
                            '2026-09-01', '2026-09-01T04:00:00Z')
     row = built['row']
     assert_equal %w[calendar_violations date horizons input_hash known_at
-                    n_degraded n_slices schema spot],
+                    n_degraded n_slices schema spot ts],
                  row.keys.sort
+    assert_equal row['known_at'], row['ts'] # the tail stale-guard field
     assert_equal 2, row['n_slices']
     assert_equal 0, row['n_degraded']
     assert_match(/\A[0-9a-f]{64}\z/, row['input_hash'])
@@ -123,8 +124,8 @@ class TestDistBuilders < Minitest::Test
     assert_nil p['scoring'] # the pure builder never carries scores
     assert_nil p['divergence'] # no second venue passed
     assert_nil p['edge'] # no VRP history passed
-    assert_equal %w[d degraded extrapolated forward median p05 p95
-                    sigma_atm sigma_rw tilt_scale vrp],
+    assert_equal %w[d degraded extrapolated forward median median_rwm
+                    p05 p25 p75 p95 sigma_atm sigma_rw tilt_scale vrp],
                  p['horizons'].first.keys.sort
     assert_match(/med30 .* slices/, p['headline'])
   end
