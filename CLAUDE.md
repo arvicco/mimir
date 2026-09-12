@@ -29,7 +29,9 @@ the phases, data contracts, and review gates that govern this repo.
    commit.
 6. **No network in tests.** All HTTP goes through `lib/btc/http.rb`
    (Phase 1+); tests inject a fake transport and use `test/fixtures/`.
-   The only network task is `rake fixtures:record`, run manually.
+   The only network task is `rake fixtures:record` -- LOOP work, not
+   an owner chore (owner ruling 2026-09-12): the loop runs it, checks
+   the digest rows, and commits the result.
 7. **Minimal diffs.** These scripts run in production cron. Prefer the
    smallest behavior-preserving change; do not reformat, rename, or
    "clean up" beyond the task's scope.
@@ -45,7 +47,7 @@ rake test:contract        # --json field-set contracts (fixtures)
 rake compat               # ruby -c syntax check of every Ruby file
 rake health               # offline conventions/interface + source-registry scan
 rake health:sources       # probe upstream data sources -- NETWORK, read-only
-rake fixtures:record      # refresh API fixtures -- NETWORK, ask first
+rake fixtures:record      # refresh API fixtures -- NETWORK, loop-run
 rake golden:approve       # bless regenerated chart specs after visual review
 ruby scripts/lppl/lppl.rb --skip-update   # run suites offline against cache
 PUBLISH_DRY_RUN=1 ruby publish/publish.rb # publish pipeline, no network
