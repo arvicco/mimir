@@ -2,13 +2,14 @@
 
 Real responses trimmed to the minimum the parsers need
 (the trim IS part of the frozen fixture shape). Regenerate
-with `rake fixtures:record` (network, owner-run), then
-review the diff before committing.
+with `rake fixtures:record` (network; loop-run since the
+2026-09-12 ruling), then review the diff before committing.
 
 Recorded 2026-07-04 18:27 UTC:
 
 - `deribit_index.json` -- OK (https://www.deribit.com/api/v2/public/get_index_price?index_name=btc_usd)
 - `deribit_book_summary.json` -- OK (https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=BTC&kind=option)
+- `deribit_book_full.json` -- OK (https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=BTC&kind=option) -- full live board, untrimmed strikes (SVI surface pin); recorded 2026-09-12
 - `deribit_futures.json` -- OK (https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=BTC&kind=future)
 - `cboe_options.json` -- OK (https://cdn.cboe.com/api/global/delayed_quotes/options/IBIT.json)
 - `coinmetrics_prices.json` -- OK (https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc&metrics=PriceUSD&frequency=1d&page_size=5&paging_from=start&start_time=2026-06-28)
@@ -18,7 +19,12 @@ Recorded 2026-07-04 18:27 UTC:
 - `binance_spot.json` -- OK (https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT)
 - `coinbase_ticker.json` -- OK (https://api.exchange.coinbase.com/products/BTC-USD/ticker)
 - `mempool_hashrate.json` -- OK (https://mempool.space/api/v1/mining/hashrate/6m)
+- `mempool_hashrate_all.json` -- OK (https://mempool.space/api/v1/mining/hashrate/all -- full-history hashrate for the M12 replay harness; recorded 2026-09-12)
 - `defillama_stables.json` -- OK (https://stablecoins.llama.fi/stablecoins?includePrices=false)
+- `llama_charts_usdt.json` -- OK (https://stablecoins.llama.fi/stablecoincharts/all?stablecoin=1 -- USDT daily supply history for the M12 replay harness; recorded 2026-09-12)
+- `llama_charts_usdc.json` -- OK (https://stablecoins.llama.fi/stablecoincharts/all?stablecoin=2 -- USDC daily supply history for the M12 replay harness; recorded 2026-09-12)
+- `coinglass_premium_index.json` -- OK (https://open-api-v4.coinglass.com/api/coinbase-premium-index?interval=1d -- Coinbase premium daily history for the M12 replay harness; recorded 2026-09-12)
+- `coinglass_bubble_index.json` -- OK (https://open-api-v4.coinglass.com/api/index/bitcoin/bubble-index -- bubble-index history for the M12 x-ref card; recorded 2026-09-12)
 - `farside_flows.html` -- OK (https://farside.co.uk/btc/)
 - `coinglass_flows.json` -- OK (https://open-api-v4.coinglass.com/api/etf/bitcoin/flow-history)
 - `frankfurter_fx.json` -- OK (https://api.frankfurter.dev/v1/latest?base=USD&symbols=JPY)
