@@ -2,6 +2,7 @@
 data/
 scripts/lppl/data/
 scripts/scenario/data/
+scripts/dist/data/
 scripts/btco/capstruct/pending/
 scripts/btco/capstruct/state.json
 scripts/btco/universe.json.bak-*

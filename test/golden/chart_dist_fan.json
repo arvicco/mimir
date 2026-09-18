@@ -1,0 +1,150 @@
+{
+  "backgroundColor": "transparent",
+  "title": [
+    {
+      "text": "med30 62.9k [54.9..74.0]",
+      "textStyle": {
+        "fontSize": 13
+      }
+    }
+  ],
+  "tooltip": {
+    "trigger": "axis",
+    "confine": true,
+    "textStyle": {
+      "fontSize": 11
+    }
+  },
+  "legend": {
+    "top": 2,
+    "data": [
+      "median",
+      "rwm median"
+    ]
+  },
+  "grid": {
+    "left": 34,
+    "right": 18,
+    "top": 28,
+    "bottom": 24
+  },
+  "xAxis": {
+    "type": "category",
+    "data": [
+      "now",
+      "7d*",
+      "30d*",
+      "90d*"
+    ]
+  },
+  "yAxis": {
+    "type": "value",
+    "name": "BTC $k",
+    "scale": true,
+    "axisLabel": {
+      "margin": 3
+    }
+  },
+  "series": [
+    {
+      "name": "p05",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 5,
+      "lineStyle": {
+        "width": 1,
+        "type": "dashed",
+        "color": "rgba(84,112,198,0.55)"
+      },
+      "itemStyle": {
+        "color": "rgba(84,112,198,0.55)"
+      },
+      "data": [
+        63.1,
+        60.8,
+        54.9,
+        51.0
+      ]
+    },
+    {
+      "name": "p25",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 5,
+      "lineStyle": {
+        "width": 1,
+        "type": "solid",
+        "color": "rgba(84,112,198,0.75)"
+      },
+      "itemStyle": {
+        "color": "rgba(84,112,198,0.75)"
+      },
+      "data": [
+        63.1,
+        63.0,
+        55.9,
+        55.9
+      ]
+    },
+    {
+      "name": "median",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 5,
+      "lineStyle": {
+        "width": 2.5,
+        "type": "solid",
+        "color": "rgba(84,112,198,1.0)"
+      },
+      "itemStyle": {
+        "color": "rgba(84,112,198,1.0)"
+      },
+      "data": [
+        63.1,
+        64.4,
+        62.9,
+        63.0
+      ]
+    },
+    {
+      "name": "p75",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 5,
+      "lineStyle": {
+        "width": 1,
+        "type": "solid",
+        "color": "rgba(84,112,198,0.75)"
+      },
+      "itemStyle": {
+        "color": "rgba(84,112,198,0.75)"
+      },
+      "data": [
+        63.1,
+        68.9,
+        69.0,
+        69.1
+      ]
+    },
+    {
+      "name": "p95",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 5,
+      "lineStyle": {
+        "width": 1,
+        "type": "dashed",
+        "color": "rgba(84,112,198,0.55)"
+      },
+      "itemStyle": {
+        "color": "rgba(84,112,198,0.55)"
+      },
+      "data": [
+        63.1,
+        70.3,
+        74.0,
+        85.1
+      ]
+    }
+  ]
+}

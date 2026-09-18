@@ -30,6 +30,7 @@ lines, and the caveats -- read it before acting on any output.
 | `scripts/scenario/positioning.rb` | crowd positioning: L/S ratios, OI trend, taker flow, liquidations | new; bands WARMUP until 91 days of history |
 | `scripts/scenario/reserves.rb` | exchange BTC reserves: 30d delta vs its own trailing distribution | new (M11-7); ~676d of source history, bands live day one |
 | `scripts/scorecard.rb` | track record: our published signals vs realized forward BTC returns | new, report-only |
+| `scripts/dist/dist.rb` | the option-implied BTC price distribution at 7/30/90d + benchmarks, scored daily | new (Phase 13); edge/calibration fill in as history matures |
 | `scripts/lppl/lppl.rb` | LPPL regime verdict from 5 falsification tests | new but rigorous; builds caches on first run |
 | `scripts/btco/btco.rb` | treasury-company metrics + stress score | **seed data is placeholder**; US quotes via CBOE + Frankfurter FX, non-US via `manual_px` |
 | `scripts/btco/ingest.rb` | EDGAR filing -> reviewed universe updates | newest, lightly exercised |
@@ -272,6 +273,40 @@ short ledgers show an explicit "n too small". Daily h-day returns
 overlap, so `n_eff ~ n/h` in the JSON is the honest evidence count.
 Definitions are the D10-a owner ruling; the engine is
 `lib/btc/scorecard.rb`.
+
+## Price distribution (skuld, Phase 13)
+
+```
+ruby scripts/dist/dist.rb                    # human summary (3 horizons)
+ruby scripts/dist/dist.rb --json             # machine output (frozen contract)
+ruby scripts/dist/dist.rb --json --edge      # just the edge-ratio extract
+ruby scripts/dist/dist.rb --as-of 2026-09-01 # replay from that day's snapshot
+```
+
+Publishes the probability distribution the option market itself
+implies for BTC at 7/30/90 days (Deribit board -> SVI smile fits ->
+Breeden-Litzenberger densities; IBIT as a second venue with a
+published divergence number), next to two benchmarks every component
+must beat: a lognormal at ATM implied vol and a random walk at
+trailing realized vol. Once our own vol history has 10+ matured
+IV-vs-realized windows, a volatility-risk-premium tilt produces the
+real-world density and the **edge ratio** -- our density over the
+market's, per strike per expiry, the one trading output (~1
+everywhere = no trade).
+
+Everything is falsifiable by construction: one append-only
+publication ledger row per UTC day, the raw option board snapshotted
+(books cannot be backfilled), and every matured horizon scored
+automatically against the realized close (log score, CRPS, PIT,
+Brier) with skill measured vs the random-walk benchmark. Honest about
+today: the edge strip is empty until the VRP history matures (~2
+weeks), the PIT calibration card is empty until the first horizons
+resolve (7d first), and the 90-day tilt needs ~3 months of vol
+history. No mechanisms, no simulator, no AI anywhere in this slice --
+those are later phases (see .docs/SKULD-PLAN.md), and each will have
+to beat this scoreboard to earn weight. Methodology: METHODOLOGY.md
+section 5; the five pre-registered research questions that govern
+future tuning live there too.
 
 ## Publish pipeline (dry-run today; real publish is a human action)
 

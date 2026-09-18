@@ -134,6 +134,29 @@ module BTC
                  live.first[1], live.last[1])
         },
         aging: ->(b) { (e = deribit_live_expiries(b).first) && e[0] } },
+      # M13-5 (skuld): the FULL live board -- deliberately untrimmed
+      # (the SVI surface-fit quality pin needs real strike breadth; the
+      # trimmed book above stays minimal for the gex family). Dead and
+      # expired rows are still dropped to keep the file bounded.
+      { file: 'deribit_book_full.json', pending_ok: true,
+        url: 'https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=BTC&kind=option',
+        trim: lambda { |b|
+          now = Time.now.utc
+          exp = ->(r) { Options.deribit_expiry(r['instrument_name'].split('-')[1]) }
+          live = JSON.parse(b)['result'].select do |r|
+            r['open_interest'].to_f > 0 && r['mark_iv'].to_f > 0 &&
+              (e = exp.call(r)) && e > now
+          end
+          JSON.generate('result' => live)
+        },
+        stat: lambda { |b|
+          rows = JSON.parse(b)['result'].to_a
+          exps = rows.map { |r| r['instrument_name'].split('-')[1] }.uniq
+          raise "only #{rows.size} live rows (need >= 200 for surface fits)" if rows.size < 200
+
+          format('%d live rows, %d expiries', rows.size, exps.size)
+        },
+        aging: ->(b) { (e = deribit_live_expiries(b).first) && e[0] } },
       { file: 'deribit_futures.json',
         url: 'https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=BTC&kind=future',
         trim: ->(b) { JSON.generate('result' => JSON.parse(b)['result'].first(4)) },
