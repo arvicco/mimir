@@ -90,6 +90,29 @@ class TestBtcHttp < Minitest::Test
     end
   end
 
+  # 2026-10-10 (the CBOE host move): plain get follows redirects too --
+  # cdn.cboe.com started 307ing to cdn-api.cboe.com and every CBOE
+  # consumer went quietly stale for two weeks. Reads follow; writes
+  # (post/put, the KV API) must not.
+  def test_get_follows_a_307_host_move
+    calls = inject do |uri, _req, _opts|
+      if uri.to_s.include?('cdn.example.com')
+        RedirectRes.new('307', '', 'https://cdn-api.example.com/chain.json')
+      else
+        FakeRes.new('200', '{"ok":true}')
+      end
+    end
+    assert_equal '{"ok":true}', BTC::Http.get('https://cdn.example.com/chain.json')
+    assert_equal 2, calls.size
+    assert_equal 'cdn-api.example.com', calls.last[:uri].host
+  end
+
+  def test_put_does_not_follow_redirects
+    inject { RedirectRes.new('307', '', 'https://elsewhere.example.com/') }
+    e = assert_raises(BTC::Http::StatusError) { BTC::Http.put('https://example.com/kv', 'v') }
+    assert_equal 307, e.code
+  end
+
   def test_get_follow_follows_absolute_and_relative_redirects
     calls = inject do |uri, _req, _opts|
       case uri.to_s
