@@ -49,10 +49,14 @@ module BTC
                       read_timeout: opts[:read_timeout]) { |h| h.request(req) }
     end
 
+    # GET follows up to 3 redirects since 2026-10-10: CBOE moved
+    # cdn.cboe.com behind a 307 to cdn-api.cboe.com (~2026-09-26) and
+    # every CBOE consumer -- gex:mstr, vol:mstr, the combined GEX's ETF
+    # venues, the vol-spread MSTR leg, btco quotes -- went quietly
+    # stale for two weeks. Reads follow redirects (the proven F-23
+    # get_follow); WRITES (post/put, the KV API) never do.
     def get(url, headers = {}, open_timeout: 5, read_timeout: 20)
-      uri = URI(url)
-      req = Net::HTTP::Get.new(uri.request_uri, headers)
-      run(uri, req, open_timeout: open_timeout, read_timeout: read_timeout)
+      get_follow(url, headers, open_timeout: open_timeout, read_timeout: read_timeout)
     end
 
     def get_json(url, headers = {}, open_timeout: 5, read_timeout: 20)
