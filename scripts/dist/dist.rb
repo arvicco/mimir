@@ -257,9 +257,25 @@ module Dist
 
   # Edge-ratio strip: p_rwm/p_rn on the ladder for up to EDGE_EXPIRIES
   # liquid (svi) slices, all tilted at the 30d-anchor VRP.
+  # The edge is quoted ONLY where the market itself assigns
+  # non-negligible probability: a ladder strike where the rn density
+  # is below EDGE_MIN_REL of that expiry's own peak reports nil. A
+  # short expiry's +-30% strikes are many sigmas out -- both densities
+  # are ~0 there and the 0/0 ratio is clamp-pinned noise, not a priced
+  # disagreement (the house insignificance rule; first live preview
+  # 2026-10-10 rendered exactly that failure). Display validity only:
+  # nothing scores or consumes the edge downstream.
+  EDGE_MIN_REL = 1e-3
+  # Same spirit: the tilt is 30d-anchored, so sub-weekly expiries (1-2
+  # quotable strikes, extreme shoulder ratios from near-vertical
+  # density falloff) carry no readable disagreement and only crush the
+  # strip's scale -- the strip starts at 7 days.
+  EDGE_MIN_DAYS = 7
+
   def edge_strip(slices, spot, vrp30)
     lad = ladder(spot)
-    expiries = slices.select { |s| s[:method] == 'svi' }.first(EDGE_EXPIRIES)
+    expiries = slices.select { |s| s[:method] == 'svi' && s[:days] >= EDGE_MIN_DAYS }
+                     .first(EDGE_EXPIRIES)
     rows = expiries.map do |sl|
       rn = BTC::Density.expiry_density(sl)
       scale = tilt_scale(sl[:params] ? BTC::Density.total_variance(sl, 0.0) : 0.0,
@@ -267,10 +283,11 @@ module Dist
       rwm = BTC::Density.density_from_w(sl[:forward],
                                         ->(k) { BTC::Density.total_variance(sl, k) * scale },
                                         sl[:k_lo], sl[:k_hi])
+      floor = EDGE_MIN_REL * lad.map { |k| BTC::Density.pdf_at(rn, k) }.max
       ratio = lad.map do |k|
         p_rn = BTC::Density.pdf_at(rn, k)
         p_rw = BTC::Density.pdf_at(rwm, k)
-        p_rn <= 1e-12 ? nil : (p_rw / p_rn).clamp(0.0, 99.0).round(3)
+        p_rn < floor || p_rn <= 1e-12 ? nil : (p_rw / p_rn).clamp(0.0, 99.0).round(3)
       end
       { 'days' => sl[:days], 'forward' => sl[:forward].round(1),
         'scale' => scale.round(4), 'ratio' => ratio }

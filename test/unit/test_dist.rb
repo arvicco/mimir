@@ -427,3 +427,42 @@ class TestDistVrpTilt < Minitest::Test
     assert_nil built['payload']['edge']
   end
 end
+
+# 2026-10-10 (first live preview): edge ratios are quoted only where
+# the market assigns non-negligible probability -- a short expiry's
+# far ladder strikes are 0/0 clamp-pinned noise and must report nil.
+class TestDistEdgeSignificanceFloor < Minitest::Test
+  BTC_SPOT = 80_000.0
+
+  def board(exp, iv)
+    (55_000..110_000).step(2_500).flat_map do |strike|
+      %w[C P].map do |cp|
+        { 'instrument_name' => "BTC-#{exp}-#{strike}-#{cp}",
+          'open_interest' => 5.0, 'mark_iv' => iv, 'underlying_price' => BTC_SPOT }
+      end
+    end
+  end
+
+  def test_sub_weekly_expiries_stay_off_the_strip
+    raw = board('05SEP26', 50.0) + board('25SEP26', 50.0) # 4d + 24d out
+    book = Dist.parse_book(raw, Time.utc(2026, 9, 1, 12), BTC_SPOT)
+    edge = Dist.edge_strip(BTC::Density.slices(book), BTC_SPOT, 0.02)
+    assert_equal 1, edge['expiries'].size
+    assert_operator edge['expiries'].first['days'], :>=, 7
+  end
+
+  def test_wing_ratios_nil_on_a_short_expiry_but_quoted_where_priced
+    # 8 days out at 30 vol: +-30% is ~6 sigma -- wings must be nil.
+    raw = board('09SEP26', 30.0)
+    book = Dist.parse_book(raw, Time.utc(2026, 9, 1, 12), BTC_SPOT)
+    slices = BTC::Density.slices(book)
+    edge = Dist.edge_strip(slices, BTC_SPOT, 0.02)
+    ratio = edge['expiries'].first['ratio']
+    assert_nil ratio.first, 'far put wing must be insignificant'
+    assert_nil ratio.last, 'far call wing must be insignificant'
+    mid = ratio[ratio.size / 2]
+    refute_nil mid, 'the ATM strike is always priced'
+    assert_operator mid, :>, 0.0
+    refute_includes ratio.compact, 99.0, 'no clamp-pinned junk survives the floor'
+  end
+end
