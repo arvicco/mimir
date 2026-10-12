@@ -29,8 +29,10 @@
 // <=2x amber (yellow), <=3x orange, else red. Publishing stamps every key
 // bi-hourly with ttl_hint_s 3600, so the dot reads: green the first hour
 // after a publish tick, yellow the second, orange the third, red past 3h.
-function staleClass(generatedAt, ttlSec) {
-  var age = (Date.now() - new Date(generatedAt).getTime()) / 1000;
+// nowMs is injectable for deterministic tests (the boundary cases race
+// the wall clock otherwise); production callers pass nothing.
+function staleClass(generatedAt, ttlSec, nowMs) {
+  var age = ((nowMs || Date.now()) - new Date(generatedAt).getTime()) / 1000;
   if (age <= ttlSec) return "green";
   if (age <= ttlSec * 2) return "amber";
   if (age <= ttlSec * 3) return "orange";
@@ -1130,8 +1132,14 @@ var CARD_ORDER = ["chart:gex_btc", "chart:gex_mstr", "chart:gex_btc_trend",
                   "chart:gex_mstr_trend",
                   "chart:vol_surface", "chart:vol_surface_mstr", "chart:vol_basis",
                   "chart:vol_spread", "chart:vol_spread_trend",
+                  // scenario card = linked [SCENARIOS][DIST] stack (owner
+                  // ruling 2026-10-12): strip/fan section over
+                  // scorecard/edge section -- SCENARIOS members rank
+                  // lower so they lead each tab pair. PIT rides the fan
+                  // as an overlay (no chart:dist_pit key any more).
                   "chart:scenario_strip", "chart:scorecard",
                   "chart:positioning",
+                  "chart:dist_fan", "chart:dist_edge",
                   "chart:lppl_regime", "chart:lppl_shadow",
                   "chart:btco_table"];
 function cardRank(key) {

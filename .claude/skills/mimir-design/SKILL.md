@@ -65,6 +65,13 @@ another. When a new ruling lands, add it here in the same commit.
 - Goldens regenerate deterministically from test/fixtures/payloads/. A
   red golden is a question for a human; bless only via
   `rake golden:approve` after LOOKING at the rendered result.
+- **Empty `[]`/`{}` are BANNED in chart options** (M13-9 incident,
+  2026-09-04): Ruby 3.3's json (CI, the 3.3 authority) pretty-prints
+  empty containers as `[\n\n]` while newer local rubies print `[]`,
+  so an empty-array golden is green locally and red on CI. Designed
+  empty states carry placeholder content instead: `'data' => ['']`
+  categories and one `{'type'=>..., 'data'=>[nil]}` series -- renders
+  identically empty, byte-stable across rubies.
 - web/ stays single-file, inline CSS, vanilla JS, ECharts via one
   pinned CDN tag, no npm, no build step, served by `rake preview`.
 
@@ -75,6 +82,58 @@ load-bearing number inline (`GEX $M/1% · spot 62.7k`,
 `BTCo stress 70 STRESSED`); no subtexts; tight grid margins; no zoom
 sliders (inside zoom with a sensible default window); no paginated or
 scrolling legends. Whitespace is not a feature here — density is.
+
+**Cards never stretch to the row's tallest.** (Owner ruling
+2026-10-12, interface round: "compact the cards vertically,
+eliminating whitespace".) The card grid sets `align-items: start` in
+BOTH web/preview.html and web/index.html -- dead space belongs to the
+page background between cards, never inside a card. Companion rules
+from the same round: a fixed theoretical axis range is whitespace too
+-- the scenario composite axis hugs the data with a floor that keeps
+the threshold lines visible (±0.48, stretching only for real prints;
+the outer FLUSH/RECOVERY zone labels clamp to the plot edges); and an
+audit view that would stretch a card rides its subject chart as an
+OVERLAY (the PIT bars on the dist fan: hidden top bin axis excluded
+from the axis pointer, fixed [0,1] right share axis, faint z-1 bars
+-- the vol_spread heterogeneous-overlay idiom).
+
+**The scenario card hosts the dist family as linked tabs.** (Owner
+ruling 2026-10-12, superseding M10-9's [SCENARIO][SCORES] tabs and
+the separate dist card.) One two-section stack with linked
+[SCENARIOS][DIST] tab pairs (the GEX idiom): strip/fan on top (200),
+scorecard/edge below (280). Heights match WITHIN each section pair so
+a tab flip never changes the card height. The scorecard is always
+visible under the strip on SCENARIOS -- never a tab of its own.
+
+**Tables keep ONE text line per cell, and the card MATCHES its
+row-mates' height.** (Owner rounds 3-4, 2026-10-12: "No reason to
+have two number rows per item" / "cut the card to size" then "Now
+it's shorter than the other two cards in row -- don't you have ANY
+sense of proportion?".) A scorecard-style cell puts its dim
+secondary stats BESIDE the bold value, never stacked under it; full
+precision lives in the hover. A category axis SPREADS rows to fill
+the canvas, so an oversized height stretches the text -- but the
+target is PROPORTION, not minimum: size the card to land FLUSH with
+its row-mates at full board width (measure with Playwright
+boundingBox against the neighbors; scenario card = positioning/lppl
+at ~543px), neither taller nor shorter.
+
+**Row labels earn their column space.** (Owner round 4, 2026-10-12:
+"gex_gamma_sign=POS is idiotically long and redundant -- the G
+already contains gamma".) Display labels compact away redundancy
+(SC_NAMES in chart_specs.rb: gex_gamma_sign -> gex-sign); payload
+field names and hover 'signal' keys stay verbatim.
+
+**The canvas top band belongs to the legend alone.** (Owner round 2,
+2026-10-12: "top lines in dist overloaded".) Never place a second
+text element (corner notes, status text) in the legend's row -- at
+real card widths they collide. Status/annotation text goes INSIDE
+the plot as a dim positional title entry, in a region the data
+leaves empty, or into the hover. The same round: headlines carry ONE
+load-bearing number, not a stats row -- a range the chart itself
+draws ([p05..p95] on the fan) never rides the headline; and a
+scorecard row whose single band duplicates its ALL row cell-for-cell
+FOLDS into one `signal=BAND` row (zero information twice is noise).
 
 **The headline rides the HEAD LINE, not the canvas.** (Owner mock-up
 ruling 2026-08-30.) Every card/section head reads `key ⓘ [tabs]
