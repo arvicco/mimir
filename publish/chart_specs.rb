@@ -797,8 +797,10 @@ module Publish
           # header row) at ONE text line per row (owner ruling 2026-10-12);
           # a category axis spreads the rows to fit, so an oversized canvas
           # STRETCHES them -- cut this when rows fold, never leave slack.
-          # 200 (strip) + 250 keeps the card no taller than its row-mates.
-          'height' => 250,
+          # 200 (strip) + 280 lands the card at ~543px = positioning/lppl,
+          # its ROW-MATES at full board width (owner round 4: MATCH the
+          # row, don't undershoot it -- 250 left it visibly shorter).
+          'height' => 280,
           # Owner interface ruling 2026-10-12 (supersedes the M10-9 SCORES
           # tab): the scorecard is the scenario card's LOWER stacked
           # section -- always visible under the strip on the SCENARIOS
@@ -911,7 +913,7 @@ module Publish
           # matches the scorecard so the card never jumps on a tab flip.
           'tab_group' => 'scenario', 'group_style' => 'stack',
           'tab_label' => 'DIST', 'tab_pos' => 1,
-          'height' => 250
+          'height' => 280
         }
       },
     }.freeze
@@ -1855,7 +1857,7 @@ module Publish
         all_row   = scorecard_row_data(name, 'all', nil, hz)
         band_rows = bands.map { |b| scorecard_row_data(name, 'band', b, hz) }
         if band_rows.size == 1 && scorecard_same_cells?(all_row, band_rows.first)
-          all_row['label'] = "#{name}=#{bands.first}"
+          all_row['label'] = "#{scorecard_display_name(name)}=#{bands.first}"
           all_row['note'] = "#{all_row['note']} Every print so far was " \
                             "#{bands.first}, so the single identical band " \
                             'row is folded into this one.'
@@ -1880,8 +1882,18 @@ module Publish
     def scorecard_row_data(signal, kind, band, hz)
       cells = SCORECARD_HZ.to_h { |h| [h, scorecard_cell(hz[h] || {}, kind, band, h.to_i)] }
       { 'signal' => signal, 'kind' => kind, 'band' => band,
-        'label' => (kind == 'all' ? signal : "  #{band}"),
+        'label' => (kind == 'all' ? scorecard_display_name(signal) : "  #{band}"),
         'cells' => cells, 'note' => scorecard_note(signal, kind, band) }
+    end
+
+    # Display names for the label column (owner ruling 2026-10-12, round 4):
+    # row labels earn their column space -- 'gex_gamma_sign' burns it on
+    # redundancy (the G in GEX IS gamma; '=POS' already says sign-ish).
+    # Payload field names ('signal' in the hover block) stay untouched.
+    SC_NAMES = { 'gex_gamma_sign' => 'gex-sign' }.freeze
+
+    def scorecard_display_name(signal)
+      SC_NAMES.fetch(signal, signal)
     end
 
     # One horizon's cell for a row: the eligible stats (n / n_eff / mean_pct /

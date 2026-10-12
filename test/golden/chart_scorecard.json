@@ -317,7 +317,7 @@
             "show": true,
             "position": "inside",
             "align": "left",
-            "formatter": "gex_gamma_sign",
+            "formatter": "gex-sign",
             "fontSize": 12,
             "fontWeight": "bold",
             "color": "#e6e9ec"

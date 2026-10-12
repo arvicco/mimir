@@ -95,9 +95,9 @@ class TestChartSpecs < Minitest::Test
                  metas['scenario_strip'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
     assert_equal %w[scenario stack 0 200 DIST],
                  metas['dist_fan'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
-    assert_equal %w[scenario stack 1 250 SCENARIOS],
+    assert_equal %w[scenario stack 1 280 SCENARIOS],
                  metas['scorecard'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
-    assert_equal %w[scenario stack 1 250 DIST],
+    assert_equal %w[scenario stack 1 280 DIST],
                  metas['dist_edge'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
     assert_nil Publish::Charts::CHARTS['dist_pit'], 'PIT is a fan overlay now, not a chart'
     assert_equal 'lppl', metas['lppl_regime']['tab_group']
@@ -796,7 +796,8 @@ class TestChartSpecs < Minitest::Test
     doc = { 'signals' => { 'gex_gamma_sign' => { 'horizons' => sc_hz(n: 91, mean: 2.12, pos: 58.2) } } }
     rows = Publish::Charts.scorecard_rows(doc)
     assert_equal 1, rows.size, 'identical ALL + single band fold to one row'
-    assert_equal 'gex_gamma_sign=POS', rows.first['label']
+    assert_equal 'gex-sign=POS', rows.first['label'],
+                 'display name compacted (owner round 4: the G in GEX IS gamma)'
     assert_equal 'all', rows.first['kind']
     assert_match(/folded/, rows.first['note'])
   end
@@ -809,7 +810,7 @@ class TestChartSpecs < Minitest::Test
     } } }
     rows = Publish::Charts.scorecard_rows(doc)
     assert_equal 2, rows.size
-    assert_equal %w[gex_gamma_sign], [rows.first['label']]
+    assert_equal %w[gex-sign], [rows.first['label']]
     assert_equal '  POS', rows.last['label']
   end
 
