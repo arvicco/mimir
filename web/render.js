@@ -29,8 +29,10 @@
 // <=2x amber (yellow), <=3x orange, else red. Publishing stamps every key
 // bi-hourly with ttl_hint_s 3600, so the dot reads: green the first hour
 // after a publish tick, yellow the second, orange the third, red past 3h.
-function staleClass(generatedAt, ttlSec) {
-  var age = (Date.now() - new Date(generatedAt).getTime()) / 1000;
+// nowMs is injectable for deterministic tests (the boundary cases race
+// the wall clock otherwise); production callers pass nothing.
+function staleClass(generatedAt, ttlSec, nowMs) {
+  var age = ((nowMs || Date.now()) - new Date(generatedAt).getTime()) / 1000;
   if (age <= ttlSec) return "green";
   if (age <= ttlSec * 2) return "amber";
   if (age <= ttlSec * 3) return "orange";
