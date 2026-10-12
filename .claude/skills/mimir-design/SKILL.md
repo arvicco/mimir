@@ -101,9 +101,18 @@ from the axis pointer, fixed [0,1] right share axis, faint z-1 bars
 ruling 2026-10-12, superseding M10-9's [SCENARIO][SCORES] tabs and
 the separate dist card.) One two-section stack with linked
 [SCENARIOS][DIST] tab pairs (the GEX idiom): strip/fan on top (200),
-scorecard/edge below (330). Heights match WITHIN each section pair so
+scorecard/edge below (250). Heights match WITHIN each section pair so
 a tab flip never changes the card height. The scorecard is always
 visible under the strip on SCENARIOS -- never a tab of its own.
+
+**Tables keep ONE text line per cell, and the canvas is cut to the
+rows.** (Owner round 3, 2026-10-12: "No reason to have two number
+rows per item" / "cut the card to size".) A scorecard-style cell puts
+its dim secondary stats BESIDE the bold value, never stacked under
+it; full precision lives in the hover. And because a category axis
+SPREADS rows to fill the canvas, an oversized height stretches the
+text -- when rows fold or lines merge, cut meta height in the same
+change so the card never runs taller than its row-mates.
 
 **The canvas top band belongs to the legend alone.** (Owner round 2,
 2026-10-12: "top lines in dist overloaded".) Never place a second
