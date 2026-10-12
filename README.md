@@ -146,6 +146,12 @@ pushes -- scenario regime change, LPPL verdict change, spot crossing
 the BTC gamma flip, publish-health OLD/BLIND appearing/clearing --
 with a hard 8/day cap. DORMANT until `NTFY_TOPIC` is set in the env
 (enabling is the owner's call; the topic name acts as a credential).
+Phase 14 added a `deg` kind (a push names the degraded key set whenever
+it changes, and again on healing) and a 6h flap cooldown across all
+kinds: appearance and healing always push, repeats of the same alert
+inside the window are silenced. To enable: `export NTFY_TOPIC=<unguessable
+topic>` in `~/.config/mimir/env` and subscribe to that topic in the ntfy
+phone app. Until you do, no push is ever sent.
 
 **Bubble cross-ref (Phase 12):** `scripts/bubble_ref.rb`
 publishes an independent Coinglass bubble-index read (value +
@@ -451,6 +457,20 @@ marked after repair, the publish status line carries `BLIND:scenario` /
 `BLIND:lppl` (surfaced by the tmux monitor beside `OLD`) and the
 scenario strip greys that day's point so a data outage never reads as a
 real neutral day.
+
+Degradation marker (Phase 14). A data source can die INSIDE a payload that
+still looks fresh (one venue vanishes from `gex:combined`, a vol leg turns
+all-null). For six payloads that carry several venues or sub-sources, each
+LIVE publish run compares the legs present against a 14-day norm. After six
+consecutive degraded runs (~12h) the publish status line gains
+` DEG:<key>` beside `OLD`/`BLIND`, and the tmux line shows `DEG` with the
+attention flag. Docs: `docs/RUNBOOK.md` section 3.
+
+Daily backup (Phase 14). The first publish tick of each UTC day copies the
+data home to a sibling `mimir-backups/<YYYY-MM-DD>/` directory (newest 14
+kept). It is the same disk, so it guards against bad writes and deletes, not
+disk loss. Restore is a documented manual procedure in the header of
+`ops/snapshot.rb`.
 
 ## Not implemented yet (roadmap in ARCHITECTURE.md)
 

@@ -126,7 +126,7 @@ keys `present`, ruby, all three wrappers + plists, `ops/ audit` clean,
 
 - `com.mimir.publish: plist` / `bootstrap` -> installed + `program = .../run_publish.sh`
 - `com.mimir.publish: run` -> `publish LIVE: 13 written, 0 skipped -> KV`
-- `com.mimir.publish: status file` -> `PUB LIVE 27/27 keys HH:MM UTC (age 0m)`
+- `com.mimir.publish: status file` -> `PUB LIVE 38/38 keys HH:MM UTC (age 0m)`
 - `com.mimir.gex-snapshot: run` -> `written: .../<today>.json` (or `skipped
   (today's file exists)` / `partial` -- both PASS)
 - `com.mimir.gex-snapshot: snapshot file` -> `present .../<today>.json`
@@ -151,7 +151,7 @@ carrying `ABORT`/`exit 78` means the wrapper could not read the env file
 **2.2 Verify the dashboard header advanced.** Open your dashboard URL in
 a browser and look at the header.
 
-EXPECT: `pub HH:MMZ · 27/27 fresh`, where `HH:MMZ` is the UTC minute the
+EXPECT: `pub HH:MMZ · 38/38 fresh`, where `HH:MMZ` is the UTC minute the
 publish `run` row reported. If the time is old, the publish did not reach
 KV -- section 8.
 
@@ -204,17 +204,17 @@ debugging by hand.)
 hours:minutes since the last publish); no colours -- `!` after PUB is
 the one attention flag, and the payload says why:
 
-- `PUB 27/27 0:37` -- working: last publish LIVE, all 13 keys, age
+- `PUB 38/38 0:37` -- working: last publish LIVE, all 38 keys, age
   under 4h (2x the 2h cadence). Nothing to do.
-- `PUB! 27/27 5:12` -- stale: age past 4h. The bigger the age, the
+- `PUB! 38/38 5:12` -- stale: age past 4h. The bigger the age, the
   worse -- if it keeps growing, section 8.
 - `PUB! 12/13 0:20` -- a key is missing (`n < 13`). Glance at the
   dashboard for the red card; if it persists, section 8.
-- `PUB! DRY 27/27 ...` -- the last run was a DRY-RUN publish, not
+- `PUB! DRY 38/38 ...` -- the last run was a DRY-RUN publish, not
   LIVE. From the agent that should never happen; someone ran
   `PUBLISH_DRY_RUN=1` by hand. The dashboard is not being refreshed ->
   run a real publish (section 8, step 5).
-- `PUB! 27/27 1:12 OLD` -- the publisher is healthy (fresh, all keys)
+- `PUB! 38/38 1:12 OLD` -- the publisher is healthy (fresh, all keys)
   but a **published evidence trail has stopped moving**: a tail's newest
   entry is more than 30h old, so the bi-hourly publish is re-stamping
   frozen content (the 2026-07-07 incident this guard prevents). The daily
@@ -227,6 +227,21 @@ the one attention flag, and the payload says why:
 
   A nonzero `last exit` or a never-run agent -> section 11. `cat
   /tmp/publish.status` names which trail(s) are stale after `OLD:`.
+- `PUB! 38/38 0:37 DEG` -- the publisher is fresh and complete, but a
+  **data source died inside a still-fresh payload** (a venue missing or a
+  leg all-null for six consecutive runs, ~12h). The feature working, not a
+  publisher fault. Find the key, then check that key's sources:
+
+  ```
+  cat /tmp/publish.status
+  ```
+
+  The ` DEG:<key>[,<key>]` suffix names the payload(s); how each key's
+  legs are counted is in `publish/deg_registry.rb`. Open that key in
+  the dashboard/API, see which venue or sub-source is gone or empty, and
+  probe that source (`rake health:sources`, network, read-only). It clears
+  by itself on the first clean run. Semantics: header of
+  `publish/deg_detector.rb`.
 - `PUB! ?` -- no status file, or unreadable/garbled. The publisher has
   never run on this box, or `/tmp` was cleared -> re-run
   `rake ops:install` (section 2) and answer `y` to the publish
@@ -349,12 +364,12 @@ rake deploy
 
 EXPECT: pre-flight all `[ok]`, `deployed host: https://...`, a
 `publish LIVE: 13 written ...` line, and four `[PASS]` smoke rows
-including `GET /api/v1/index ... 13 keys incl. charts`.
+including `GET /api/v1/index ... 38 keys incl. charts`.
 
 **6.4 Verify the dashboard.** Open your dashboard URL.
 
 EXPECT: all four charts render and the header reads
-`pub HH:MMZ · 27/27 fresh` with the current minute. Namespace migration
+`pub HH:MMZ · 38/38 fresh` with the current minute. Namespace migration
 complete.
 
 ---
@@ -419,7 +434,7 @@ rake ops:status
 EXPECT: an `ops status:` table. Per agent a `loaded; state=not running;
 last exit=0` row (`not loaded` is a row, not a crash) plus a `... log`
 row with the last `=== run_*` marker and summary; then a `status file`
-row `PUB LIVE 27/27 keys HH:MM UTC (age Nm)` and a `newest gex snapshot`
+row `PUB LIVE 38/38 keys HH:MM UTC (age Nm)` and a `newest gex snapshot`
 row naming today's `<date>.json`.
 FAILURE: `not loaded` -> the agent was never installed / got booted out,
 re-run section 2 (`rake ops:install`). A nonzero `last exit` or a large
@@ -433,7 +448,7 @@ on this box -> Step 3.
 ruby "$REPO/ops/publish_health.rb"
 ```
 
-EXPECT: an unflagged `PUB 27/27 H:MM` with a small H:MM.
+EXPECT: an unflagged `PUB 38/38 H:MM` with a small H:MM.
 Cross-check the dashboard header `pub HH:MMZ · n/13 fresh`.
 FAILURE: any `PUB! ...` (stale, partial, DRY, or `?` -- go to Step 3),
 or the dashboard reads a many-hours age. If unflagged and fresh, the
@@ -518,6 +533,28 @@ EXPECT: one `YYYY-MM-DD.json` per calendar day, no gaps in the recent
 tail. A missing day = the machine was asleep at 08:15 AND never woke to
 catch up, or both captures failed that day (check gex_snapshot.log for a
 `failed` line on that date).
+
+**9.4 Daily snapshot present.** The first publish tick each UTC day copies
+the data home to a sibling `mimir-backups/<date>/` (newest 14 kept):
+
+```
+ls -1 "$HOME/Library/Application Support/mimir/mimir-backups" | tail -n 3
+```
+
+EXPECT: today's UTC date is the newest entry. Restore (a HUMAN action,
+pause the agents first) is documented in the header of `ops/snapshot.rb`.
+Same disk as the data home, so it does not cover disk loss.
+
+**9.5 Push alerts (only once `NTFY_TOPIC` is set in
+`~/.config/mimir/env`).** Verify the channel with a manual test push:
+
+```
+source ~/.config/mimir/env && curl -s -d "mimir: test push" "ntfy.sh/$NTFY_TOPIC" >/dev/null
+```
+
+EXPECT: the phone shows it within seconds. Alerts are transition-only
+(including `deg`), capped at 8/day, with a 6h cooldown on repeats;
+appearance and healing always push. Without a topic nothing is sent.
 
 ---
 
