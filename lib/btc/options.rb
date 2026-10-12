@@ -3,7 +3,7 @@
 # options.rb -- shared options math and instrument parsing for the GEX
 # tools (gex.rb, gex_us.rb, gex_btc_combined.rb) and suite modules.
 # Pure functions only: no IO, no ENV, no ARGV. Extracted verbatim from
-# the three previously-duplicated copies (TOOL-REVIEW.md F-14).
+# the three previously-duplicated copies (a Phase-0 tool-review finding).
 
 module BTC
   module Options
@@ -61,7 +61,7 @@ module BTC
     end
 
     # Dollar gamma per 1% move for one instrument, evaluated at the
-    # instrument's own underlying level s (per the R-12 owner ruling:
+    # instrument's own underlying level s (per the Phase-0 tool-review owner ruling:
     # notional scales with s^2, never with the index level), times the
     # contract multiplier. THE per-instrument GEX formula -- all three
     # gex tools compose exactly this.

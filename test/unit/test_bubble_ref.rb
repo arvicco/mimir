@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 #
-# M12-4 (Q-12): BubbleRef pure math -- own-history percentile (linear
+# M12-4: BubbleRef pure math -- own-history percentile (linear
 # rank), the 80/20 HIGH/MID/LOW labels, and the compute() payload shape.
 # Synthetic rows; no network.
 

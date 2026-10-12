@@ -59,7 +59,7 @@ holds ~1% above the floor; bound 0.439. This is a descriptive cycle
 heuristic, not an estimated confidence band: three hand-picked
 troughs, and the trend it divides by is refitted daily (a bound frozen
 at the 2022 trough would sit at 0.358 — the drift is measured and
-shown; whether to freeze is pending ruling D9-g).
+shown; whether to freeze is pending an owner ruling).
 
 **3. Fit (weight 2) — is the post-peak decline an LPPLS anti-bubble?**
 Fits the LPPLS anti-bubble equation to the window since the detected
@@ -98,12 +98,12 @@ weightless — it monitors, it does not vote.
   itself. But its frozen horizons (30/90/180d) sit where published
   evidence says nothing beats naive models — the headline is a
   short-horizon statement. Long horizons run in shadow before any
-  scoring change (ruling D9-c).
+  scoring change (an owner ruling).
 - Magnitudes vs signs: the cumulative differential's size scales with
   how densely the history is evaluated (measured: −459 over 364
   evaluations vs −67 over 52 on identical data). The density-honest
   reading is the per-evaluation mean; making it the headline is
-  pending ruling D9-b.
+  pending an owner ruling.
 - Null models matter: the fit's rival curve now gets the same
   optimization effort as the LPPLS fit (in shadow), and the
   oscillation test's noise model was upgraded from AR(1) to
@@ -146,14 +146,14 @@ itself on hover):
 
 | row | frozen → shadow | pending ruling |
 |---|---|---|
-| mean/eval | −461 (sum) → −1.26 (per-eval) | D9-b: make the mean primary? |
-| 365/730 | −0.11 / +0.16 (report-only) | D9-c: do long horizons score? |
-| damping | requirement ≥1 → observed 0.41 | D9-e: should it gate the fit verdict? |
-| impr | 29.2% → 27.9% (symmetric) | D9-e |
-| p(osc) | 0.38 → 0.24 (GARCH) | D9-f: which p is headline? |
-| freeze | 0.439 → 0.358 (frozen-at-trough) | D9-g: freeze the bound? |
+| mean/eval | −461 (sum) → −1.26 (per-eval) | make the mean primary? |
+| 365/730 | −0.11 / +0.16 (report-only) | do long horizons score? |
+| damping | requirement ≥1 → observed 0.41 | should it gate the fit verdict? |
+| impr | 29.2% → 27.9% (symmetric) | same item as damping |
+| p(osc) | 0.38 → 0.24 (GARCH) | which p is headline? |
+| freeze | 0.439 → 0.358 (frozen-at-trough) | freeze the bound? |
 
-(D9-a — refuse a composite when a weight-3 test is blind — and D9-d —
+(Two more items — refuse a composite when a weight-3 test is blind, and
 adopt the PL+LP1 rival into scoring — complete the set.) The shadow
 numbers accumulate daily; the rulings happen when the owner judges
 the soak sufficient. No verdict changes until then.

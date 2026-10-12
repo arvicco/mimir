@@ -9,7 +9,7 @@
 #   score -1  last-5d outflow steady/accelerating vs prior 5d
 #   score  0  mixed / flat
 #
-# Sources, tried in order until one yields >= 10 daily rows (F-23):
+# Sources, tried in order until one yields >= 10 daily rows:
 #   1. farside.co.uk/btc/ (HTML) -- primary; intermittently behind a
 #      Cloudflare JS challenge since 2026-07
 #   2. the Internet Archive's latest snapshot of the same page
@@ -22,7 +22,7 @@
 #
 # Parsing is per table row (BTC::Flows): the old tag-strip regex
 # swallowed each next row's day-of-month, halving the rows AND
-# reporting day numbers as daily totals (F-22) -- history entries for
+# reporting day numbers as daily totals -- history entries for
 # this module predating 2026-07-04 are unreliable.
 
 require_relative 'common'

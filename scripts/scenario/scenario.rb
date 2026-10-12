@@ -25,7 +25,7 @@
 # else degrades that module to score 0).
 #
 # DATA-INTEGRITY MARKERS (M8-8, additive). A fail-soft module carries
-# 'unavailable': true in its --json (BTC::Report.fail_soft, F-12); a
+# 'unavailable': true in its --json (BTC::Report.fail_soft); a
 # crashed subprocess is treated the same. That signal rides through to:
 #   * --json:  every element of `modules` gains a boolean `unavailable`.
 #   * --history: the appended line gains, ONLY when degraded --
@@ -57,9 +57,9 @@ MODULES = [
   ['hash_ribbons',  1],
   ['onchain_value', 1],
   ['stables',       1],
-  ['positioning',   0], # M10-3: display-only under shadow-first (D10-b);
+  ['positioning',   0], # M10-3: display-only under shadow-first (2026-08-12);
                         # weight 0 -- cannot move the composite (Golden Rule 4)
-  ['reserves',      0]  # M11-7: exchange reserves, display-only (R-11/D11-a
+  ['reserves',      0]  # M11-7: exchange reserves, display-only (2026-08-29
                         # 2026-08-29); weight 0 -- same shadow-first governance
 ].freeze
 
@@ -69,8 +69,8 @@ LABELS = {
   'stables' => 'stb', 'positioning' => 'pos', 'reserves' => 'rsv'
 }.freeze
 
-# M12-2 (Q-20): under --as-of every module replays the same day (the
-# flag passes through; each module's fidelity note is the D12-b table).
+# M12-2: under --as-of every module replays the same day (the
+# flag passes through; each module's fidelity note is the replay-fidelity table).
 # --tmux is refused under replay so a backfill can never clobber the
 # live status token; the live history append is likewise guarded below.
 abort 'scenario: --tmux is refused under --as-of (replay)' if Scenario.replay? && ARGV.include?('--tmux')
@@ -82,7 +82,7 @@ results = MODULES.map do |mod, w|
   begin
     r = BTC::Suite.run_module(DIR, mod, mod_timeout, extra)
     { mod: mod, w: w, score: r['score'].to_i, headline: r['headline'].to_s,
-      unavailable: r['unavailable'] == true } # M8-8: F-12 fail-soft marker
+      unavailable: r['unavailable'] == true } # M8-8: fail-soft marker
   rescue StandardError => e
     # A crashed/hung/unparseable subprocess is a live data absence too.
     { mod: mod, w: w, score: 0, headline: "module failed (#{e.class})",

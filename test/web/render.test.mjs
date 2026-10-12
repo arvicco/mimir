@@ -1,6 +1,6 @@
 // M6-4: render.js tab-group machinery (node built-in runner, zero npm).
 // The two GEX charts (chart:gex_btc [BTC], chart:gex_mstr [MSTR])
-// share ONE dashboard card as tabs (owner ruling D7-c, 2026-07-06). This
+// share ONE dashboard card as tabs (owner ruling 2026-07-06). This
 // pins the render-layer contract with a minimal DOM + echarts stub -- no
 // browser, no network. The full visual/interaction proof is the
 // Playwright pass in DEV-LOOP 6b; this is the fast regression guard.

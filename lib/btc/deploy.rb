@@ -103,7 +103,7 @@ module BTC
 
     # Env rows for the pre-flight table. Credentials/ids print 'set' /
     # 'MISSING' only, NEVER the value. DEPLOY_NAME is REQUIRED (owner
-    # ruling D4-c: the worker name IS the public hostname and must be
+    # owner ruling 2026-07-05: the worker name IS the public hostname and must be
     # chosen deliberately -- no silent 'mimir' default; a guessable name
     # is picked by setting it explicitly). It is not a secret, so its
     # value is shown for confirmation.
@@ -114,7 +114,7 @@ module BTC
       end
       name = env['DEPLOY_NAME'].to_s
       rows << if name.empty?
-                ['DEPLOY_NAME', 'MISSING -- set the public worker name (D4-c: unguessable, e.g. mimir-a7f3k9)', false]
+                ['DEPLOY_NAME', 'MISSING -- set the public worker name (it is the public hostname, so make it unguessable, e.g. mimir-a7f3k9)', false]
               elsif !name.match?(NAME_RE)
                 ['DEPLOY_NAME', "invalid #{name.inspect} (lowercase/digits/hyphens, max 54)", false]
               else
@@ -167,7 +167,7 @@ module BTC
     end
 
     # Optional worker rename (DEPLOY_NAME): the worker name IS the public
-    # hostname, and ruling D4-c wants it unguessable. Replaces only the
+    # hostname, and owner ruling 2026-07-05 wants it unguessable. Replaces only the
     # `name = "..."` line; empty/absent name leaves the template's default.
     def substitute_name(content, name)
       return content if name.to_s.empty?

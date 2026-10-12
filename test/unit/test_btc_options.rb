@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Characterization tests for BTC::Options -- the math/parsing previously
-# duplicated across gex.rb / gex_us.rb / gex_btc_combined.rb (F-14).
+# duplicated across gex.rb / gex_us.rb / gex_btc_combined.rb (a Phase-0 tool-review finding).
 # Values pin current behavior exactly; M0-4/M0-5 extend coverage.
 
 require_relative '../test_helper'

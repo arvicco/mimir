@@ -75,7 +75,7 @@ class TestBtcoAlert < Minitest::Test
   def test_zero_filings_writes_empty_file
     runner, = recording_runner(ok: true, out: json_out(0))
     Ops::BtcoAlert.run(status_dir: @dir, runner: runner)
-    # empty line -> the tmux #() collapses to nothing (quiet bar, D8-a).
+    # empty line -> the tmux #() collapses to nothing (quiet bar, ruling 2026-07-06).
     assert_equal "\n", status_line
   end
 

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 #
-# M12-1 (Q-20): scenario-module replay contracts -- each module under
+# M12-1: scenario-module replay contracts -- each module under
 # `--as-of DATE` computes from its dated-history source truncated to
 # COMPLETE DAYS strictly before DATE, with the clock frozen to DATE
 # (ts = the replay day) and nothing written. Runs the real scripts
@@ -103,7 +103,7 @@ class TestScenarioReplayContract < Minitest::Test
     assert_includes [-1, 0, 1], j['score']
   end
 
-  # macro: FRED windows by observation_end (revised-series caveat, D12-b).
+  # macro: FRED windows by observation_end (revised-series caveat, replay-fidelity table).
   def test_macro_replay_runs_with_frozen_clock
     j = replay_json('macro', '2026-07-04', env: { 'FRED_API_KEY' => 'contract-test-key' })
     assert_equal '2026-07-04T00:00:00Z', j['ts']

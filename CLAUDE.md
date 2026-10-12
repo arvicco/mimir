@@ -203,27 +203,29 @@ same commit (`rake health` fails on registry drift).
 
 ## Current phase
 
-Phase 12 (replay/backtest harness + dormant ntfy + bubble x-ref)
-merged 2026-08-30 (PR #21, 33 keys); Gate-12 leftovers outstanding:
-the five-fixture recording (its runbook step 1) + deploy. Phase 13 =
-skuld S-A+S-B (№R-12 ruling: the price-distribution module family
-INSIDE mimir; plan-13 approved 2026-09-04) built on branch phase-13:
-BTC::Stats extraction, scoring rules, the SVI/BL density engine,
-the dist producer (daily ledger + raw board snapshots + --as-of
-replay + resolution scoring), IBIT KL divergence, the VRP tilt
-(Golden-Rule-4 item, both densities scored forever), publish 33->38
-keys; the dist family rides the scenario card's linked
-[SCENARIOS][DIST] tabs (fan + PIT overlay / edge strip, owner
-interface rulings 2026-10-12). Gate 13 pending
-(.docs/Gate-13-runbook.md; five pre-registered research questions
-bless at the gate). Queue items are Q-n since 2026-08-30 (P reserved
-for phases); skuld slices S-C..S-H in .docs/SKULD-PLAN.md. Active owner items
-live in .docs/DECISION-REGISTER.md (№R-1 Coinglass tier + №R-2
-dead-source composite remain; graduation reviews ~2026-12-29).
-SHADOW-FIRST stands: verdict-affecting changes ship report-only and
-flip only on owner rulings (Golden Rule 4). Design sign-off before
-any PR leaves draft (owner ruling 2026-08-29). BTCo stays FROZEN
-(2026-08-10 ruling). Production agents run the live clone + data home
-under ~/Library/Application Support/mimir. Stage A tiering; visual
-work follows .claude/skills/mimir-design; deploys and launchd changes
-are HUMAN actions. Update this line at each gate.
+Phase 13 (skuld S-A+S-B, owner ruling 2026-09-04: BTC::Stats, the SVI/BL density
+engine, the dist producer with daily ledger + --as-of replay +
+resolution scoring, IBIT KL, the VRP tilt with both densities scored
+forever, publish 33->38 keys, the dist family on the scenario card's
+linked [SCENARIOS][DIST] tabs) merged + deployed 2026-10-12 (PR #23;
+the five pre-registered research questions blessed unamended; first
+PIT resolutions mature ~2026-10-19). Phase 14 = per-venue
+content invariants + the ntfy push rail (slate 2026-10-12 "as
+recommended"; .docs/plan-14.md) on branch phase-14: publish gains an
+additive ` DEG:` status marker when a venue/leg inside a fresh key
+stays dead N consecutive runs (the dead-leg-inside-a-fresh-key incident pattern), and transition
+-only ntfy pushes carry OLD/BLIND/DEG/DRY to the owner's phone — ops
+instrumentation only, no analytics semantics. Queue items are Q-n
+since 2026-08-30 (P reserved for phases); skuld slices S-C..S-H in
+.docs/SKULD-PLAN.md (S-C is the arc candidate once S-B scoring has
+resolutions). Active owner items live in .docs/DECISION-REGISTER.md
+(the Coinglass tier + dead-source composite items remain; graduation
+reviews ~2026-12-29). SHADOW-FIRST stands: verdict-affecting changes
+ship report-only and flip only on owner rulings (Golden Rule 4).
+Design sign-off before any PR leaves draft (owner ruling 2026-08-29).
+BTCo stays FROZEN (2026-08-10 ruling). Production agents run the live
+clone + data home under ~/Library/Application Support/mimir.
+Delegation economy binds from this phase: sub-fable tier tags in
+plan docs are actually dispatched to subagents. Visual work follows
+.claude/skills/mimir-design; deploys and launchd changes are HUMAN
+actions. Update this line at each gate.

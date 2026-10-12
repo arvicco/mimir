@@ -624,7 +624,7 @@ class TestBtcOps < Minitest::Test
   end
 
   # The proposed fragment carries the BTCo discovery-alert token in the
-  # SAME right-align run as the publish health command (D8-a).
+  # SAME right-align run as the publish health command (ruling 2026-07-06).
   def test_tmux_fragment_carries_the_ingest_token
     fake = FakeTmux.new(status: '2', formats: { 0 => 'main line', 1 => '' })
     code, io = run_tmux(fake)

@@ -116,12 +116,12 @@ class TestBtcoContract < Minitest::Test
 
   def assert_fail_soft(out, st, reason_re)
     assert st.success?, 'fail-soft must exit 0'
-    assert_equal 1, out.lines.size, "stdout discipline (F-9) -- got: #{out.inspect}"
+    assert_equal 1, out.lines.size, "stdout discipline (one JSON line) -- got: #{out.inspect}"
     j = JSON.parse(out)
     assert_contract_keys FAIL_SOFT_KEYS, j, 'btco fail-soft'
     assert_equal 'btco', j['name']
     assert_equal 0, j['score']
-    assert_equal true, j['unavailable'] # F-12
+    assert_equal true, j['unavailable'] # fail-soft marker
     assert_match reason_re, j['headline']
   end
 

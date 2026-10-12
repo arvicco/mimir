@@ -13,7 +13,7 @@
 #
 # Optional ARGV[0] = path to the status file (default /tmp/publish.status).
 # ENV MIMIR_PUBLISH_INTERVAL_MIN = expected publish cadence in minutes
-#   (default 120, decision D5-a: bi-hourly cron, StartInterval 7200).
+#   (default 120, owner decision 2026-07-06: bi-hourly cron, StartInterval 7200).
 #
 # Output contract (--tmux, FROZEN -- additive only; update
 # test/unit/test_publish_health.rb in the same commit as any change;
@@ -28,18 +28,24 @@
 #   DRY mode (misconfig on the prod box)    PUB! DRY n/m H:MM
 #   status line carries ` OLD:<key>...`     PUB! n/m H:MM OLD (additive M7-5)
 #   status line carries ` BLIND:<suite>...` PUB! n/m H:MM BLIND (additive M8-10)
+#   status line carries ` DEG:<key>...`     PUB! n/m H:MM DEG (additive M14-2)
 #   File missing / unreadable / garbled     PUB! ?
 #
 #   `!` = attention; the payload says why (n<m keys missing, age past
 #   2x cadence, DRY, `OLD` = a published evidence tail stopped moving,
 #   `BLIND` = a freshest tail is still data-corrupted after same-day repair,
-#   or ? no readable status). Severity reads from the age itself -- no
+#   `DEG` = a payload lost or carries a dead leg for 6+ consecutive LIVE
+#   runs, or ? no readable status). Severity reads from the age itself -- no
 #   separate amber/red tiers. `OLD` (M7-5, 2026-07-07 frozen-evidence
 #   incident) and `BLIND` (M8-10, blind-zero incident) are ADDITIVE: the
 #   pipeline appends ` OLD:<key>[,...]` when a published tail's newest entry
 #   is older than 30h, and ` BLIND:<suite>[,...]` when a freshest tail still
 #   carries its M8-8 marker; this reader surfaces the bare `OLD` / `BLIND`
 #   markers and forces `!`. They compose (e.g. `PUB! DRY 13/13 5:00 OLD BLIND`).
+#   `DEG` (M14-2, dead-venue-inside-a-fresh-payload incident) is ADDITIVE
+#   the same way: the pipeline appends ` DEG:<key>[,...]` after any OLD /
+#   BLIND suffix; this reader surfaces a bare `DEG` last and forces `!`
+#   (e.g. `PUB! 38/38 0:37 OLD BLIND DEG`).
 #
 # H:MM: hours unpadded, minutes zero-padded to 2 digits, age floored to
 # whole minutes.  Examples: 37 min -> 0:37; 65 min -> 1:05; 1563 min -> 26:03.
@@ -54,7 +60,7 @@ require 'time'
 module Ops
   module PublishHealth
     DEFAULT_PATH     = '/tmp/publish.status'
-    DEFAULT_INTERVAL = 120 # minutes, decision D5-a
+    DEFAULT_INTERVAL = 120 # minutes, owner decision 2026-07-06
 
     STATUS_RE = /\APUB (\w+) (\d+)\/(\d+) keys/
 
@@ -88,12 +94,16 @@ module Ops
       # corrupted after same-day repair (blind scenario / stale lppl). Like
       # OLD it earns `!` and surfaces a bare `BLIND` marker.
       blind   = first_line.include?(' BLIND:')
-      suffix  = format('%s%s', old ? ' OLD' : '', blind ? ' BLIND' : '')
+      # ADDITIVE (M14-2): ` DEG:<key>[,...]` when a registered payload lost
+      # or carried a dead leg for 6+ consecutive LIVE runs. Earns `!` and
+      # surfaces a bare `DEG` marker after OLD/BLIND.
+      deg     = first_line.include?(' DEG:')
+      suffix  = format('%s%s%s', old ? ' OLD' : '', blind ? ' BLIND' : '', deg ? ' DEG' : '')
       age_s   = now - mtime
       age_min = age_s / 60.0
       age_str = format_age(age_s)
       if mode == 'LIVE'
-        flag = old || blind || attention?(n, total, age_min, interval_min) ? '!' : ''
+        flag = old || blind || deg || attention?(n, total, age_min, interval_min) ? '!' : ''
         format('PUB%s %d/%d %s%s', flag, n, total, age_str, suffix)
       else
         format('PUB! %s %d/%d %s%s', mode, n, total, age_str, suffix)

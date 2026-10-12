@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 #
-# M11-7 (owner ruling R-11/D11-a, 2026-08-29): the exchange-reserve
+# M11-7 (owner ruling 2026-08-29): the exchange-reserve
 # module's pure math -- window-consistent 30d delta over nil-padded
 # per-exchange series, the 80/20 trailing-percentile band, the
 # BUILDING -> -1 / DRAINING -> +1 score mapping, the card total series,

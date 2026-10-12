@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 #
 # util.rb -- tiny shared CLI helpers. Extracted from the five per-script
-# copies (TOOL-REVIEW.md F-14).
+# copies (a Phase-0 tool-review finding).
 
 module BTC
   module Util

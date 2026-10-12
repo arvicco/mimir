@@ -37,7 +37,7 @@ class TestHealthConventions < Minitest::Test
 
   def test_flags_braceless_trailing_hash_f18
     v = scan(CLEAN + "BTC::Http.get(url, 'User-Agent' => 'x')\n")
-    assert v.any? { |m| m.include?('F-18') }
+    assert v.any? { |m| m.include?('binds to the headers param') }
     # braced form is fine (already in CLEAN)
     assert_empty scan(CLEAN)
   end
@@ -267,5 +267,122 @@ class TestHealthOps < Minitest::Test
       bad = BTC::Health.scan_ops(ops)
       assert bad.any? { |m| m.include?('--apply') }, "got #{bad.inspect}"
     end
+  end
+end
+
+# M14-6: public-repo hygiene -- private board ids + unregistered hosts.
+# Sample ids are ASSEMBLED at runtime (never literal) so this file stays
+# clean under the very guard it tests.
+class TestHealthHygiene < Minitest::Test
+  def id(prefix, suffix) = "#{prefix}-#{suffix}"
+
+  def hits(text) = BTC::Health.private_id_hits(text).map(&:last)
+
+  def test_private_forms_are_hits
+    samples = [id('№R', 12), id('№I', 4), id('R', 9), id('Q', 22), id('P', 19),
+               id('F', 23), id('D9', 'b'), id('D12', 'a')]
+    samples.each { |s| assert_equal [s], hits("see (#{s}) here"), s }
+  end
+
+  def test_ranges_hit_on_their_head
+    assert_equal [id('D9', 'b')], hits("item (#{id('D9', 'b')}/c/e/f/g)")
+    assert_equal [id('D9', 'a')], hits("items #{id('D9', 'a')}..g")
+  end
+
+  def test_public_forms_are_misses
+    ['M12-4', 'M9-11 packet', 'Phase 14', 'PR #23', 'D-1 close', 'BF-425.5',
+     'Z-1.8@0.2%', 'SBI-3.1', 'S-A+S-B', 'Q-n queue', 'mimir-a7f3k9', 'sha384-Abc'].each do |s|
+      assert_empty hits(s), s
+    end
+  end
+
+  def test_hit_reports_line_number
+    assert_equal [[2, id('F', 6)]], BTC::Health.private_id_hits("ok\nbad #{id('F', 6)}\n")
+  end
+
+  def test_scan_reports_file_and_line
+    bad = BTC::Health.scan_private_ids('docs/x.md' => "a\n#{id('Q', 17)}\n")
+    assert_equal 1, bad.size
+    assert bad.first.start_with?('docs/x.md:2:'), bad.first
+  end
+
+  def test_binary_sniff_skips_nul_content_regardless_of_path
+    assert BTC::Health.binary?("PNG\0\0#{id('R', 1)}")
+    refute BTC::Health.binary?("plain #{id('R', 1)}")
+    assert_empty BTC::Health.scan_private_ids('README.md' => "x\0#{id('R', 1)}")
+  end
+
+  def test_exception_only_for_marked_lines_in_the_guard_file
+    line = "#{id('R', 1)} #{BTC::Health::HYGIENE_MARKER}\n"
+    assert_empty BTC::Health.scan_private_ids(BTC::Health::HYGIENE_SELF => line)
+    refute_empty BTC::Health.scan_private_ids('lib/btc/other.rb' => line)
+    refute_empty BTC::Health.scan_private_ids(BTC::Health::HYGIENE_SELF => "#{id('R', 1)}\n")
+  end
+
+  def test_pattern_definition_carries_declaration_and_date
+    assert_includes BTC::Health::HYGIENE_MARKER, '2026-10-12'
+    src = File.read(File.expand_path('../../lib/btc/health.rb', __dir__))
+    def_line = src.lines.find { |l| l.include?('PRIVATE_ID_RE  =') }
+    assert_includes def_line, BTC::Health::HYGIENE_MARKER
+  end
+
+  SRC = [{ url: 'https://api.example.org/v1/x' },
+         { url: -> { 'https://lambda.example.net/q?k=' } }].freeze
+
+  def test_registered_hosts_reads_string_and_lambda_urls
+    assert_equal %w[api.example.org lambda.example.net], BTC::Health.registered_hosts(SRC)
+  end
+
+  def test_hosts_in_extracts_hosts_and_skips_placeholders
+    assert_equal %w[a.b.com localhost], BTC::Health.hosts_in("'https://a.b.com/x' http://localhost:8000 https://...")
+  end
+
+  def test_scan_hosts_flags_unregistered_host_with_location
+    files = { 'scripts/x.rb' => "ok = 'https://api.example.org/z'\nbad = 'https://rogue.example.com/'\n" }
+    bad = BTC::Health.scan_hosts(files, SRC, {})
+    assert_equal 1, bad.size
+    assert bad.first.start_with?('scripts/x.rb:2: host rogue.example.com'), bad.first
+  end
+
+  def test_scan_hosts_scope_is_runtime_ruby_and_web
+    rogue = "u = 'https://rogue.example.com/'\n"
+    refute_empty BTC::Health.scan_hosts({ 'web/index.html' => rogue }, SRC, {})
+    refute_empty BTC::Health.scan_hosts({ 'ops/x.rb' => rogue }, SRC, {})
+    assert_empty BTC::Health.scan_hosts({ 'test/unit/x.rb' => rogue }, SRC, {})
+    assert_empty BTC::Health.scan_hosts({ 'docs/x.md' => rogue }, SRC, {})
+  end
+
+  def test_allowlisted_host_passes
+    files = { 'web/x.html' => "<a href='https://rogue.example.com/'>" }
+    assert_empty BTC::Health.scan_hosts(files, SRC, { 'rogue.example.com' => 'a reason' })
+  end
+
+  def test_allowlist_entries_require_one_line_reasons
+    assert_empty BTC::Health.check_host_allowlist(BTC::Health::HOST_ALLOWLIST)
+    bad = BTC::Health.check_host_allowlist('a.com' => '', 'b.com' => nil, 'c.com' => "two\nlines", 'd.com' => 'ok')
+    assert_equal 3, bad.size
+    assert bad.none? { |m| m.include?('d.com') }
+  end
+
+def test_malformed_lambda_url_never_leaks_its_secret
+  secret = "FAKE-SECRET-" + "9f8e7d"
+  src = SRC + [{ name: "leaky", url: -> { "https://bad host/q?api_key=" + secret } },
+               { name: "raising", url: -> { raise ArgumentError, "boom " + secret } }]
+  out = +""
+  begin
+    out << BTC::Health.scan_hosts({ "scripts/x.rb" => "u = 'https://api.example.org/'
+" }, src, {}).join("
+")
+    out << BTC::Health.registered_hosts(src).join(" ")
+  rescue StandardError => e
+    out << e.message
+  end
+  refute_includes out, secret
+  assert_includes out, "SOURCES entry 'leaky'"
+  assert_includes out, "SOURCES entry 'raising'"
+end
+
+  def test_real_registry_covers_cb_premium_spot_leg
+    assert_includes BTC::Health.registered_hosts, 'api.binance.com'
   end
 end

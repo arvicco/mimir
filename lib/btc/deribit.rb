@@ -2,7 +2,7 @@
 #
 # deribit.rb -- Deribit public-API venue helper over the http seam.
 # Owns the base URL and the {"result": ...} envelope unwrap that five
-# scripts previously spelled out on their own (TOOL-REVIEW.md R-1/R-8).
+# scripts previously spelled out on their own (a Phase-0 tool-review finding).
 
 require 'json'
 require_relative 'http'
