@@ -5,7 +5,7 @@
 # PURPOSE
 #   Source the owner's env file, then run the publish pipeline LIVE
 #   (PUBLISH_DRY_RUN=0) from the repo root, appending all output to a
-#   log. This is the single scheduled publisher job (decision D5-a,
+#   log. This is the single scheduled publisher job (owner decision 2026-07-06,
 #   bi-hourly). publish/publish.rb runs the four analytics suites as
 #   subprocesses and writes the KV keys in one pass; ITS exit code is
 #   THIS script's exit code (exec), so launchd/cron alarm on a real

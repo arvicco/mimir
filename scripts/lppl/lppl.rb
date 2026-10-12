@@ -181,7 +181,7 @@ if ARGV.include?('--history')
     bf: d['trend']['bf'], ratio: d['envelope']['ratio'],
     days_below_strong: d['envelope']['days_below_strong'],
     trough_date: d['fit']['trough_date'], trough_px: d['fit']['trough_px'],
-    # M11-4 (owner ruling 2026-08-29, R-7): p_lp records the GARCH bootstrap
+    # M11-4 (owner ruling 2026-08-29): p_lp records the GARCH bootstrap
     # p (the headline/score p since the flip); p_lp_ar1 keeps the old AR(1)
     # series' continuity as an additive reference column.
     omega: d['fit']['omega'], p_lp: d['logperiodic']['p_value_v2'],

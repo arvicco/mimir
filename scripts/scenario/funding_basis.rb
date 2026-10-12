@@ -22,7 +22,7 @@ require_relative '../../lib/btc/deribit'
 NAME = 'funding'
 
 # Replay (M12-1): Binance serves ~500 dated 8h funding rows (~5.5 months
-# -- the SHALLOWEST replay depth in the family, D12-b caveat). Under
+# -- the SHALLOWEST replay depth in the family, a replay-fidelity caveat). Under
 # --as-of the 21-row window is the last 21 complete-day rows before the
 # replay date; the live now-rate and the Deribit basis context (now-data,
 # no dated past) are honestly skipped.

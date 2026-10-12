@@ -15,7 +15,7 @@
 # Option-board rows are selected PARSER-live (unexpired at record time,
 # nonzero greeks), far-dated first so fixtures age slowly -- CBOE lists
 # expired weeklies first, and a board of parser-dead rows is useless to
-# the contract tests (F-20).
+# the contract tests.
 #
 # verify(dir) (M1-16) replaces eyeballing fixture diffs: every entry
 # carries a `stat:` lambda that digests the raw file to a human note
@@ -42,7 +42,7 @@ module BTC
     # slim a CBOE option row to the fields the parsers read
     CBOE_FIELDS = %w[option iv gamma open_interest].freeze
 
-    # F-20: 4 calls + 4 puts the parsers would actually keep, farthest
+    # Parser-live picks: 4 calls + 4 puts the parsers would actually keep, farthest
     # expiry first, plus 2 parser-dead rows for skip-branch coverage.
     def self.pick_rows(rows, live:, expiry:, call:)
       alive = rows.select { |r| live.call(r) }
@@ -54,7 +54,7 @@ module BTC
         (rows - alive).first(2)
     end
 
-    # shortest HTML prefix that PARSES (BTC::Flows, the F-22 per-row
+    # shortest HTML prefix that PARSES (BTC::Flows, the day-number-fix per-row
     # parser) to >= 12 daily rows (the module fail-softs below 10); an
     # insufficient page fails the recording loudly.
     FARSIDE_TRIM = lambda do |body|
@@ -64,7 +64,7 @@ module BTC
       raise 'fewer than 12 parseable farside rows on the whole page'
     end
 
-    # M10-2 P-6 crowd-positioning family: one recorded fixture per probed
+    # M10-2 crowd-positioning family: one recorded fixture per probed
     # BTC::Coinglass wrapper. Envelope {code, data}; trim keeps code + the
     # last `keep` daily rows verbatim (all fields preserved -- the M10-3
     # caller's field list is not frozen yet, so we do not slim columns).
@@ -229,7 +229,7 @@ module BTC
 
           format('lastFundingRate %s', rate)
         } },
-      { file: 'binance_spot.json', # F-21: cb_premium's spot leg was missing
+      { file: 'binance_spot.json', # cb_premium's spot leg was missing
         url: 'https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT',
         stat: lambda { |b|
           spot = JSON.parse(b)['price'].to_f
@@ -276,7 +276,7 @@ module BTC
           format('%d assets: %s', syms.size, syms.join(', '))
         } },
       { file: 'farside_flows.html',
-        # F-23 chain, mirroring etf_flows.rb: the direct page when it
+        # The source chain, mirroring etf_flows.rb: the direct page when it
         # parses (Cloudflare challenge pages don't), else the Internet
         # Archive's latest raw snapshot (redirects followed).
         fetch: lambda {
@@ -326,7 +326,7 @@ module BTC
       cg.call('coinglass_liquidation.json', 'futures/liquidation/aggregated-history',
               'symbol=BTC&interval=1d&exchange_list=Binance,OKX,Bybit', 10,
               'aggregated_long_liquidation_usd', 'liq'),
-      # M12-1 (Q-20) replay-history fixtures: the dated-past sources the
+      # M12-1 replay-history fixtures: the dated-past sources the
       # scenario replays ride. Trims keep enough depth for contract-test
       # truncation around the recording date.
       { file: 'mempool_hashrate_all.json', pending_ok: true,
@@ -381,7 +381,7 @@ module BTC
 
           format('USDC charts: %d rows, %.0fB', rows.size, v.to_f / 1e9)
         } },
-      # M12-4 (Q-12): bubble index -- trimmed to the trailing 400 daily
+      # M12-4: bubble index -- trimmed to the trailing 400 daily
       # rows (percentile math is unit-tested synthetically; the fixture
       # only needs shape + enough depth for a stable contract run).
       { file: 'coinglass_bubble_index.json', env: 'COINGLASS_API_KEY',
@@ -400,7 +400,7 @@ module BTC
           format('bubble: %d rows, last %s idx %.2f', data.size,
                  data.last['date_string'], data.last['bubble_index'].to_f)
         } },
-      # M11-7 (P-8): exchange reserves. The list is a small per-exchange
+      # M11-7: exchange reserves. The list is a small per-exchange
       # snapshot (kept whole); the chart is {time_list, price_list,
       # data_map} -- trimmed to the trailing 400 days per series (the
       # 365d card window + the 30d delta lead-in; comfortably above the

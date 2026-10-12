@@ -732,7 +732,7 @@ function activateGroup(g, member) {
   requestAnimationFrame(function () { member.chart.resize(); });
 }
 
-// Build (or extend) a tab-group card (M6-4, owner ruling D7-c). The
+// Build (or extend) a tab-group card (M6-4, owner ruling 2026-07-06). The
 // FIRST group member seen builds the shared card -- head with title, ⓘ,
 // a [BTC][MSTR] tab bar and the badge, plus the hover bubble; every
 // member (including the first) attaches its own hidden chart div and a
@@ -806,7 +806,7 @@ function buildGroupedCard(env, key, meta, groupId) {
 
   // Re-order the tab bar by tab_pos (buttons arrive in load order, which
   // the alphabetical index makes MSTR-before-BTC) and default the visible
-  // tab to the lowest tab_pos -- BTC leads (owner ruling D7-c).
+  // tab to the lowest tab_pos -- BTC leads (owner ruling 2026-07-06).
   g.members.sort(function (a, b) { return a.pos - b.pos; });
   while (g.tabbar.firstChild) g.tabbar.removeChild(g.tabbar.firstChild);
   g.members.forEach(function (m) { g.tabbar.appendChild(m.btn); });

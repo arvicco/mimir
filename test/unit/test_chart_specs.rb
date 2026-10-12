@@ -191,7 +191,7 @@ class TestChartSpecs < Minitest::Test
   end
 
   def test_vol_spread_bars_and_dots_carry_tenor_gradient
-    # Owner ruling 2026-08-29 (register R-9): bars and the leg-line dots
+    # Owner ruling 2026-08-29 (tenor palette): bars and the leg-line dots
     # are colour-coded by TENOR (the same gradient as the trend below),
     # not by sign -- sign reads from bar direction against zero.
     opt = build('vol_spread')
@@ -232,7 +232,7 @@ class TestChartSpecs < Minitest::Test
       assert_equal 'line', s['type']
       assert_equal 6, s['symbolSize'] # sparse: a single day reads as a dot
     end
-    # Owner ruling 2026-08-29 (register R-9): the six tenors take the
+    # Owner ruling 2026-08-29 (tenor palette): the six tenors take the
     # spectral gradient 7d red -> 90d dark blue, single-sourced in
     # VOL_TENOR_COLORS -- line, dots and legend swatch all follow.
     expected = Publish::Charts::VOL_SPREAD_TREND_TENORS.map { |td| Publish::Charts::VOL_TENOR_COLORS.fetch(td) }

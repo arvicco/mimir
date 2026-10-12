@@ -26,7 +26,7 @@ another. When a new ruling lands, add it here in the same commit.
   `legend.data` so ECharts still owns selection state and the widget
   drives it via legend actions), `tab_group` (+ `tab_label` /
   `tab_pos`; charts sharing a group render into ONE card as tabs --
-  owner ruling D7-c 2026-07-06, the GEX card), `group_style:
+  owner ruling 2026-07-06, the GEX card), `group_style:
   'stack'` (owner ruling 2026-08-10: a tab_group rendered as ONE card
   with every member ALWAYS visible, stacked vertically by tab_pos,
   each member keeping its own head/badge/bubble at meta.height -- the
@@ -322,7 +322,7 @@ never override into the inversion.
 `#e6a23c`; stress bands green→amber→orange→red.
 
 **Vol tenors carry a spectral gradient.** (Owner ruling 2026-08-29,
-register R-9.) The six vol tenors are colour-coded 7d RED → 14d
+the tenor-palette ruling.) The six vol tenors are colour-coded 7d RED → 14d
 orange → 21d yellow → 30d green → 45d cyan → 90d dark blue → 180d
 DARK-DARK BLUE (the long tenor, owner ruling 2026-08-29)
 (`VOL_TENOR_COLORS` in chart_specs.rb, single source), the SAME hue

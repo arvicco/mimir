@@ -124,7 +124,7 @@ test('unknown paths 404, non-GET 405 with Allow', async () => {
   assert.equal(res.headers.get('Allow'), 'GET');
 });
 
-// ---- auth: dormant by default (owner ruling D4-c), bearer when set -------
+// ---- auth: dormant by default (owner ruling 2026-07-05), bearer when set
 
 test('without AUTH_TOKEN the API is public-read', async () => {
   const env = fakeEnv({ 'v1:index': ENVELOPE });

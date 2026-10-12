@@ -26,7 +26,7 @@ if Scenario.replay?
   # Replay (M12-1): per-coin daily history via stablecoincharts (ids
   # resolved from the index by symbol -- never hardcoded), truncated to
   # complete days; now/week/month = D-1 and the rows 7/30 days earlier.
-  # D12-b caveat: DefiLlama occasionally restates supply series.
+  # Replay-fidelity caveat: DefiLlama occasionally restates supply series.
   begin
     ids = (data['peggedAssets'] || [])
           .select { |a| %w[USDT USDC].include?(a['symbol']) }

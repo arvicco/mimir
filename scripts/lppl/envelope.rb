@@ -20,7 +20,7 @@
 #   score  0  below strong bound but persistence not yet met (stressed)
 #   score -1  strong form broken (>= 45d) or weak form broken (>= 30d)
 #
-# FREEZE RULE (M11-5, owner ruling 2026-08-29, register R-8 / was D9-g):
+# FREEZE RULE (M11-5, owner ruling 2026-08-29):
 # the operative bound and floor are FROZEN measurements -- each historical
 # trough's ratio against the trend AS FITTED ON DATA UP TO THAT TROUGH --
 # so today's re-estimated trend cannot drag the reference thresholds
@@ -82,7 +82,7 @@ floor = frozen_ok ? hist_frozen.min  : floor_live # weak form threshold
 r_now = ratio_at.(p[:days].size - 1)
 
 # freeze_candidate keeps its M9-4 field for ledger/dashboard continuity;
-# since the R-8 adoption it IS the operative bound.
+# since the 2026-08-29 adoption it IS the operative bound.
 freeze_candidate = frozen_ok ? bound.round(3) : nil
 
 # consecutive days below each threshold, walking back from today

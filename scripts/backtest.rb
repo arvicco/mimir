@@ -2,7 +2,7 @@
 # frozen_string_literal: true
 #
 # backtest.rb -- CURRENT-vs-PROPOSED signal backtests over the scenario
-# history (M12-3, Q-20). The "proposals arrive with a backtest" tool:
+# history (M12-3). The "proposals arrive with a backtest" tool:
 # every future Golden-Rule-4 threshold/band proposal attaches this
 # script's output instead of arriving as opinion.
 #
@@ -32,7 +32,7 @@
 # HONESTY
 #   Descriptive only -- no p-values, no verdicts (the engine emits
 #   none); n_eff (n / horizon) says how few INDEPENDENT observations an
-#   overlapping-window mean really has. Staged rows carry every D12-b
+#   overlapping-window mean really has. Staged rows carry every replay-fidelity
 #   fidelity caveat (complete-days windows, cb_premium proxy, revised
 #   FRED); the output says so. This script publishes nothing and
 #   changes no semantics.
@@ -105,8 +105,8 @@ module Backtest
       return
     end
 
-    io.puts format('backtest: %d days (%d organic + %d replayed -- D12-b fidelity ' \
-                   'caveats apply to replayed rows)', rows.size, counts[:organic], counts[:replayed])
+    io.puts format('backtest: %d days (%d organic + %d replayed -- the replay-fidelity ' \
+                   'caveats in docs/METHODOLOGY.md apply to replayed rows)', rows.size, counts[:organic], counts[:replayed])
     io.puts format('bands: CURRENT %s | PROPOSED %s%s',
                    CURRENT_BANDS.join('/'), bands.join('/'),
                    bands == CURRENT_BANDS ? ' (sanity run: identical)' : '')

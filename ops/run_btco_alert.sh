@@ -7,7 +7,7 @@
 #   User-Agent -- and any PATH additions), then exec ops/btco_alert.rb from
 #   the repo root. The alert runs `ingest.rb --dry --json`: a list-and-count
 #   discovery only -- NO document fetch, NO AI, NO state mutation, NO API
-#   spend (decision D6-a). btco_alert.rb ALWAYS exits 0 (the `ING ?` status
+#   spend (owner decision 2026-07-06). btco_alert.rb ALWAYS exits 0 (the `ING ?` status
 #   token, not the exit code, is how a broken discovery becomes visible), so
 #   launchd never alarms on this job.
 #

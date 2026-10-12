@@ -1,13 +1,15 @@
 # frozen_string_literal: true
 #
-# health.rb -- scripts health-check framework (TOOL-REVIEW.md F-18+).
+# health.rb -- scripts health-check framework (Phase-0 tool review onward).
 #
 #   rake health          offline: conventions/interface scan + registry
-#                        integrity (part of the pre-commit gate)
+#                        integrity + public-repo hygiene (private board
+#                        ids, unregistered hosts) -- part of the
+#                        pre-commit gate
 #   rake health:sources  NETWORK: probe every registered upstream data
 #                        source and validate its response shape, so
 #                        upstream degradation (key-gating, dead or moved
-#                        endpoints -- the F-16/F-17 class) is caught
+#                        endpoints -- the dead-price-source class) is caught
 #                        deliberately, not mid-analysis
 #
 # Registry discipline: every entry names the file that owns the source
@@ -15,6 +17,7 @@
 # `rake health` fails if the registry drifts from the code.
 
 require 'json'
+require 'uri'
 require 'rexml/document'
 require_relative 'http'
 require_relative 'flows'
@@ -70,6 +73,12 @@ module BTC
         marker: 'fapi/v1/premiumIndex',
         url: 'https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT',
         check: ->(b) { JSON.parse(b).key?('lastFundingRate') } },
+      # M14-6: cb_premium's spot leg -- hard-coded but never registered
+      # (found by the unregistered-host sweep).
+      { name: 'binance spot', src: 'scripts/scenario/cb_premium.rb',
+        marker: 'api.binance.com/api/v3/ticker/price',
+        url: 'https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT',
+        check: ->(b) { JSON.parse(b)['price'].to_f > 0 } },
       { name: 'coinbase ticker', src: 'scripts/scenario/cb_premium.rb',
         marker: 'api.exchange.coinbase.com/products/BTC-USD/ticker',
         url: 'https://api.exchange.coinbase.com/products/BTC-USD/ticker',
@@ -83,7 +92,7 @@ module BTC
         url: 'https://stablecoins.llama.fi/stablecoins?includePrices=false',
         check: ->(b) { JSON.parse(b)['peggedAssets'].to_a.any? { |a| a['symbol'] == 'USDT' } } },
       # soft: farside direct is intermittently Cloudflare-challenged
-      # (F-23); the module falls back, so degradation here WARNs
+      # (seen 2026-07); the module falls back, so degradation here WARNs
       # instead of failing the probe run.
       { name: 'farside etf flows', src: 'scripts/scenario/etf_flows.rb',
         marker: 'farside.co.uk/btc', soft: true,
@@ -116,7 +125,7 @@ module BTC
         url: 'https://open-api-v4.coinglass.com/api/futures/funding-rate/oi-weight-history?symbol=BTC&interval=8h',
         headers: -> { { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] } },
         check: ->(b) { j = JSON.parse(b); j['code'].to_s == '0' && !j['data'].to_a.empty? } },
-      # soft: M10-2 P-6 crowd-positioning inputs via the BTC::Coinglass
+      # soft: M10-2 crowd-positioning inputs via the BTC::Coinglass
       # seam -- a dead endpoint degrades a positioning strip (fail-soft),
       # never a score, so degradation WARNs. Daily cadence (tier-safe);
       # the ratio/liquidation endpoints carry their REQUIRED probe params.
@@ -145,13 +154,13 @@ module BTC
         url: 'https://open-api-v4.coinglass.com/api/futures/liquidation/aggregated-history?symbol=BTC&interval=1d&exchange_list=Binance,OKX,Bybit',
         headers: -> { { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] } },
         check: ->(b) { j = JSON.parse(b); j['code'].to_s == '0' && !j['data'].to_a.empty? } },
-      # M12-4 (Q-12): the independent bubble-index cross-reference.
+      # M12-4: the independent bubble-index cross-reference.
       { name: 'coinglass bubble index', src: 'lib/btc/coinglass.rb',
         marker: 'index/bitcoin/bubble-index', env: 'COINGLASS_API_KEY', soft: true,
         url: 'https://open-api-v4.coinglass.com/api/index/bitcoin/bubble-index',
         headers: -> { { 'CG-API-KEY' => ENV['COINGLASS_API_KEY'] } },
         check: ->(b) { j = JSON.parse(b); j['code'].to_s == '0' && !j['data'].to_a.empty? } },
-      # M11-7 (P-8): exchange BTC reserves -- snapshot list + daily history.
+      # M11-7: exchange BTC reserves -- snapshot list + daily history.
       { name: 'coinglass exchange balance list', src: 'lib/btc/coinglass.rb',
         marker: 'exchange/balance/list', env: 'COINGLASS_API_KEY', soft: true,
         url: 'https://open-api-v4.coinglass.com/api/exchange/balance/list?symbol=BTC',
@@ -185,7 +194,7 @@ module BTC
         marker: 'data.strategytracker.com', soft: true,
         url: 'https://data.strategytracker.com/latest.json',
         check: ->(b) { JSON.parse(b).fetch('files').key?('full') } },
-      # soft: non-US quote source (D8-f) -- a dead quote drops the row
+      # soft: non-US quote source (owner ruling 2026-07-10) -- a dead quote drops the row
       # (fail-soft by design), never blanks the card.
       { name: 'yahoo quote (non-US)', src: 'scripts/btco/btco.rb',
         marker: 'query1.finance.yahoo.com/v8/finance/chart', soft: true,
@@ -241,7 +250,7 @@ module BTC
           loc = "#{path}:#{i + 1}"
           bad << "#{loc}: HTTP outside the seam (use BTC::Http)" if
             line =~ /\bNet::HTTP\b|\bURI\(/
-          bad << "#{loc}: brace-less trailing hash at a keyword-taking call (F-18)" if
+          bad << "#{loc}: brace-less trailing hash at a keyword-taking call (it binds to the headers param)" if
             line =~ /\bHttp\.(?:get|post|get_json)\([^){}\n]*=>/
           bad << "#{loc}: raw /tmp write (use BTC::Report.status)" if
             line =~ %r{File\.write\(['"]/tmp}
@@ -258,6 +267,156 @@ module BTC
     def scan_frozen(files)
       files.reject { |_, c| c.lines.first(3).any? { |l| l.include?('frozen_string_literal: true') } }
            .map { |path, _| "#{path}: missing frozen_string_literal" }
+    end
+
+    # ---- offline: public-repo hygiene (M14-6) -------------------------
+    #
+    # PRIVATE-ID GUARD. Owner declaration 2026-10-12: this is a PUBLIC
+    # repo whose work boards live in the gitignored .docs/. Ids that
+    # resolve ONLY in those boards are PRIVATE and may not appear in any
+    # tracked file (code, comments, docs, runtime strings, fixtures):
+    # register/incident ids (with or without the numero sign), queue
+    # ids Q-<n> and the older P-<n>, review findings F-<n>, and phase
+    # decision ids D<digits>-<letter> (incl. slash/dot ranges). PUBLIC
+    # and fine: M<digits>-<digits> packet ids, phase numbers, PR numbers.
+    # Replace an id with its content (a date, "owner ruling <date>", a
+    # plain clause) -- never delete the information, only the pointer.
+    # The two lines tagged with the marker below are the guard's own
+    # pattern definition: the single allowed exception (declared 2026-10-12).
+    # Boundary calls (owner review 2026-10-12): skuld slice ids S-A..S-H
+    # are PUBLIC sub-phase cross-references, like M-n packet ids (not in
+    # the pattern); naming .docs/ FILE PATHS in tracked files is allowed --
+    # the ban is on register ids, not on naming the boards.
+    HYGIENE_SELF   = 'lib/btc/health.rb'
+    HYGIENE_MARKER = '# hygiene: pattern-definition (owner declaration 2026-10-12)'
+    PRIVATE_ID_RE  = /(?<![\w-])(?:№?[RIQFP]-\d+(?!\d)|D\d+-[a-z](?![A-Za-z0-9]))/ # hygiene: pattern-definition (owner declaration 2026-10-12)
+
+    # git's own heuristic: a NUL byte in the first 8000 bytes = binary.
+    def binary?(bytes)
+      bytes.b[0, 8000].include?("\0")
+    end
+
+    # -> [[line_no, id], ...] for one text blob.
+    def private_id_hits(text)
+      text = text.dup.force_encoding('UTF-8').scrub
+      text.each_line.with_index(1).flat_map do |line, i|
+        line.scan(PRIVATE_ID_RE).map { |id| [i, id] }
+      end
+    end
+
+    # files: { relative_path => raw bytes }. Binaries are skipped by
+    # content sniff (never by path); the guard file's tagged
+    # pattern-definition lines are the only exception.
+    def scan_private_ids(files)
+      files.flat_map do |path, bytes|
+        next [] if binary?(bytes)
+
+        lines = bytes.dup.force_encoding('UTF-8').scrub.lines
+        private_id_hits(bytes).filter_map do |i, id|
+          next if path == HYGIENE_SELF && lines[i - 1].include?(HYGIENE_MARKER)
+
+          "#{path}:#{i}: private board id #{id} in a tracked file " \
+            '(public repo, owner declaration 2026-10-12 -- replace it with its content)'
+        end
+      end
+    end
+
+    # UNREGISTERED-HOST SWEEP. Every http(s) host literal in tracked
+    # runtime files must be a SOURCES-registered host or an entry here --
+    # a hard-coded host nobody registered is never probed by
+    # `rake health:sources` (the registry drift check cannot see it).
+    # Infrastructure endpoints only; each entry carries its reason.
+    HOST_ALLOWLIST = {
+      'localhost'           => 'the local preview server (lib/btc/preview_server.rb, web/ dev hints) -- not a network source',
+      'cdn.jsdelivr.net'    => 'the pinned ECharts CDN tag in web/ -- version + SRI hash enforced by scan_sri',
+      'github.com'          => 'the public repo link in the web/ page footers -- a static link, never fetched',
+      'api.anthropic.com'   => 'the BTCo ingest LLM call (owner-interactive, paid, key-gated) -- not a data source to probe',
+      'www.sec.gov'         => 'EDGAR filing-document links/fetches; data.sec.gov (registered) is the probed EDGAR liveness proxy'
+    }.freeze
+
+    # Files the host sweep covers: runtime Ruby + everything under web/.
+    def host_scope?(path)
+      path.match?(%r{\A(?:scripts|lib|publish|ops)/.+\.rb\z}) || path.start_with?('web/')
+    end
+
+    def hosts_in(text)
+      text.dup.force_encoding('UTF-8').scrub
+          .scan(%r{https?://([A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9])}).flatten
+          .map(&:downcase).uniq
+    end
+
+    # Hosts of every SOURCES url (lambda urls are built, never fetched).
+    # -> [hosts, problems]. A lambda url can carry an ENV secret (FRED's
+    # key rides a query param) and URI errors embed the full URI in their
+    # message, so ANY failure reports the entry NAME only -- never the
+    # url, never the exception text.
+    def registered_hosts_report(sources = SOURCES)
+      hosts = []
+      bad = []
+      sources.each do |s|
+        url = s[:url].respond_to?(:call) ? s[:url].call : s[:url]
+        host = URI.parse(url.to_s).host
+        raise ArgumentError if host.nil? || host.empty?
+
+        hosts << host.downcase
+      rescue StandardError
+        bad << "health hosts: SOURCES entry '#{s[:name]}' -- url unreadable " \
+               '(details withheld: urls may carry secrets)'
+      end
+      [hosts.uniq, bad]
+    end
+
+    def registered_hosts(sources = SOURCES)
+      registered_hosts_report(sources).first
+    end
+
+    # Every allowlist entry must carry a non-empty one-line reason.
+    def check_host_allowlist(list = HOST_ALLOWLIST)
+      list.filter_map do |host, why|
+        next if why.is_a?(String) && !why.strip.empty? && !why.include?("\n")
+
+        "health hosts: allowlist entry #{host} needs a one-line reason"
+      end
+    end
+
+    # files: { relative_path => content }. -> problem strings.
+    def scan_hosts(files, sources = SOURCES, allow = HOST_ALLOWLIST)
+      reg, bad = registered_hosts_report(sources)
+      known = reg + allow.keys
+      bad += check_host_allowlist(allow)
+      files.each do |path, content|
+        next unless host_scope?(path)
+        next if binary?(content)
+
+        content.dup.force_encoding('UTF-8').scrub.each_line.with_index(1) do |line, i|
+          hosts_in(line).each do |h|
+            next if known.include?(h)
+
+            bad << "#{path}:#{i}: host #{h} is not in Health::SOURCES or HOST_ALLOWLIST " \
+                   '(register it so rake health:sources probes it, or allowlist it with a reason)'
+          end
+        end
+      end
+      bad
+    end
+
+    # { path => raw bytes } of every git-tracked file under root.
+    def tracked_files(root = Dir.pwd)
+      list = IO.popen(['git', '-C', root, 'ls-files', '-z'], &:read)
+      return nil unless $?.success?
+
+      list.split("\0").each_with_object({}) do |rel, h|
+        full = File.join(root, rel)
+        h[rel] = File.binread(full) if File.file?(full)
+      end
+    end
+
+    # The rake-health entry point for both hygiene checks.
+    def scan_hygiene(root = Dir.pwd)
+      files = tracked_files(root)
+      return ['hygiene: git ls-files failed -- cannot enumerate tracked files'] unless files
+
+      scan_private_ids(files) + scan_hosts(files)
     end
 
     # SRI drift check for the pinned ECharts CDN tag.

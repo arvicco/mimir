@@ -540,7 +540,7 @@ or spend any API budget. It writes a one-glance token to
   The count is filings-not-yet-seen; it does not shrink until you ingest
   them.
 - *(nothing)* -- no new filings. The status file is empty on quiet days
-  by design (D8-a), so the bar stays clean; there is nothing to do.
+  by design (owner ruling 2026-07-06), so the bar stays clean; there is nothing to do.
 - `ING ?` -- **discovery is broken.** A broken alert is shown, never
   hidden. Diagnose with the one command below.
 
@@ -639,7 +639,7 @@ moving parts are.*
 
 **What runs when.**
 - `com.mimir.publish` -> `ops/run_publish.sh` -> `publish/publish.rb`
-  LIVE, every **7200s (2h)**, decision D5-a. Runs the four analytics
+  LIVE, every **7200s (2h)**, owner decision 2026-07-06. Runs the four analytics
   suites as subprocesses and writes all 13 KV keys in one pass. launchd
   starts no second instance while one is in flight (no `KeepAlive`), so a
   long publish just defers the next tick.

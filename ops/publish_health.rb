@@ -13,7 +13,7 @@
 #
 # Optional ARGV[0] = path to the status file (default /tmp/publish.status).
 # ENV MIMIR_PUBLISH_INTERVAL_MIN = expected publish cadence in minutes
-#   (default 120, decision D5-a: bi-hourly cron, StartInterval 7200).
+#   (default 120, owner decision 2026-07-06: bi-hourly cron, StartInterval 7200).
 #
 # Output contract (--tmux, FROZEN -- additive only; update
 # test/unit/test_publish_health.rb in the same commit as any change;
@@ -60,7 +60,7 @@ require 'time'
 module Ops
   module PublishHealth
     DEFAULT_PATH     = '/tmp/publish.status'
-    DEFAULT_INTERVAL = 120 # minutes, decision D5-a
+    DEFAULT_INTERVAL = 120 # minutes, owner decision 2026-07-06
 
     STATUS_RE = /\APUB (\w+) (\d+)\/(\d+) keys/
 

@@ -26,7 +26,7 @@ class TestGexContract < Minitest::Test
   COMBINED_SUB  = %w[net_gex_usd_per_1pct regime gamma_flip call_wall
                      put_wall put_call_oi_btc instruments].freeze
 
-  # F-20: the pre-fix recording captured a parser-dead CBOE board; the
+  # The pre-fix recording captured a parser-dead CBOE board; the
   # gex_us pins self-enable once the owner re-records under the fixed trim.
   def cboe_fixture_live?
     data = JSON.parse(File.read(File.join(ROOT, 'test/fixtures/cboe_options.json')))['data']
@@ -40,7 +40,7 @@ class TestGexContract < Minitest::Test
   def skip_unless_cboe_live
     return if cboe_fixture_live?
 
-    skip 'cboe_options.json is parser-dead (F-20) -- owner: rake fixtures:record'
+    skip 'cboe_options.json is parser-dead (only expired/zero-OI rows) -- owner: rake fixtures:record'
   end
 
   def assert_wall(wall, level_key)
@@ -104,7 +104,7 @@ class TestGexContract < Minitest::Test
   def test_gex_us_single_ticker_is_one_object
     skip_unless_cboe_live
     j = run_json('scripts/gex_us.rb', 'IBIT', '--json')
-    assert_kind_of Hash, j # F-10: single ticker -> ONE OBJECT
+    assert_kind_of Hash, j # single ticker -> ONE OBJECT
     assert_contract_keys GEX_US_KEYS, j, 'gex_us.rb'
     assert_equal 'IBIT', j['ticker']
     assert_includes %w[short_gamma long_gamma], j['regime']
@@ -124,7 +124,7 @@ class TestGexContract < Minitest::Test
   def test_gex_us_multi_ticker_is_array
     skip_unless_cboe_live
     j = run_json('scripts/gex_us.rb', 'IBIT', 'IBIT', '--json')
-    assert_kind_of Array, j # F-10: multiple tickers -> ARRAY
+    assert_kind_of Array, j # multiple tickers -> ARRAY
     assert_equal 2, j.size
     j.each do |o|
       assert_contract_keys GEX_US_KEYS, o, 'gex_us.rb[]'

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 #
 # backfill.rb -- staged sequential rebuild of the scenario history via
-# the --as-of replay mode (M12-2, Q-20; the lppl M6-2 pattern).
+# the --as-of replay mode (M12-2; the lppl M6-2 pattern).
 #
 #   rake scenario:backfill        # START -> yesterday into staging
 #   rake scenario:backfill_diff   # staged-vs-live overlap report (read-only)
@@ -19,7 +19,7 @@
 # START (default 2026-04-01, override SCENARIO_BACKFILL_FROM): bounded
 # by the shallowest replay source -- Binance funding serves ~500 8h
 # rows (~5.5 months); earlier days would replay funding as fail-soft
-# and the row would be marked degraded. The D12-b fidelity caveats
+# and the row would be marked degraded. The replay-fidelity caveats
 # apply to every staged row (complete-days windows; cb_premium proxy;
 # revised FRED series).
 #
@@ -119,7 +119,7 @@ module ScenarioBackfill
 
   # Read-only staged-vs-live overlap report: for every shared date,
   # compare composite/regime/per-module scores. Divergences are EXPECTED
-  # in known classes (D12-b): complete-days windows vs a partial same-day
+  # in known classes (the replay-fidelity table): complete-days windows vs a partial same-day
   # point, the cb_premium proxy, revised FRED series, self-healed organic
   # rows. The report exists so those classes are SEEN, not assumed.
   def diff(staged_path = staged_history, live_path = nil, io: $stdout)
@@ -144,7 +144,7 @@ module ScenarioBackfill
       mismatches += 1
       io.puts format('  %s  %s', d, fields.join(' · '))
     end
-    io.puts format('backfill diff: %d/%d shared dates diverge (see the D12-b caveats ' \
+    io.puts format('backfill diff: %d/%d shared dates diverge (see the replay-fidelity caveats ' \
                    'in docs/METHODOLOGY.md before reading anything into them)',
                    mismatches, shared.size)
     mismatches

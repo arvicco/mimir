@@ -48,7 +48,8 @@ task :health do
         BTC::Health.registry_integrity(Dir.pwd) +
         BTC::Health.scan_sri(pages) +
         BTC::Health.scan_ops('ops') +
-        BTC::Health.scan_worktrees
+        BTC::Health.scan_worktrees +
+        BTC::Health.scan_hygiene(Dir.pwd)
 
   if bad.empty?
     puts "health: OK (#{scripts.size + libs.size} files, " \
@@ -118,7 +119,7 @@ end
 
 namespace :lppl do
   desc 'Staged LPPL ledger backfill via --as-of replay (writes ONLY to ' \
-       'data/lppl_backfill_staging/; resumable; ~3 s/day). M6-2 / D7-a.'
+       'data/lppl_backfill_staging/; resumable; ~3 s/day). M6-2; window from the Oct-2025 peak.'
   task :backfill do
     require_relative 'scripts/lppl/backfill'
     exit 1 unless Lppl::Backfill.run
@@ -143,7 +144,7 @@ namespace :lppl do
 end
 
 namespace :scenario do
-  desc 'Staged scenario-history backfill via --as-of replay (M12-2, Q-20: ' \
+  desc 'Staged scenario-history backfill via --as-of replay (M12-2: ' \
        'writes ONLY to data/scenario_backfill_staging/; resumable; NETWORK ' \
        '-- fetches each history source once via the staged cache)'
   task :backfill do

@@ -1,14 +1,14 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 #
-# reserves.rb -- P-8 exchange-reserve module (M11-7). Watches BTC sitting
+# reserves.rb -- exchange-reserve module (M11-7). Watches BTC sitting
 # on exchanges: coins leaving (self-custody drain) historically precede or
 # accompany accumulation; coins piling up are sellable supply overhang.
 #
 # GOVERNANCE -- this module enters the scenario composite at WEIGHT 0
 # (display only). Its score is reported and charted, never weighted, until
 # the owner rules on the scorecard (SHADOW-FIRST, Golden Rule 4). The
-# semantics below are FIXED by owner ruling R-11 / D11-a (2026-08-29); do
+# semantics below are FIXED by owner ruling (2026-08-29); do
 # not tune them without a new ruling.
 #
 # USAGE
@@ -17,7 +17,7 @@
 #   ruby reserves.rb --history  # append one row per UTC day to
 #                               #   <data>/reserves/history.jsonl
 #
-# SEMANTICS (R-11 / D11-a, FIXED)
+# SEMANTICS (owner ruling 2026-08-29, FIXED)
 #   Source series: Coinglass exchange/balance/chart -- daily per-exchange
 #   BTC balances (~676 days x 22 venues at adoption).
 #   Signal: the 30-DAY PERCENT CHANGE of AGGREGATE reserves (delta
@@ -35,7 +35,7 @@
 #   Fewer than 91 trailing deltas => WARMUP, score 0 (not expected live:
 #   the source serves ~676 days, so bands are real from day one).
 #
-# KILL CRITERIA (pre-registered, R-11): this module is REMOVED, not
+# KILL CRITERIA (pre-registered, 2026-08-29): this module is REMOVED, not
 # tuned, if (a) the source is dead for 14+ consecutive days, or (b) after
 # 120 days the signal scorecard shows its score bands do not separate 30d
 # forward returns from the unconditional row.

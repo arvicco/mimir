@@ -4,7 +4,7 @@
 # onchain_value.rb -- MVRV and realized price from the free Coin Metrics
 # community API. Slow floor gauge: prior cycle bottoms formed at
 # MVRV ~0.75-0.85 with spot converging on realized price.
-# Since 2026-07 the community tier gates CapRealUSD (F-19), so MVRV is
+# Since 2026-07 the community tier gates CapRealUSD, so MVRV is
 # read directly (CapMVRVCur) and realized price derived as
 # PriceUSD / MVRV -- identical quantities, same provider.
 #
