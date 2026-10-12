@@ -211,8 +211,10 @@ INSIDE mimir; plan-13 approved 2026-09-04) built on branch phase-13:
 BTC::Stats extraction, scoring rules, the SVI/BL density engine,
 the dist producer (daily ledger + raw board snapshots + --as-of
 replay + resolution scoring), IBIT KL divergence, the VRP tilt
-(Golden-Rule-4 item, both densities scored forever), publish 33->39
-keys + the three-section dist card. Gate 13 pending
+(Golden-Rule-4 item, both densities scored forever), publish 33->38
+keys; the dist family rides the scenario card's linked
+[SCENARIOS][DIST] tabs (fan + PIT overlay / edge strip, owner
+interface rulings 2026-10-12). Gate 13 pending
 (.docs/Gate-13-runbook.md; five pre-registered research questions
 bless at the gate). Queue items are Q-n since 2026-08-30 (P reserved
 for phases); skuld slices S-C..S-H in .docs/SKULD-PLAN.md. Active owner items

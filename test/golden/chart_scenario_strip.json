@@ -58,8 +58,8 @@
     {
       "type": "value",
       "gridIndex": 0,
-      "min": -1,
-      "max": 1,
+      "min": -0.58,
+      "max": 0.48,
       "name": "composite",
       "axisLabel": {
         "show": false
@@ -199,7 +199,7 @@
             }
           },
           {
-            "yAxis": -0.7,
+            "yAxis": -0.58,
             "lineStyle": {
               "opacity": 0
             },
@@ -243,12 +243,12 @@
             }
           },
           {
-            "yAxis": 0.7,
+            "yAxis": 0.48,
             "lineStyle": {
               "opacity": 0
             },
             "label": {
-              "position": "insideStartTop",
+              "position": "insideStartBottom",
               "formatter": "RECOVERY",
               "color": "#6b7178"
             }

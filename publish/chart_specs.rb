@@ -442,15 +442,20 @@ module Publish
                     'line for each reading. A hollow/grey point is a day ' \
                     'recorded during a data outage (composite forced to 0) -- ' \
                     'not a real neutral print.',
-          # renderer hook: half-height card (owner review 2026-07-05 --
-          # the strip was vertically stretched at full quadrant height)
-          'height' => 250,
+          # renderer hook: compact card (owner review 2026-07-05; tightened
+          # again 2026-10-12 with the data-hugging composite axis)
+          'height' => 200,
           # M9-15: each module name on the scoreboard axis explains itself
           # (canvas label -> styled popover; keys are the module `mod`s).
           'terms' => SCENARIO_TERMS,
-          # M10-9 (owner ruling 2026-08-13): the scorecard shares this card
-          # as a second tab -- the audit lives next to what it audits.
-          'tab_group' => 'scenario', 'tab_label' => 'SCENARIO', 'tab_pos' => 0
+          # Owner interface ruling 2026-10-12: the scenario card is a
+          # two-section STACK with linked [SCENARIOS][DIST] tabs (the GEX
+          # card idiom). Section 0 = this strip / the dist fan; section 1
+          # = the scorecard / the edge strip. The scorecard thus sits in
+          # the lower part of the card (no SCORES tab), and the dist
+          # family rides the second tab instead of its own card.
+          'tab_group' => 'scenario', 'group_style' => 'stack',
+          'tab_label' => 'SCENARIOS', 'tab_pos' => 0
         }
       },
       'lppl_regime' => {
@@ -791,8 +796,13 @@ module Publish
           # sized to the curated row count (3 ALL rows + their bands + a
           # header row); a category axis spreads the rows to fit.
           'height' => 330,
-          # M10-9 (owner ruling 2026-08-13): second tab on the scenario card.
-          'tab_group' => 'scenario', 'tab_label' => 'SCORES', 'tab_pos' => 1
+          # Owner interface ruling 2026-10-12 (supersedes the M10-9 SCORES
+          # tab): the scorecard is the scenario card's LOWER stacked
+          # section -- always visible under the strip on the SCENARIOS
+          # tab, flipping to the edge strip on the DIST tab (linked
+          # [SCENARIOS][DIST] tab pairs, the GEX card idiom).
+          'tab_group' => 'scenario', 'group_style' => 'stack',
+          'tab_label' => 'SCENARIOS', 'tab_pos' => 1
         }
       },
       # M10-4 (P-6, owner ruling D10-c): the crowd-positioning card. Three
@@ -837,9 +847,11 @@ module Publish
           'terms' => POSITIONING_TERMS
         }
       },
-      # ---- the dist card (M13-9, skuld S-B): one stacked card, three
-      # sections -- quantile fan / edge ratio / PIT calibration. All read
-      # the single dist:latest payload.
+      # ---- the dist family (M13-9, skuld S-B; owner interface ruling
+      # 2026-10-12): rides the SCENARIO card as the DIST side of its
+      # linked [SCENARIOS][DIST] tab pairs -- fan (with the PIT audit
+      # overlaid) in the upper section, edge strip in the lower. Both
+      # read the single dist:latest payload.
       'dist_fan' => {
         inputs: %w[payload_dist_latest.json], fn: :dist_fan,
         meta: {
@@ -849,20 +861,27 @@ module Publish
                     'Breeden-Litzenberger). Five quantile lines fan out from ' \
                     'spot: 5/25/50/75/95%. The teal dashed line is the ' \
                     'real-world median once the VRP tilt has history. A * on ' \
-                    'a horizon = extrapolated beyond the last liquid expiry ' \
-                    '(METHODOLOGY.md).',
+                    'a horizon = extrapolated beyond the last liquid expiry. ' \
+                    'The faint bars are the PIT calibration audit -- where ' \
+                    'realized closes landed inside the published density, 10 ' \
+                    'bins, flat at 0.10 = calibrated (METHODOLOGY.md).',
           'axes' => { 'x' => 'horizon -- now, then 7/30/90 days out ' \
-                             '(* = extrapolated past the last liquid expiry)',
-                      'y' => 'BTC price, thousands of dollars' },
+                             '(* = extrapolated past the last liquid expiry); ' \
+                             'the PIT bars ride their own hidden 0..1 bin axis',
+                      'y' => 'BTC price, thousands of dollars (left); PIT ' \
+                             'share of resolutions per bin (right, 0..1)' },
           'help' => 'Hover a horizon for all five quantiles. The distance ' \
                     'between the 5% and 95% lines is what the option market ' \
                     'charges for uncertainty at that horizon; the median ' \
                     'sits below the forward (lognormal drift). rwm median ' \
                     'appearing above/below the rn median shows which way ' \
-                    'the VRP tilt moves the forecast.',
+                    'the VRP tilt moves the forecast. PIT bars: a U-shape ' \
+                    'means the published tails were too thin, a hump too ' \
+                    'fat; judge nothing before a few dozen resolutions.',
           'terms' => DIST_TERMS,
-          'tab_group' => 'dist', 'group_style' => 'stack', 'tab_pos' => 0,
-          'height' => 250
+          'tab_group' => 'scenario', 'group_style' => 'stack',
+          'tab_label' => 'DIST', 'tab_pos' => 0,
+          'height' => 200
         }
       },
       'dist_edge' => {
@@ -884,34 +903,14 @@ module Publish
                     'market prices it. Empty until the vol history has 10+ ' \
                     'matured IV/RV windows -- the tilt refuses to guess.',
           'terms' => DIST_TERMS,
-          'tab_group' => 'dist', 'group_style' => 'stack', 'tab_pos' => 1,
-          'height' => 185
+          # lower stacked section of the scenario card's DIST tab, paired
+          # with the scorecard (owner interface ruling 2026-10-12); height
+          # matches the scorecard so the card never jumps on a tab flip.
+          'tab_group' => 'scenario', 'group_style' => 'stack',
+          'tab_label' => 'DIST', 'tab_pos' => 1,
+          'height' => 330
         }
       },
-      'dist_pit' => {
-        inputs: %w[payload_dist_latest.json], fn: :dist_pit,
-        meta: {
-          'axis_terms' => AXIS_TERMS,
-          'desc' => 'The calibration audit: where realized closes actually ' \
-                    'landed inside the published risk-neutral density (PIT, ' \
-                    '10 bins), one bar series per horizon. A calibrated ' \
-                    'density is flat at 0.10; a U-shape means the published ' \
-                    'tails were too thin, a hump too fat. Fills in as ' \
-                    'horizons mature -- 7d first (METHODOLOGY.md).',
-          'axes' => { 'x' => 'PIT bin -- where the realized close fell in the ' \
-                             'published cumulative distribution (0 = below ' \
-                             'everything, 1 = above everything)',
-                      'y' => 'share of that horizon\'s resolutions in the bin' },
-          'help' => 'Bars per horizon (7/30/90d), share of resolutions per ' \
-                    'bin against the dashed uniform line. Early on the card ' \
-                    'says how many horizons have resolved; judge nothing ' \
-                    'before a few dozen. This chart is the referee for the ' \
-                    'pre-registered VRP question.',
-          'terms' => DIST_TERMS,
-          'tab_group' => 'dist', 'group_style' => 'stack', 'tab_pos' => 2,
-          'height' => 165
-        }
-      }
     }.freeze
 
     module_function
@@ -1240,6 +1239,16 @@ module Publish
       # heatmap is now a vertical column: [col 0, row = module index, score]
       heat     = modules.each_with_index.map { |m, i| [0, i, m['score']] }
 
+      # Owner interface ruling 2026-10-12: the composite axis hugs the
+      # data instead of the theoretical [-1, 1] -- the fixed range left
+      # the upper (and lower) third of the plot permanently empty. The
+      # range always covers the +/-0.40 threshold lines (plus label
+      # headroom) and stretches further only when a print actually goes
+      # there; the outer FLUSH/RECOVERY band labels ride the plot edges.
+      vals = comp.map { |pt| (pt.is_a?(Hash) ? pt['value'] : pt)[1].to_f }
+      y_lo = [((vals.min || 0.0) - 0.08), -0.48].min.round(2)
+      y_hi = [((vals.max || 0.0) + 0.08), 0.48].max.round(2)
+
       {
         # the renderer inits with the ECharts DARK THEME (professionally
         # tuned text/legend/axis colors incl. dim-inactive legend states);
@@ -1270,7 +1279,7 @@ module Publish
           # name rides the axis (rotated, left gutter): at the default top
           # position it collided with the one-line title, and at the bottom
           # it would collide with the time labels (owner review round 4)
-          { 'type' => 'value', 'gridIndex' => 0, 'min' => -1, 'max' => 1,
+          { 'type' => 'value', 'gridIndex' => 0, 'min' => y_lo, 'max' => y_hi,
             'name' => 'composite',
             # ticks off: the dashed band lines label the same values, and
             # the axis name/context lives in the hover (2026-08-30 r3)
@@ -1294,7 +1303,7 @@ module Publish
           { 'name' => 'composite', 'type' => 'line', 'xAxisIndex' => 0,
             'yAxisIndex' => 0, 'showSymbol' => true, 'symbol' => 'circle', 'symbolSize' => 6,
             'lineStyle' => { 'color' => '#3b6ea5' }, 'data' => comp,
-            'markLine' => scenario_bands },
+            'markLine' => scenario_bands(y_lo, y_hi) },
           { 'name' => 'modules', 'type' => 'heatmap', 'xAxisIndex' => 1,
             'yAxisIndex' => 1, 'data' => heat,
             'label' => { 'show' => true, 'formatter' => '{@[2]}' } }
@@ -1321,7 +1330,12 @@ module Publish
 
     # Four dashed boundary lines (numeric label on the left) plus five
     # invisible carrier lines whose only job is a right-flush band label.
-    def scenario_bands
+    # Since the 2026-10-12 tight-axis ruling the two OUTER band labels
+    # (FLUSH/RECOVERY, nominal +/-0.70) ride the plot edges instead --
+    # their carrier y clamps into [lo, hi] and the label flips to the
+    # inside of the respective edge, so the outer zones stay named at
+    # any axis range.
+    def scenario_bands(lo, hi)
       thresholds = SCN_THRESHOLDS.map do |t|
         { 'yAxis' => t, 'lineStyle' => { 'type' => 'dashed', 'color' => '#c9ccd1' },
           # inside, not 'start': round 3 collapsed the left margin, so an
@@ -1333,8 +1347,13 @@ module Publish
       # band labels sit INSIDE the plot at the left edge so the narrow
       # heatmap column can hug the right without a wide right margin.
       bands = SCN_BANDS.map do |y, name|
-        { 'yAxis' => y, 'lineStyle' => { 'opacity' => 0 },
-          'label' => { 'position' => 'insideStartTop', 'formatter' => name,
+        clamped = y.clamp(lo, hi)
+        pos = if clamped >= hi then 'insideStartBottom' # top edge: label below
+              elsif clamped <= lo then 'insideStartTop' # bottom edge: label above
+              else 'insideStartTop'
+              end
+        { 'yAxis' => clamped, 'lineStyle' => { 'opacity' => 0 },
+          'label' => { 'position' => pos, 'formatter' => name,
                        'color' => '#6b7178' } }
       end
       { 'symbol' => 'none', 'silent' => true, 'data' => thresholds + bands }
@@ -2629,7 +2648,9 @@ module Publish
 
     # ---- dist family (M13-9, skuld S-B) --------------------------------
     #
-    # All three sections read the ONE dist:latest payload. The fan is a
+    # Both charts read the ONE dist:latest payload; since the 2026-10-12
+    # interface ruling they ride the scenario card's DIST tab (fan with
+    # the PIT audit overlaid, edge strip below). The fan is a
     # quantile-line family (NOT stacked areas: stacked deltas poison the
     # axis tooltip, and five honest lines hover to their real values).
     # The family shares one hue so it reads as one object; the rwm
@@ -2668,18 +2689,74 @@ module Publish
                     'data' => [spot] + hs.map { |h| dist_k(h['median_rwm']) } }
       end
 
+      # Owner interface ruling 2026-10-12: the PIT calibration audit is
+      # an OVERLAY on this chart (the vol_spread idiom -- heterogeneous
+      # series, second axis pair), not a separate stacked section: faint
+      # bars from the bottom on their own hidden bin axis (x1, top) and
+      # a right-hand share axis (y1, fixed [0,1] so shares stay
+      # comparable as resolutions accumulate), behind the fan lines.
+      # Empty state = placeholder ['']/[nil] content (empty containers
+      # are BANNED -- Ruby 3.3 golden parity) + a dim corner note.
+      scoring = dist['scoring']
+      pit_hs = ((scoring && scoring['horizons']) || [])
+               .select { |h| h['n'].to_i.positive? }
+      if pit_hs.empty?
+        pit_x = { 'type' => 'category', 'gridIndex' => 0, 'position' => 'top',
+                  'data' => [''], 'axisLabel' => { 'show' => false },
+                  'axisTick' => { 'show' => false },
+                  # out of the axis pointer: the fan tooltip stays pure
+                  # (a joined bin axis adds a stray '-' row on every hover)
+                  'axisPointer' => { 'show' => false } }
+        pit_y = { 'type' => 'value', 'min' => 0, 'max' => 1, 'show' => false }
+        pit_series = [{ 'type' => 'bar', 'xAxisIndex' => 1, 'yAxisIndex' => 1,
+                        'data' => [nil] }]
+        pit_note = 'PIT awaiting first resolutions'
+        pit_legend = []
+      else
+        pit_x = { 'type' => 'category', 'gridIndex' => 0, 'position' => 'top',
+                  'data' => (0...10).map { |i| format('.%d', i) },
+                  'axisLabel' => { 'show' => false },
+                  'axisTick' => { 'show' => false },
+                  # bin detail stays out of the fan's axis tooltip (one
+                  # line per entity; the bars + uniform line carry it)
+                  'axisPointer' => { 'show' => false } }
+        pit_y = { 'type' => 'value', 'name' => 'share', 'min' => 0, 'max' => 1,
+                  'position' => 'right', 'axisLabel' => { 'margin' => 3 },
+                  'splitLine' => { 'show' => false } }
+        pit_series = pit_hs.map do |h|
+          { 'name' => "#{h['d']}d PIT", 'type' => 'bar',
+            'xAxisIndex' => 1, 'yAxisIndex' => 1, 'z' => 1,
+            'itemStyle' => { 'opacity' => 0.35 },
+            'data' => h.dig('pit_bins', 'rn') || [nil] }
+        end
+        pit_series.first['markLine'] = {
+          'symbol' => 'none', 'silent' => true,
+          'lineStyle' => { 'type' => 'dashed' },
+          'label' => { 'position' => 'insideEndTop', 'formatter' => 'uniform' },
+          'data' => [{ 'yAxis' => 0.10 }]
+        }
+        pit_note = format('PIT resolved %d', scoring['n_resolved'])
+        pit_legend = pit_hs.map { |h| "#{h['d']}d PIT" }
+      end
+
       {
         'backgroundColor' => 'transparent',
         'title' => [{ 'text' => dist_fan_title(dist),
-                      'textStyle' => { 'fontSize' => 13 } }],
+                      'textStyle' => { 'fontSize' => 13 } },
+                    # dim corner note: the audit's status at a glance
+                    { 'text' => pit_note, 'right' => 6, 'top' => 2,
+                      'textStyle' => { 'fontSize' => 10, 'color' => '#6b7178',
+                                       'fontWeight' => 'normal' } }],
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 } },
-        'legend' => { 'top' => 2, 'data' => ['median', 'rwm median'] },
-        'grid' => { 'left' => 34, 'right' => 18, 'top' => 28, 'bottom' => 24 },
-        'xAxis' => { 'type' => 'category', 'data' => cats },
-        'yAxis' => { 'type' => 'value', 'name' => 'BTC $k', 'scale' => true,
-                     'axisLabel' => { 'margin' => 3 } },
-        'series' => series
+        'legend' => { 'top' => 2, 'data' => ['median', 'rwm median'] + pit_legend },
+        'grid' => { 'left' => 34, 'right' => 26, 'top' => 28, 'bottom' => 24 },
+        'xAxis' => [{ 'type' => 'category', 'gridIndex' => 0, 'data' => cats },
+                    pit_x],
+        'yAxis' => [{ 'type' => 'value', 'name' => 'BTC $k', 'scale' => true,
+                      'axisLabel' => { 'margin' => 3 } },
+                    pit_y],
+        'series' => series + pit_series
       }
     end
 
@@ -2745,50 +2822,5 @@ module Publish
       )
     end
 
-    def dist_pit(dist)
-      scoring = dist['scoring']
-      horizons = (scoring && scoring['horizons'] || []).select { |h| h['n'].positive? }
-      base = {
-        'backgroundColor' => 'transparent',
-        'tooltip' => { 'trigger' => 'axis', 'confine' => true,
-                       'textStyle' => { 'fontSize' => 11 } },
-        'grid' => { 'left' => 30, 'right' => 18, 'top' => 28, 'bottom' => 24 },
-        'yAxis' => { 'type' => 'value', 'name' => 'share',
-                     'axisLabel' => { 'margin' => 3 } } # bars: zero baseline
-      }
-      if horizons.empty?
-        # placeholder ['']/[nil] content on purpose -- see dist_edge's
-        # empty state: empty []/{} in an option break golden byte-parity
-        # between Ruby 3.3 (CI) and newer local json pretty-printing.
-        return base.merge(
-          'title' => [{ 'text' => 'awaiting first resolutions',
-                        'textStyle' => { 'fontSize' => 13 } },
-                      { 'text' => 'the 7d horizons mature a week after the first publish',
-                        'left' => 'center', 'top' => '48%',
-                        'textStyle' => { 'fontSize' => 11 } }],
-          'xAxis' => { 'type' => 'category', 'data' => [''] },
-          'series' => [{ 'type' => 'bar', 'data' => [nil] }]
-        )
-      end
-
-      bins = (0...10).map { |i| format('.%d', i) }
-      base.merge(
-        'title' => [{ 'text' => format('rn calibration · resolved %d',
-                                       scoring['n_resolved']),
-                      'textStyle' => { 'fontSize' => 13 } }],
-        'legend' => { 'top' => 2, 'data' => horizons.map { |h| "#{h['d']}d" } },
-        'xAxis' => { 'type' => 'category', 'data' => bins },
-        'series' => horizons.map do |h|
-          { 'name' => "#{h['d']}d", 'type' => 'bar',
-            'data' => h.dig('pit_bins', 'rn') || [],
-            'markLine' => {
-              'symbol' => 'none', 'silent' => true,
-              'lineStyle' => { 'type' => 'dashed' },
-              'label' => { 'position' => 'insideEndTop', 'formatter' => 'uniform' },
-              'data' => [{ 'yAxis' => 0.10 }]
-            } }
-        end
-      )
-    end
   end
 end
