@@ -391,14 +391,19 @@ test('clicking MSTR on the linked bar flips BOTH sections', () => {
 
 test('staleClass walks green/amber/orange/red at 1x/2x/3x ttl', () => {
   const { R } = loadRender();
-  const at = (ageSec) => new Date(Date.now() - ageSec * 1000).toISOString();
-  assert.equal(R.staleClass(at(0), 3600), 'green', 'fresh is green');
-  assert.equal(R.staleClass(at(3600), 3600), 'green', 'exactly ttl is still green');
-  assert.equal(R.staleClass(at(3601), 3600), 'amber', 'past ttl turns amber');
-  assert.equal(R.staleClass(at(7200), 3600), 'amber', 'exactly 2x ttl is still amber');
-  assert.equal(R.staleClass(at(7201), 3600), 'orange', 'past 2x ttl turns orange');
-  assert.equal(R.staleClass(at(10800), 3600), 'orange', 'exactly 3x ttl is still orange');
-  assert.equal(R.staleClass(at(10801), 3600), 'red', 'past 3x ttl is red');
+  // one fixed instant injected into staleClass: the exact-boundary
+  // cases raced the wall clock when staleClass read its own Date.now()
+  // (any ms tick between the two reads turned 3600 into 3600.001 ->
+  // amber -- a latent flake that finally fired on a slow CI runner)
+  const now = Date.now();
+  const at = (ageSec) => new Date(now - ageSec * 1000).toISOString();
+  assert.equal(R.staleClass(at(0), 3600, now), 'green', 'fresh is green');
+  assert.equal(R.staleClass(at(3600), 3600, now), 'green', 'exactly ttl is still green');
+  assert.equal(R.staleClass(at(3601), 3600, now), 'amber', 'past ttl turns amber');
+  assert.equal(R.staleClass(at(7200), 3600, now), 'amber', 'exactly 2x ttl is still amber');
+  assert.equal(R.staleClass(at(7201), 3600, now), 'orange', 'past 2x ttl turns orange');
+  assert.equal(R.staleClass(at(10800), 3600, now), 'orange', 'exactly 3x ttl is still orange');
+  assert.equal(R.staleClass(at(10801), 3600, now), 'red', 'past 3x ttl is red');
 });
 
 // ---- M8-13: re-fetch cadence clamp --------------------------------------
