@@ -20,7 +20,19 @@
 # can read the alerts). It is read from ENV only, never logged, and
 # every error path is redacted. A dead/slow ntfy.sh NEVER breaks the
 # calling agent: push failures are swallowed (fail-soft), the alarm
-# channel must not become an alarm source.
+# channel must not become an alarm source. NTFY_TOPIC is in
+# BTC::Env::SECRET_ENV (M14-3), and outbound title/body text passes
+# through BTC::Env.redact, so the topic cannot leave in a push either.
+#
+# WIRE (M14-3): push POSTs through the BTC::Http seam (BTC::Http.post,
+# injectable via BTC::Http.transport) to https://ntfy.sh/<topic>; the
+# body is the message, Title header defaults to 'mimir', and the
+# optional Priority header (ntfy 1..5) is sent only when given. Only a
+# 2xx counts as delivered. An explicit http: callable (topic, message)
+# still wins over the seam (the original test/caller hook).
+#
+#   BTC::Ntfy.push('regime BASE -> RECOVERY')                # true/false
+#   BTC::Ntfy.push('feed OLD', title: 'mimir: health', priority: 4)
 #
 # STATE: `notify_transition(kind, state, message)` remembers the last
 # pushed state per kind in <data>/ntfy/state.json and pushes only when
@@ -28,11 +40,11 @@
 # daily cap counter lives beside it. Both are plain JSON in the data
 # home -- agents on the live clone share them.
 
-require 'net/http'
 require 'json'
 require 'time'
 require 'fileutils'
 require_relative 'env'
+require_relative 'http'
 
 module BTC
   module Ntfy
@@ -101,19 +113,25 @@ module BTC
 
     # Fire-and-forget POST. Failures are swallowed (fail-soft) -- but the
     # error class is warned WITHOUT the topic or body (redaction).
-    def push(message, http: nil)
+    # title:/priority: are additive (M14-3); nil keeps the historical
+    # wire shape (Title 'mimir', no Priority header).
+    def push(message, http: nil, title: nil, priority: nil)
       t = topic
       return false unless t
 
+      body = BTC::Env.redact(message)
       if http
-        http.call(t, message)
+        http.call(t, body)
       else
-        uri = URI("#{HOST}/#{t}")
-        req = Net::HTTP::Post.new(uri)
-        req.body = message.to_s
-        req['Title'] = 'mimir'
-        Net::HTTP.start(uri.host, uri.port, use_ssl: true,
-                        open_timeout: 5, read_timeout: 10) { |h| h.request(req) }
+        headers = { 'Title' => BTC::Env.redact(title || 'mimir') }
+        headers['Priority'] = priority.to_s unless priority.nil?
+        begin
+          BTC::Http.post("#{HOST}/#{t}", body, headers,
+                         open_timeout: 5, read_timeout: 10)
+        rescue BTC::Http::StatusError => e
+          # BTC::Http.post accepts only 200; any other 2xx is delivered too
+          raise unless (200..299).cover?(e.code)
+        end
       end
       true
     rescue StandardError => e
