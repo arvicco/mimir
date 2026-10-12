@@ -367,20 +367,16 @@
             "show": true,
             "position": "inside",
             "align": "center",
-            "formatter": "{m|-1.41%}\n{s|44.7% n302}",
+            "formatter": "{m|-1.41%} {s|45% n302}",
             "rich": {
               "m": {
                 "color": "#ef6b6b",
                 "fontSize": 12,
-                "fontWeight": "bold",
-                "lineHeight": 15,
-                "align": "center"
+                "fontWeight": "bold"
               },
               "s": {
                 "color": "#8a93a0",
-                "fontSize": 9,
-                "lineHeight": 12,
-                "align": "center"
+                "fontSize": 9
               }
             }
           }
@@ -394,20 +390,16 @@
             "show": true,
             "position": "inside",
             "align": "center",
-            "formatter": "{m|-5.95%}\n{s|43.4% n279}",
+            "formatter": "{m|-5.95%} {s|43% n279}",
             "rich": {
               "m": {
                 "color": "#ef6b6b",
                 "fontSize": 12,
-                "fontWeight": "bold",
-                "lineHeight": 15,
-                "align": "center"
+                "fontWeight": "bold"
               },
               "s": {
                 "color": "#8a93a0",
-                "fontSize": 9,
-                "lineHeight": 12,
-                "align": "center"
+                "fontSize": 9
               }
             }
           }
@@ -421,20 +413,16 @@
             "show": true,
             "position": "inside",
             "align": "center",
-            "formatter": "{m|-16.08%}\n{s|13.7% n219}",
+            "formatter": "{m|-16.08%} {s|14% n219}",
             "rich": {
               "m": {
                 "color": "#ef6b6b",
                 "fontSize": 12,
-                "fontWeight": "bold",
-                "lineHeight": 15,
-                "align": "center"
+                "fontWeight": "bold"
               },
               "s": {
                 "color": "#8a93a0",
-                "fontSize": 9,
-                "lineHeight": 12,
-                "align": "center"
+                "fontSize": 9
               }
             }
           }
@@ -448,20 +436,16 @@
             "show": true,
             "position": "inside",
             "align": "center",
-            "formatter": "{m|+0.39%}\n{s|61.3% n31}",
+            "formatter": "{m|+0.39%} {s|61% n31}",
             "rich": {
               "m": {
                 "color": "#2fbf8f",
                 "fontSize": 12,
-                "fontWeight": "bold",
-                "lineHeight": 15,
-                "align": "center"
+                "fontWeight": "bold"
               },
               "s": {
                 "color": "#8a93a0",
-                "fontSize": 9,
-                "lineHeight": 12,
-                "align": "center"
+                "fontSize": 9
               }
             }
           }
@@ -505,20 +489,16 @@
             "show": true,
             "position": "inside",
             "align": "center",
-            "formatter": "{m|+1.20%}\n{s|75.0% n12}",
+            "formatter": "{m|+1.20%} {s|75% n12}",
             "rich": {
               "m": {
                 "color": "#2fbf8f",
                 "fontSize": 12,
-                "fontWeight": "bold",
-                "lineHeight": 15,
-                "align": "center"
+                "fontWeight": "bold"
               },
               "s": {
                 "color": "#8a93a0",
-                "fontSize": 9,
-                "lineHeight": 12,
-                "align": "center"
+                "fontSize": 9
               }
             }
           }
@@ -562,20 +542,16 @@
             "show": true,
             "position": "inside",
             "align": "center",
-            "formatter": "{m|-0.30%}\n{s|52.6% n19}",
+            "formatter": "{m|-0.30%} {s|53% n19}",
             "rich": {
               "m": {
                 "color": "#ef6b6b",
                 "fontSize": 12,
-                "fontWeight": "bold",
-                "lineHeight": 15,
-                "align": "center"
+                "fontWeight": "bold"
               },
               "s": {
                 "color": "#8a93a0",
-                "fontSize": 9,
-                "lineHeight": 12,
-                "align": "center"
+                "fontSize": 9
               }
             }
           }

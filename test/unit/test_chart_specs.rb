@@ -95,9 +95,9 @@ class TestChartSpecs < Minitest::Test
                  metas['scenario_strip'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
     assert_equal %w[scenario stack 0 200 DIST],
                  metas['dist_fan'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
-    assert_equal %w[scenario stack 1 330 SCENARIOS],
+    assert_equal %w[scenario stack 1 250 SCENARIOS],
                  metas['scorecard'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
-    assert_equal %w[scenario stack 1 330 DIST],
+    assert_equal %w[scenario stack 1 250 DIST],
                  metas['dist_edge'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
     assert_nil Publish::Charts::CHARTS['dist_pit'], 'PIT is a fan overlay now, not a chart'
     assert_equal 'lppl', metas['lppl_regime']['tab_group']
@@ -825,6 +825,21 @@ class TestChartSpecs < Minitest::Test
     # while its lppl_verdict is single-band identical -> folded
     assert_includes labels, 'lppl_verdict=STRESSED'
     refute_includes labels, '  STRESSED'
+  end
+
+  def test_scorecard_cells_are_one_line_each
+    # owner ruling 2026-10-12: one text line per cell -- mean% beside the
+    # dim hit-rate/n, never stacked (two rows per item stretch the card).
+    opt = Publish::Charts.scorecard(
+      JSON.parse(File.read(File.join(PAYLOADS, 'payload_scorecard_latest.json')))
+    )
+    cells = opt['series'].find { |s| s['name'] == 'cells' }
+    fmts  = cells['data'].map { |d| d['label']['formatter'] }
+    refute_empty fmts
+    fmts.each { |f| refute_includes f, "\n", 'cell labels are single-line' }
+    rich = fmts.grep(/\A\{m\|/)
+    refute_empty rich, 'eligible cells use the {m|mean} {s|hit n} shape'
+    rich.each { |f| assert_match(/\A\{m\|[+-]\d+\.\d{2}%\} \{s\|\d+% n\d+\}\z/, f) }
   end
 
   # ---- lppl_regime structure -------------------------------------------

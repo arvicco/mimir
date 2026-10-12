@@ -794,8 +794,11 @@ module Publish
                     'overlap, so n_eff = n/h), and what the band means.',
           'tooltip_formatter' => 'scorecard_row',
           # sized to the curated row count (3 ALL rows + their bands + a
-          # header row); a category axis spreads the rows to fit.
-          'height' => 330,
+          # header row) at ONE text line per row (owner ruling 2026-10-12);
+          # a category axis spreads the rows to fit, so an oversized canvas
+          # STRETCHES them -- cut this when rows fold, never leave slack.
+          # 200 (strip) + 250 keeps the card no taller than its row-mates.
+          'height' => 250,
           # Owner interface ruling 2026-10-12 (supersedes the M10-9 SCORES
           # tab): the scorecard is the scenario card's LOWER stacked
           # section -- always visible under the strip on the SCENARIOS
@@ -908,7 +911,7 @@ module Publish
           # matches the scorecard so the card never jumps on a tab flip.
           'tab_group' => 'scenario', 'group_style' => 'stack',
           'tab_label' => 'DIST', 'tab_pos' => 1,
-          'height' => 330
+          'height' => 250
         }
       },
     }.freeze
@@ -1956,23 +1959,23 @@ module Publish
       scorecard_scatter('cells', data)
     end
 
-    # An eligible cell renders two lines -- the mean% (teal up / red red down,
-    # bold) over a dim pos% + n; an ineligible one a dim '--'.
+    # An eligible cell renders ONE line -- the mean% (teal up / red down,
+    # bold) with a dim pos% + n beside it (owner ruling 2026-10-12: two
+    # stacked number rows per item just stretch the card); an ineligible
+    # one a dim '--'. The hover carries the full-precision stats.
     def scorecard_cell_datum(cell, x, y)
       return scorecard_dash_datum(x, y) unless cell['eligible']
 
       color = cell['mean_pct'].to_f.negative? ? SC_NEG : SC_POS
       l1 = format('%+.2f%%', cell['mean_pct'])
-      l2 = format('%.1f%% n%d', cell['pos_pct'], cell['n'])
+      l2 = format('%.0f%% n%d', cell['pos_pct'], cell['n'])
       { 'value' => [x, y],
         'label' => {
           'show' => true, 'position' => 'inside', 'align' => 'center',
-          'formatter' => "{m|#{l1}}\n{s|#{l2}}",
+          'formatter' => "{m|#{l1}} {s|#{l2}}",
           'rich' => {
-            'm' => { 'color' => color, 'fontSize' => 12, 'fontWeight' => 'bold',
-                     'lineHeight' => 15, 'align' => 'center' },
-            's' => { 'color' => SC_DIM, 'fontSize' => 9, 'lineHeight' => 12,
-                     'align' => 'center' }
+            'm' => { 'color' => color, 'fontSize' => 12, 'fontWeight' => 'bold' },
+            's' => { 'color' => SC_DIM, 'fontSize' => 9 }
           }
         } }
     end
