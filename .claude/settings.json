@@ -32,8 +32,6 @@
       "Bash(mkdir:*)"
     ],
     "deny": [
-      "Bash(rake fixtures:record)",
-      "Bash(rake fixtures:record:*)",
       "Bash(rake deploy)",
       "Bash(rake deploy:*)",
       "Bash(wrangler:*)",

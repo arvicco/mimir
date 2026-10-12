@@ -253,6 +253,31 @@ module Publish
                   'discount to its coins -- historically a stressed tape.'
     }.freeze
 
+    # dist headline/legend tokens (M13-9, skuld S-B).
+    DIST_TERMS = {
+      'med30' => 'The market-implied median BTC price 30 days out, read ' \
+                 'from the option-smile density (risk-neutral).',
+      'rn' => 'Risk-neutral: the density the option market itself prices. ' \
+              'It embeds the volatility risk premium, so its tails are ' \
+              'paid-for insurance, not pure forecasts.',
+      'rwm' => 'Real-world (market): the risk-neutral density with the ' \
+               'volatility risk premium subtracted at the money -- our ' \
+               'best-estimate forecast density. Scored against rn daily; ' \
+               'the scoreboard decides which one you should believe.',
+      'vrp' => 'Volatility risk premium: implied variance minus ' \
+               'subsequently realized variance, estimated from our own ' \
+               'vol history. Positive = options were overpriced on average.',
+      'tilt' => 'The variance scale applied to the risk-neutral curve to ' \
+                'get the real-world one: (ATM var - VRP)/ATM var, bounded ' \
+                '[0.25, 2]. 1.0 = no tilt.',
+      'median' => 'The 50% quantile of the risk-neutral density per horizon.',
+      'rwm median' => 'The 50% quantile of the real-world (VRP-tilted) ' \
+                      'density -- only drawn once enough vol history exists.',
+      'resolved' => 'Horizons whose maturity day has passed: each published ' \
+                    'density was scored against the realized close ' \
+                    '(log score, CRPS, PIT, Brier).'
+    }.freeze
+
     # 2026-08-30 owner round 2: axis names never draw -- the renderer
     # strips them and hovers the tick numbers to 'name + context' bubbles
     # (meta.axis_terms, keyed by the axis's spec name). Self-explaining
@@ -303,7 +328,18 @@ module Publish
       'price ($k)' => 'BTC price levels in thousands of dollars: daily spot ' \
                       'close vs the flip and both walls.',
       'price ($)' => 'MSTR share price in dollars: daily spot close vs the ' \
-                     'flip and both walls.'
+                     'flip and both walls.',
+      'BTC $k' => 'BTC price in thousands of dollars -- the quantile fan\'s ' \
+                  'price axis. Wider fan = the market prices more ' \
+                  'uncertainty at that horizon.',
+      'p(rwm)/p(rn)' => 'The edge ratio: our real-world density divided by ' \
+                        'the market\'s risk-neutral one at each strike. ' \
+                        '~1 everywhere = no disagreement, no trade; above 1 ' \
+                        '= we think that outcome is likelier than the ' \
+                        'market prices.',
+      'share' => 'Share of resolved horizons whose realized outcome fell in ' \
+                 'this PIT bin. A calibrated density is flat at the dashed ' \
+                 '0.10 line; a U-shape = too narrow, a hump = too wide.'
     }.freeze
 
     # meta (additive envelope field, 2026-07-05): METHODOLOGY-grade
@@ -406,15 +442,20 @@ module Publish
                     'line for each reading. A hollow/grey point is a day ' \
                     'recorded during a data outage (composite forced to 0) -- ' \
                     'not a real neutral print.',
-          # renderer hook: half-height card (owner review 2026-07-05 --
-          # the strip was vertically stretched at full quadrant height)
-          'height' => 250,
+          # renderer hook: compact card (owner review 2026-07-05; tightened
+          # again 2026-10-12 with the data-hugging composite axis)
+          'height' => 200,
           # M9-15: each module name on the scoreboard axis explains itself
           # (canvas label -> styled popover; keys are the module `mod`s).
           'terms' => SCENARIO_TERMS,
-          # M10-9 (owner ruling 2026-08-13): the scorecard shares this card
-          # as a second tab -- the audit lives next to what it audits.
-          'tab_group' => 'scenario', 'tab_label' => 'SCENARIO', 'tab_pos' => 0
+          # Owner interface ruling 2026-10-12: the scenario card is a
+          # two-section STACK with linked [SCENARIOS][DIST] tabs (the GEX
+          # card idiom). Section 0 = this strip / the dist fan; section 1
+          # = the scorecard / the edge strip. The scorecard thus sits in
+          # the lower part of the card (no SCORES tab), and the dist
+          # family rides the second tab instead of its own card.
+          'tab_group' => 'scenario', 'group_style' => 'stack',
+          'tab_label' => 'SCENARIOS', 'tab_pos' => 0
         }
       },
       'lppl_regime' => {
@@ -753,10 +794,20 @@ module Publish
                     'overlap, so n_eff = n/h), and what the band means.',
           'tooltip_formatter' => 'scorecard_row',
           # sized to the curated row count (3 ALL rows + their bands + a
-          # header row); a category axis spreads the rows to fit.
-          'height' => 330,
-          # M10-9 (owner ruling 2026-08-13): second tab on the scenario card.
-          'tab_group' => 'scenario', 'tab_label' => 'SCORES', 'tab_pos' => 1
+          # header row) at ONE text line per row (owner ruling 2026-10-12);
+          # a category axis spreads the rows to fit, so an oversized canvas
+          # STRETCHES them -- cut this when rows fold, never leave slack.
+          # 200 (strip) + 280 lands the card at ~543px = positioning/lppl,
+          # its ROW-MATES at full board width (owner round 4: MATCH the
+          # row, don't undershoot it -- 250 left it visibly shorter).
+          'height' => 280,
+          # Owner interface ruling 2026-10-12 (supersedes the M10-9 SCORES
+          # tab): the scorecard is the scenario card's LOWER stacked
+          # section -- always visible under the strip on the SCENARIOS
+          # tab, flipping to the edge strip on the DIST tab (linked
+          # [SCENARIOS][DIST] tab pairs, the GEX card idiom).
+          'tab_group' => 'scenario', 'group_style' => 'stack',
+          'tab_label' => 'SCENARIOS', 'tab_pos' => 1
         }
       },
       # M10-4 (P-6, owner ruling D10-c): the crowd-positioning card. Three
@@ -800,7 +851,71 @@ module Publish
           # themselves (drawn legend -> legend.tooltip, the house block).
           'terms' => POSITIONING_TERMS
         }
-      }
+      },
+      # ---- the dist family (M13-9, skuld S-B; owner interface ruling
+      # 2026-10-12): rides the SCENARIO card as the DIST side of its
+      # linked [SCENARIOS][DIST] tab pairs -- fan (with the PIT audit
+      # overlaid) in the upper section, edge strip in the lower. Both
+      # read the single dist:latest payload.
+      'dist_fan' => {
+        inputs: %w[payload_dist_latest.json], fn: :dist_fan,
+        meta: {
+          'axis_terms' => AXIS_TERMS,
+          'desc' => 'The market-implied BTC price distribution at 7/30/90 ' \
+                    'days, read from the option smile (Deribit, SVI fit + ' \
+                    'Breeden-Litzenberger). Five quantile lines fan out from ' \
+                    'spot: 5/25/50/75/95%. The teal dashed line is the ' \
+                    'real-world median once the VRP tilt has history. A * on ' \
+                    'a horizon = extrapolated beyond the last liquid expiry. ' \
+                    'The faint bars are the PIT calibration audit -- where ' \
+                    'realized closes landed inside the published density, 10 ' \
+                    'bins, flat at 0.10 = calibrated (METHODOLOGY.md).',
+          'axes' => { 'x' => 'horizon -- now, then 7/30/90 days out ' \
+                             '(* = extrapolated past the last liquid expiry); ' \
+                             'the PIT bars ride their own hidden 0..1 bin axis',
+                      'y' => 'BTC price, thousands of dollars (left); PIT ' \
+                             'share of resolutions per bin (right, 0..1)' },
+          'help' => 'Hover a horizon for all five quantiles. The distance ' \
+                    'between the 5% and 95% lines is what the option market ' \
+                    'charges for uncertainty at that horizon; the median ' \
+                    'sits below the forward (lognormal drift). rwm median ' \
+                    'appearing above/below the rn median shows which way ' \
+                    'the VRP tilt moves the forecast. PIT bars: a U-shape ' \
+                    'means the published tails were too thin, a hump too ' \
+                    'fat; judge nothing before a few dozen resolutions.',
+          'terms' => DIST_TERMS,
+          'tab_group' => 'scenario', 'group_style' => 'stack',
+          'tab_label' => 'DIST', 'tab_pos' => 0,
+          'height' => 200
+        }
+      },
+      'dist_edge' => {
+        inputs: %w[payload_dist_latest.json], fn: :dist_edge,
+        meta: {
+          'axis_terms' => AXIS_TERMS,
+          'desc' => 'The edge ratio: our real-world density divided by the ' \
+                    'market\'s risk-neutral one, per strike, one line per ' \
+                    'liquid expiry. This is the one trading output -- where ' \
+                    'the ratio is ~1 there is no trade regardless of ' \
+                    'narrative; sustained deviations are priced ' \
+                    'disagreements (METHODOLOGY.md).',
+          'axes' => { 'x' => 'strike, thousands of dollars (the day\'s ' \
+                             'spot-relative ladder)',
+                      'y' => 'p(rwm)/p(rn) -- the dashed line at 1.0 is ' \
+                             '"no disagreement"' },
+          'help' => 'Each line is one listed expiry. Above 1.0 = the ' \
+                    'VRP-tilted view rates that strike likelier than the ' \
+                    'market prices it. Empty until the vol history has 10+ ' \
+                    'matured IV/RV windows -- the tilt refuses to guess.',
+          'terms' => DIST_TERMS,
+          # lower stacked section of the scenario card's DIST tab, paired
+          # with the scorecard (owner interface ruling 2026-10-12); height
+          # matches the scorecard so the card never jumps on a tab flip.
+          'tab_group' => 'scenario', 'group_style' => 'stack',
+          'tab_label' => 'DIST', 'tab_pos' => 1,
+          'height' => 280
+        }
+      },
     }.freeze
 
     module_function
@@ -1129,6 +1244,16 @@ module Publish
       # heatmap is now a vertical column: [col 0, row = module index, score]
       heat     = modules.each_with_index.map { |m, i| [0, i, m['score']] }
 
+      # Owner interface ruling 2026-10-12: the composite axis hugs the
+      # data instead of the theoretical [-1, 1] -- the fixed range left
+      # the upper (and lower) third of the plot permanently empty. The
+      # range always covers the +/-0.40 threshold lines (plus label
+      # headroom) and stretches further only when a print actually goes
+      # there; the outer FLUSH/RECOVERY band labels ride the plot edges.
+      vals = comp.map { |pt| (pt.is_a?(Hash) ? pt['value'] : pt)[1].to_f }
+      y_lo = [((vals.min || 0.0) - 0.08), -0.48].min.round(2)
+      y_hi = [((vals.max || 0.0) + 0.08), 0.48].max.round(2)
+
       {
         # the renderer inits with the ECharts DARK THEME (professionally
         # tuned text/legend/axis colors incl. dim-inactive legend states);
@@ -1159,7 +1284,7 @@ module Publish
           # name rides the axis (rotated, left gutter): at the default top
           # position it collided with the one-line title, and at the bottom
           # it would collide with the time labels (owner review round 4)
-          { 'type' => 'value', 'gridIndex' => 0, 'min' => -1, 'max' => 1,
+          { 'type' => 'value', 'gridIndex' => 0, 'min' => y_lo, 'max' => y_hi,
             'name' => 'composite',
             # ticks off: the dashed band lines label the same values, and
             # the axis name/context lives in the hover (2026-08-30 r3)
@@ -1183,7 +1308,7 @@ module Publish
           { 'name' => 'composite', 'type' => 'line', 'xAxisIndex' => 0,
             'yAxisIndex' => 0, 'showSymbol' => true, 'symbol' => 'circle', 'symbolSize' => 6,
             'lineStyle' => { 'color' => '#3b6ea5' }, 'data' => comp,
-            'markLine' => scenario_bands },
+            'markLine' => scenario_bands(y_lo, y_hi) },
           { 'name' => 'modules', 'type' => 'heatmap', 'xAxisIndex' => 1,
             'yAxisIndex' => 1, 'data' => heat,
             'label' => { 'show' => true, 'formatter' => '{@[2]}' } }
@@ -1210,7 +1335,12 @@ module Publish
 
     # Four dashed boundary lines (numeric label on the left) plus five
     # invisible carrier lines whose only job is a right-flush band label.
-    def scenario_bands
+    # Since the 2026-10-12 tight-axis ruling the two OUTER band labels
+    # (FLUSH/RECOVERY, nominal +/-0.70) ride the plot edges instead --
+    # their carrier y clamps into [lo, hi] and the label flips to the
+    # inside of the respective edge, so the outer zones stay named at
+    # any axis range.
+    def scenario_bands(lo, hi)
       thresholds = SCN_THRESHOLDS.map do |t|
         { 'yAxis' => t, 'lineStyle' => { 'type' => 'dashed', 'color' => '#c9ccd1' },
           # inside, not 'start': round 3 collapsed the left margin, so an
@@ -1222,8 +1352,13 @@ module Publish
       # band labels sit INSIDE the plot at the left edge so the narrow
       # heatmap column can hug the right without a wide right margin.
       bands = SCN_BANDS.map do |y, name|
-        { 'yAxis' => y, 'lineStyle' => { 'opacity' => 0 },
-          'label' => { 'position' => 'insideStartTop', 'formatter' => name,
+        clamped = y.clamp(lo, hi)
+        pos = if clamped >= hi then 'insideStartBottom' # top edge: label below
+              elsif clamped <= lo then 'insideStartTop' # bottom edge: label above
+              else 'insideStartTop'
+              end
+        { 'yAxis' => clamped, 'lineStyle' => { 'opacity' => 0 },
+          'label' => { 'position' => pos, 'formatter' => name,
                        'color' => '#6b7178' } }
       end
       { 'symbol' => 'none', 'silent' => true, 'data' => thresholds + bands }
@@ -1706,6 +1841,11 @@ module Publish
     # Curated rows top-to-bottom: for each present signal an ALL row then one
     # row per band (union across the eligible horizons, sorted). A signal
     # absent from the payload contributes nothing (fail-soft).
+    #
+    # Owner ruling 2026-10-12 (design round): a signal that has only ever
+    # printed ONE value duplicates its ALL row in that band, cell for
+    # cell -- zero information twice. Such a pair folds into a single
+    # row labelled `signal=BAND`; the hover note says why.
     def scorecard_rows(doc)
       signals = doc['signals'] || {}
       SCORECARD_SIGNALS.flat_map do |name|
@@ -1714,16 +1854,46 @@ module Publish
 
         hz    = sig['horizons'] || {}
         bands = SCORECARD_HZ.flat_map { |h| ((hz[h] || {})['bands'] || {}).keys }.uniq.sort
-        [scorecard_row_data(name, 'all', nil, hz)] +
-          bands.map { |b| scorecard_row_data(name, 'band', b, hz) }
+        all_row   = scorecard_row_data(name, 'all', nil, hz)
+        band_rows = bands.map { |b| scorecard_row_data(name, 'band', b, hz) }
+        if band_rows.size == 1 && scorecard_same_cells?(all_row, band_rows.first)
+          all_row['label'] = "#{scorecard_display_name(name)}=#{bands.first}"
+          all_row['note'] = "#{all_row['note']} Every print so far was " \
+                            "#{bands.first}, so the single identical band " \
+                            'row is folded into this one.'
+          band_rows = []
+        end
+        [all_row] + band_rows
+      end
+    end
+
+    # The fold test: identical on the load-bearing stats at every horizon
+    # (eligibility, n, mean, hit rate -- n_eff is derived with different
+    # rounding on the two row kinds, so it stays out of the comparison).
+    def scorecard_same_cells?(row_a, row_b)
+      SCORECARD_HZ.all? do |h|
+        a = row_a['cells'][h]
+        b = row_b['cells'][h]
+        a.values_at('eligible', 'n', 'mean_pct', 'pos_pct') ==
+          b.values_at('eligible', 'n', 'mean_pct', 'pos_pct')
       end
     end
 
     def scorecard_row_data(signal, kind, band, hz)
       cells = SCORECARD_HZ.to_h { |h| [h, scorecard_cell(hz[h] || {}, kind, band, h.to_i)] }
       { 'signal' => signal, 'kind' => kind, 'band' => band,
-        'label' => (kind == 'all' ? signal : "  #{band}"),
+        'label' => (kind == 'all' ? scorecard_display_name(signal) : "  #{band}"),
         'cells' => cells, 'note' => scorecard_note(signal, kind, band) }
+    end
+
+    # Display names for the label column (owner ruling 2026-10-12, round 4):
+    # row labels earn their column space -- 'gex_gamma_sign' burns it on
+    # redundancy (the G in GEX IS gamma; '=POS' already says sign-ish).
+    # Payload field names ('signal' in the hover block) stay untouched.
+    SC_NAMES = { 'gex_gamma_sign' => 'gex-sign' }.freeze
+
+    def scorecard_display_name(signal)
+      SC_NAMES.fetch(signal, signal)
     end
 
     # One horizon's cell for a row: the eligible stats (n / n_eff / mean_pct /
@@ -1801,23 +1971,23 @@ module Publish
       scorecard_scatter('cells', data)
     end
 
-    # An eligible cell renders two lines -- the mean% (teal up / red red down,
-    # bold) over a dim pos% + n; an ineligible one a dim '--'.
+    # An eligible cell renders ONE line -- the mean% (teal up / red down,
+    # bold) with a dim pos% + n beside it (owner ruling 2026-10-12: two
+    # stacked number rows per item just stretch the card); an ineligible
+    # one a dim '--'. The hover carries the full-precision stats.
     def scorecard_cell_datum(cell, x, y)
       return scorecard_dash_datum(x, y) unless cell['eligible']
 
       color = cell['mean_pct'].to_f.negative? ? SC_NEG : SC_POS
       l1 = format('%+.2f%%', cell['mean_pct'])
-      l2 = format('%.1f%% n%d', cell['pos_pct'], cell['n'])
+      l2 = format('%.0f%% n%d', cell['pos_pct'], cell['n'])
       { 'value' => [x, y],
         'label' => {
           'show' => true, 'position' => 'inside', 'align' => 'center',
-          'formatter' => "{m|#{l1}}\n{s|#{l2}}",
+          'formatter' => "{m|#{l1}} {s|#{l2}}",
           'rich' => {
-            'm' => { 'color' => color, 'fontSize' => 12, 'fontWeight' => 'bold',
-                     'lineHeight' => 15, 'align' => 'center' },
-            's' => { 'color' => SC_DIM, 'fontSize' => 9, 'lineHeight' => 12,
-                     'align' => 'center' }
+            'm' => { 'color' => color, 'fontSize' => 12, 'fontWeight' => 'bold' },
+            's' => { 'color' => SC_DIM, 'fontSize' => 9 }
           }
         } }
     end
@@ -2515,5 +2685,184 @@ module Publish
     def gamma_glyph(regime)
       { 'long_gamma' => 'Γ+', 'short_gamma' => 'Γ-' }.fetch(regime.to_s, regime.to_s)
     end
+
+    # ---- dist family (M13-9, skuld S-B) --------------------------------
+    #
+    # Both charts read the ONE dist:latest payload; since the 2026-10-12
+    # interface ruling they ride the scenario card's DIST tab (fan with
+    # the PIT audit overlaid, edge strip below). The fan is a
+    # quantile-line family (NOT stacked areas: stacked deltas poison the
+    # axis tooltip, and five honest lines hover to their real values).
+    # The family shares one hue so it reads as one object; the rwm
+    # median is the teal exception (it is a different density).
+
+    DIST_HUE = '84,112,198' # the dark-theme lead blue, rgba-composable
+
+    # $ -> $k at build time (the axis unit the human reads); nil-safe.
+    def dist_k(val)
+      val && (val / 1000.0).round(1)
+    end
+
+    def dist_fan(dist)
+      hs = dist['horizons'] || []
+      cats = ['now'] + hs.map { |h| "#{h['d']}d#{h['extrapolated'] ? '*' : ''}" }
+      spot = dist_k(dist['spot'])
+      line = lambda do |key, width, dash, alpha|
+        { 'name' => key, 'type' => 'line',
+          'symbol' => 'circle', 'symbolSize' => 5,
+          'lineStyle' => { 'width' => width, 'type' => dash,
+                           'color' => "rgba(#{DIST_HUE},#{alpha})" },
+          'itemStyle' => { 'color' => "rgba(#{DIST_HUE},#{alpha})" },
+          'data' => [spot] + hs.map { |h| dist_k(h[key]) } }
+      end
+      series = [line.call('p05', 1, 'dashed', 0.55),
+                line.call('p25', 1, 'solid', 0.75),
+                line.call('median', 2.5, 'solid', 1.0),
+                line.call('p75', 1, 'solid', 0.75),
+                line.call('p95', 1, 'dashed', 0.55)]
+      if hs.any? { |h| h['median_rwm'] }
+        series << { 'name' => 'rwm median', 'type' => 'line',
+                    'symbol' => 'circle', 'symbolSize' => 5,
+                    'lineStyle' => { 'width' => 2, 'type' => 'dashed',
+                                     'color' => '#2fbf8f' },
+                    'itemStyle' => { 'color' => '#2fbf8f' },
+                    'data' => [spot] + hs.map { |h| dist_k(h['median_rwm']) } }
+      end
+
+      # Owner interface ruling 2026-10-12: the PIT calibration audit is
+      # an OVERLAY on this chart (the vol_spread idiom -- heterogeneous
+      # series, second axis pair), not a separate stacked section: faint
+      # bars from the bottom on their own hidden bin axis (x1, top) and
+      # a right-hand share axis (y1, fixed [0,1] so shares stay
+      # comparable as resolutions accumulate), behind the fan lines.
+      # Empty state = placeholder ['']/[nil] content (empty containers
+      # are BANNED -- Ruby 3.3 golden parity) + a dim corner note.
+      scoring = dist['scoring']
+      pit_hs = ((scoring && scoring['horizons']) || [])
+               .select { |h| h['n'].to_i.positive? }
+      if pit_hs.empty?
+        pit_x = { 'type' => 'category', 'gridIndex' => 0, 'position' => 'top',
+                  'data' => [''], 'axisLabel' => { 'show' => false },
+                  'axisTick' => { 'show' => false },
+                  # out of the axis pointer: the fan tooltip stays pure
+                  # (a joined bin axis adds a stray '-' row on every hover)
+                  'axisPointer' => { 'show' => false } }
+        pit_y = { 'type' => 'value', 'min' => 0, 'max' => 1, 'show' => false }
+        pit_series = [{ 'type' => 'bar', 'xAxisIndex' => 1, 'yAxisIndex' => 1,
+                        'data' => [nil] }]
+        pit_note = 'PIT awaiting first resolutions'
+      else
+        pit_x = { 'type' => 'category', 'gridIndex' => 0, 'position' => 'top',
+                  'data' => (0...10).map { |i| format('.%d', i) },
+                  'axisLabel' => { 'show' => false },
+                  'axisTick' => { 'show' => false },
+                  # bin detail stays out of the fan's axis tooltip (one
+                  # line per entity; the bars + uniform line carry it)
+                  'axisPointer' => { 'show' => false } }
+        pit_y = { 'type' => 'value', 'name' => 'share', 'min' => 0, 'max' => 1,
+                  'position' => 'right', 'axisLabel' => { 'margin' => 3 },
+                  'splitLine' => { 'show' => false } }
+        pit_series = pit_hs.map do |h|
+          { 'name' => "#{h['d']}d PIT", 'type' => 'bar',
+            'xAxisIndex' => 1, 'yAxisIndex' => 1, 'z' => 1,
+            'itemStyle' => { 'opacity' => 0.35 },
+            'data' => h.dig('pit_bins', 'rn') || [nil] }
+        end
+        pit_series.first['markLine'] = {
+          'symbol' => 'none', 'silent' => true,
+          'lineStyle' => { 'type' => 'dashed' },
+          'label' => { 'position' => 'insideEndTop', 'formatter' => 'uniform' },
+          'data' => [{ 'yAxis' => 0.10 }]
+        }
+        pit_note = format('PIT resolved %d', scoring['n_resolved'])
+      end
+
+      {
+        'backgroundColor' => 'transparent',
+        'title' => [{ 'text' => dist_fan_title(dist),
+                      'textStyle' => { 'fontSize' => 13 } },
+                    # dim audit-status note INSIDE the plot (owner round
+                    # 2026-10-12: the top band is the legend's alone --
+                    # a corner note there collided with it at real
+                    # card widths), top-left where the fan stays empty
+                    { 'text' => pit_note, 'left' => 40, 'top' => 30,
+                      'textStyle' => { 'fontSize' => 10, 'color' => '#6b7178',
+                                       'fontWeight' => 'normal' } }],
+        'tooltip' => { 'trigger' => 'axis', 'confine' => true,
+                       'textStyle' => { 'fontSize' => 11 } },
+        'legend' => { 'top' => 2, 'data' => ['median', 'rwm median'] },
+        'grid' => { 'left' => 34, 'right' => 26, 'top' => 28, 'bottom' => 24 },
+        'xAxis' => [{ 'type' => 'category', 'gridIndex' => 0, 'data' => cats },
+                    pit_x],
+        'yAxis' => [{ 'type' => 'value', 'name' => 'BTC $k', 'scale' => true,
+                      'axisLabel' => { 'margin' => 3 } },
+                    pit_y],
+        'series' => series + pit_series
+      }
+    end
+
+    # 'med30 82.4k · vrp 0.49' (vrp token only when the tilt is live;
+    # the headline never names the card). Owner round 2026-10-12: the
+    # [p05..p95] range is OUT of the headline -- the fan itself IS the
+    # range, and the head line was overloaded at real card widths.
+    def dist_fan_title(dist)
+      h30 = (dist['horizons'] || []).find { |h| h['d'] == 30 }
+      return 'no horizons' unless h30
+
+      head = format('med30 %sk', dist_k(h30['median']))
+      h30['vrp'] ? head + format(' · vrp %.2f', h30['vrp']) : head
+    end
+
+    def dist_edge(dist)
+      edge = dist['edge']
+      base = {
+        'backgroundColor' => 'transparent',
+        'tooltip' => { 'trigger' => 'axis', 'confine' => true,
+                       'textStyle' => { 'fontSize' => 11 } },
+        'grid' => { 'left' => 30, 'right' => 18, 'top' => 28, 'bottom' => 24 },
+        'yAxis' => { 'type' => 'value', 'name' => 'p(rwm)/p(rn)',
+                     'scale' => true, 'axisLabel' => { 'margin' => 3 } }
+      }
+      unless edge
+        # designed empty state: the tilt refuses to guess without history.
+        # NOTE the placeholder ['']/[nil] content -- EMPTY []/{} are banned
+        # in options: Ruby 3.3 (CI) pretty-prints empty JSON containers
+        # differently than newer local rubies, so an empty-array golden is
+        # green locally and red on CI (M13-9 incident).
+        return base.merge(
+          'title' => [{ 'text' => 'tilt warming up',
+                        'textStyle' => { 'fontSize' => 13 } },
+                      { 'text' => 'needs 10+ matured IV/RV windows in the vol history',
+                        'left' => 'center', 'top' => '48%',
+                        'textStyle' => { 'fontSize' => 11 } }],
+          'xAxis' => { 'type' => 'category', 'data' => [''] },
+          'series' => [{ 'type' => 'line', 'data' => [nil] }]
+        )
+      end
+
+      lad = edge['ladder'].map { |k| dist_k(k) }
+      scale = edge['expiries'].first && edge['expiries'].first['scale']
+      base.merge(
+        'title' => [{ 'text' => format('tilt %s · %d expiries',
+                                       scale ? format('%.2f', scale) : 'n/a',
+                                       edge['expiries'].size),
+                      'textStyle' => { 'fontSize' => 13 } }],
+        'legend' => { 'top' => 2,
+                      'data' => edge['expiries'].map { |e| "#{e['days'].round}d" } },
+        'xAxis' => { 'type' => 'category', 'data' => lad },
+        'series' => edge['expiries'].map do |e|
+          { 'name' => "#{e['days'].round}d", 'type' => 'line',
+            'symbol' => 'circle', 'symbolSize' => 4, 'connectNulls' => true,
+            'data' => e['ratio'],
+            'markLine' => {
+              'symbol' => 'none', 'silent' => true,
+              'lineStyle' => { 'type' => 'dashed' },
+              'label' => { 'position' => 'insideEndTop', 'formatter' => 'fair' },
+              'data' => [{ 'yAxis' => 1.0 }]
+            } }
+        end
+      )
+    end
+
   end
 end

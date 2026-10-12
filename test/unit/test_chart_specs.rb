@@ -59,7 +59,7 @@ class TestChartSpecs < Minitest::Test
   def test_renderer_hooks_declared_in_meta
     metas = Publish::Charts::CHARTS.transform_values { |s| s[:meta] }
     assert_equal 'gex_levels', metas['gex_btc']['tooltip_formatter']
-    assert_equal 250, metas['scenario_strip']['height'] # half-quadrant card
+    assert_equal 200, metas['scenario_strip']['height'] # compact (2026-10-12)
     assert_equal 'gex_cp', metas['gex_btc']['legend_widget'] # (p) DERI (c)
     # hooks are opt-in: nobody else declares them
     assert_nil metas['lppl_regime']['tooltip_formatter']
@@ -84,15 +84,22 @@ class TestChartSpecs < Minitest::Test
                  metas['gex_btc'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
     assert_equal %w[gex stack 0 260 MSTR],
                  metas['gex_mstr'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
-    # btco stays a solo card; LPPL is a two-tab card (M9-13); M10-9 (owner
-    # ruling 2026-08-13): scenario + scorecard share one [SCENARIO][SCORES]
-    # card -- the audit lives next to what it audits.
-    assert_equal 'scenario', metas['scenario_strip']['tab_group']
-    assert_equal 'SCENARIO', metas['scenario_strip']['tab_label']
-    assert_equal 0, metas['scenario_strip']['tab_pos']
-    assert_equal 'scenario', metas['scorecard']['tab_group']
-    assert_equal 'SCORES', metas['scorecard']['tab_label']
-    assert_equal 1, metas['scorecard']['tab_pos']
+    # btco stays a solo card; LPPL is a two-tab card (M9-13). Owner
+    # interface ruling 2026-10-12 (supersedes M10-9's [SCENARIO][SCORES]
+    # tabs): the scenario card is a two-section STACK with linked
+    # [SCENARIOS][DIST] tab pairs (the GEX idiom) -- strip/fan on top,
+    # scorecard/edge below. SCENARIOS leads (lower CARD_ORDER rank);
+    # section heights match within each pair so a tab flip never
+    # changes the card height.
+    assert_equal %w[scenario stack 0 200 SCENARIOS],
+                 metas['scenario_strip'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
+    assert_equal %w[scenario stack 0 200 DIST],
+                 metas['dist_fan'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
+    assert_equal %w[scenario stack 1 280 SCENARIOS],
+                 metas['scorecard'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
+    assert_equal %w[scenario stack 1 280 DIST],
+                 metas['dist_edge'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
+    assert_nil Publish::Charts::CHARTS['dist_pit'], 'PIT is a fan overlay now, not a chart'
     assert_equal 'lppl', metas['lppl_regime']['tab_group']
     assert_nil metas['btco_table']['tab_group']
     # M8-6 as amended 2026-08-10 (owner rulings): vol_surface + vol_basis
@@ -623,11 +630,19 @@ class TestChartSpecs < Minitest::Test
     assert_equal [-1, 0, 1], vm['pieces'].map { |p| p['value'] }
   end
 
-  def test_scenario_composite_axis_fixed_and_bands_labelled
+  # Owner interface ruling 2026-10-12: the composite axis hugs the data
+  # (the fixed [-1,1] range left the plot's upper third permanently
+  # empty). Floor coverage is +/-0.48 so the +/-0.40 thresholds always
+  # draw with label headroom; a wilder print stretches the axis to
+  # data +/- 0.08. The outer FLUSH/RECOVERY labels clamp to the plot
+  # edges with inward label positions.
+  def test_scenario_composite_axis_hugs_data_with_threshold_floor
     opt = build('scenario_strip')
+    hist = JSON.parse(File.read(File.join(PAYLOADS, 'payload_scenario_history.json')))
+    vals = hist['entries'].map { |e| e['composite'].to_f }
     y0 = opt['yAxis'].first
-    assert_equal(-1, y0['min'])
-    assert_equal 1, y0['max']
+    assert_equal [(vals.min - 0.08), -0.48].min.round(2), y0['min']
+    assert_equal [(vals.max + 0.08), 0.48].max.round(2), y0['max']
     marks = opt['series'].first['markLine']['data']
     # four numeric boundaries + five band labels = nine markLine entries
     assert_equal 9, marks.size
@@ -635,6 +650,24 @@ class TestChartSpecs < Minitest::Test
                  marks.map { |m| m['label']['formatter'] }.grep(/\A[+-]0\.\d0\z/).map(&:to_f)
     assert_equal %w[FLUSH LEAN-FLUSH NEUTRAL BASE RECOVERY],
                  marks.map { |m| m['label']['formatter'] } & %w[FLUSH LEAN-FLUSH NEUTRAL BASE RECOVERY]
+    by = marks.to_h { |m| [m['label']['formatter'], m] }
+    # outer band carriers ride the plot edges, labels flipped inward
+    assert_equal y0['min'], by['FLUSH']['yAxis']
+    assert_equal 'insideStartTop', by['FLUSH']['label']['position']
+    assert_equal y0['max'], by['RECOVERY']['yAxis']
+    assert_equal 'insideStartBottom', by['RECOVERY']['label']['position']
+    # inner bands keep their nominal y
+    assert_equal 0.0, by['NEUTRAL']['yAxis']
+    assert_equal 0.25, by['BASE']['yAxis']
+  end
+
+  def test_scenario_axis_stretches_for_prints_beyond_the_floor
+    latest = { 'regime' => 'FLUSH', 'composite' => -0.9, 'modules' => [],
+               'ts' => '2026-08-30T13:00:00Z' }
+    history = { 'entries' => [{ 'ts' => '2026-08-29T04:45:00Z', 'composite' => -0.9 }] }
+    y0 = Publish::Charts.scenario_strip(latest, history)['yAxis'].first
+    assert_equal(-0.98, y0['min']) # data -0.9 - 0.08 headroom
+    assert_equal 0.48, y0['max']   # quiet side stays at the floor
   end
 
   def test_scenario_composite_series_reads_history_entries
@@ -687,6 +720,127 @@ class TestChartSpecs < Minitest::Test
     end
     # and the meta help names the convention
     assert_match(/hollow\/grey/, Publish::Charts::CHARTS['scenario_strip'][:meta]['help'])
+  end
+
+  # ---- dist_fan PIT overlay (owner interface ruling 2026-10-12) --------
+  # The PIT calibration audit rides the fan as an overlay (the
+  # vol_spread idiom: heterogeneous series, second axis pair), not a
+  # separate chart -- faint bars on a hidden top bin axis + a fixed
+  # [0,1] right share axis, behind the fan lines.
+
+  def dist_doc
+    @dist_doc ||= JSON.parse(File.read(File.join(PAYLOADS, 'payload_dist_latest.json')))
+  end
+
+  def test_dist_fan_pit_empty_state_is_placeholder_not_empty_containers
+    opt = build('dist_fan') # fixture has n_resolved 0
+    assert_equal 2, opt['xAxis'].size, 'dual-axis shape even when empty'
+    assert_equal [''], opt['xAxis'][1]['data'] # 3.3 empty-container ban
+    assert_equal false, opt['yAxis'][1]['show']
+    bar = opt['series'].find { |s| s['type'] == 'bar' }
+    assert_equal [nil], bar['data']
+    assert_equal [1, 1], bar.values_at('xAxisIndex', 'yAxisIndex')
+    assert_equal 'PIT awaiting first resolutions', opt['title'][1]['text']
+  end
+
+  def test_dist_fan_pit_overlay_with_resolutions
+    doc = JSON.parse(JSON.generate(dist_doc))
+    doc['scoring']['n_resolved'] = 12
+    doc['scoring']['horizons'][0].merge!(
+      'n' => 12,
+      'pit_bins' => { 'rn' => [0.2, 0.1, 0.0, 0.1, 0.1, 0.0, 0.1, 0.1, 0.1, 0.2] }
+    )
+    opt = Publish::Charts.dist_fan(doc)
+    bars = opt['series'].select { |s| s['type'] == 'bar' }
+    assert_equal ['7d PIT'], bars.map { |s| s['name'] } # only matured horizons
+    b = bars.first
+    assert_equal [1, 1, 1], b.values_at('xAxisIndex', 'yAxisIndex', 'z') # behind the fan
+    assert_equal 0.35, b['itemStyle']['opacity']
+    assert_equal 0.10, b['markLine']['data'].first['yAxis'] # the uniform reference
+    # the share axis is fixed [0,1] so shares stay comparable over time
+    assert_equal ['share', 0, 1, 'right'],
+                 opt['yAxis'][1].values_at('name', 'min', 'max', 'position')
+    # hidden self-explaining bin axis on top (labels off: the tooltip
+    # carries bin detail; drawn labels would collide with the legend row)
+    x1 = opt['xAxis'][1]
+    assert_equal 'top', x1['position']
+    assert_equal false, x1['axisLabel']['show']
+    assert_equal false, x1['axisPointer']['show'], 'bin axis out of the fan tooltip'
+    assert_equal '.3', x1['data'][3]
+    # audit status as a dim in-plot note (owner round 2026-10-12: the
+    # top band is the legend's alone); PIT bars stay OUT of the legend
+    assert_equal 'PIT resolved 12', opt['title'][1]['text']
+    assert_equal [40, 30], opt['title'][1].values_at('left', 'top')
+    assert_equal ['median', 'rwm median'], opt['legend']['data']
+    # fan series stay on the primary axes (default index 0)
+    med = opt['series'].find { |s| s['name'] == 'median' }
+    refute med.key?('xAxisIndex')
+  end
+
+  # ---- scorecard row folding (owner ruling 2026-10-12) -----------------
+  # A signal that has only ever printed ONE value duplicates its ALL row
+  # in that band -- the pair folds into a single `signal=BAND` row.
+
+  def sc_hz(n:, mean:, pos:, band: 'POS', band_n: nil, band_mean: nil, band_pos: nil)
+    SCORECARD_HZ_SYNTH.to_h do |h|
+      [h, { 'eligible' => true, 'n' => n, 'n_eff' => (n.to_f / h.to_i).round(1),
+            'all' => { 'mean_pct' => mean, 'pos_pct' => pos },
+            'bands' => { band => { 'n' => band_n || n,
+                                   'mean_pct' => band_mean || mean,
+                                   'pos_pct' => band_pos || pos } } }]
+    end
+  end
+  SCORECARD_HZ_SYNTH = %w[7 30 90].freeze
+
+  def test_scorecard_folds_a_single_identical_band_into_the_all_row
+    doc = { 'signals' => { 'gex_gamma_sign' => { 'horizons' => sc_hz(n: 91, mean: 2.12, pos: 58.2) } } }
+    rows = Publish::Charts.scorecard_rows(doc)
+    assert_equal 1, rows.size, 'identical ALL + single band fold to one row'
+    assert_equal 'gex-sign=POS', rows.first['label'],
+                 'display name compacted (owner round 4: the G in GEX IS gamma)'
+    assert_equal 'all', rows.first['kind']
+    assert_match(/folded/, rows.first['note'])
+  end
+
+  def test_scorecard_keeps_a_single_band_that_differs_from_all
+    # a band with its own n (some days printed something else even if that
+    # other band never reached the union -- e.g. ineligible elsewhere)
+    doc = { 'signals' => { 'gex_gamma_sign' => {
+      'horizons' => sc_hz(n: 91, mean: 2.12, pos: 58.2, band_n: 60, band_mean: 3.0)
+    } } }
+    rows = Publish::Charts.scorecard_rows(doc)
+    assert_equal 2, rows.size
+    assert_equal %w[gex-sign], [rows.first['label']]
+    assert_equal '  POS', rows.last['label']
+  end
+
+  def test_scorecard_never_folds_multi_band_signals
+    rows = Publish::Charts.scorecard_rows(
+      JSON.parse(File.read(File.join(PAYLOADS, 'payload_scorecard_latest.json')))
+    )
+    # the fixture's scenario_regime carries two bands -> ALL + both stay
+    labels = rows.map { |r| r['label'] }
+    assert_includes labels, 'scenario_regime'
+    assert_includes labels, '  BASE'
+    assert_includes labels, '  NEUTRAL'
+    # while its lppl_verdict is single-band identical -> folded
+    assert_includes labels, 'lppl_verdict=STRESSED'
+    refute_includes labels, '  STRESSED'
+  end
+
+  def test_scorecard_cells_are_one_line_each
+    # owner ruling 2026-10-12: one text line per cell -- mean% beside the
+    # dim hit-rate/n, never stacked (two rows per item stretch the card).
+    opt = Publish::Charts.scorecard(
+      JSON.parse(File.read(File.join(PAYLOADS, 'payload_scorecard_latest.json')))
+    )
+    cells = opt['series'].find { |s| s['name'] == 'cells' }
+    fmts  = cells['data'].map { |d| d['label']['formatter'] }
+    refute_empty fmts
+    fmts.each { |f| refute_includes f, "\n", 'cell labels are single-line' }
+    rich = fmts.grep(/\A\{m\|/)
+    refute_empty rich, 'eligible cells use the {m|mean} {s|hit n} shape'
+    rich.each { |f| assert_match(/\A\{m\|[+-]\d+\.\d{2}%\} \{s\|\d+% n\d+\}\z/, f) }
   end
 
   # ---- lppl_regime structure -------------------------------------------

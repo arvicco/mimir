@@ -103,9 +103,13 @@
   .sortbtn:focus-visible { outline: 2px solid #e6a23c; outline-offset: 2px; }
   /* 3x2 card grid (owner ruling 2026-08-10) -- keep in sync with
      index.html: row 1 GEX · Volatility · Vol-Spread, row 2 Scenario ·
-     LPPL · BTCo; order from render.js CARD_ORDER. */
+     LPPL · BTCo; order from render.js CARD_ORDER. align-items start
+     (owner ruling 2026-10-12): cards keep their natural height instead
+     of stretching to the row's tallest -- dead space inside cards was
+     the complaint. */
   .grid {
     display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px;
+    align-items: start;
   }
   @media (max-width: 1160px) { .grid { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 780px)  { .grid { grid-template-columns: 1fr; } }
