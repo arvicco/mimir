@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 #
-# M12-5 (Q-17): BTC::Ntfy -- dormant-by-default transition alerts.
+# M12-5: BTC::Ntfy -- dormant-by-default transition alerts.
 # Pins: dormant no-op without NTFY_TOPIC; first observation ARMS
 # (records, no push); a transition pushes exactly once; repeats are
 # unchanged; the daily cap mutes with a single overflow notice; push
@@ -115,6 +115,132 @@ class TestNtfy < Minitest::Test
       end
     end
   end
+  # ---- M14-4: flap cooldown (every kind) ---------------------------
+  # A delivered push stamps only the ENTERED state; a change into a state
+  # stamped within COOLDOWN_H is :cooled.
+
+  H = 3600
+
+  def test_cooldown_first_return_within_window_still_pushes
+    Dir.mktmpdir do |d|
+      with_env(topic: 't0pic', dir: d) do
+        calls, http = recorder
+        BTC::Ntfy.notify_transition('k', 'A', 'x', now: NOW, http: http) # arm
+        assert_equal :pushed, BTC::Ntfy.notify_transition('k', 'B', 'to B', now: NOW, http: http)
+        assert_equal :pushed,
+                     BTC::Ntfy.notify_transition('k', 'A', 'to A', now: NOW + H, http: http)
+        assert_equal ['to B', 'to A'], calls.map(&:last)
+      end
+    end
+  end
+
+  def test_cooldown_refire_within_window_is_cooled
+    Dir.mktmpdir do |d|
+      with_env(topic: 't0pic', dir: d) do
+        calls, http = recorder
+        BTC::Ntfy.notify_transition('k', 'A', 'x', now: NOW, http: http)
+        BTC::Ntfy.notify_transition('k', 'B', 'to B', now: NOW, http: http)
+        BTC::Ntfy.notify_transition('k', 'A', 'to A', now: NOW + H, http: http)
+        assert_equal :cooled,
+                     BTC::Ntfy.notify_transition('k', 'B', 'to B', now: NOW + (2 * H), http: http)
+        assert_equal ['to B', 'to A'], calls.map(&:last)
+      end
+    end
+  end
+
+  def test_cooldown_repeat_return_within_window_is_cooled
+    Dir.mktmpdir do |d|
+      with_env(topic: 't0pic', dir: d) do
+        calls, http = recorder
+        BTC::Ntfy.notify_transition('k', 'A', 'x', now: NOW, http: http)
+        BTC::Ntfy.notify_transition('k', 'B', 'to B', now: NOW, http: http)
+        BTC::Ntfy.notify_transition('k', 'A', 'to A', now: NOW + H, http: http)
+        BTC::Ntfy.notify_transition('k', 'B', 'to B', now: NOW + (2 * H), http: http)
+        assert_equal :cooled,
+                     BTC::Ntfy.notify_transition('k', 'A', 'to A', now: NOW + (3 * H), http: http)
+        assert_equal 2, calls.size
+      end
+    end
+  end
+
+  def test_cooldown_after_quiet_window_pushes_again
+    Dir.mktmpdir do |d|
+      with_env(topic: 't0pic', dir: d) do
+        calls, http = recorder
+        BTC::Ntfy.notify_transition('k', 'A', 'x', now: NOW, http: http)
+        BTC::Ntfy.notify_transition('k', 'B', 'to B', now: NOW, http: http)
+        BTC::Ntfy.notify_transition('k', 'A', 'to A', now: NOW + H, http: http)
+        later = NOW + H + (BTC::Ntfy::COOLDOWN_H * H) + 1
+        assert_equal :pushed, BTC::Ntfy.notify_transition('k', 'B', 'to B', now: later, http: http)
+        assert_equal :pushed,
+                     BTC::Ntfy.notify_transition('k', 'A', 'to A', now: later + 60, http: http)
+        assert_equal 4, calls.size
+      end
+    end
+  end
+
+  def test_cooled_change_is_recorded_with_a_note
+    Dir.mktmpdir do |d|
+      with_env(topic: 't0pic', dir: d) do
+        _, http = recorder
+        BTC::Ntfy.notify_transition('k', 'A', 'x', now: NOW, http: http)
+        BTC::Ntfy.notify_transition('k', 'B', 'x', now: NOW, http: http)
+        BTC::Ntfy.notify_transition('k', 'A', 'x', now: NOW + H, http: http)
+        BTC::Ntfy.notify_transition('k', 'B', 'x', now: NOW + (2 * H), http: http)
+        st = BTC::Ntfy.load_state
+        assert_equal 'B', st['kinds']['k']
+        assert_equal 1, st['notes'].size
+        assert_match(/k -> B: cooled/, st['notes'].first)
+      end
+    end
+  end
+
+  def test_cooldown_applies_to_regime_kind
+    Dir.mktmpdir do |d|
+      with_env(topic: 't0pic', dir: d) do
+        calls, http = recorder
+        BTC::Ntfy.notify_transition('regime', 'BASE', 'x', now: NOW, http: http)
+        BTC::Ntfy.notify_transition('regime', 'FLUSH', 'to FLUSH', now: NOW, http: http)
+        BTC::Ntfy.notify_transition('regime', 'BASE', 'to BASE', now: NOW + H, http: http)
+        assert_equal :cooled,
+                     BTC::Ntfy.notify_transition('regime', 'FLUSH', 'to FLUSH',
+                                                 now: NOW + (2 * H), http: http)
+        assert_equal ['to FLUSH', 'to BASE'], calls.map(&:last)
+      end
+    end
+  end
+
+  def test_cooled_change_does_not_count_toward_cap
+    Dir.mktmpdir do |d|
+      with_env(topic: 't0pic', dir: d) do
+        _, http = recorder
+        BTC::Ntfy.notify_transition('k', 'A', 'x', now: NOW, http: http)
+        BTC::Ntfy.notify_transition('k', 'B', 'x', now: NOW, http: http)
+        BTC::Ntfy.notify_transition('k', 'A', 'x', now: NOW + 60, http: http)
+        BTC::Ntfy.notify_transition('k', 'B', 'x', now: NOW + 120, http: http) # cooled
+        assert_equal 2, BTC::Ntfy.load_state['cap']['n']
+      end
+    end
+  end
+
+  def test_old_format_state_file_loads_and_works
+    Dir.mktmpdir do |d|
+      with_env(topic: 't0pic', dir: d) do
+        FileUtils.mkdir_p(BTC::Ntfy.state_dir)
+        File.write(BTC::Ntfy.state_file,
+                   JSON.generate({ 'kinds' => { 'regime' => 'BASE' },
+                                   'cap' => { 'day' => '2026-08-30', 'n' => 2 } }))
+        calls, http = recorder
+        assert_equal :unchanged,
+                     BTC::Ntfy.notify_transition('regime', 'BASE', 'x', now: NOW, http: http)
+        assert_equal :pushed,
+                     BTC::Ntfy.notify_transition('regime', 'FLUSH', 'to FLUSH', now: NOW, http: http)
+        assert_equal ['to FLUSH'], calls.map(&:last)
+        assert_equal 3, BTC::Ntfy.load_state['cap']['n']
+      end
+    end
+  end
+
   # ---- M14-3: the BTC::Http seam + failure paths --------------------
   # With no http: kwarg, push goes through BTC::Http.post, so a fake
   # BTC::Http.transport catches it. Every failure path is checked
