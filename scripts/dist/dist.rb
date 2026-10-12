@@ -588,7 +588,7 @@ module Dist
   end
 
   # 10-bin PIT histogram as SHARES (2dp) -- uniform calibration = 0.10
-  # per bin regardless of n. The dist_pit card reads these directly.
+  # per bin regardless of n. The dist_fan PIT overlay reads these directly.
   def pit_bins(recs, component)
     pits = recs.filter_map { |r| r.dig('scores', component, 'pit') }
     return [0.0] * 10 if pits.empty?

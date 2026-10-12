@@ -83,6 +83,28 @@ load-bearing number inline (`GEX $M/1% · spot 62.7k`,
 sliders (inside zoom with a sensible default window); no paginated or
 scrolling legends. Whitespace is not a feature here — density is.
 
+**Cards never stretch to the row's tallest.** (Owner ruling
+2026-10-12, interface round: "compact the cards vertically,
+eliminating whitespace".) The card grid sets `align-items: start` in
+BOTH web/preview.html and web/index.html -- dead space belongs to the
+page background between cards, never inside a card. Companion rules
+from the same round: a fixed theoretical axis range is whitespace too
+-- the scenario composite axis hugs the data with a floor that keeps
+the threshold lines visible (±0.48, stretching only for real prints;
+the outer FLUSH/RECOVERY zone labels clamp to the plot edges); and an
+audit view that would stretch a card rides its subject chart as an
+OVERLAY (the PIT bars on the dist fan: hidden top bin axis excluded
+from the axis pointer, fixed [0,1] right share axis, faint z-1 bars
+-- the vol_spread heterogeneous-overlay idiom).
+
+**The scenario card hosts the dist family as linked tabs.** (Owner
+ruling 2026-10-12, superseding M10-9's [SCENARIO][SCORES] tabs and
+the separate dist card.) One two-section stack with linked
+[SCENARIOS][DIST] tab pairs (the GEX idiom): strip/fan on top (200),
+scorecard/edge below (330). Heights match WITHIN each section pair so
+a tab flip never changes the card height. The scorecard is always
+visible under the strip on SCENARIOS -- never a tab of its own.
+
 **The headline rides the HEAD LINE, not the canvas.** (Owner mock-up
 ruling 2026-08-30.) Every card/section head reads `key ⓘ [tabs]
 <headline> ●` — the option's FIRST title entry is hoisted there by the

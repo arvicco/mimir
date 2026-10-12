@@ -59,7 +59,7 @@ class TestChartSpecs < Minitest::Test
   def test_renderer_hooks_declared_in_meta
     metas = Publish::Charts::CHARTS.transform_values { |s| s[:meta] }
     assert_equal 'gex_levels', metas['gex_btc']['tooltip_formatter']
-    assert_equal 250, metas['scenario_strip']['height'] # half-quadrant card
+    assert_equal 200, metas['scenario_strip']['height'] # compact (2026-10-12)
     assert_equal 'gex_cp', metas['gex_btc']['legend_widget'] # (p) DERI (c)
     # hooks are opt-in: nobody else declares them
     assert_nil metas['lppl_regime']['tooltip_formatter']
@@ -84,15 +84,22 @@ class TestChartSpecs < Minitest::Test
                  metas['gex_btc'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
     assert_equal %w[gex stack 0 260 MSTR],
                  metas['gex_mstr'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
-    # btco stays a solo card; LPPL is a two-tab card (M9-13); M10-9 (owner
-    # ruling 2026-08-13): scenario + scorecard share one [SCENARIO][SCORES]
-    # card -- the audit lives next to what it audits.
-    assert_equal 'scenario', metas['scenario_strip']['tab_group']
-    assert_equal 'SCENARIO', metas['scenario_strip']['tab_label']
-    assert_equal 0, metas['scenario_strip']['tab_pos']
-    assert_equal 'scenario', metas['scorecard']['tab_group']
-    assert_equal 'SCORES', metas['scorecard']['tab_label']
-    assert_equal 1, metas['scorecard']['tab_pos']
+    # btco stays a solo card; LPPL is a two-tab card (M9-13). Owner
+    # interface ruling 2026-10-12 (supersedes M10-9's [SCENARIO][SCORES]
+    # tabs): the scenario card is a two-section STACK with linked
+    # [SCENARIOS][DIST] tab pairs (the GEX idiom) -- strip/fan on top,
+    # scorecard/edge below. SCENARIOS leads (lower CARD_ORDER rank);
+    # section heights match within each pair so a tab flip never
+    # changes the card height.
+    assert_equal %w[scenario stack 0 200 SCENARIOS],
+                 metas['scenario_strip'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
+    assert_equal %w[scenario stack 0 200 DIST],
+                 metas['dist_fan'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
+    assert_equal %w[scenario stack 1 330 SCENARIOS],
+                 metas['scorecard'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
+    assert_equal %w[scenario stack 1 330 DIST],
+                 metas['dist_edge'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
+    assert_nil Publish::Charts::CHARTS['dist_pit'], 'PIT is a fan overlay now, not a chart'
     assert_equal 'lppl', metas['lppl_regime']['tab_group']
     assert_nil metas['btco_table']['tab_group']
     # M8-6 as amended 2026-08-10 (owner rulings): vol_surface + vol_basis
@@ -623,11 +630,19 @@ class TestChartSpecs < Minitest::Test
     assert_equal [-1, 0, 1], vm['pieces'].map { |p| p['value'] }
   end
 
-  def test_scenario_composite_axis_fixed_and_bands_labelled
+  # Owner interface ruling 2026-10-12: the composite axis hugs the data
+  # (the fixed [-1,1] range left the plot's upper third permanently
+  # empty). Floor coverage is +/-0.48 so the +/-0.40 thresholds always
+  # draw with label headroom; a wilder print stretches the axis to
+  # data +/- 0.08. The outer FLUSH/RECOVERY labels clamp to the plot
+  # edges with inward label positions.
+  def test_scenario_composite_axis_hugs_data_with_threshold_floor
     opt = build('scenario_strip')
+    hist = JSON.parse(File.read(File.join(PAYLOADS, 'payload_scenario_history.json')))
+    vals = hist['entries'].map { |e| e['composite'].to_f }
     y0 = opt['yAxis'].first
-    assert_equal(-1, y0['min'])
-    assert_equal 1, y0['max']
+    assert_equal [(vals.min - 0.08), -0.48].min.round(2), y0['min']
+    assert_equal [(vals.max + 0.08), 0.48].max.round(2), y0['max']
     marks = opt['series'].first['markLine']['data']
     # four numeric boundaries + five band labels = nine markLine entries
     assert_equal 9, marks.size
@@ -635,6 +650,24 @@ class TestChartSpecs < Minitest::Test
                  marks.map { |m| m['label']['formatter'] }.grep(/\A[+-]0\.\d0\z/).map(&:to_f)
     assert_equal %w[FLUSH LEAN-FLUSH NEUTRAL BASE RECOVERY],
                  marks.map { |m| m['label']['formatter'] } & %w[FLUSH LEAN-FLUSH NEUTRAL BASE RECOVERY]
+    by = marks.to_h { |m| [m['label']['formatter'], m] }
+    # outer band carriers ride the plot edges, labels flipped inward
+    assert_equal y0['min'], by['FLUSH']['yAxis']
+    assert_equal 'insideStartTop', by['FLUSH']['label']['position']
+    assert_equal y0['max'], by['RECOVERY']['yAxis']
+    assert_equal 'insideStartBottom', by['RECOVERY']['label']['position']
+    # inner bands keep their nominal y
+    assert_equal 0.0, by['NEUTRAL']['yAxis']
+    assert_equal 0.25, by['BASE']['yAxis']
+  end
+
+  def test_scenario_axis_stretches_for_prints_beyond_the_floor
+    latest = { 'regime' => 'FLUSH', 'composite' => -0.9, 'modules' => [],
+               'ts' => '2026-08-30T13:00:00Z' }
+    history = { 'entries' => [{ 'ts' => '2026-08-29T04:45:00Z', 'composite' => -0.9 }] }
+    y0 = Publish::Charts.scenario_strip(latest, history)['yAxis'].first
+    assert_equal(-0.98, y0['min']) # data -0.9 - 0.08 headroom
+    assert_equal 0.48, y0['max']   # quiet side stays at the floor
   end
 
   def test_scenario_composite_series_reads_history_entries
@@ -687,6 +720,59 @@ class TestChartSpecs < Minitest::Test
     end
     # and the meta help names the convention
     assert_match(/hollow\/grey/, Publish::Charts::CHARTS['scenario_strip'][:meta]['help'])
+  end
+
+  # ---- dist_fan PIT overlay (owner interface ruling 2026-10-12) --------
+  # The PIT calibration audit rides the fan as an overlay (the
+  # vol_spread idiom: heterogeneous series, second axis pair), not a
+  # separate chart -- faint bars on a hidden top bin axis + a fixed
+  # [0,1] right share axis, behind the fan lines.
+
+  def dist_doc
+    @dist_doc ||= JSON.parse(File.read(File.join(PAYLOADS, 'payload_dist_latest.json')))
+  end
+
+  def test_dist_fan_pit_empty_state_is_placeholder_not_empty_containers
+    opt = build('dist_fan') # fixture has n_resolved 0
+    assert_equal 2, opt['xAxis'].size, 'dual-axis shape even when empty'
+    assert_equal [''], opt['xAxis'][1]['data'] # 3.3 empty-container ban
+    assert_equal false, opt['yAxis'][1]['show']
+    bar = opt['series'].find { |s| s['type'] == 'bar' }
+    assert_equal [nil], bar['data']
+    assert_equal [1, 1], bar.values_at('xAxisIndex', 'yAxisIndex')
+    assert_equal 'PIT awaiting first resolutions', opt['title'][1]['text']
+  end
+
+  def test_dist_fan_pit_overlay_with_resolutions
+    doc = JSON.parse(JSON.generate(dist_doc))
+    doc['scoring']['n_resolved'] = 12
+    doc['scoring']['horizons'][0].merge!(
+      'n' => 12,
+      'pit_bins' => { 'rn' => [0.2, 0.1, 0.0, 0.1, 0.1, 0.0, 0.1, 0.1, 0.1, 0.2] }
+    )
+    opt = Publish::Charts.dist_fan(doc)
+    bars = opt['series'].select { |s| s['type'] == 'bar' }
+    assert_equal ['7d PIT'], bars.map { |s| s['name'] } # only matured horizons
+    b = bars.first
+    assert_equal [1, 1, 1], b.values_at('xAxisIndex', 'yAxisIndex', 'z') # behind the fan
+    assert_equal 0.35, b['itemStyle']['opacity']
+    assert_equal 0.10, b['markLine']['data'].first['yAxis'] # the uniform reference
+    # the share axis is fixed [0,1] so shares stay comparable over time
+    assert_equal ['share', 0, 1, 'right'],
+                 opt['yAxis'][1].values_at('name', 'min', 'max', 'position')
+    # hidden self-explaining bin axis on top (labels off: the tooltip
+    # carries bin detail; drawn labels would collide with the legend row)
+    x1 = opt['xAxis'][1]
+    assert_equal 'top', x1['position']
+    assert_equal false, x1['axisLabel']['show']
+    assert_equal false, x1['axisPointer']['show'], 'bin axis out of the fan tooltip'
+    assert_equal '.3', x1['data'][3]
+    # audit status in the corner note + a legend entry for toggling
+    assert_equal 'PIT resolved 12', opt['title'][1]['text']
+    assert_includes opt['legend']['data'], '7d PIT'
+    # fan series stay on the primary axes (default index 0)
+    med = opt['series'].find { |s| s['name'] == 'median' }
+    refute med.key?('xAxisIndex')
   end
 
   # ---- lppl_regime structure -------------------------------------------

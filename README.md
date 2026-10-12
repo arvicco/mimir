@@ -298,11 +298,12 @@ Everything is falsifiable by construction: one append-only
 publication ledger row per UTC day, the raw option board snapshotted
 (books cannot be backfilled), and every matured horizon scored
 automatically against the realized close (log score, CRPS, PIT,
-Brier) with skill measured vs the random-walk benchmark. Honest about
-today: the edge strip is empty until the VRP history matures (~2
-weeks), the PIT calibration card is empty until the first horizons
-resolve (7d first), and the 90-day tilt needs ~3 months of vol
-history. No mechanisms, no simulator, no AI anywhere in this slice --
+Brier) with skill measured vs the random-walk benchmark. On the
+dashboard the dist family rides the scenario card's DIST tab: the
+quantile fan (with the PIT calibration audit overlaid as faint bars)
+over the edge strip. Honest about today: the edge strip is empty
+until the VRP history matures, and the PIT overlay says "awaiting
+first resolutions" until the first horizons resolve (7d first). No mechanisms, no simulator, no AI anywhere in this slice --
 those are later phases (see .docs/SKULD-PLAN.md), and each will have
 to beat this scoreboard to earn weight. Methodology: METHODOLOGY.md
 section 5; the five pre-registered research questions that govern
