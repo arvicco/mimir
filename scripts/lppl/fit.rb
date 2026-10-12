@@ -27,7 +27,7 @@
 # curve up to +400d (reported 'none<=+400d' if the minimum sits on the
 # boundary -- itself a strike against the anti-bubble reading).
 #
-# Report-only diagnostics (M9-5, additive --json, NOT gating -- flip is D9-e):
+# Report-only diagnostics (M9-5, additive --json, NOT gating -- flip is a decision item):
 #   b_negative            -- fitted B < 0, the standard LPPLS sign restriction
 #                            the four-filter pass does not currently impose
 #   damping               -- D = m|B| / (omega|C|) (4dp; nil when C absent)
@@ -37,7 +37,7 @@
 #                            improvement re-measured against a symmetric null
 #                            (Lppl.power_decay_fit_v2: refined pass + RMSE tc
 #                            selection). HEADLINE since M11-4 (owner ruling
-#                            2026-08-29, register R-6): the human line's
+#                            2026-08-29): the human line's
 #                            "vs sym null" figure is improvement_v2; the
 #                            frozen rmse_impr_pct field stays as reference.
 #                            Damping remains report-only (same ruling; the
@@ -131,7 +131,7 @@ cmag = Math.sqrt(c1 * c1 + c2 * c2)
 
 # Report-only diagnostics (M9-5): B<0 sign restriction + damping condition.
 # Additive next to the four filters, NOT wired into pass/fail or the score
-# (that flip is decision item D9-e). See Lppl.fit_report_flags.
+# (that flip is a standing decision item). See Lppl.fit_report_flags.
 rflags = Lppl.fit_report_flags(best[:m], b, best[:w], cmag)
 
 # null: pure power decay
@@ -142,7 +142,7 @@ impr = null ? (1.0 - rmse / null[:rmse]) * 100 : nil
 # refined, RMSE-selected null (Lppl.power_decay_fit_v2). Report-only next to
 # rmse_impr_pct -- neither the frozen null nor the frozen improvement figure
 # above is touched. impr_v2 uses the identical (1 - rmse/null_rmse)*100
-# definition. Flip to headline is decision item D9-e/D9-f after soak.
+# definition. Flip to headline is a decision item after soak.
 null_v2  = Lppl.power_decay_fit_v2(p, i_peak)
 impr_v2  = null_v2 ? (1.0 - rmse / null_v2[:rmse]) * 100 : nil
 null_v2_field = null_v2 && {
@@ -221,8 +221,8 @@ if ARGV.include?('--history')
   end
 end
 
-# Headline improvement figure (owner ruling 2026-08-29, register R-6 / was
-# D9-e): the symmetric-null improvement_v2 -- free of the frozen null's
+# Headline improvement figure (owner ruling 2026-08-29):
+# the symmetric-null improvement_v2 -- free of the frozen null's
 # tc-grid-edge artifact -- is the number we stand behind; the frozen
 # rmse_impr_pct keeps its field and meaning as reference. Score untouched
 # (damping stays report-only per the same ruling; residue in the register

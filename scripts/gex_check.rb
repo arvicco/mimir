@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 #
-# gex_check.rb -- options-positioning cross-check (M8-3 / P-5): our own
+# gex_check.rb -- options-positioning cross-check (M8-3): our own
 # computed GEX walls & gamma flip versus Coinglass's Deribit max-pain
 # view. An advisory, OUTCOME-FIRST sanity check ON the GEX suite -- same
 # philosophy as the BTCo ingest ref lines: it never feeds a score and
@@ -10,7 +10,7 @@
 #   ruby scripts/gex_check.rb          # aligned human table
 #   ruby scripts/gex_check.rb --json   # machine dump (frozen contract)
 #
-# WHAT IT COMPARES (DESCRIPTIVE ONLY -- owner ruling 2026-07-10, P-5
+# WHAT IT COMPARES (DESCRIPTIVE ONLY -- owner ruling 2026-07-10,
 # report-only: NO divergence threshold, NO verdict, NO pass/fail; the
 # band gets picked empirically after weeks of data, Golden Rule 4):
 #   - nearest-expiry Deribit max pain vs our put_wall / call_wall / spot

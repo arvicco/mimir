@@ -12,7 +12,7 @@ require 'tmpdir'
 class TestPublishHealth < Minitest::Test
   # Fixed reference point for all age calculations.
   NOW      = Time.utc(2026, 7, 6, 12, 0, 0)
-  INTERVAL = 120 # minutes (default; matches D5-a)
+  INTERVAL = 120 # minutes (default; matches the 2026-07-06 cadence)
 
   # Write +content+ to a file in +dir+ and set its mtime to NOW - age_seconds.
   # Returns the file path.

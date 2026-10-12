@@ -14,7 +14,7 @@
 # survived to mix series, so the suite restarted on Coin Metrics --
 # the provider onchain_value.rb already trusts. Reference-rate closes
 # differ slightly from exchange closes; a data-source decision recorded
-# in .docs/TOOL-REVIEW.md (F-16).
+# in the Phase-0 tool review.
 
 require_relative 'common'
 

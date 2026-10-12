@@ -99,19 +99,19 @@ module Publish
       ['basis:latest',    ['ruby', 'scripts/basis.rb', '--json'],                      60,  3_600],
       ['gex:trend',       ['ruby', 'scripts/gex_trend.rb', '--json'],                  30,  3_600],
       ['gex:check',       ['ruby', 'scripts/gex_check.rb', '--json'],                  120, 3_600],
-      # M10-7 (P-19): our own signals' forward-return track record, scored
+      # M10-7: our own signals' forward-return track record, scored
       # offline from the local ledgers by scripts/scorecard.rb (no network).
       # Descriptive only -- report-only, changes no analytics semantics.
       ['scorecard:latest', ['ruby', 'scripts/scorecard.rb', '--json'],                 60,  3_600],
-      # M10-4 (P-6): the crowd-positioning module -- daily crowd/OI/liquidation
+      # M10-4: the crowd-positioning module -- daily crowd/OI/liquidation
       # stance. Runs at WEIGHT 0 during the soak (display only); its --json
       # carries the card series. Daily cadence (24h source-cache ttl).
       ['positioning:latest', ['ruby', 'scripts/scenario/positioning.rb', '--json'],    60,  3_600],
-      # M11-7 (P-8, R-11/D11-a): the exchange-reserve module -- weight 0,
+      # M11-7 (owner ruling 2026-08-29): the exchange-reserve module -- weight 0,
       # daily cadence (24h source-cache ttl); its --json carries the
       # reserves series the positioning card draws on its right axis.
       ['reserves:latest',  ['ruby', 'scripts/scenario/reserves.rb', '--json'],         60,  3_600],
-      # M12-4 (Q-12): the independent bubble-index cross-reference --
+      # M12-4: the independent bubble-index cross-reference --
       # ADVISORY payload for the SHADOW tab's x-ref row, never a score
       # input. Daily cadence (24h source-cache ttl).
       ['bubble:ref',       ['ruby', 'scripts/bubble_ref.rb', '--json'],                60,  3_600],
@@ -363,7 +363,7 @@ module Publish
       unless inputs.all? { |k| envelopes.key?(k) }
         return skip_chart(key, 'inputs not published')
       end
-      # A fail-soft payload ('unavailable': true, F-12) is an honest suite
+      # A fail-soft payload ('unavailable': true) is an honest suite
       # status, not chartable data -- building from one published a NaN
       # gauge / empty table (2026-07-07 incident). Skip instead;
       # keep-last-good + the index carry keep the previous chart visible.

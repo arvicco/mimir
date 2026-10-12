@@ -19,7 +19,7 @@
 #      by least squares, R^2 = 1 - SSE/TSS against the residual variance.
 #
 # Output is research-only: this script is NOT registered in publish and feeds
-# NO verdict. It exists so decision item D9-d can be ruled with our own numbers
+# NO verdict. It exists so the PL+LP1-rival decision item can be ruled with our own numbers
 # next to SBI's (omega 8.75, ~35% variance).
 #
 # CAUTION (SBI, verbatim intent): this is the ln(age) clock -- NOT comparable

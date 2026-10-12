@@ -54,7 +54,7 @@ module BTC
     # Scrub secrets from a string bound for output: credential-looking
     # query params by pattern, plus the literal values of SECRET_ENV
     # (some APIs, e.g. FRED, only accept keys as query params, so URLs
-    # in exception messages are a leak vector -- TOOL-REVIEW.md F-6).
+    # in exception messages are a leak vector -- a Phase-0 tool-review finding).
     def redact(str)
       s = str.to_s.gsub(/((?:api_?key|token|secret|password)=)[^&\s"']+/i,
                         '\1[REDACTED]')

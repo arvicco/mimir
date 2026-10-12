@@ -113,7 +113,7 @@ soft without it):
   91 daily values exist. Score -1 only on the full flush lineup
   (crowd LONG + OI RISING + longs liquidated), +1 on the exact
   mirror, else 0.
-- `reserves.rb` (Phase 11, owner ruling R-11 2026-08-29): aggregate
+- `reserves.rb` (Phase 11, owner ruling 2026-08-29): aggregate
   BTC sitting on the exchanges Coinglass tracks. Scores the 30-day
   percent change against its own trailing-90d distribution (80/20):
   +1 when coins drain to self-custody unusually fast, -1 when
@@ -127,11 +127,11 @@ soft without it):
 Archive snapshot and then CoinGlass (`COINGLASS_API_KEY`, free) -- see
 the source-chain note in the script header. Its history entries before
 2026-07-04 are unreliable: the old parser reported day-of-month numbers
-as daily totals (internal review finding F-22).
+as daily totals (an internal review finding).
 Everything else is keyless public APIs; `etf_flows` is the one HTML
 scrape (degrades gracefully on layout drift).
 
-**Replay & backtests (Phase 12, Q-20):** every module supports
+**Replay & backtests (Phase 12):** every module supports
 `--as-of` (scores recomputed from dated-history sources, complete days
 only, clock frozen, nothing written -- the per-module fidelity table
 with its caveats is in docs/METHODOLOGY.md). `rake scenario:backfill`
@@ -141,13 +141,13 @@ realized forward BTC returns over organic + staged days -- future
 threshold/band proposals attach its output. Descriptive only; small
 samples are dimmed honestly.
 
-**Push alerts (Phase 12, Q-17, dormant):** transition-only ntfy.sh
+**Push alerts (Phase 12, dormant):** transition-only ntfy.sh
 pushes -- scenario regime change, LPPL verdict change, spot crossing
 the BTC gamma flip, publish-health OLD/BLIND appearing/clearing --
 with a hard 8/day cap. DORMANT until `NTFY_TOPIC` is set in the env
 (enabling is the owner's call; the topic name acts as a credential).
 
-**Bubble cross-ref (Phase 12, Q-12):** `scripts/bubble_ref.rb`
+**Bubble cross-ref (Phase 12):** `scripts/bubble_ref.rb`
 publishes an independent Coinglass bubble-index read (value +
 own-history percentile since 2010) as an ADVISORY row on the LPPL
 card's SHADOW tab -- an outside gauge to disagree with, never an
@@ -252,7 +252,7 @@ divergence vs every ref, and prints plain-words to-dos per ticker.
 Prices/FX/BTC spot are fetched live: US listings via CBOE delayed
 quotes, FX via Frankfurter/ECB, BTC via the Deribit index. Known gap:
 Metaplanet (3350) has real data but NO dashboard row until its price
-source is decided (D8-f -- stooq died upstream, F-17; `manual_px` or
+source is decided (owner ruling 2026-07-10 -- stooq died upstream; `manual_px` or
 tracker-priced).
 
 ## Signal scorecard
@@ -271,7 +271,7 @@ no significance verdicts, no declared "right" direction per band, and
 a cell renders only with n >= 30 over a span >= twice the horizon --
 short ledgers show an explicit "n too small". Daily h-day returns
 overlap, so `n_eff ~ n/h` in the JSON is the honest evidence count.
-Definitions are the D10-a owner ruling; the engine is
+Definitions are the 2026-08-12 owner ruling; the engine is
 `lib/btc/scorecard.rb`.
 
 ## Price distribution (skuld, Phase 13)
@@ -373,7 +373,7 @@ static dashboard renders the pre-built chart specs.
   envelope verbatim (`Cache-Control: public, max-age=60`,
   `X-Generated-At`, `X-Data-Age-Seconds`); `404` on an unknown/malformed
   key; `GET /healthz` -> `{ok:true,...}`. Public-read at v1 (owner ruling
-  D4-c); a dormant `AUTH_TOKEN` bearer branch activates with one
+  2026-07-05); a dormant `AUTH_TOKEN` bearer branch activates with one
   `wrangler secret put` and no code change. Tested with the node built-in
   runner (`rake web:test`, zero npm).
 - **Dashboard** (`web/index.html` + shared `web/render.js`): a same-origin

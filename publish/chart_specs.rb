@@ -32,7 +32,7 @@
 #     `(p) DERI (c)` -- p/c toggle one side, the venue name both; owner
 #     review round 4). The spec ships legend.show=false so ECharts still
 #     owns series selection; the widget drives it via legend actions.
-#   meta['tab_group'] (+ tab_label / tab_pos) -- M6-4, owner ruling D7-c
+#   meta['tab_group'] (+ tab_label / tab_pos) -- M6-4, owner ruling 2026-07-06
 #     (2026-07-06): charts sharing a tab_group render into ONE dashboard
 #     card as tabs -- 'gex' (gex_btc [BTC] + gex_mstr [MSTR] + gex_btc_trend
 #     [BTC TREND] + gex_mstr_trend [MSTR TREND], M8-6/M8-18) and 'vol'
@@ -376,7 +376,7 @@ module Publish
           # M9-15: the (p) VENUE (c) widget's venue labels get CSS hover
           # explanations (Deribit + the five US spot-ETF chains).
           'terms' => GEX_VENUE_TERMS,
-          # tab-group hook (M6-4, owner ruling D7-c 2026-07-06; extended M8-18
+          # tab-group hook (M6-4, owner ruling 2026-07-06; extended M8-18
           # 2026-08-10): the GEX card is now four tabs --
           # [BTC][MSTR][BTC TREND][MSTR TREND]. tab_pos is explicit because the
           # index sorts keys alphabetically yet BTC must be the default/first tab.
@@ -412,7 +412,7 @@ module Publish
           # no tooltip_formatter: the gex_levels formatter aggregates per-venue
           # call/put series (C/P + '<venue> C/P'), which this single net-GEX
           # series does not carry -- the default axis tooltip is correct here.
-          # tab-group hook (M6-4, owner ruling D7-c 2026-07-06): shares the
+          # tab-group hook (M6-4, owner ruling 2026-07-06): shares the
           # BTC gex_profile card as the second [MSTR] tab (BTC is tab_pos 1).
           # shares the profile section (tab_pos 0) as its MSTR tab.
           'tab_group' => 'gex', 'group_style' => 'stack', 'tab_pos' => 0,
@@ -495,7 +495,7 @@ module Publish
       # 'lppl_shadow' registry formatter). Reads lppl:latest (same payload
       # as lppl_regime); a missing shadow field drops its row (fail-soft).
       'lppl_shadow' => {
-        # M12-4 (Q-12): bubble:ref rides along as an OPTIONAL input --
+        # M12-4: bubble:ref rides along as an OPTIONAL input --
         # the independent bubble-gauge x-ref row. Absent/fail-soft ->
         # the row drops, the tab never skips.
         inputs: %w[payload_lppl_latest.json], fn: :lppl_shadow,
@@ -503,7 +503,7 @@ module Publish
         meta: {
           'desc' => 'Phase-9 SHADOW diagnostics: each of six frozen LPPL ' \
                     'numbers shown beside the honest "shadow" recomputation ' \
-                    'that a standing decision item (D9-b/c/e/f/g) is weighing ' \
+                    'that a standing owner decision item is weighing ' \
                     'for adoption. Report-only during the soak -- none of these ' \
                     'changes the verdict yet; they exist so the owner can rule ' \
                     'with the numbers, and their meaning, in front of them ' \
@@ -766,7 +766,7 @@ module Publish
           'terms' => GEX_TREND_TERMS
         }
       },
-      # M10-7 (P-19, owner ruling D10-c): our own signals' forward-return
+      # M10-7 (owner ruling 2026-08-12): our own signals' forward-return
       # track record as a signals x horizons matrix -- CURATED for v1 to three
       # signals (lppl_verdict, scenario_regime, gex_gamma_sign); the full set
       # stays CLI-only (scripts/scorecard.rb). Reads scorecard:latest; a
@@ -810,7 +810,7 @@ module Publish
           'tab_label' => 'SCENARIOS', 'tab_pos' => 1
         }
       },
-      # M10-4 (P-6, owner ruling D10-c): the crowd-positioning card. Three
+      # M10-4 (owner ruling 2026-08-12): the crowd-positioning card. Three
       # stacked panels sharing ONE date axis (the lppl_regime precedent) so a
       # vertical slice reads the flush set-up at a glance -- OI on top, the
       # crowd ratios in the middle, opposed liquidation bars at the bottom.
@@ -1107,7 +1107,7 @@ module Publish
     #
     # gex:mstr payload (scripts/gex_us.rb MSTR --json, a single object) ->
     # the single-venue variant of the gex_profile grammar, on MSTR's own
-    # price axis (D7-c: the two GEX charts share one card as tabs, so the
+    # price axis (2026-07-06 ruling: the two GEX charts share one card as tabs, so the
     # dark theme, palette, fonts and title/tooltip shapes match). SIBLING
     # builder, not a gex_profile adapter: gex_us's payload carries NET
     # gamma per strike ({strike => signed $}) -- calls and puts are already
@@ -1390,7 +1390,7 @@ module Publish
         'showSymbol' => true, 'symbol' => 'circle', 'symbolSize' => 7, # a 1-entry ledger must still show as a filled dot
         'data' => ratio, 'markLine' => envelope_lines(env)
       }
-      # M11-6: with the frozen bound (R-8) sitting below the recent ratio
+      # M11-6: with the frozen bound (2026-08-29 ruling) sitting below the recent ratio
       # range, a purely auto-scaled axis clips the bound markLine away and
       # the envelope panel loses its reference line. Pin the panel's min
       # just under the bound (build-time, so the option stays static); max
@@ -1490,7 +1490,7 @@ module Publish
     # additively through lppl:latest (same payload as lppl_regime); a
     # missing shadow field drops its ROW (fail-soft, never a null drawn).
     # No verdict/score/analytics semantics change -- report-only during the
-    # soak, each row naming the decision item it feeds (D9-b/c/e/f/g).
+    # soak, each row naming the decision item it feeds.
 
     # Owner-approved plain-language hover text, keyed by row stat. VERBATIM
     # (owner ruling 2026-08-11) -- do not paraphrase; the renderer's
@@ -1498,7 +1498,7 @@ module Publish
     # These describe the METHOD, so they cite representative live numbers;
     # the per-row frozen/shadow VALUES beside them come from the payload.
     # Post-ruling texts (M11-6): four of the six checks GRADUATED on the
-    # 2026-08-29 owner rulings (register R-3/R-6/R-7/R-8) -- their shadow
+    # 2026-08-29 owner rulings (trend, fit, p-value, freeze) -- their shadow
     # value IS now the headline and the old value is the reference. Two
     # stay deliberately report-only (365/730 scoring wants a backtest;
     # damping gating wants more soak -- register CALENDAR).
@@ -1580,7 +1580,7 @@ module Publish
       lp    = lppl_detail(latest, 'logperiodic') || {}
       rows  = []
 
-      # (R-3, GRADUATED) trend: old cumulative sum (reference) -> the
+      # (GRADUATED) trend: old cumulative sum (reference) -> the
       # per-eval mean headline +- its NW error bar. headline_mean when the
       # payload carries it (post-M11-3); the per_horizon sum otherwise.
       ph = trend['per_horizon']
@@ -1596,7 +1596,7 @@ module Publish
         end
       end
 
-      # (R-4, stays report-only) long horizons: the 365d/730d per-eval means.
+      # (stays report-only) long horizons: the 365d/730d per-eval means.
       pl = trend['per_horizon_long']
       if pl.is_a?(Hash)
         a = pl.dig('365', 'mean_per_eval')
@@ -1617,7 +1617,7 @@ module Publish
                   'verdict' => d < thr ? 'not met · report-only' : 'qualifies · report-only' }
       end
 
-      # (R-6, GRADUATED) old improvement figure (reference) -> the fair
+      # (GRADUATED) old improvement figure (reference) -> the fair
       # symmetric-null figure now in the headline.
       if (iv = fit['improvement_v2']) && (fr = fit['rmse_impr_pct'])
         rows << { 'stat' => 'impr', 'frozen' => format('%.1f%%', fr),
@@ -1625,7 +1625,7 @@ module Publish
                   'verdict' => 'headline 08-29' }
       end
 
-      # (R-7, GRADUATED) AR(1) p (reference) -> the GARCH bootstrap p that
+      # (GRADUATED) AR(1) p (reference) -> the GARCH bootstrap p that
       # now drives headline and score.
       if (pv = lp['p_value_v2']) && (fp = lp['p_value'])
         rows << { 'stat' => 'p(osc)', 'frozen' => lppl_compact(fp, 2),
@@ -1633,7 +1633,7 @@ module Publish
                   'verdict' => pv <= 0.05 ? 'significant · headline 08-29' : 'still noise · headline 08-29' }
       end
 
-      # (R-8, GRADUATED) drifting bound (reference) -> the frozen operative
+      # (GRADUATED) drifting bound (reference) -> the frozen operative
       # bound. bound_live when the payload carries it (post-M11-5); the
       # pre-flip bound/freeze_candidate pair otherwise.
       bd_ref = env['bound_live'] || env['bound']
@@ -1644,7 +1644,7 @@ module Publish
                   'verdict' => 'adopted 08-29' }
       end
 
-      # (Q-12, M12-4) the OUTSIDE bubble gauge, ADVISORY: value -> its
+      # (M12-4) the OUTSIDE bubble gauge, ADVISORY: value -> its
       # own-history percentile, verdict = the band. Optional input --
       # absent or fail-soft drops the row.
       if bubble.is_a?(Hash) && !bubble['unavailable'] && bubble['value'] && bubble['pct']
@@ -1782,8 +1782,8 @@ module Publish
 
     # ---- scorecard (M10-7) --------------------------------------------
     #
-    # scorecard:latest -> the signals x horizons track-record matrix (P-19,
-    # owner ruling D10-c). CURATED for v1 (the full signal set stays CLI-only
+    # scorecard:latest -> the signals x horizons track-record matrix (owner
+    # ruling 2026-08-12). CURATED for v1 (the full signal set stays CLI-only
     # in scripts/scorecard.rb): three signals -- lppl_verdict, scenario_regime,
     # gex_gamma_sign. For each a bold unconditional ALL benchmark row, then one
     # row per band present, across the three forward horizons (7/30/90d). A
@@ -2010,7 +2010,7 @@ module Publish
     # ---- positioning (M10-4) ------------------------------------------
     #
     # positioning:latest -> three time-aligned panels sharing ONE date axis
-    # (the lppl_regime precedent, owner ruling D10-c 2026-08-12): OI ($B)
+    # (the lppl_regime precedent, owner ruling 2026-08-12): OI ($B)
     # on top, the crowd ratios in the middle (global L/S + top-trader L/S on
     # the left axis, taker BUY-share % on a right axis), and opposed
     # liquidation bars at the bottom (longs DOWN in red, shorts UP in teal,
@@ -2248,7 +2248,7 @@ module Publish
     VOL_MSTR  = '#d0d5db' # MSTR leg (brighter)
     VOL_BTC   = '#7a828c' # BTC leg (dimmer)
 
-    # Owner ruling 2026-08-29 (register R-9): the six vol tenors carry a
+    # Owner ruling 2026-08-29 (tenor palette): the six vol tenors carry a
     # spectral gradient -- 7d RED through orange/yellow/green/cyan to 90d
     # DARK BLUE -- so a tenor reads the same colour on the vol_spread bars/
     # dots and on the trend lines below (one card, one code). Sign on the
@@ -2374,7 +2374,7 @@ module Publish
     #
     # vol:spread -> MSTR-minus-BTC ATM implied vol per tenor (the live price
     # of treasury-company leverage). Bars = the spread in vol points,
-    # colour-coded by TENOR (the R-9 gradient; sign reads from direction
+    # colour-coded by TENOR (the tenor gradient; sign reads from direction
     # against zero); two thin lines = each leg's raw ATM IV (MSTR brighter,
     # BTC dimmer) with their dots tenor-coloured to match the bars and the
     # trend chart below. One shared vol-% axis: the bar height reads against
@@ -2403,7 +2403,7 @@ module Publish
                      'axisLabel' => { 'margin' => 3 },
                      'nameLocation' => 'middle', 'nameGap' => 44 },
         'series' => [
-          # bars are per-tenor coloured (R-9 gradient); the series-level
+          # bars are per-tenor coloured (tenor gradient); the series-level
           # grey exists only so the legend swatch reads neutral.
           { 'name' => 'spread', 'type' => 'bar', 'itemStyle' => { 'color' => '#888e98' },
             'data' => bars },
@@ -2417,7 +2417,7 @@ module Publish
       }
     end
 
-    # The R-9 gradient colour for a tenor row (nil-safe fetch fallback:
+    # The tenor gradient colour for a tenor row (nil-safe fetch fallback:
     # an off-grid tenor keeps the neutral grey rather than crashing).
     def tenor_color(t)
       VOL_TENOR_COLORS.fetch(t['tenor_d'], '#888e98')
@@ -2448,7 +2448,7 @@ module Publish
     # (spread_atm * 100, 1dp) scaled at build time (design system); a null
     # spread on a date is a gap (nil), never a zero. Filled dots
     # (sparse-data rule) so a single live day reads as a clear point. The
-    # six series take the R-9 tenor gradient (owner ruling 2026-08-29:
+    # six series take the tenor gradient (owner ruling 2026-08-29:
     # 7d red -> 90d dark blue, VOL_TENOR_COLORS -- same hue per tenor as
     # the vol_spread bars/dots above). Empty history still yields a valid
     # option (empty axis + 6 empty series) -- the acceptable

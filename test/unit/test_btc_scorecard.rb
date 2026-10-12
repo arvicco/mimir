@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # M10-5: BTC::Scorecard -- the pure forward-return scoring engine behind
-# the signal scorecard (P-19). Definitions are the D10-a owner ruling
+# the signal scorecard (M10-5). Definitions are the 2026-08-12 owner ruling
 # (2026-08-12): entry close(t) / exit close(t+h) join, log returns as %,
 # per-band n/mean/%positive vs the same-window unconditional row, n_eff
 # overlap honesty, and the n >= min_n AND span >= span_factor*h cell

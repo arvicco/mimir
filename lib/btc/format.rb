@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 #
 # format.rb -- shared human-output formatting for the gex tools
-# (TOOL-REVIEW.md R-6/R-7). Per-tool 'k' formatters are deliberately
+# (a Phase-0 tool-review finding). Per-tool 'k' formatters are deliberately
 # NOT unified: they differ and feed frozen --tmux lines.
 
 module BTC

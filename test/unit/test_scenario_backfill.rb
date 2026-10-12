@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 #
-# M12-2 (Q-20): ScenarioBackfill -- dates/resume/row-building/diff on
+# M12-2: ScenarioBackfill -- dates/resume/row-building/diff on
 # fakes (no subprocess, no network; STAGE_ROOT redirected to a tmpdir).
 
 require_relative '../test_helper'

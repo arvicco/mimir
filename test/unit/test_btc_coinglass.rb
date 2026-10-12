@@ -88,7 +88,7 @@ class TestBtcCoinglass < Minitest::Test
     assert_includes calls.first[:url], 'interval=8h'
   end
 
-  # ---- P-6 positioning wrappers: URL/param assembly (M10-2) -----------
+  # ---- positioning wrappers: URL/param assembly (M10-2) ---------------
 
   def test_oi_aggregated_history_params_and_unwrap
     body  = JSON.generate('code' => '0', 'data' => [{ 'time' => 1, 'close' => '1e10' }])
@@ -135,7 +135,7 @@ class TestBtcCoinglass < Minitest::Test
     assert_includes url, 'symbol=BTC'
   end
 
-  # ---- P-6 positioning fixtures: recorded-shape parse (M10-2) ---------
+  # ---- positioning fixtures: recorded-shape parse (M10-2) -------------
   # Assert the row shape M10-3 will consume, against the REAL recorded
   # 2026-08-12 responses (10 daily rows each, 03..12 Aug 2026).
 
@@ -143,7 +143,7 @@ class TestBtcCoinglass < Minitest::Test
     JSON.parse(File.read(File.join(FIX, file)))['data']
   end
 
-  # ---- M11-7 (P-8): exchange balance endpoints -------------------------
+  # ---- M11-7: exchange balance endpoints -------------------------------
 
   def test_exchange_balance_list_params_and_unwrap
     body  = JSON.generate('code' => '0',

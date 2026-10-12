@@ -3,11 +3,11 @@
 # common.rb -- shared helpers for the scenario signal modules.
 # Ruby >= 2.5, stdlib only.
 #
-# REPLAY (M12-1, Q-20): `--as-of YYYY-MM-DD` computes a module's score
+# REPLAY (M12-1): `--as-of YYYY-MM-DD` computes a module's score
 # exactly as a live run on DATE would have, from dated-history sources
 # truncated in memory (the lppl M6-1 mechanics: strict date validation,
 # frozen clock via now_utc, nothing written). Per-module fidelity --
-# which source serves the replay and with what caveat -- is the D12-b
+# which source serves the replay and with what caveat -- is the replay-fidelity
 # table in docs/METHODOLOGY.md; a module whose replay rides a PROXY
 # source marks its headline. Without the flag every code path and
 # timestamp is byte-identical to pre-M12.
