@@ -12,9 +12,10 @@ module BTC
     # ENV names whose values must never appear in output or error text.
     # CLOUDFLARE_API_TOKEN is the canonical name (one-token ruling, Gate
     # 4); the legacy CF_API_TOKEN stays listed purely so a stale env
-    # file's value is still redacted.
+    # file's value is still redacted. NTFY_TOPIC (M14-3): the push topic
+    # name is a read credential for the alert channel.
     SECRET_ENV = %w[FRED_API_KEY CLOUDFLARE_API_TOKEN CF_API_TOKEN
-                    ANTHROPIC_API_KEY COINGLASS_API_KEY].freeze
+                    ANTHROPIC_API_KEY COINGLASS_API_KEY NTFY_TOPIC].freeze
 
     module_function
 

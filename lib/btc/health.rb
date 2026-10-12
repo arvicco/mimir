@@ -209,7 +209,15 @@ module BTC
         marker: 'api.cloudflare.com/client/v4', env: 'CLOUDFLARE_API_TOKEN',
         url: -> { "https://api.cloudflare.com/client/v4/accounts/#{ENV['CLOUDFLARE_ACCOUNT_ID']}/storage/kv/namespaces/#{ENV['CLOUDFLARE_KV_NAMESPACE_ID']}/keys?limit=10" },
         headers: -> { { 'Authorization' => "Bearer #{ENV['CLOUDFLARE_API_TOKEN']}" } },
-        check: ->(b) { JSON.parse(b)['success'] == true } }
+        check: ->(b) { JSON.parse(b)['success'] == true } },
+      # M14-3: the push-alert channel. Reachability of the BARE host only
+      # -- never a topic URL (the topic is a credential, and a probe must
+      # never post or subscribe). soft: alerts are advisory; a dead
+      # ntfy.sh never touches an analytic, so it WARNs.
+      { name: 'ntfy.sh push', src: 'lib/btc/ntfy.rb',
+        marker: "HOST      = 'https://ntfy.sh'", soft: true,
+        url: 'https://ntfy.sh/',
+        check: ->(b) { b.to_s.downcase.include?('ntfy') } }
     ].freeze
 
     # Expected ECharts CDN artifact.  Update only intentionally (bump both
