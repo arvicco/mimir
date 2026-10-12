@@ -767,12 +767,64 @@ class TestChartSpecs < Minitest::Test
     assert_equal false, x1['axisLabel']['show']
     assert_equal false, x1['axisPointer']['show'], 'bin axis out of the fan tooltip'
     assert_equal '.3', x1['data'][3]
-    # audit status in the corner note + a legend entry for toggling
+    # audit status as a dim in-plot note (owner round 2026-10-12: the
+    # top band is the legend's alone); PIT bars stay OUT of the legend
     assert_equal 'PIT resolved 12', opt['title'][1]['text']
-    assert_includes opt['legend']['data'], '7d PIT'
+    assert_equal [40, 30], opt['title'][1].values_at('left', 'top')
+    assert_equal ['median', 'rwm median'], opt['legend']['data']
     # fan series stay on the primary axes (default index 0)
     med = opt['series'].find { |s| s['name'] == 'median' }
     refute med.key?('xAxisIndex')
+  end
+
+  # ---- scorecard row folding (owner ruling 2026-10-12) -----------------
+  # A signal that has only ever printed ONE value duplicates its ALL row
+  # in that band -- the pair folds into a single `signal=BAND` row.
+
+  def sc_hz(n:, mean:, pos:, band: 'POS', band_n: nil, band_mean: nil, band_pos: nil)
+    SCORECARD_HZ_SYNTH.to_h do |h|
+      [h, { 'eligible' => true, 'n' => n, 'n_eff' => (n.to_f / h.to_i).round(1),
+            'all' => { 'mean_pct' => mean, 'pos_pct' => pos },
+            'bands' => { band => { 'n' => band_n || n,
+                                   'mean_pct' => band_mean || mean,
+                                   'pos_pct' => band_pos || pos } } }]
+    end
+  end
+  SCORECARD_HZ_SYNTH = %w[7 30 90].freeze
+
+  def test_scorecard_folds_a_single_identical_band_into_the_all_row
+    doc = { 'signals' => { 'gex_gamma_sign' => { 'horizons' => sc_hz(n: 91, mean: 2.12, pos: 58.2) } } }
+    rows = Publish::Charts.scorecard_rows(doc)
+    assert_equal 1, rows.size, 'identical ALL + single band fold to one row'
+    assert_equal 'gex_gamma_sign=POS', rows.first['label']
+    assert_equal 'all', rows.first['kind']
+    assert_match(/folded/, rows.first['note'])
+  end
+
+  def test_scorecard_keeps_a_single_band_that_differs_from_all
+    # a band with its own n (some days printed something else even if that
+    # other band never reached the union -- e.g. ineligible elsewhere)
+    doc = { 'signals' => { 'gex_gamma_sign' => {
+      'horizons' => sc_hz(n: 91, mean: 2.12, pos: 58.2, band_n: 60, band_mean: 3.0)
+    } } }
+    rows = Publish::Charts.scorecard_rows(doc)
+    assert_equal 2, rows.size
+    assert_equal %w[gex_gamma_sign], [rows.first['label']]
+    assert_equal '  POS', rows.last['label']
+  end
+
+  def test_scorecard_never_folds_multi_band_signals
+    rows = Publish::Charts.scorecard_rows(
+      JSON.parse(File.read(File.join(PAYLOADS, 'payload_scorecard_latest.json')))
+    )
+    # the fixture's scenario_regime carries two bands -> ALL + both stay
+    labels = rows.map { |r| r['label'] }
+    assert_includes labels, 'scenario_regime'
+    assert_includes labels, '  BASE'
+    assert_includes labels, '  NEUTRAL'
+    # while its lppl_verdict is single-band identical -> folded
+    assert_includes labels, 'lppl_verdict=STRESSED'
+    refute_includes labels, '  STRESSED'
   end
 
   # ---- lppl_regime structure -------------------------------------------

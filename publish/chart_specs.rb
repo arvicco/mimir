@@ -1836,6 +1836,11 @@ module Publish
     # Curated rows top-to-bottom: for each present signal an ALL row then one
     # row per band (union across the eligible horizons, sorted). A signal
     # absent from the payload contributes nothing (fail-soft).
+    #
+    # Owner ruling 2026-10-12 (design round): a signal that has only ever
+    # printed ONE value duplicates its ALL row in that band, cell for
+    # cell -- zero information twice. Such a pair folds into a single
+    # row labelled `signal=BAND`; the hover note says why.
     def scorecard_rows(doc)
       signals = doc['signals'] || {}
       SCORECARD_SIGNALS.flat_map do |name|
@@ -1844,8 +1849,28 @@ module Publish
 
         hz    = sig['horizons'] || {}
         bands = SCORECARD_HZ.flat_map { |h| ((hz[h] || {})['bands'] || {}).keys }.uniq.sort
-        [scorecard_row_data(name, 'all', nil, hz)] +
-          bands.map { |b| scorecard_row_data(name, 'band', b, hz) }
+        all_row   = scorecard_row_data(name, 'all', nil, hz)
+        band_rows = bands.map { |b| scorecard_row_data(name, 'band', b, hz) }
+        if band_rows.size == 1 && scorecard_same_cells?(all_row, band_rows.first)
+          all_row['label'] = "#{name}=#{bands.first}"
+          all_row['note'] = "#{all_row['note']} Every print so far was " \
+                            "#{bands.first}, so the single identical band " \
+                            'row is folded into this one.'
+          band_rows = []
+        end
+        [all_row] + band_rows
+      end
+    end
+
+    # The fold test: identical on the load-bearing stats at every horizon
+    # (eligibility, n, mean, hit rate -- n_eff is derived with different
+    # rounding on the two row kinds, so it stays out of the comparison).
+    def scorecard_same_cells?(row_a, row_b)
+      SCORECARD_HZ.all? do |h|
+        a = row_a['cells'][h]
+        b = row_b['cells'][h]
+        a.values_at('eligible', 'n', 'mean_pct', 'pos_pct') ==
+          b.values_at('eligible', 'n', 'mean_pct', 'pos_pct')
       end
     end
 
@@ -2711,7 +2736,6 @@ module Publish
         pit_series = [{ 'type' => 'bar', 'xAxisIndex' => 1, 'yAxisIndex' => 1,
                         'data' => [nil] }]
         pit_note = 'PIT awaiting first resolutions'
-        pit_legend = []
       else
         pit_x = { 'type' => 'category', 'gridIndex' => 0, 'position' => 'top',
                   'data' => (0...10).map { |i| format('.%d', i) },
@@ -2736,20 +2760,22 @@ module Publish
           'data' => [{ 'yAxis' => 0.10 }]
         }
         pit_note = format('PIT resolved %d', scoring['n_resolved'])
-        pit_legend = pit_hs.map { |h| "#{h['d']}d PIT" }
       end
 
       {
         'backgroundColor' => 'transparent',
         'title' => [{ 'text' => dist_fan_title(dist),
                       'textStyle' => { 'fontSize' => 13 } },
-                    # dim corner note: the audit's status at a glance
-                    { 'text' => pit_note, 'right' => 6, 'top' => 2,
+                    # dim audit-status note INSIDE the plot (owner round
+                    # 2026-10-12: the top band is the legend's alone --
+                    # a corner note there collided with it at real
+                    # card widths), top-left where the fan stays empty
+                    { 'text' => pit_note, 'left' => 40, 'top' => 30,
                       'textStyle' => { 'fontSize' => 10, 'color' => '#6b7178',
                                        'fontWeight' => 'normal' } }],
         'tooltip' => { 'trigger' => 'axis', 'confine' => true,
                        'textStyle' => { 'fontSize' => 11 } },
-        'legend' => { 'top' => 2, 'data' => ['median', 'rwm median'] + pit_legend },
+        'legend' => { 'top' => 2, 'data' => ['median', 'rwm median'] },
         'grid' => { 'left' => 34, 'right' => 26, 'top' => 28, 'bottom' => 24 },
         'xAxis' => [{ 'type' => 'category', 'gridIndex' => 0, 'data' => cats },
                     pit_x],
@@ -2760,14 +2786,15 @@ module Publish
       }
     end
 
-    # 'med30 82.4k [59.7..108.4] · vrp 0.49' (vrp token only when the
-    # tilt is live; the headline never names the card).
+    # 'med30 82.4k · vrp 0.49' (vrp token only when the tilt is live;
+    # the headline never names the card). Owner round 2026-10-12: the
+    # [p05..p95] range is OUT of the headline -- the fan itself IS the
+    # range, and the head line was overloaded at real card widths.
     def dist_fan_title(dist)
       h30 = (dist['horizons'] || []).find { |h| h['d'] == 30 }
       return 'no horizons' unless h30
 
-      head = format('med30 %sk [%s..%s]', dist_k(h30['median']),
-                    dist_k(h30['p05']), dist_k(h30['p95']))
+      head = format('med30 %sk', dist_k(h30['median']))
       h30['vrp'] ? head + format(' · vrp %.2f', h30['vrp']) : head
     end
 
