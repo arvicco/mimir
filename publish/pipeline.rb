@@ -53,6 +53,14 @@
 #   not heal it -- the line gains a trailing ` BLIND:<suite>[,...]` marker
 #   (BLIND_MARKERS order), after any ` OLD:` suffix, e.g.
 #   `PUB LIVE 13/13 keys 09:34 UTC BLIND:scenario`. publish_health surfaces it.
+#   ADDITIVE (M14-2, dead-venue-inside-a-fresh-payload incident): on LIVE
+#   runs only, Publish::DegDetector counts consecutive runs in which a
+#   registered payload (publish/deg_registry.rb) lost or carried a dead leg;
+#   a key at 6+ consecutive degraded runs rides a trailing
+#   ` DEG:<key>[,<key>...]` marker (DEG_REGISTRY order), after any ` OLD:` /
+#   ` BLIND:` suffix, e.g. `PUB LIVE 38/38 keys 09:34 UTC DEG:gex:combined`.
+#   State lives in <data>/ops/deg_state.json; a detector failure warns its
+#   error class and never fails the run (no marker that run).
 #
 # DATA SOURCES: the four scripts/ suites (subprocess), plus the scenario
 # history + lppl ledger jsonl under BTC::Env.data_dir(<suite>). No direct
@@ -69,6 +77,7 @@ require 'fileutils'
 require_relative 'envelope'
 require_relative 'chart_specs'
 require_relative 'kv_client'
+require_relative 'deg_detector'
 require_relative '../lib/btc/env'
 require_relative '../lib/btc/report'
 
@@ -198,10 +207,13 @@ module Publish
       # publish, could not heal it) rides an additive ` BLIND:<suite>` suffix.
       blind = blind_tails(envelopes)
       blind_suffix = blind.empty? ? '' : format(' BLIND:%s', blind.join(','))
+      # M14-2: degraded-leg streaks (LIVE only) ride an additive ` DEG:` suffix.
+      deg = degraded_keys(envelopes, now, dry_run)
+      deg_suffix = deg.empty? ? '' : format(' DEG:%s', deg.join(','))
       BTC::Report.status('publish',
-                         format('PUB %s %d/%d keys %s%s%s', dry_run ? 'DRY' : 'LIVE',
+                         format('PUB %s %d/%d keys %s%s%s%s', dry_run ? 'DRY' : 'LIVE',
                                 published, expected, now.utc.strftime('%H:%M UTC'),
-                                old_suffix, blind_suffix),
+                                old_suffix, blind_suffix, deg_suffix),
                          dir: status_dir)
 
       { keys: records.map(&:first), skipped: skipped,
@@ -209,7 +221,19 @@ module Publish
         # M12-5 (additive): the run's envelopes + health markers, so the
         # publish bin can dispatch transition alerts (real mode only)
         # without re-fetching anything.
-        envelopes: envelopes, old_keys: old, blind_tails: blind }
+        envelopes: envelopes, old_keys: old, blind_tails: blind,
+        deg_keys: deg }
+    end
+
+    # M14-2 integration point: the degradation detector runs AFTER the
+    # artifacts were written (a failed KV write raised before here, so it
+    # never advances streaks). Rescue-all: a detector malfunction must never
+    # fail the publish -- warn the error class only, no marker this run.
+    def degraded_keys(envelopes, now, dry_run)
+      Publish::DegDetector.run(envelopes, now: now, dry_run: dry_run)
+    rescue StandardError => e
+      warn format('publish: deg detector failed (%s)', e.class)
+      []
     end
 
     # Run one producer; parse its full stdout as a single JSON document.
