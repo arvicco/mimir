@@ -101,18 +101,28 @@ from the axis pointer, fixed [0,1] right share axis, faint z-1 bars
 ruling 2026-10-12, superseding M10-9's [SCENARIO][SCORES] tabs and
 the separate dist card.) One two-section stack with linked
 [SCENARIOS][DIST] tab pairs (the GEX idiom): strip/fan on top (200),
-scorecard/edge below (250). Heights match WITHIN each section pair so
+scorecard/edge below (280). Heights match WITHIN each section pair so
 a tab flip never changes the card height. The scorecard is always
 visible under the strip on SCENARIOS -- never a tab of its own.
 
-**Tables keep ONE text line per cell, and the canvas is cut to the
-rows.** (Owner round 3, 2026-10-12: "No reason to have two number
-rows per item" / "cut the card to size".) A scorecard-style cell puts
-its dim secondary stats BESIDE the bold value, never stacked under
-it; full precision lives in the hover. And because a category axis
-SPREADS rows to fill the canvas, an oversized height stretches the
-text -- when rows fold or lines merge, cut meta height in the same
-change so the card never runs taller than its row-mates.
+**Tables keep ONE text line per cell, and the card MATCHES its
+row-mates' height.** (Owner rounds 3-4, 2026-10-12: "No reason to
+have two number rows per item" / "cut the card to size" then "Now
+it's shorter than the other two cards in row -- don't you have ANY
+sense of proportion?".) A scorecard-style cell puts its dim
+secondary stats BESIDE the bold value, never stacked under it; full
+precision lives in the hover. A category axis SPREADS rows to fill
+the canvas, so an oversized height stretches the text -- but the
+target is PROPORTION, not minimum: size the card to land FLUSH with
+its row-mates at full board width (measure with Playwright
+boundingBox against the neighbors; scenario card = positioning/lppl
+at ~543px), neither taller nor shorter.
+
+**Row labels earn their column space.** (Owner round 4, 2026-10-12:
+"gex_gamma_sign=POS is idiotically long and redundant -- the G
+already contains gamma".) Display labels compact away redundancy
+(SC_NAMES in chart_specs.rb: gex_gamma_sign -> gex-sign); payload
+field names and hover 'signal' keys stay verbatim.
 
 **The canvas top band belongs to the legend alone.** (Owner round 2,
 2026-10-12: "top lines in dist overloaded".) Never place a second
