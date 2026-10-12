@@ -42,8 +42,7 @@
         2,
         3,
         4,
-        5,
-        6
+        5
       ],
       "boundaryGap": true,
       "axisLabel": {
@@ -150,7 +149,7 @@
             "show": true,
             "position": "inside",
             "align": "left",
-            "formatter": "lppl_verdict",
+            "formatter": "lppl_verdict=STRESSED",
             "fontSize": 12,
             "fontWeight": "bold",
             "color": "#e6e9ec"
@@ -183,58 +182,13 @@
                 "pos_pct": 13.7
               }
             },
-            "note": "lppl_verdict ALL: the unconditional forward BTC return at each horizon -- the benchmark every band below is read against. Daily h-day returns overlap; n_eff = n/h is the honest count."
+            "note": "lppl_verdict ALL: the unconditional forward BTC return at each horizon -- the benchmark every band below is read against. Daily h-day returns overlap; n_eff = n/h is the honest count. Every print so far was STRESSED, so the single identical band row is folded into this one."
           }
         },
         {
           "value": [
             0.005,
             2
-          ],
-          "label": {
-            "show": true,
-            "position": "inside",
-            "align": "left",
-            "formatter": "  STRESSED",
-            "fontSize": 12,
-            "fontWeight": "normal",
-            "color": "#8a93a0"
-          },
-          "hover": {
-            "title": "STRESSED",
-            "signal": "lppl_verdict",
-            "kind": "band",
-            "band": "STRESSED",
-            "cells": {
-              "7": {
-                "eligible": true,
-                "n": 302,
-                "n_eff": 43.1,
-                "mean_pct": -1.41,
-                "pos_pct": 44.7
-              },
-              "30": {
-                "eligible": true,
-                "n": 279,
-                "n_eff": 9.3,
-                "mean_pct": -5.95,
-                "pos_pct": 43.4
-              },
-              "90": {
-                "eligible": true,
-                "n": 219,
-                "n_eff": 2.4,
-                "mean_pct": -16.08,
-                "pos_pct": 13.7
-              }
-            },
-            "note": "lppl_verdict = STRESSED: forward BTC return on the days this signal read STRESSED, next to the ALL benchmark. Daily h-day returns overlap; n_eff = n/h is the honest count."
-          }
-        },
-        {
-          "value": [
-            0.005,
-            3
           ],
           "label": {
             "show": true,
@@ -275,7 +229,7 @@
         {
           "value": [
             0.005,
-            4
+            3
           ],
           "label": {
             "show": true,
@@ -316,7 +270,7 @@
         {
           "value": [
             0.005,
-            5
+            4
           ],
           "label": {
             "show": true,
@@ -357,7 +311,7 @@
         {
           "value": [
             0.005,
-            6
+            5
           ],
           "label": {
             "show": true,
@@ -494,87 +448,6 @@
             "show": true,
             "position": "inside",
             "align": "center",
-            "formatter": "{m|-1.41%}\n{s|44.7% n302}",
-            "rich": {
-              "m": {
-                "color": "#ef6b6b",
-                "fontSize": 12,
-                "fontWeight": "bold",
-                "lineHeight": 15,
-                "align": "center"
-              },
-              "s": {
-                "color": "#8a93a0",
-                "fontSize": 9,
-                "lineHeight": 12,
-                "align": "center"
-              }
-            }
-          }
-        },
-        {
-          "value": [
-            0.64,
-            2
-          ],
-          "label": {
-            "show": true,
-            "position": "inside",
-            "align": "center",
-            "formatter": "{m|-5.95%}\n{s|43.4% n279}",
-            "rich": {
-              "m": {
-                "color": "#ef6b6b",
-                "fontSize": 12,
-                "fontWeight": "bold",
-                "lineHeight": 15,
-                "align": "center"
-              },
-              "s": {
-                "color": "#8a93a0",
-                "fontSize": 9,
-                "lineHeight": 12,
-                "align": "center"
-              }
-            }
-          }
-        },
-        {
-          "value": [
-            0.88,
-            2
-          ],
-          "label": {
-            "show": true,
-            "position": "inside",
-            "align": "center",
-            "formatter": "{m|-16.08%}\n{s|13.7% n219}",
-            "rich": {
-              "m": {
-                "color": "#ef6b6b",
-                "fontSize": 12,
-                "fontWeight": "bold",
-                "lineHeight": 15,
-                "align": "center"
-              },
-              "s": {
-                "color": "#8a93a0",
-                "fontSize": 9,
-                "lineHeight": 12,
-                "align": "center"
-              }
-            }
-          }
-        },
-        {
-          "value": [
-            0.4,
-            3
-          ],
-          "label": {
-            "show": true,
-            "position": "inside",
-            "align": "center",
             "formatter": "{m|+0.39%}\n{s|61.3% n31}",
             "rich": {
               "m": {
@@ -596,7 +469,7 @@
         {
           "value": [
             0.64,
-            3
+            2
           ],
           "label": {
             "show": true,
@@ -611,7 +484,7 @@
         {
           "value": [
             0.88,
-            3
+            2
           ],
           "label": {
             "show": true,
@@ -626,7 +499,7 @@
         {
           "value": [
             0.4,
-            4
+            3
           ],
           "label": {
             "show": true,
@@ -653,7 +526,7 @@
         {
           "value": [
             0.64,
-            4
+            3
           ],
           "label": {
             "show": true,
@@ -668,7 +541,7 @@
         {
           "value": [
             0.88,
-            4
+            3
           ],
           "label": {
             "show": true,
@@ -683,7 +556,7 @@
         {
           "value": [
             0.4,
-            5
+            4
           ],
           "label": {
             "show": true,
@@ -710,7 +583,7 @@
         {
           "value": [
             0.64,
-            5
+            4
           ],
           "label": {
             "show": true,
@@ -725,7 +598,7 @@
         {
           "value": [
             0.88,
-            5
+            4
           ],
           "label": {
             "show": true,
@@ -740,7 +613,7 @@
         {
           "value": [
             0.4,
-            6
+            5
           ],
           "label": {
             "show": true,
@@ -755,7 +628,7 @@
         {
           "value": [
             0.64,
-            6
+            5
           ],
           "label": {
             "show": true,
@@ -770,7 +643,7 @@
         {
           "value": [
             0.88,
-            6
+            5
           ],
           "label": {
             "show": true,

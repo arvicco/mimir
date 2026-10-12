@@ -2,15 +2,15 @@
   "backgroundColor": "transparent",
   "title": [
     {
-      "text": "med30 62.9k [54.9..74.0]",
+      "text": "med30 62.9k",
       "textStyle": {
         "fontSize": 13
       }
     },
     {
       "text": "PIT awaiting first resolutions",
-      "right": 6,
-      "top": 2,
+      "left": 40,
+      "top": 30,
       "textStyle": {
         "fontSize": 10,
         "color": "#6b7178",

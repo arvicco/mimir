@@ -105,6 +105,17 @@ scorecard/edge below (330). Heights match WITHIN each section pair so
 a tab flip never changes the card height. The scorecard is always
 visible under the strip on SCENARIOS -- never a tab of its own.
 
+**The canvas top band belongs to the legend alone.** (Owner round 2,
+2026-10-12: "top lines in dist overloaded".) Never place a second
+text element (corner notes, status text) in the legend's row -- at
+real card widths they collide. Status/annotation text goes INSIDE
+the plot as a dim positional title entry, in a region the data
+leaves empty, or into the hover. The same round: headlines carry ONE
+load-bearing number, not a stats row -- a range the chart itself
+draws ([p05..p95] on the fan) never rides the headline; and a
+scorecard row whose single band duplicates its ALL row cell-for-cell
+FOLDS into one `signal=BAND` row (zero information twice is noise).
+
 **The headline rides the HEAD LINE, not the canvas.** (Owner mock-up
 ruling 2026-08-30.) Every card/section head reads `key ⓘ [tabs]
 <headline> ●` — the option's FIRST title entry is hoisted there by the
