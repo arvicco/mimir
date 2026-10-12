@@ -68,6 +68,10 @@ export BTC_DATA_DIR="${BTC_DATA_DIR:-$HOME/Library/Application Support/mimir/dat
 
 cd "$REPO_DIR"
 
+# M14-7: once per UTC day, copy the data home to its sibling mimir-backups/
+# (14 kept) BEFORE this tick mutates anything. Same fail-soft idiom as repair.
+"${MIMIR_RUBY:-ruby}" ops/snapshot.rb || echo "run_publish: snapshot step failed (continuing to publish)" >&2
+
 # M8-9: try to heal today's data-integrity gaps (blind scenario row, stale
 # lppl ledger, errored/missing GEX-or-vol snapshot) BEFORE publishing so a
 # repair lands in this very tick. Fail-soft: repair.rb exits 0 by design, but
