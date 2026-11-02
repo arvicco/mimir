@@ -611,6 +611,54 @@ test('scorecard_row renders per-horizon lines, colours by sign, keeps ineligible
   assert.equal(fmt([{ data: {} }]), '', 'no hover datum -> empty (e.g. the header row)');
 });
 
+// ---- owner round 2026-11-02: the axis_tip axis-tooltip formatter ------
+// Header = hovered tag + the projected date any datum carries as `tdate`;
+// rows re-sort to series DECLARATION order (linked-axis cards hand params
+// grouped by the hovered axis first); null rows are omitted.
+
+test('axis_tip hoists the projected date and keeps series order', () => {
+  const { R } = loadRender();
+  const fmt = R.FORMATTERS.axis_tip;
+  const html = fmt([
+    { axisValueLabel: '30d', seriesName: 'p95', seriesIndex: 0, value: 90.5, marker: '<m95>' },
+    { axisValueLabel: '30d', seriesName: 'median', seriesIndex: 2, value: 77.4, marker: '<mMed>',
+      data: { value: 77.4, tdate: '2026-12-02' } },
+    { axisValueLabel: '30d', seriesName: 'p05', seriesIndex: 5, value: 65.2, marker: '<m05>' }
+  ]);
+  assert.match(html, /<b>30d<\/b> <span style="color:#9aa0a6">· 2026-12-02<\/span>/,
+    'header carries the projected date');
+  const order = ['p95', 'median', 'p05'].map((n) => html.indexOf(n));
+  assert.ok(order[0] < order[1] && order[1] < order[2], 'rows keep series order');
+  assert.match(html, /<m95> p95/, 'row keeps the series marker');
+});
+
+test('axis_tip re-sorts pointer-grouped params to declaration order', () => {
+  const { R } = loadRender();
+  const fmt = R.FORMATTERS.axis_tip;
+  // a linked-axis hover on the middle panel: its axis' series arrive first
+  const html = fmt([
+    { axisValueLabel: '2026-05-23', seriesName: 'global L/S', seriesIndex: 2, value: [0, 1.51], marker: '<g>' },
+    { axisValueLabel: '2026-05-23', seriesName: 'OI $B', seriesIndex: 0, value: [0, 55.2], marker: '<o>' },
+    { axisValueLabel: '2026-05-23', seriesName: 'reserves', seriesIndex: 1, value: [0, 2.49], marker: '<r>' }
+  ]);
+  const order = ['OI $B', 'reserves', 'global L/S'].map((n) => html.indexOf(n));
+  assert.ok(order[0] < order[1] && order[1] < order[2], 'panel 0 rows list first');
+  assert.match(html, /1\.51/, '[date, value] pairs read their value');
+});
+
+test('axis_tip omits null rows and survives a dateless hover', () => {
+  const { R } = loadRender();
+  const fmt = R.FORMATTERS.axis_tip;
+  const html = fmt([
+    { axisValueLabel: '7d', seriesName: 'MSTR', value: null, marker: '<m>' },
+    { axisValueLabel: '7d', seriesName: 'BTC', value: 38.2, marker: '<b>' }
+  ]);
+  assert.ok(!html.includes('MSTR'), 'null-valued row is omitted');
+  assert.match(html, /<b>7d<\/b>/);
+  assert.ok(!html.includes('·'), 'no date -> bare header');
+  assert.equal(fmt([]), '', 'no params -> empty');
+});
+
 test('the scorecard_row formatter tooltip carries dark house chrome (contrast regression)', () => {
   const { R, echarts } = loadRender();
   const e = env('chart:scorecard', '2026-08-12T12:00:00Z',

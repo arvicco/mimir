@@ -50,8 +50,137 @@
   },
   "series": [
     {
+      "name": "MSTR",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 6,
+      "itemStyle": {
+        "color": "#d0d5db"
+      },
+      "lineStyle": {
+        "color": "#d0d5db",
+        "width": 1
+      },
+      "data": [
+        {
+          "value": 77.59,
+          "itemStyle": {
+            "color": "#e04b4b"
+          },
+          "tdate": "2026-07-11"
+        },
+        {
+          "value": 77.59,
+          "itemStyle": {
+            "color": "#e08e0b"
+          },
+          "tdate": "2026-07-18"
+        },
+        {
+          "value": 80.77,
+          "itemStyle": {
+            "color": "#e2c84b"
+          },
+          "tdate": "2026-07-25"
+        },
+        {
+          "value": 86.17,
+          "itemStyle": {
+            "color": "#35c46a"
+          },
+          "tdate": "2026-08-03"
+        },
+        {
+          "value": 86.17,
+          "itemStyle": {
+            "color": "#3fc1d1"
+          },
+          "tdate": "2026-08-18"
+        },
+        {
+          "value": 86.17,
+          "itemStyle": {
+            "color": "#4665e6"
+          },
+          "tdate": "2026-10-02"
+        },
+        {
+          "value": 86.17,
+          "itemStyle": {
+            "color": "#2e3f9e"
+          },
+          "tdate": "2026-12-31"
+        }
+      ]
+    },
+    {
+      "name": "BTC",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 6,
+      "itemStyle": {
+        "color": "#7a828c"
+      },
+      "lineStyle": {
+        "color": "#7a828c",
+        "width": 1
+      },
+      "data": [
+        {
+          "value": 43.88,
+          "itemStyle": {
+            "color": "#e04b4b"
+          },
+          "tdate": "2026-07-11"
+        },
+        {
+          "value": 43.88,
+          "itemStyle": {
+            "color": "#e08e0b"
+          },
+          "tdate": "2026-07-18"
+        },
+        {
+          "value": 43.88,
+          "itemStyle": {
+            "color": "#e2c84b"
+          },
+          "tdate": "2026-07-25"
+        },
+        {
+          "value": 43.88,
+          "itemStyle": {
+            "color": "#35c46a"
+          },
+          "tdate": "2026-08-03"
+        },
+        {
+          "value": 43.88,
+          "itemStyle": {
+            "color": "#3fc1d1"
+          },
+          "tdate": "2026-08-18"
+        },
+        {
+          "value": 43.88,
+          "itemStyle": {
+            "color": "#4665e6"
+          },
+          "tdate": "2026-10-02"
+        },
+        {
+          "value": 43.88,
+          "itemStyle": {
+            "color": "#2e3f9e"
+          },
+          "tdate": "2026-12-31"
+        }
+      ]
+    },
+    {
       "name": "spread",
       "type": "bar",
+      "z": 1,
       "itemStyle": {
         "color": "#888e98"
       },
@@ -94,120 +223,6 @@
         },
         {
           "value": 42.29,
-          "itemStyle": {
-            "color": "#2e3f9e"
-          }
-        }
-      ]
-    },
-    {
-      "name": "MSTR",
-      "type": "line",
-      "symbol": "circle",
-      "symbolSize": 6,
-      "itemStyle": {
-        "color": "#d0d5db"
-      },
-      "lineStyle": {
-        "color": "#d0d5db",
-        "width": 1
-      },
-      "data": [
-        {
-          "value": 77.59,
-          "itemStyle": {
-            "color": "#e04b4b"
-          }
-        },
-        {
-          "value": 77.59,
-          "itemStyle": {
-            "color": "#e08e0b"
-          }
-        },
-        {
-          "value": 80.77,
-          "itemStyle": {
-            "color": "#e2c84b"
-          }
-        },
-        {
-          "value": 86.17,
-          "itemStyle": {
-            "color": "#35c46a"
-          }
-        },
-        {
-          "value": 86.17,
-          "itemStyle": {
-            "color": "#3fc1d1"
-          }
-        },
-        {
-          "value": 86.17,
-          "itemStyle": {
-            "color": "#4665e6"
-          }
-        },
-        {
-          "value": 86.17,
-          "itemStyle": {
-            "color": "#2e3f9e"
-          }
-        }
-      ]
-    },
-    {
-      "name": "BTC",
-      "type": "line",
-      "symbol": "circle",
-      "symbolSize": 6,
-      "itemStyle": {
-        "color": "#7a828c"
-      },
-      "lineStyle": {
-        "color": "#7a828c",
-        "width": 1
-      },
-      "data": [
-        {
-          "value": 43.88,
-          "itemStyle": {
-            "color": "#e04b4b"
-          }
-        },
-        {
-          "value": 43.88,
-          "itemStyle": {
-            "color": "#e08e0b"
-          }
-        },
-        {
-          "value": 43.88,
-          "itemStyle": {
-            "color": "#e2c84b"
-          }
-        },
-        {
-          "value": 43.88,
-          "itemStyle": {
-            "color": "#35c46a"
-          }
-        },
-        {
-          "value": 43.88,
-          "itemStyle": {
-            "color": "#3fc1d1"
-          }
-        },
-        {
-          "value": 43.88,
-          "itemStyle": {
-            "color": "#4665e6"
-          }
-        },
-        {
-          "value": 43.88,
           "itemStyle": {
             "color": "#2e3f9e"
           }
