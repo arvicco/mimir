@@ -229,7 +229,7 @@ also ships in the bundle; it is the offline review page and shows
 error cards on a live host (its data paths don't exist there) --
 harmless.
 
-**Security posture**: public-read by owner ruling D4-c. To lock the
+**Security posture**: public-read by owner ruling 2026-07-05. To lock the
 API later without any code change: `wrangler secret put AUTH_TOKEN`
 (the Worker's dormant bearer branch activates; `/healthz` stays
 public; `wrangler secret delete AUTH_TOKEN` reverts). The fuller lock,

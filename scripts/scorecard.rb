@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 #
-# scorecard.rb -- track-record CLI for our own published signals (P-19).
+# scorecard.rb -- track-record CLI for our own published signals (M10-5).
 # Loads the recorded ledgers (LPPL, scenario, GEX history), turns each
 # signal into a dated band series, and scores every band against the
 # realized forward BTC return via BTC::Scorecard (lib/btc/scorecard.rb,
@@ -12,7 +12,7 @@
 #   ruby scripts/scorecard.rb           # aligned track-record table
 #   ruby scripts/scorecard.rb --json    # machine dump (frozen contract)
 #
-# SEMANTICS (owner ruling D10-a; the authority is lib/btc/scorecard.rb):
+# SEMANTICS (owner ruling 2026-08-12; the authority is lib/btc/scorecard.rb):
 #   For a signal stamped during UTC day t, entry = close(t), exit =
 #   close(t+h); the outcome is the log return, reported per band as
 #   mean_pct / pos_pct next to the same-window unconditional 'ALL' row.

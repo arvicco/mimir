@@ -61,7 +61,7 @@ abort 'no live instruments parsed' if book.empty?
 
 # ---- dollar gamma per 1% move at hypothetical index level x ----------------
 # Each instrument's forward is scaled proportionally with the index;
-# notional at s^2 per the R-12 ruling (reconciles with gex_btc_combined).
+# notional at s^2 per the Phase-0 tool-review ruling (reconciles with gex_btc_combined).
 def net_gex(book, spot, x)
   book.sum { |o| BTC::Options.inst_gex(o, o[:u] * x / spot) }
 end

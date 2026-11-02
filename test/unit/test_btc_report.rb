@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Pins BTC::Report output byte-for-byte against the three historical
-# per-suite copies it replaces (F-15): scenario (14/18), lppl (12/16),
+# per-suite copies it replaces: scenario (14/18), lppl (12/16),
 # btco fail_soft (6).
 
 require_relative '../test_helper'

@@ -4,7 +4,7 @@
 # runtime HTTP under scripts/ goes through BTC::Http; tests inject a
 # fake transport (BTC::Http.transport=), so nothing under test/ can
 # reach the network. Extracted from six per-script variants
-# (TOOL-REVIEW.md F-13); per-caller User-Agents and timeouts are passed
+# (a Phase-0 tool-review finding); per-caller User-Agents and timeouts are passed
 # in by the callers, preserving their historical behavior.
 #
 # Non-200 raises StatusError whose message is exactly "HTTP <code>"
@@ -53,7 +53,7 @@ module BTC
     # cdn.cboe.com behind a 307 to cdn-api.cboe.com (~2026-09-26) and
     # every CBOE consumer -- gex:mstr, vol:mstr, the combined GEX's ETF
     # venues, the vol-spread MSTR leg, btco quotes -- went quietly
-    # stale for two weeks. Reads follow redirects (the proven F-23
+    # stale for two weeks. Reads follow redirects (the proven farside-archive
     # get_follow); WRITES (post/put, the KV API) never do.
     def get(url, headers = {}, open_timeout: 5, read_timeout: 20)
       get_follow(url, headers, open_timeout: open_timeout, read_timeout: read_timeout)
@@ -66,7 +66,7 @@ module BTC
 
     # get() following up to `hops` redirects -- the Internet Archive's
     # latest-snapshot URLs (web/2id_/...) 302 to the concrete capture
-    # (F-23). Only for redirects does the transport response need to
+    # (the farside fallback). Only for redirects does the transport response need to
     # answer #[] for the Location header (Net::HTTPResponse does; fakes
     # returning 3xx must too). Non-redirect non-200s raise StatusError
     # exactly like get().

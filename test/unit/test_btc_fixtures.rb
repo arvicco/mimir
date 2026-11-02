@@ -18,7 +18,7 @@ class TestBtcFixtures < Minitest::Test
   CANNED = {
     'get_index_price'    => '{"result":{"index_price":62000.0}}',
     # far-future canned expiries (2036/37) so the unit test itself does
-    # not age; the expired 2020 row pins the F-20 exclusion.
+    # not age; the expired 2020 row pins the parser-dead exclusion.
     'kind=option'        => JSON.generate('result' =>
       (1..6).map { |i| { 'instrument_name' => "BTC-26DEC36-#{90 + i}000-C", 'open_interest' => 5.0, 'mark_iv' => 55.0 } } +
       (1..6).map { |i| { 'instrument_name' => "BTC-25SEP37-#{60 + i}000-P", 'open_interest' => 3.0, 'mark_iv' => 60.0 } } +
@@ -29,7 +29,7 @@ class TestBtcFixtures < Minitest::Test
       'current_price' => 34.8, 'close' => 34.7, 'extra' => 'drop-me',
       'options' => (1..5).map { |i| { 'option' => "IBIT361218C0010#{i}000", 'iv' => 0.5, 'gamma' => 0.01, 'open_interest' => 9, 'theta' => -1 } } +
                    (1..5).map { |i| { 'option' => "IBIT361218P0009#{i}000", 'iv' => 0.5, 'gamma' => 0.01, 'open_interest' => 9, 'theta' => -1 } } +
-                   # the two F-20 dead shapes: expired-with-OI, zero-OI
+                   # the two parser-dead shapes: expired-with-OI, zero-OI
                    [{ 'option' => 'IBIT260702C00020000', 'iv' => 0.0, 'gamma' => 0.0, 'open_interest' => 71 },
                     { 'option' => 'IBIT361218C00200000', 'iv' => 0.5, 'gamma' => 0.01, 'open_interest' => 0 }] }),
     'metrics=PriceUSD'   => '{"data":[{"PriceUSD":"62000"}],"next_page_url":"x"}',
@@ -56,13 +56,13 @@ class TestBtcFixtures < Minitest::Test
       { 'symbol' => 'USDT', 'circulating' => { 'peggedUSD' => 1 }, 'circulatingPrevWeek' => {}, 'circulatingPrevMonth' => {}, 'chains' => %w[big list] },
       { 'symbol' => 'DAI',  'circulating' => { 'peggedUSD' => 1 } },
       { 'symbol' => 'USDC', 'circulating' => { 'peggedUSD' => 1 }, 'circulatingPrevWeek' => {}, 'circulatingPrevMonth' => {} }]),
-    # 28 <tr> data rows; the per-row parser (F-22 fix) yields all 28.
+    # 28 <tr> data rows; the per-row parser (day-number fix) yields all 28.
     'farside'            => ('<tr><td>x</td></tr>' * 400) +
                             (1..28).map { |i| "<tr><td>#{i} Jun 2026</td><td>1.0</td><td>2.5</td></tr>" }.join +
                             ('<p>tail</p>' * 5_000),
     'flow-history'       => JSON.generate('code' => '0', 'msg' => 'success',
                                           'data' => (1..40).map { |i| { 'timestamp' => 1_700_000_000_000 + i * 86_400_000, 'flow_usd' => i * 1e6, 'price_usd' => 60_000, 'etf_flows' => [{ 'etf_ticker' => 'IBIT', 'flow_usd' => 1 }] } }),
-    # M10-2 P-6 positioning family (12 rows each -> trim keeps last 10).
+    # M10-2 positioning family (12 rows each -> trim keeps last 10).
     'open-interest/aggregated-history' => JSON.generate('code' => '0',
       'data' => (1..12).map { |i| { 'time' => 1_700_000_000_000 + i * 86_400_000, 'open' => '1e10', 'high' => '1.1e10', 'low' => '0.9e10', 'close' => '1.05e10' } }),
     'global-long-short-account-ratio'  => JSON.generate('code' => '0',
@@ -78,7 +78,7 @@ class TestBtcFixtures < Minitest::Test
                                      'mining_difficulty' => 1, 'transaction_count' => 2,
                                      'address_send_count' => 3,
                                      'date_string' => (Time.utc(2025, 1, 1) + i * 86_400).strftime('%Y-%m-%d') } }),
-    # M11-7 (P-8): exchange reserves -- snapshot list + {time_list,
+    # M11-7: exchange reserves -- snapshot list + {time_list,
     # price_list, data_map} chart (140 canned days so the 130-day trim
     # provably trims and still clears the 121-day stat floor).
     'exchange/balance/list'            => JSON.generate('code' => '0',
@@ -157,7 +157,7 @@ class TestBtcFixtures < Minitest::Test
       names = book.map { |r| r['instrument_name'] }
       assert_equal 4, names.count { |n| n.include?('DEC36') && n.end_with?('-C') }
       assert_equal 4, names.count { |n| n.include?('SEP37') && n.end_with?('-P') }
-      # F-20: expired-with-OI row lands in the dead tail, never the live picks
+      # Parser-dead: expired-with-OI row lands in the dead tail, never the live picks
       assert_includes names.last(2), 'BTC-27MAR20-50000-C'
       refute_includes names.first(8), 'BTC-27MAR20-50000-C'
 
@@ -186,7 +186,7 @@ class TestBtcFixtures < Minitest::Test
       assert_equal 3, mem['difficulty'].size
 
       html = File.read(File.join(dir, 'farside_flows.html'))
-      # F-22: the trim counts rows the per-row parser yields
+      # Day-number fix: the trim counts rows the per-row parser yields
       assert_operator BTC::Flows.parse_flows(html).size, :>=, 12
       assert_operator html.size, :<, CANNED['farside'].size # actually trimmed
 
@@ -233,7 +233,7 @@ class TestBtcFixtures < Minitest::Test
     old.nil? ? ENV.delete('COINGLASS_API_KEY') : ENV['COINGLASS_API_KEY'] = old
   end
 
-  # F-23 guardrail: a Cloudflare challenge page parses to zero rows and
+  # Source-chain guardrail: a Cloudflare challenge page parses to zero rows and
   # must fail the recording, never record silently.
   def test_farside_trim_raises_on_challenge_page
     trim = BTC::Fixtures::FARSIDE_TRIM
@@ -241,7 +241,7 @@ class TestBtcFixtures < Minitest::Test
     assert_match(/parseable farside rows/, err.message)
   end
 
-  # F-20 guardrail: a board with zero parser-live rows must raise (surfacing
+  # Parser-dead guardrail: a board with zero parser-live rows must raise (surfacing
   # as FAIL in rake fixtures:record), never record a dead fixture silently.
   def test_trim_raises_on_parser_dead_board
     dead = JSON.generate('data' => { 'current_price' => 1.0, 'close' => 1.0,

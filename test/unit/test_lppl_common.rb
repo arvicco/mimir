@@ -238,7 +238,7 @@ class TestAtomicWrite < Minitest::Test
   end
 end
 
-# M11-3 (owner ruling 2026-08-29, register R-3): Newey-West (Bartlett)
+# M11-3 (owner ruling 2026-08-29): Newey-West (Bartlett)
 # standard error of a series mean under serial dependence -- the error bar
 # on the trend test's per-evaluation-mean headline. Exact-value pins on
 # hand-computed examples (gamma_l in the 1/n convention).

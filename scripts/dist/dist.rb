@@ -2,7 +2,7 @@
 # frozen_string_literal: true
 #
 # dist.rb -- the market-implied BTC price distribution, published and
-# scored (M13-5/M13-6, skuld S-A/S-B; plan-13, №R-12).
+# scored (M13-5/M13-6, skuld S-A/S-B; plan-13, owner ruling 2026-09-04).
 #
 #   ruby scripts/dist/dist.rb                    # human summary
 #   ruby scripts/dist/dist.rb --json             # one machine line (frozen)

@@ -64,16 +64,16 @@ module Ops
     # (it owns the price-cache update + ledger/fit_history append), then
     # scenario, then positioning. lppl --history fetches Coin Metrics and
     # refits, so it gets the wider timeout. positioning --history (M11-1,
-    # owner ruling 2026-08-29 on register item R-10) appends the module's
-    # daily sub-signal row -- the evidence the D10-b 120-day graduation
+    # owner ruling 2026-08-29 on the unmapped-duty item) appends the module's
+    # daily sub-signal row -- the evidence the 2026-08-12 ruling's 120-day graduation
     # review referees; on a dead-source day the module fail-softs (exit 0,
     # no row -- an honest gap), so ABORT here means a hard crash only.
     SUITES = [
       ['lppl',        ['ruby', 'scripts/lppl/lppl.rb', '--history'],             600],
       ['scenario',    ['ruby', 'scripts/scenario/scenario.rb', '--history'],     180],
       ['positioning', ['ruby', 'scripts/scenario/positioning.rb', '--history'],  120],
-      # M11-7 (R-11/D11-a): the exchange-reserve module's daily row --
-      # wired the same day the module ships, so the R-10 gap class
+      # M11-7 (owner ruling 2026-08-29): the exchange-reserve module's daily row --
+      # wired the same day the module ships, so the unmapped-duty gap class
       # (a module whose history duty nothing runs) cannot recur.
       ['reserves',    ['ruby', 'scripts/scenario/reserves.rb', '--history'],     120]
     ].freeze

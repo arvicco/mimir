@@ -104,7 +104,7 @@ months).
 | `reserves` (0, display-only) | BTC on tracked exchanges, 30d % change vs its own trailing-90d distribution (Coinglass; window-consistent across delistings) | <= 20th pct: coins draining to self-custody unusually fast | >= 80th pct: sellable supply building unusually fast |
 
 The two weight-0 modules are governed shadow-first (owner rulings
-D10-b 2026-08-12 and R-11/D11-a 2026-08-29): shown and charted, never
+2026-08-12 and 2026-08-29): shown and charted, never
 weighted, each with pre-registered kill criteria (source dead 14d, or
 120d of scorecard showing no band separation -> module removed, not
 tuned). Graduation into a real weight is a later owner ruling refereed
@@ -114,7 +114,7 @@ Extras shown but not scored: annualized basis of the nearest Deribit
 future (negative basis has historically marked terminal capitulation);
 recent difficulty adjustments; realized price vs spot.
 
-### Replay fidelity (D12-b, M12-1 -- the `--as-of` mode)
+### Replay fidelity (M12-1 -- the `--as-of` mode)
 
 Every module supports `--as-of YYYY-MM-DD`: the score computed as a
 live run on DATE would have, from dated-history sources truncated to
@@ -186,8 +186,8 @@ Gaussian log-score:
 - `pl_recent` -- power law on the trailing 3y ("the trend has bent"),
 - `rw` -- random walk with sqrt(h)-scaled variance (no trend info).
 
-**Displayed** (headline flipped by owner ruling 2026-08-29, register
-R-3): `trailing-1y MEAN log predictive-score differential/eval (log10)
+**Displayed** (headline flipped by owner ruling 2026-08-29, the
+per-eval-mean ruling): `trailing-1y MEAN log predictive-score differential/eval (log10)
 pl_full vs best rival` -- the per-evaluation-day mean of (pl_full's
 log-score - the best rival's), in log10 per eval: -0.6 at 30d means an
 average day's realized price was about 4x more likely under the best
@@ -231,7 +231,7 @@ this cycle must bottom ABOVE the previous trough's ratio.
 
 **Displayed:** `price/trend 0.559 vs frozen bound 0.358 (floor 0.241; live 0.441/0.441)` --
 today's ratio (measured against today's full-history fit), then the
-**frozen** thresholds (owner ruling 2026-08-29, register R-8): each
+**frozen** thresholds (owner ruling 2026-08-29): each
 historical trough's ratio measured against the trend *as fitted on data
 up to that trough*, so today's re-estimated trend can no longer drag
 the reference thresholds around. The old drifting measurements ride
@@ -268,7 +268,7 @@ solve for the rest). The *evidence* is not the fit but its quality:
   itself a strike (score downgraded 1), because a real anti-bubble
   should have an interior trough.
 - `rmse ... vs sym null`: improvement over a pure power-decay fit with
-  no oscillation. Since the 2026-08-29 owner ruling (register R-6) the
+  no oscillation. Since the 2026-08-29 owner ruling the
   figure shown is `improvement_v2` -- measured against the symmetric,
   RMSE-selected null that cleared the original null's tc-grid-edge
   artifact (29.2% became an honest 27.9% on the day the artifact was
@@ -290,7 +290,7 @@ to name a bottom -- structure without a forecast.
 Guards against seeing omega in autocorrelated noise. Residuals of the
 power-decay null are tested for periodicity in ln(tau) via Lomb-Scargle;
 significance comes from a parametric bootstrap (seeded). Since the
-2026-08-29 owner ruling (register R-7) the p-value we stand behind --
+2026-08-29 owner ruling the p-value we stand behind --
 headline AND score -- is the **AR(1)+GARCH(1,1)** bootstrap
 (`p_value_v2`, default 1000 sims): it matches crypto's volatility
 clustering and re-fits the null on every simulated path, carrying the
@@ -376,41 +376,41 @@ the LPPL card's SHADOW tab: the current (frozen) value, an arrow, the
 shadow value, and a one-phrase verdict per row. They are additive,
 report-only fields on `lppl:latest` -- no verdict, weight, or threshold
 moves during the soak -- and each row feeds one pre-registered decision
-item (D9-a..g). The representative live numbers below are the ones the
+item. The representative live numbers below are the ones the
 shipped hover text cites.
 
-- **mean/eval (feeds D9-b).** The average forecast-score gap per
+- **mean/eval.** The average forecast-score gap per
   evaluation -- power law vs its best rival, in log10; negative means
   rivals beat the power law that day. Unlike the headline sum (about
   -460), it does not grow just because we evaluate more often -- it is
   the honest size of the effect. -1.26 means that on an average day the
   best rival gave about 18x higher probability to what actually
   happened. Open question: make this the primary trend number?
-- **365/730 (feeds D9-c).** The same per-evaluation score at 1-year and
+- **365/730.** The same per-evaluation score at 1-year and
   2-year forecast horizons; these do NOT count toward the verdict yet.
   Negative at 365d (the power law still loses), positive at 730d (it
   WINS at two years) -- matching published research that short horizons
   favour naive models and long horizons favour the power law. Open
   question: should long horizons enter the score?
-- **damping (feeds D9-e).** An anti-bubble shape test from the Sornette
+- **damping.** An anti-bubble shape test from the Sornette
   school: a genuine damped anti-bubble's oscillations decay with a
   damping ratio of at least 1. Today's fit scores 0.41 -- it does NOT
   qualify under the standard condition, even though it passes the
   suite's four original filters. Report-only for now. Open question:
   should this gate the fit verdict?
-- **impr (feeds D9-e).** How much better the LPPLS curve fits the
+- **impr (same decision item as damping).** How much better the LPPLS curve fits the
   post-peak decline than a plain decay curve. The frozen 29.2% was
   measured with an unfair advantage (the plain curve got a coarser
   parameter search); 27.9% is the fair, like-for-like number -- the
   LPPLS fit still wins, just honestly. The fair search also fixes a bias
   that pushed the plain curve's peak date to the edge of its grid.
-- **p(osc) (feeds D9-f).** The probability that the log-periodic wobble
+- **p(osc).** The probability that the log-periodic wobble
   is just noise. Under the simple noise model (frozen): 0.38; under a
   realistic model with fat tails and volatility clustering (shadow):
   0.24. Both are far above the usual 0.05 bar -- the wobble is NOT
   statistically proven, and the suite is right to say so. Open question:
   which noise model is the headline?
-- **freeze (feeds D9-g).** The envelope's support bound. 0.439 is
+- **freeze.** The envelope's support bound. 0.439 is
   today's live value, recomputed daily against a trend that keeps
   drifting as new data arrives; 0.358 is what the bound would be if
   frozen at the 2022 low, as a stricter rule would demand. The gap
@@ -421,8 +421,8 @@ shipped hover text cites.
 gated. A candidate statistic ships first as an additive, report-only
 shadow field (no behaviour change); it soaks in view on the SHADOW tab
 so the owner can watch the frozen and shadow values diverge across real
-days; the owner then rules the matching pre-registered decision item
-(D9-a..g); only a ruling flips the headline, and that flip is a reviewed
+days; the owner then rules the matching pre-registered decision item;
+only a ruling flips the headline, and that flip is a reviewed
 analytics-semantics change (Golden Rule 4), never a drive-by. Until a
 ruling lands, the frozen number stays the one the verdict uses.
 
@@ -472,7 +472,7 @@ aggregate leverage, count of stale entries.
 
 ## 5. dist -- the market-implied price distribution (scripts/dist/)
 
-Phase 13 (skuld S-A+S-B, plan-13, ruling №R-12). The object is a
+Phase 13 (skuld S-A+S-B, plan-13, owner ruling 2026-09-04). The object is a
 DISTRIBUTION over the BTC price at fixed horizons, not a target: the
 option market's own implied density, converted to a real-world
 estimate, with every published component scored daily so later

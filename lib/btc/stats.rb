@@ -19,7 +19,7 @@ module BTC
     module_function
 
     # Newey-West (Bartlett-kernel) standard error of the MEAN of +xs+ under
-    # serial dependence up to +lag+ (M11-3, owner ruling 2026-08-29 R-3 --
+    # serial dependence up to +lag+ (M11-3, owner ruling 2026-08-29 --
     # the error bar on the trend test's per-eval-mean headline; overlapping
     # forecast horizons make the daily differentials strongly autocorrelated,
     # so a plain sd/sqrt(n) would be far too tight). lag truncates to n-1.

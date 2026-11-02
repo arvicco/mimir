@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-# BTC::Flows -- the per-<tr>/<td> flows parser that replaced the F-22
+# BTC::Flows -- the per-<tr>/<td> flows parser that replaced the day-number-bug
 # regex (which halved rows and reported day-of-month numbers as daily
 # totals). Exact values pinned against the recorded real page; ground
-# truth was established cell-by-cell during the F-22 analysis.
+# truth was established cell-by-cell during the day-number-bug analysis.
 
 require_relative '../test_helper'
 require_relative '../../lib/btc/flows'
@@ -15,7 +15,7 @@ class TestBtcFlows < Minitest::Test
     assert_equal '2026-06-15', rows.first[0].strftime('%Y-%m-%d')
 
     by_date = rows.to_h { |d, v| [d.strftime('%Y-%m-%d'), v] }
-    assert_close(-222.6, by_date['2026-06-30']) # the F-22 regex yielded "01" here
+    assert_close(-222.6, by_date['2026-06-30']) # the old regex yielded "01" here
     assert_close(-296.0, by_date['2026-07-01'])
     assert_close(223.5,  by_date['2026-07-02'])
   end
@@ -23,10 +23,10 @@ class TestBtcFlows < Minitest::Test
   def test_rows_ascend_and_none_is_a_bare_day_number
     rows = BTC::Flows.parse_flows(fixture('farside_flows.html'))
     assert_equal rows.map(&:first), rows.map(&:first).sort
-    # the F-22 corruption signature: an integer 1..31 exactly matching
+    # the day-number corruption signature: an integer 1..31 exactly matching
     # the following row's day-of-month
     rows.each_cons(2) do |(_, v), (d2, _)|
-      refute_equal d2.day.to_f, v, 'total equals next row day number (F-22 regression)'
+      refute_equal d2.day.to_f, v, 'total equals next row day number (day-number regression)'
     end
   end
 

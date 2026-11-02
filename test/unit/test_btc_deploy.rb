@@ -91,7 +91,7 @@ class TestBtcDeploy < Minitest::Test
     assert_includes out, 'name = "mimir"'
   end
 
-  # ---- DEPLOY_NAME worker rename (ruling D4-c: unguessable hostname) --
+  # ---- DEPLOY_NAME worker rename (ruling 2026-07-05: unguessable hostname) --
 
   def test_substitute_name_replaces_only_the_name_line
     content = %(name = "mimir"\nmain = "web/worker.mjs"\n)
@@ -183,7 +183,7 @@ class TestBtcDeploy < Minitest::Test
   end
 
   def test_preflight_requires_an_explicit_deploy_name
-    # D4-c: the worker name IS the public hostname -- no silent default
+    # Owner ruling 2026-07-05: the worker name IS the public hostname -- no silent default
     pf = BTC::Deploy.preflight(env: ENV_OK.reject { |k, _| k == 'DEPLOY_NAME' },
                                runner: ok_runner([]), skip_checks: true)
     row = pf.rows.find { |r| r[0] == 'DEPLOY_NAME' }

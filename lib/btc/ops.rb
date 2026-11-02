@@ -46,7 +46,7 @@ module BTC
     REPO_PLACEHOLDER    = '__REPO__'
     DEFAULT_STATUS_PATH = '/tmp/publish.status'
     # The BTCo discovery-alert token rides the same right-align run as the
-    # publish health token (D8-a: joins the mimir status cluster). Written
+    # publish health token (owner ruling 2026-07-06: joins the mimir status cluster). Written
     # by ops/btco_alert.rb -> /tmp/ingest.status, empty on quiet days.
     INGEST_STATUS_CMD   = '#(cat /tmp/ingest.status 2>/dev/null)'
     # Mirror of Ops::PublishHealth's frozen status-line contract (kept local
@@ -570,7 +570,7 @@ module BTC
     # placeholder left in is the #1 silent failure, so there is no
     # placeholder here to leave in. The BTCo discovery-alert token
     # (ING n!, empty on quiet days) rides the SAME right-align run,
-    # immediately after the publish health token (D8-a).
+    # immediately after the publish health token (owner ruling 2026-07-06).
     def tmux_health_cmd(repo)
       "#(ruby #{File.join(repo, 'ops', 'publish_health.rb')})#{INGEST_STATUS_CMD}"
     end

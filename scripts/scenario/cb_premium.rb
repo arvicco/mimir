@@ -18,7 +18,7 @@ require_relative '../../lib/btc/coinglass'
 NAME = 'cb_premium'
 
 # Replay (M12-1): live spot tickers have no dated past; the replay rides
-# Coinglass's coinbase-premium-index daily history as a PROXY (D12-b
+# Coinglass's coinbase-premium-index daily history as a PROXY (replay-fidelity
 # caveat: their premium is computed against their own composite, not our
 # Binance leg -- direction-consistent, not identical; the headline says
 # 'replay-proxy'). bps derived unit-safely from the absolute premium and

@@ -12,7 +12,7 @@ require 'tmpdir'
 class TestPublishHealth < Minitest::Test
   # Fixed reference point for all age calculations.
   NOW      = Time.utc(2026, 7, 6, 12, 0, 0)
-  INTERVAL = 120 # minutes (default; matches D5-a)
+  INTERVAL = 120 # minutes (default; matches the 2026-07-06 cadence)
 
   # Write +content+ to a file in +dir+ and set its mtime to NOW - age_seconds.
   # Returns the file path.
@@ -150,6 +150,47 @@ class TestPublishHealth < Minitest::Test
       path = write_status(dir,
                           "PUB LIVE 13/13 keys 12:00 UTC OLD:lppl:ledger BLIND:scenario\n", 37 * 60)
       assert_equal 'PUB! 13/13 0:37 OLD BLIND',
+                   Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
+    end
+  end
+
+  # ---- DEG degraded-leg marker (additive M14-2) ---------------------------
+
+  # A fresh, complete LIVE line carrying ` DEG:...` earns `!` AND the bare
+  # `DEG` marker, even though age and n/m are healthy.
+  def test_deg_marker_flags_and_surfaces_on_otherwise_healthy_line
+    Dir.mktmpdir do |dir|
+      path = write_status(dir, "PUB LIVE 38/38 keys 12:00 UTC DEG:gex:combined\n", 37 * 60)
+      assert_equal 'PUB! 38/38 0:37 DEG',
+                   Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
+    end
+  end
+
+  # Multiple degraded keys still collapse to one bare `DEG` token.
+  def test_deg_marker_with_multiple_keys_shows_single_deg
+    Dir.mktmpdir do |dir|
+      path = write_status(dir, "PUB LIVE 38/38 keys 12:00 UTC DEG:gex:combined,vol:spread\n", 37 * 60)
+      assert_equal 'PUB! 38/38 0:37 DEG',
+                   Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
+    end
+  end
+
+  # OLD, BLIND and DEG compose, in that order.
+  def test_old_blind_and_deg_compose
+    Dir.mktmpdir do |dir|
+      path = write_status(dir,
+                          "PUB LIVE 38/38 keys 12:00 UTC OLD:lppl:ledger BLIND:scenario " \
+                          "DEG:vol:spread\n", 37 * 60)
+      assert_equal 'PUB! 38/38 0:37 OLD BLIND DEG',
+                   Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
+    end
+  end
+
+  # DEG composes with DRY (a hand-edited or replayed line still renders).
+  def test_deg_marker_composes_with_dry
+    Dir.mktmpdir do |dir|
+      path = write_status(dir, "PUB DRY 38/38 keys 07:00 UTC DEG:gex:combined\n", 5 * 3600)
+      assert_equal 'PUB! DRY 38/38 5:00 DEG',
                    Ops::PublishHealth.line(path: path, now: NOW, interval_min: INTERVAL)
     end
   end

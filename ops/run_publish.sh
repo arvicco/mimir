@@ -5,7 +5,7 @@
 # PURPOSE
 #   Source the owner's env file, then run the publish pipeline LIVE
 #   (PUBLISH_DRY_RUN=0) from the repo root, appending all output to a
-#   log. This is the single scheduled publisher job (decision D5-a,
+#   log. This is the single scheduled publisher job (owner decision 2026-07-06,
 #   bi-hourly). publish/publish.rb runs the four analytics suites as
 #   subprocesses and writes the KV keys in one pass; ITS exit code is
 #   THIS script's exit code (exec), so launchd/cron alarm on a real
@@ -67,6 +67,10 @@ set +a
 export BTC_DATA_DIR="${BTC_DATA_DIR:-$HOME/Library/Application Support/mimir/data}"
 
 cd "$REPO_DIR"
+
+# M14-7: once per UTC day, copy the data home to its sibling mimir-backups/
+# (14 kept) BEFORE this tick mutates anything. Same fail-soft idiom as repair.
+"${MIMIR_RUBY:-ruby}" ops/snapshot.rb || echo "run_publish: snapshot step failed (continuing to publish)" >&2
 
 # M8-9: try to heal today's data-integrity gaps (blind scenario row, stale
 # lppl ledger, errored/missing GEX-or-vol snapshot) BEFORE publishing so a

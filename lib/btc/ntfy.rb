@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 #
-# ntfy.rb -- transition push alerts via ntfy.sh (M12-5, Q-17). The
+# ntfy.rb -- transition push alerts via ntfy.sh (M12-5). The
 # dashboard is pull-only; this closes the loop: when something CHANGES,
 # the owner's phone learns without them looking.
 #
-# GOVERNANCE / D12-a (taxonomy shipped as the loop's recommendation,
+# GOVERNANCE (taxonomy shipped as the loop's recommendation,
 # 2026-08-30): alerts fire on TRANSITIONS ONLY, never levels --
 #   scenario regime band change, LPPL verdict change, spot crossing the
 #   BTC gamma flip, publish-health OLD/BLIND appearing or clearing.
@@ -13,31 +13,58 @@
 # into a single 'muted' notice. DORMANT BY DEFAULT: without NTFY_TOPIC
 # in the env every call is a no-op -- the OWNER enables by choosing a
 # topic, adding it to ~/.config/mimir/env and subscribing in the ntfy
-# app (the enablement step IS the D12-a acceptance; see the Gate-12
+# app (the enablement step IS the owner's acceptance of the taxonomy; see the Gate-12
 # runbook).
 #
 # SECRETS: the topic name is effectively a credential (anyone knowing it
 # can read the alerts). It is read from ENV only, never logged, and
 # every error path is redacted. A dead/slow ntfy.sh NEVER breaks the
 # calling agent: push failures are swallowed (fail-soft), the alarm
-# channel must not become an alarm source.
+# channel must not become an alarm source. NTFY_TOPIC is in
+# BTC::Env::SECRET_ENV (M14-3), and outbound title/body text passes
+# through BTC::Env.redact, so the topic cannot leave in a push either.
+#
+# WIRE (M14-3): push POSTs through the BTC::Http seam (BTC::Http.post,
+# injectable via BTC::Http.transport) to https://ntfy.sh/<topic>; the
+# body is the message, Title header defaults to 'mimir', and the
+# optional Priority header (ntfy 1..5) is sent only when given. Only a
+# 2xx counts as delivered. An explicit http: callable (topic, message)
+# still wins over the seam (the original test/caller hook).
+#
+#   BTC::Ntfy.push('regime BASE -> RECOVERY')                # true/false
+#   BTC::Ntfy.push('feed OLD', title: 'mimir: health', priority: 4)
 #
 # STATE: `notify_transition(kind, state, message)` remembers the last
 # pushed state per kind in <data>/ntfy/state.json and pushes only when
 # `state` differs (once per transition, across process restarts). The
 # daily cap counter lives beside it. Both are plain JSON in the data
 # home -- agents on the live clone share them.
+#
+# FLAP COOLDOWN (M14-4, owner-blessed 2026-10-12, every kind): a
+# delivered push stamps the state it ENTERED. A later change INTO a
+# state stamped within the last COOLDOWN_H hours is RECORDED but NOT
+# pushed (:cooled), and a one-line note lands in the state file's
+# 'notes' list instead. So a condition still pushes on appearance and
+# on its first healing; only the REPEAT inside the window is silenced
+# (A->B push, B->A push, A->B cooled, B->A cooled, quiet 6h -> pushes).
+# Cooled changes neither stamp nor count toward the daily cap. Additive state fields (older state
+# files load unchanged):
+#   "recent": { kind => { state => "<iso8601 of the push>" } }  (pruned)
+#   "notes":  [ "<iso8601> <kind> -> <state>: cooled ..." ]      (last 50)
 
-require 'net/http'
 require 'json'
 require 'time'
 require 'fileutils'
 require_relative 'env'
+require_relative 'http'
 
 module BTC
   module Ntfy
     HOST      = 'https://ntfy.sh'
     DAILY_CAP = 8
+    # Flap cooldown window, hours (owner-blessed 2026-10-12).
+    COOLDOWN_H = 6
+    NOTES_KEEP = 50
 
     module_function
 
@@ -69,8 +96,10 @@ module BTC
     # state of `kind`) differs from the last state pushed for that kind.
     # First observation of a kind RECORDS without pushing (arming): the
     # first run after enablement must not fire a burst of "transitions"
-    # from unknown -> current. Returns :pushed | :armed | :unchanged |
-    # :capped | :dormant. now/http injectable for tests.
+    # from unknown -> current. A return to a state announced within
+    # COOLDOWN_H hours records without pushing (see header). Returns
+    # :pushed | :armed | :unchanged | :capped | :cooled | :dormant.
+    # now/http injectable for tests.
     def notify_transition(kind, state, message, now: Time.now.utc, http: nil)
       return :dormant unless enabled?
 
@@ -84,6 +113,15 @@ module BTC
       return :unchanged if last == state.to_s
 
       (st['kinds'] ||= {})[kind.to_s] = state.to_s
+      recent = prune_recent(st, kind.to_s, now)
+      if recent.key?(state.to_s)
+        note = format('%s %s -> %s: cooled (announced within %dh), not pushed',
+                      now.iso8601, kind, state, COOLDOWN_H)
+        st['notes'] = ((st['notes'] || []) << note).last(NOTES_KEEP)
+        save_state(st)
+        return :cooled
+      end
+
       day = now.strftime('%Y-%m-%d')
       st['cap'] = { 'day' => day, 'n' => 0 } unless st.dig('cap', 'day') == day
       st['cap']['n'] += 1
@@ -95,25 +133,47 @@ module BTC
         push("mimir: further alerts muted today (cap #{DAILY_CAP})", http: http) if n == DAILY_CAP + 1
         return :capped
       end
+      recent[state.to_s] = now.iso8601
+      save_state(st)
       push(message, http: http)
       :pushed
     end
 
+    # The kind's announced-states map with entries older than COOLDOWN_H
+    # dropped (mutates st; unparsable timestamps are dropped too). Only
+    # ENTERED states of delivered pushes are ever stamped.
+    def prune_recent(st, kind, now)
+      all = st['recent'].is_a?(Hash) ? st['recent'] : (st['recent'] = {})
+      map = all[kind].is_a?(Hash) ? all[kind] : {}
+      cutoff = now - (COOLDOWN_H * 3600)
+      all[kind] = map.select do |_s, at|
+        Time.iso8601(at.to_s) > cutoff
+      rescue ArgumentError
+        false
+      end
+    end
+
     # Fire-and-forget POST. Failures are swallowed (fail-soft) -- but the
     # error class is warned WITHOUT the topic or body (redaction).
-    def push(message, http: nil)
+    # title:/priority: are additive (M14-3); nil keeps the historical
+    # wire shape (Title 'mimir', no Priority header).
+    def push(message, http: nil, title: nil, priority: nil)
       t = topic
       return false unless t
 
+      body = BTC::Env.redact(message)
       if http
-        http.call(t, message)
+        http.call(t, body)
       else
-        uri = URI("#{HOST}/#{t}")
-        req = Net::HTTP::Post.new(uri)
-        req.body = message.to_s
-        req['Title'] = 'mimir'
-        Net::HTTP.start(uri.host, uri.port, use_ssl: true,
-                        open_timeout: 5, read_timeout: 10) { |h| h.request(req) }
+        headers = { 'Title' => BTC::Env.redact(title || 'mimir') }
+        headers['Priority'] = priority.to_s unless priority.nil?
+        begin
+          BTC::Http.post("#{HOST}/#{t}", body, headers,
+                         open_timeout: 5, read_timeout: 10)
+        rescue BTC::Http::StatusError => e
+          # BTC::Http.post accepts only 200; any other 2xx is delivered too
+          raise unless (200..299).cover?(e.code)
+        end
       end
       true
     rescue StandardError => e

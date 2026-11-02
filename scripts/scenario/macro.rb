@@ -22,7 +22,7 @@ Scenario.fail_soft(NAME, 'FRED_API_KEY not set') if KEY.nil? || KEY.empty?
 # Replay (M12-1): FRED serves full history; the replay fetches each
 # series ONCE (2000 obs, SourceCache 24h -- a chained backfill must not
 # re-hit FRED per day) and windows CLIENT-SIDE to observations dated
-# before the replay day. D12-b caveat: these are the REVISED series as
+# before the replay day. Replay-fidelity caveat: these are the REVISED series as
 # published today, not the vintage a live run saw (macro data gets
 # restated) -- direction usually survives revision, levels can move.
 # (ALFRED realtime vintages would be fully honest but cost one query per

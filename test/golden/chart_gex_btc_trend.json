@@ -58,6 +58,25 @@
   },
   "series": [
     {
+      "name": "CW",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 7,
+      "itemStyle": {
+        "color": "#2fbf8f"
+      },
+      "lineStyle": {
+        "color": "#2fbf8f"
+      },
+      "data": [
+        66.0,
+        66.0,
+        67.0,
+        67.0,
+        68.0
+      ]
+    },
+    {
       "name": "spot",
       "type": "line",
       "symbol": "circle",
@@ -93,25 +112,6 @@
         61.3,
         61.5,
         61.65
-      ]
-    },
-    {
-      "name": "CW",
-      "type": "line",
-      "symbol": "circle",
-      "symbolSize": 7,
-      "itemStyle": {
-        "color": "#2fbf8f"
-      },
-      "lineStyle": {
-        "color": "#2fbf8f"
-      },
-      "data": [
-        66.0,
-        66.0,
-        67.0,
-        67.0,
-        68.0
       ]
     },
     {

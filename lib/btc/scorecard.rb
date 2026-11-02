@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 #
 # scorecard.rb -- pure forward-return scoring engine for the signal
-# scorecard (P-19 / M10-5). Joins a dated, band-labelled signal series
+# scorecard (M10-5). Joins a dated, band-labelled signal series
 # against a daily close series and reports, per horizon, how each band
 # fared -- descriptive track record only, no significance verdicts.
 #
@@ -14,7 +14,7 @@
 #   #      '30' => { 'eligible' => false, 'reason' => 'n too small',
 #   #                'n' => ... }, ... }
 #
-# SEMANTICS (owner ruling D10-a, 2026-08-12 -- every point a parameter):
+# SEMANTICS (owner ruling 2026-08-12 -- every point a parameter):
 #   join      entry = close(t) for a signal stamped during day t, exit =
 #             close(t+h); rows missing either close are skipped, not
 #             counted. Signals are computed intraday, closes are end of

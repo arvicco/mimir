@@ -12,7 +12,7 @@
 #   pl_recent  power law fitted on trailing 3 years  ("the trend has bent")
 #   rw         random walk, sigma scaled sqrt(h)     (no trend information)
 #
-# Headline (M11-3, owner ruling 2026-08-29 / register R-3): the trailing-1y
+# Headline (M11-3, owner ruling 2026-08-29): the trailing-1y
 # per-evaluation MEAN log predictive-score differential (log10/eval) of
 # pl_full vs the best rival -- the density-invariant number (SBI 3.1: the old
 # SUM headline scaled with cache density; it stays as the 'bf' reference
@@ -40,7 +40,7 @@
 # SEPARATE cache (data/trend_scores_long.csv) with the same discipline, and
 # surfaced as the additive --json field per_horizon_long (same {sum,
 # mean_per_eval, n_evals} shape as per_horizon, each marked report_only:true).
-# They are EXCLUDED from the +-1 band and the score until decision item D9-c.
+# They are EXCLUDED from the +-1 band and the score until an owner decision.
 # Published evidence says the power law wins at 12-24mo; the soak shows whether
 # our own data agrees before any scoring ruling.
 #
@@ -50,7 +50,7 @@
 # (data/trend_scores_lp1.csv) and surface as the additive --json section
 # pl_lp1{per_horizon:{...}, omega, clock}. The pl_full-vs-pl_lp1 differential is
 # paired on matched eval dates. pl_lp1 NEVER enters the best-rival max or bf_yr;
-# adoption into the verdict is decision item D9-d.
+# adoption into the verdict is a standing decision item.
 
 require_relative 'common'
 
@@ -313,7 +313,7 @@ bf_yr = 0.0
 per_h = {}
 # per_horizon (M9-1, additive): the density-invariant view of the same
 # numbers -- for each horizon the cumulative differential (sum), the
-# per-evaluation-point MEAN (invariant to cache density; feeds D9-b), and
+# per-evaluation-point MEAN (invariant to cache density; feeds a decision item), and
 # the eval-point count that scales the sum.
 per_horizon = {}
 HORIZ.each do |h|
@@ -360,7 +360,7 @@ end
 # comparison is density-matched (SBI 3.1). Same {sum, mean_per_eval, n_evals}
 # shape, pl_full-centric like per_horizon: sum > 0 means the rigid mode HURTS
 # out-of-sample (pl_full wins), sum < 0 means it HELPS. Never enters bf_yr or
-# the best-rival max (that flip is decision item D9-d).
+# the best-rival max (that flip is a standing decision item).
 pl_lp1_ph = {}
 HORIZ.each do |h|
   diff = 0.0
@@ -393,7 +393,7 @@ score = if bf_yr >= 1.0
           0
         end
 
-# ---- headline_mean (M11-3, owner ruling 2026-08-29 / register R-3) -----------
+# ---- headline_mean (M11-3, owner ruling 2026-08-29) ---------------------------
 # The HEADLINE becomes the density-honest per-evaluation MEAN: the sum across
 # horizons of each horizon's mean_per_eval (log10/eval; at equal horizon
 # counts this is exactly bf_yr / n_evals, so the frozen +-1.0 cumulative band

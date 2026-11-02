@@ -2,7 +2,7 @@
 # frozen_string_literal: true
 #
 # bubble_ref.rb -- independent bubble-gauge cross-reference (M12-4,
-# Q-12). Publishes Coinglass's bitcoin bubble-index (daily history back
+# Phase 12). Publishes Coinglass's bitcoin bubble-index (daily history back
 # to 2010) as an OUTSIDE check to sit beside the LPPL verdict -- the
 # same evidence philosophy as the ingest ref lines: what does an
 # independent instrument say about the thing we compute?

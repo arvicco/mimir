@@ -530,6 +530,106 @@ class TestPublishPipeline < Minitest::Test
     end
   end
 
+  # -- DEG degraded-leg marker (M14-2, dead venue inside a fresh payload) ---
+
+  def deg_state_path = File.join(@dir, 'ops', 'deg_state.json')
+
+  # Fresh tails so the line isolates DEG from OLD.
+  def write_fresh_tails
+    fresh = iso(NOW - 5 * 3600)
+    File.write(File.join(@dir, 'scenario', 'history.jsonl'),
+               JSON.generate('ts' => fresh, 'composite' => 0.1) + "\n")
+    File.write(File.join(@dir, 'lppl', 'ledger.jsonl'),
+               JSON.generate('ts' => fresh, 'bf' => 1.0) + "\n")
+  end
+
+  # gex:combined loses IBIT (seen today in the seeded norm) -> degraded.
+  def venue_loss_runner
+    lambda do |argv, t|
+      out = fixture_runner.call(argv, t)
+      next out unless argv.include?('scripts/gex_btc_combined.rb')
+
+      p = JSON.parse(out)
+      p['venues'].reject! { |v| v['name'] == 'IBIT' }
+      JSON.generate(p)
+    end
+  end
+
+  def seed_deg_state(streak)
+    legs = JSON.parse(fixture('payload_gex_combined.json'))['venues'].to_h { |v| [v['name'], '2026-07-04'] }
+    FileUtils.mkdir_p(File.dirname(deg_state_path))
+    File.write(deg_state_path, JSON.generate('v' => 1, 'keys' => {
+                                               'gex:combined' => { 'legs' => legs, 'streak' => streak }
+                                             }))
+  end
+
+  def live_run(runner)
+    inject_kv { FakeRes.new('200', 'ok') }
+    Publish::Pipeline.run(now: NOW, source: 'testhost', dry_run: false,
+                          runner: runner, env: ENV_OK, status_dir: @dir)
+  end
+
+  # The sixth consecutive degraded LIVE run appends ` DEG:<key>`.
+  def test_status_line_marks_deg_at_the_sixth_degraded_live_run
+    write_fresh_tails
+    seed_deg_state(5)
+    s = live_run(venue_loss_runner)
+    assert_equal "PUB LIVE 38/38 keys 12:00 UTC DEG:gex:combined\n",
+                 File.read(File.join(@dir, 'publish.status'))
+    assert_equal ['gex:combined'], s[:deg_keys]
+  end
+
+  # DEG rides AFTER the OLD and BLIND suffixes.
+  def test_status_line_deg_composes_with_old_and_blind
+    stale = iso(NOW - 40 * 3600)
+    File.write(File.join(@dir, 'scenario', 'history.jsonl'),
+               JSON.generate('ts' => stale, 'composite' => 0.0, 'blind' => true) + "\n")
+    File.write(File.join(@dir, 'lppl', 'ledger.jsonl'),
+               JSON.generate('ts' => stale, 'bf' => 1.0) + "\n")
+    seed_deg_state(5)
+    live_run(venue_loss_runner)
+    assert_equal "PUB LIVE 38/38 keys 12:00 UTC OLD:scenario:history,lppl:ledger " \
+                 "BLIND:scenario DEG:gex:combined\n",
+                 File.read(File.join(@dir, 'publish.status'))
+  end
+
+  # A dry run neither marks nor touches the streak state.
+  def test_dry_run_never_marks_deg_or_writes_state
+    write_fresh_tails
+    seed_deg_state(5)
+    before = File.read(deg_state_path)
+    Publish::Pipeline.run(now: NOW, source: 'testhost', dry_run: true,
+                          runner: venue_loss_runner, out_dir: out_dir, status_dir: @dir)
+    refute_includes File.read(File.join(@dir, 'publish.status')), 'DEG'
+    assert_equal before, File.read(deg_state_path)
+  end
+
+  # An unexpected payload shape counts as degraded; the publish survives.
+  def test_census_raise_is_degraded_and_publish_survives
+    write_fresh_tails
+    seed_deg_state(5)
+    runner = lambda do |argv, t|
+      argv.include?('scripts/gex_btc_combined.rb') ? JSON.generate('venues' => 'garbage') : fixture_runner.call(argv, t)
+    end
+    s = nil
+    capture_io { s = live_run(runner) }
+    assert_includes s[:keys], 'gex:combined'
+    assert_includes File.read(File.join(@dir, 'publish.status')), ' DEG:gex:combined'
+  end
+
+  # A detector malfunction (here: the state path is a directory, so the
+  # atomic rename raises) warns its error class only and never fails the run.
+  def test_detector_failure_never_fails_the_publish
+    write_fresh_tails
+    FileUtils.mkdir_p(File.join(deg_state_path, 'blocker'))
+    s = nil
+    _, err = capture_io { s = live_run(fixture_runner) }
+    assert_match(/publish: deg detector failed \(Errno::\w+\)/, err)
+    refute_includes err, deg_state_path, 'error class only, no message text'
+    assert_equal [], s[:deg_keys]
+    assert_equal "PUB LIVE 38/38 keys 12:00 UTC\n", File.read(File.join(@dir, 'publish.status'))
+  end
+
   # -- chart envelopes (M3-5) ----------------------------------------------
 
   # With the real fixture payloads all fifteen charts build; pin their

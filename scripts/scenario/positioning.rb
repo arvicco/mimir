@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 #
-# positioning.rb -- P-6 crowd-positioning module. Reads the derivatives
+# positioning.rb -- crowd-positioning module. Reads the derivatives
 # crowd's stance (retail long/short, top-trader position, open interest
 # momentum, aggressive taker flow, liquidation skew) and looks for the
 # classic over-crowded "flush setup": everyone long, OI climbing, longs
@@ -10,7 +10,7 @@
 # GOVERNANCE -- this module enters the scenario composite at WEIGHT 0
 # (display only). Its score is reported and charted, never weighted, until
 # the owner rules on the scorecard (SHADOW-FIRST, Golden Rule 4). The
-# semantics below are FIXED by owner rulings D10-b (2026-08-12); do not
+# semantics below are FIXED by owner rulings (2026-08-12); do not
 # tune them without a new ruling.
 #
 # USAGE
@@ -27,7 +27,7 @@
 # usable input for a metric is an OMITTED point (never a spurious zero).
 # --json only -- the human table stays the five band rows.
 #
-# SEMANTICS (D10-b, FIXED)
+# SEMANTICS (owner ruling 2026-08-12, FIXED)
 #   Five daily sub-signals, one Coinglass endpoint each (interval 1d).
 #   BAND = today's value placed in the trailing-90-day distribution of its
 #   OWN history (the previous 90 daily values, EXCLUDING today), cutoffs at
@@ -48,7 +48,7 @@
 #         a lineup, so the score is 0. top_traders / taker_bias are shown
 #         for context but do NOT enter the score.
 #
-# KILL CRITERIA (pre-registered, D10-b): this module is REMOVED, not tuned,
+# KILL CRITERIA (pre-registered, 2026-08-12): this module is REMOVED, not tuned,
 # if (a) the source is dead for 14+ consecutive days, or (b) after 120 days
 # the signal scorecard shows its score bands do not separate 30d forward
 # returns from the unconditional row.

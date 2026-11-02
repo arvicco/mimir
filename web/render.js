@@ -167,6 +167,36 @@ var FORMATTERS = {
     return '<div style="max-width:340px;white-space:normal;line-height:1.5">' +
            head + "<br>" + lines.join("<br>") +
            '<div style="margin-top:6px;color:#c7ccd1">' + esc(d.note) + "</div></div>";
+  },
+
+  // axis_tip (owner round 2026-11-02, user feedback): the house axis
+  // tooltip. ONE header -- the hovered tag plus the projected calendar
+  // date when any datum carries `tdate` ('30d · 2026-12-02') -- then
+  // rows in SERIES order, value bold on the right, null rows omitted.
+  // The specs list series top-down (quantile fans p95->p05, panel cards
+  // top panel first), so the popup always reads like the chart; the
+  // ECharts default instead groups multi-panel rows per axis in an
+  // order that shifts with the pointer, each group repeating the date.
+  axis_tip: function (params) {
+    if (!params || !params.length) return "";
+    var head = params[0].axisValueLabel || params[0].axisValue || "";
+    var tdate = null, rows = [];
+    // linked-axis cards hand params grouped by the HOVERED axis first --
+    // sort back to declaration order so the popup always reads top-down
+    params = params.slice().sort(function (a, b) {
+      return (a.seriesIndex || 0) - (b.seriesIndex || 0);
+    });
+    params.forEach(function (p) {
+      if (!tdate && p.data && p.data.tdate) tdate = p.data.tdate;
+      var v = Array.isArray(p.value) ? p.value[1] : p.value;
+      if (v == null || v === "" || isNaN(Number(v))) return;
+      rows.push("<div>" + p.marker + " " + p.seriesName +
+                '<span style="float:right;margin-left:16px;font-weight:600">' +
+                v + "</span></div>");
+    });
+    return '<div style="min-width:130px"><b>' + head + "</b>" +
+           (tdate ? ' <span style="color:#9aa0a6">· ' + tdate + "</span>" : "") +
+           rows.join("") + "</div>";
   }
 };
 
@@ -732,7 +762,7 @@ function activateGroup(g, member) {
   requestAnimationFrame(function () { member.chart.resize(); });
 }
 
-// Build (or extend) a tab-group card (M6-4, owner ruling D7-c). The
+// Build (or extend) a tab-group card (M6-4, owner ruling 2026-07-06). The
 // FIRST group member seen builds the shared card -- head with title, ⓘ,
 // a [BTC][MSTR] tab bar and the badge, plus the hover bubble; every
 // member (including the first) attaches its own hidden chart div and a
@@ -806,7 +836,7 @@ function buildGroupedCard(env, key, meta, groupId) {
 
   // Re-order the tab bar by tab_pos (buttons arrive in load order, which
   // the alphabetical index makes MSTR-before-BTC) and default the visible
-  // tab to the lowest tab_pos -- BTC leads (owner ruling D7-c).
+  // tab to the lowest tab_pos -- BTC leads (owner ruling 2026-07-06).
   g.members.sort(function (a, b) { return a.pos - b.pos; });
   while (g.tabbar.firstChild) g.tabbar.removeChild(g.tabbar.firstChild);
   g.members.forEach(function (m) { g.tabbar.appendChild(m.btn); });

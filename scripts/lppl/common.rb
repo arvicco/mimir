@@ -315,12 +315,12 @@ module Lppl
     best
   end
 
-  # ---- report-only fit diagnostics (M9-5, D9-e) -------------------------------
+  # ---- report-only fit diagnostics (M9-5) ------------------------------------
 
   # The Sornette-school damping condition threshold: a genuine anti-bubble
   # decline satisfies D = m|B| / (omega|C|) >= 1. Reference-only -- the fit
   # does NOT impose it (nor the B<0 sign restriction) today; the flip from
-  # report-only to gating is decision item D9-e. Named a reference constant so
+  # report-only to gating is a standing decision item. Named a reference constant so
   # no caller mistakes it for an active threshold.
   DAMPING_REF_THRESHOLD = 1.0
 
@@ -530,7 +530,7 @@ module Lppl
     best
   end
 
-  # Symmetric-null SHADOW (M9-6, feeds D9-e/D9-f). power_decay_fit above
+  # Symmetric-null SHADOW (M9-6, feeds the fit and p-value decision items). power_decay_fit above
   # selects tc on raw SSE across tc-dependent row counts -- rows with tau > 2d
   # shrink as tc moves late, so a later tc wins mechanically (fewer squared
   # residuals to sum). SBI observed the null tc pinned at the +10d coarse-grid

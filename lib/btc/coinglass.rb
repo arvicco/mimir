@@ -43,7 +43,7 @@
 #   option/funding endpoints are confirmed served. max-pain REQUIRES the
 #   exchange param ('Required String parameter' 400 otherwise).
 #
-#   P-6 crowd-positioning family (M10-2, probed 2026-07-12; recorded
+#   crowd-positioning family (M10-2, probed 2026-07-12; recorded
 #   2026-08-12). All paginate by interval; we pin interval: '1d' as the
 #   tier-safe cadence (our bi-hourly publish loop reads a daily series).
 #   REQUIRED params discovered by probe -- omitting them 400s:
@@ -130,7 +130,7 @@ module BTC
       get('futures/funding-rate/oi-weight-history', { symbol: symbol, interval: interval })
     end
 
-    # ---- P-6 crowd-positioning family (M10-2) ---------------------------
+    # ---- crowd-positioning family (M10-2) -------------------------------
     # All daily (interval: '1d', our tier-safe cadence). Braced params so
     # they land in get's `params`, not its cache:/ttl: keywords (M10-1).
 
@@ -182,7 +182,7 @@ module BTC
           cache: cache, ttl: ttl)
     end
 
-    # Bitcoin bubble-index daily history (Q-12/M12-4): ~5.9k rows back to
+    # Bitcoin bubble-index daily history (M12-4): ~5.9k rows back to
     # 2010-07; each row {price, bubble_index, mining_difficulty,
     # transaction_count, address_send_count, date_string}. An independent
     # composite bubble gauge -- advisory cross-reference only.
@@ -190,14 +190,14 @@ module BTC
       get('index/bitcoin/bubble-index', {}, cache: cache, ttl: ttl)
     end
 
-    # Exchange BTC balance snapshot (P-8/M11-7): one row per exchange with
+    # Exchange BTC balance snapshot (M11-7): one row per exchange with
     # total_balance plus 1d/7d/30d absolute and percent changes (21 venues
     # at probe time 2026-08-29).
     def exchange_balance_list(symbol: 'BTC', cache: nil, ttl: nil)
       get('exchange/balance/list', { symbol: symbol }, cache: cache, ttl: ttl)
     end
 
-    # Exchange BTC balance daily history (P-8/M11-7): a Hash {time_list,
+    # Exchange BTC balance daily history (M11-7): a Hash {time_list,
     # price_list, data_map} -- data_map holds one balance series per
     # exchange, aligned to time_list and nil-padded for defunct venues
     # (~676 daily points at probe time 2026-08-29).

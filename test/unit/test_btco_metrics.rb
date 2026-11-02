@@ -2,7 +2,7 @@
 
 # Characterization tests for Btco.convert_split (extracted from
 # btco.rb). USD-listing behavior is pinned here and must never change;
-# the non-USD case is covered by the F-1 regression tests below it.
+# the non-USD case is covered by the non-USD regression tests below it.
 
 require_relative '../test_helper'
 require_relative '../../scripts/btco/metrics'
@@ -50,7 +50,7 @@ class TestConvertSplitUsd < Minitest::Test
   end
 end
 
-# F-1 regression (TOOL-REVIEW.md): face is USD, conv_price is listing ccy.
+# Non-USD regression (Phase-0 tool review): face is USD, conv_price is listing ccy.
 # shares = face_usd / conv_usd. The pre-fix code divided by rate twice,
 # understating ITM shares by rate^2 for non-USD listings.
 class TestConvertSplitFx < Minitest::Test

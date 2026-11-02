@@ -74,12 +74,12 @@ class TestLpplContract < Minitest::Test
     { 'BTC_DATA_DIR' => root, 'LPPL_SIMS_V2' => '5' }
   end
 
-  # F-9: exactly one stdout line in --json mode, parsing as one object.
+  # Exactly one stdout line in --json mode, parsing as one object.
   def module_json(mod, *argv, root: DATA_ROOT)
     out, err, st = run_script("scripts/lppl/#{mod}.rb", '--json', *argv,
                               env: lppl_env(root))
     assert st.success?, "#{mod} exit #{st.exitstatus}: #{err}"
-    assert_equal 1, out.lines.size, "#{mod}: stdout discipline (F-9) -- got: #{out.inspect}"
+    assert_equal 1, out.lines.size, "#{mod}: stdout discipline (one JSON line) -- got: #{out.inspect}"
     JSON.parse(out)
   end
 
@@ -113,14 +113,14 @@ class TestLpplContract < Minitest::Test
       assert_empty missing, "#{mod}: required --json fields absent #{missing}"
       surplus = j.keys - BASE_KEYS - required - optional
       assert_empty surplus, "#{mod}: unpinned --json fields #{surplus} (frozen contract)"
-      refute j.key?('unavailable'), "#{mod}: healthy run must not carry the F-12 marker"
+      refute j.key?('unavailable'), "#{mod}: healthy run must not carry the fail-soft marker"
     end
 
     define_method("test_#{mod}_fail_soft_without_cache") do
       j = module_json(mod, *argv, root: EMPTY_ROOT)
       assert_contract_keys FAIL_SOFT_KEYS, j, "#{mod} fail-soft"
       assert_equal 0, j['score']
-      assert_equal true, j['unavailable'] # F-12
+      assert_equal true, j['unavailable'] # fail-soft marker
       assert_match(/price cache/, j['headline'])
     end
   end
@@ -174,7 +174,7 @@ class TestLpplContract < Minitest::Test
     end
   end
 
-  # M11-5 (owner ruling 2026-08-29, register R-8, was D9-g): the envelope's
+  # M11-5 (owner ruling 2026-08-29): the envelope's
   # operative bound and floor are FROZEN measurements -- each historical
   # trough's ratio against the trend as fitted on data up to that trough --
   # so today's re-estimated trend can no longer drag the reference
@@ -193,7 +193,7 @@ class TestLpplContract < Minitest::Test
                     'frozen measurement keeps strong bound >= weak floor'
   end
 
-  # M11-4 (owner ruling 2026-08-29, register R-6/R-7): the fit headline's
+  # M11-4 (owner rulings 2026-08-29): the fit headline's
   # improvement figure is the symmetric-null improvement_v2; the logperiodic
   # headline (and its score) run on the GARCH bootstrap p_value_v2, with the
   # AR(1) p kept as the in-line reference. Field sets unchanged (the v2
@@ -209,7 +209,7 @@ class TestLpplContract < Minitest::Test
     assert_match(/AR\(1\) ref/, j['headline'])
   end
 
-  # M11-3 (owner ruling 2026-08-29, register R-3): headline_mean is the
+  # M11-3 (owner ruling 2026-08-29): headline_mean is the
   # density-honest headline block -- per-eval mean value, its Newey-West SE,
   # the NW lag, the daily-series length, and the frozen band re-expressed in
   # per-eval units. The score still runs on the cumulative bf (pinned same).
@@ -356,7 +356,7 @@ class TestLpplContract < Minitest::Test
     assert_match STATUS_RE, File.read('/tmp/lppl.status').chomp
   end
 
-  # M11-4 (owner ruling 2026-08-29, register R-7): p_lp records the GARCH
+  # M11-4 (owner ruling 2026-08-29): p_lp records the GARCH
   # bootstrap p (the number we stand behind); p_lp_ar1 keeps the AR(1)
   # series' continuity as an additive reference column.
   LEDGER_KEYS = %w[bf composite days_below_strong days_le_p01 omega p_lp
