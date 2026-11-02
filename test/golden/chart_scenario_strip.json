@@ -30,7 +30,10 @@
   "xAxis": [
     {
       "type": "time",
-      "gridIndex": 0
+      "gridIndex": 0,
+      "axisLabel": {
+        "hideOverlap": true
+      }
     },
     {
       "type": "category",

@@ -54,6 +54,8 @@
 #
 # No IO, no ENV, no network in this file.
 
+require 'date'
+
 module Publish
   module Charts
     # ---- glossary terms (M9-15, owner ruling 2026-08-11) ---------------
@@ -462,6 +464,10 @@ module Publish
         inputs: %w[payload_lppl_latest.json payload_lppl_ledger.json],
         fn: :lppl_regime,
         meta: {
+          # one header + rows in panel order (owner round 2026-11-02):
+          # the default linked-axis tooltip groups per axis in pointer-
+          # dependent order, repeating the date per group
+          'tooltip_formatter' => 'axis_tip',
           'axis_terms' => AXIS_TERMS,
           'desc' => 'The LPPL-as-regime claim -- BTC log price is an ' \
                     'anti-bubble around a genesis-anchored power law -- is not ' \
@@ -554,6 +560,7 @@ module Publish
       'vol_surface' => {
         inputs: %w[payload_vol_latest.json], fn: :vol_surface,
         meta: {
+          'tooltip_formatter' => 'axis_tip',
           'axis_terms' => AXIS_TERMS,
           'desc' => 'The implied-vol term structure from Deribit\'s BTC option ' \
                     'chain at five nominal tenors: ATM IV is the at-the-money ' \
@@ -595,6 +602,7 @@ module Publish
       'vol_surface_mstr' => {
         inputs: %w[payload_vol_mstr.json], fn: :vol_surface_mstr,
         meta: {
+          'tooltip_formatter' => 'axis_tip',
           'axis_terms' => AXIS_TERMS,
           'desc' => 'The implied-vol term structure from MicroStrategy\'s ' \
                     'own option chain (CBOE single-name, USD cash-settled) at ' \
@@ -630,6 +638,7 @@ module Publish
       'vol_spread' => {
         inputs: %w[payload_vol_spread.json], fn: :vol_spread,
         meta: {
+          'tooltip_formatter' => 'axis_tip',
           'axis_terms' => AXIS_TERMS,
           'desc' => 'The market\'s live price of treasury-company leverage: ' \
                     'MSTR\'s ATM implied vol minus BTC\'s, tenor by tenor. MSTR ' \
@@ -682,6 +691,7 @@ module Publish
       'vol_basis' => {
         inputs: %w[payload_basis_latest.json], fn: :vol_basis,
         meta: {
+          'tooltip_formatter' => 'axis_tip',
           'axis_terms' => AXIS_TERMS,
           'desc' => 'The annualized basis of Deribit\'s dated BTC futures over ' \
                     'spot, per expiry, plus the perpetual funding rate. Positive ' \
@@ -824,6 +834,10 @@ module Publish
         inputs: %w[payload_positioning_latest.json], fn: :positioning,
         optional: %w[payload_reserves_latest.json],
         meta: {
+          # one header + rows in panel order (owner round 2026-11-02):
+          # the default linked-axis tooltip groups per axis in pointer-
+          # dependent order, repeating the date per group
+          'tooltip_formatter' => 'axis_tip',
           'axis_terms' => AXIS_TERMS,
           'desc' => 'The derivatives crowd\'s stance in one vertical slice: ' \
                     'aggregate open interest ($B), the long/short crowd ratios ' \
@@ -860,6 +874,7 @@ module Publish
       'dist_fan' => {
         inputs: %w[payload_dist_latest.json], fn: :dist_fan,
         meta: {
+          'tooltip_formatter' => 'axis_tip',
           'axis_terms' => AXIS_TERMS,
           'desc' => 'The market-implied BTC price distribution at 7/30/90 ' \
                     'days, read from the option smile (Deribit, SVI fit + ' \
@@ -1272,7 +1287,12 @@ module Publish
           { 'right' => 12, 'width' => 20, 'top' => 8, 'bottom' => 26 }
         ],
         'xAxis' => [
-          { 'type' => 'time', 'gridIndex' => 0 },
+          # hideOverlap: at card width the default time labels print a
+          # month's last day tick flush against the month name ('29Sep')
+          # -- ECharts drops the colliding day instead (owner design
+          # round 2026-11-02; labels never collide)
+          { 'type' => 'time', 'gridIndex' => 0,
+            'axisLabel' => { 'hideOverlap' => true } },
           { 'type' => 'category', 'gridIndex' => 1, 'data' => ['now'],
             'axisLabel' => { 'show' => false }, 'axisTick' => { 'show' => false } }
         ],
@@ -2103,14 +2123,18 @@ module Publish
         ],
         'series' => [
           positioning_line('OI $B', series['oi_close'], POS_OI, 0, 0),
+          # M11-7: aggregate exchange reserves (M BTC) on the OI panel's
+          # right axis -- an empty series when the optional input is
+          # absent. Listed right after OI so the axis tooltip groups the
+          # panels top-down (owner round 2026-11-02: popup rows read like
+          # the chart; a top-panel series never lists below the bottom
+          # panel's bars).
+          positioning_line('reserves', resv, POS_RESV, 0, 4),
           positioning_line('global L/S', series['global_ls'], POS_GLS, 1, 1),
           positioning_line('top L/S', series['top_ls'], POS_TLS, 1, 1),
           positioning_line('taker buy%', series['taker_buy'], POS_TAKER, 1, 2),
           positioning_liq_bar('long liq $M', series['long_liq'], POS_LONG, down: true),
-          positioning_liq_bar('short liq $M', series['short_liq'], POS_SHORT, down: false),
-          # M11-7: aggregate exchange reserves (M BTC) on the OI panel's
-          # right axis -- an empty series when the optional input is absent.
-          positioning_line('reserves', resv, POS_RESV, 0, 4)
+          positioning_liq_bar('short liq $M', series['short_liq'], POS_SHORT, down: false)
         ]
       }
     end
@@ -2350,10 +2374,16 @@ module Publish
             'itemStyle' => { 'color' => VOL_AMBER }, 'lineStyle' => { 'color' => VOL_AMBER },
             'data' => fly },
           # invisible carrier: adds an "exp(d): <days>" row to the axis
-          # tooltip without a drawn line or a legend entry.
+          # tooltip without a drawn line or a legend entry. Its items also
+          # carry the tenor's projected calendar date (ts + tenor days) so
+          # the axis_tip header reads '30d · 2026-12-02' (owner round
+          # 2026-11-02, user feedback).
           { 'name' => 'exp(d)', 'type' => 'line', 'yAxisIndex' => 2, 'silent' => true,
             'symbol' => 'none', 'lineStyle' => { 'opacity' => 0 },
-            'itemStyle' => { 'color' => VOL_GREY }, 'data' => expiry }
+            'itemStyle' => { 'color' => VOL_GREY },
+            'data' => tenors.each_with_index.map do |t, i|
+              tdated(expiry[i], proj_date(vol['ts'], t['tenor_d'].to_i))
+            end }
         ]
       }
     end
@@ -2387,8 +2417,16 @@ module Publish
         v = vol_pct(t['spread_atm'])
         v.nil? ? nil : { 'value' => v, 'itemStyle' => { 'color' => tenor_color(t) } }
       end
-      mstr = tenors.map { |t| tenor_dot(vol_pct(t.dig('mstr', 'atm_iv')), t) }
-      btc  = tenors.map { |t| tenor_dot(vol_pct(t.dig('btc', 'atm_iv')), t) }
+      # both leg lines carry the tenor's projected date (ts + tenor days)
+      # for the axis_tip header -- on both so a dead leg cannot drop it
+      # (owner round 2026-11-02, user feedback)
+      proj = tenors.map { |t| proj_date(spread['ts'], t['tenor_d'].to_i) }
+      dot  = lambda do |t, i, side|
+        d = tenor_dot(vol_pct(t.dig(side, 'atm_iv')), t)
+        d && proj[i] ? d.merge('tdate' => proj[i]) : d
+      end
+      mstr = tenors.each_with_index.map { |t, i| dot.call(t, i, 'mstr') }
+      btc  = tenors.each_with_index.map { |t, i| dot.call(t, i, 'btc') }
 
       {
         'backgroundColor' => 'transparent',
@@ -2402,17 +2440,20 @@ module Publish
         'yAxis' => { 'type' => 'value', 'name' => 'vol %',
                      'axisLabel' => { 'margin' => 3 },
                      'nameLocation' => 'middle', 'nameGap' => 44 },
+        # series listed in popup order (owner round 2026-11-02): MSTR
+        # above BTC as on the chart, then the spread they subtract to --
+        # the bars keep z 1 so they still draw UNDER the leg lines.
         'series' => [
-          # bars are per-tenor coloured (tenor gradient); the series-level
-          # grey exists only so the legend swatch reads neutral.
-          { 'name' => 'spread', 'type' => 'bar', 'itemStyle' => { 'color' => '#888e98' },
-            'data' => bars },
           { 'name' => 'MSTR', 'type' => 'line', 'symbol' => 'circle', 'symbolSize' => 6,
             'itemStyle' => { 'color' => VOL_MSTR }, 'lineStyle' => { 'color' => VOL_MSTR, 'width' => 1 },
             'data' => mstr },
           { 'name' => 'BTC', 'type' => 'line', 'symbol' => 'circle', 'symbolSize' => 6,
             'itemStyle' => { 'color' => VOL_BTC }, 'lineStyle' => { 'color' => VOL_BTC, 'width' => 1 },
-            'data' => btc }
+            'data' => btc },
+          # bars are per-tenor coloured (tenor gradient); the series-level
+          # grey exists only so the legend swatch reads neutral.
+          { 'name' => 'spread', 'type' => 'bar', 'z' => 1,
+            'itemStyle' => { 'color' => '#888e98' }, 'data' => bars }
         ]
       }
     end
@@ -2463,7 +2504,10 @@ module Publish
       history = history.reject do |r|
         VOL_SPREAD_TREND_TENORS.all? { |td| vol_spread_trend_point(r, td).nil? }
       end
-      dates   = history.map { |r| r['date'] }
+      # MM-DD labels (gex_trend_day), matching the gex trend card -- the
+      # repeated '2026-' prefix was seven tokens of noise on a 65d window
+      # (owner design round 2026-11-02)
+      dates   = history.map { |r| gex_trend_day(r['date']) }
       series  = VOL_SPREAD_TREND_TENORS.map do |td|
         color = VOL_TENOR_COLORS.fetch(td)
         { 'name' => "#{td}d", 'type' => 'line', 'symbol' => 'circle', 'symbolSize' => 6,
@@ -2518,7 +2562,13 @@ module Publish
       f      = basis['funding'] || {}
       tenors = (b['tenors'] || []).select { |t| t['days'].to_f >= 1 }
       labels = tenors.map { |t| "#{t['days'].to_f.round}d" }
-      ann    = tenors.map { |t| t['basis_ann_pct']&.to_f&.round(3) }
+      # each future's datum carries its ACTUAL expiry date (ts + days --
+      # these are real listed futures, not nominal tenors) for the
+      # axis_tip header (owner round 2026-11-02, user feedback)
+      ann    = tenors.map do |t|
+        tdated(t['basis_ann_pct']&.to_f&.round(3),
+               proj_date(basis['ts'], t['days'].to_f))
+      end
 
       titles = [{ 'text' => format('Basis ann%% · funding %s', basis_funding_head(f)),
                   'textStyle' => { 'fontSize' => 13 } }]
@@ -2597,10 +2647,13 @@ module Publish
         'yAxis' => { 'type' => 'value', 'name' => 'price ($k)',
                      'axisLabel' => { 'margin' => 3 }, 'scale' => true,
                      'nameLocation' => 'middle', 'nameGap' => 44 },
+        # popup rows read top-down like the chart (owner round 2026-11-02):
+        # the call wall sits above spot, the put wall below, by definition;
+        # the drawn legend keeps its own order via legend.data.
         'series' => [
+          gex_trend_line('CW',   rows, 'cw',   VOL_TEAL),
           gex_trend_line('spot', rows, 'spot', VOL_SPOT),
           gex_trend_line('flip', rows, 'flip', VOL_AMBER),
-          gex_trend_line('CW',   rows, 'cw',   VOL_TEAL),
           gex_trend_line('PW',   rows, 'pw',   VOL_RED)
         ]
       }
@@ -2662,10 +2715,11 @@ module Publish
         'yAxis' => { 'type' => 'value', 'name' => 'price ($)',
                      'axisLabel' => { 'margin' => 3 }, 'scale' => true,
                      'nameLocation' => 'middle', 'nameGap' => 44 },
+        # popup rows top-down, as on the BTC trend (owner round 2026-11-02)
         'series' => [
+          gex_trend_line('CW',   rows, 'cw',   VOL_TEAL, 1.0),
           gex_trend_line('spot', rows, 'spot', VOL_SPOT, 1.0),
           gex_trend_line('flip', rows, 'flip', VOL_AMBER, 1.0),
-          gex_trend_line('CW',   rows, 'cw',   VOL_TEAL, 1.0),
           gex_trend_line('PW',   rows, 'pw',   VOL_RED, 1.0)
         ]
       }
@@ -2703,6 +2757,26 @@ module Publish
       val && (val / 1000.0).round(1)
     end
 
+    # Projected calendar date for a horizon/tenor tag: the payload's base
+    # date (ISO date or timestamp) + n days. Owner round 2026-11-02 (user
+    # feedback): a '30d' tag in a popup header should say WHEN that is
+    # ('30d · 2026-12-02'). nil-safe -- a missing/unparseable base yields
+    # nil and the header stays bare.
+    def proj_date(base, days)
+      return nil unless base && days
+
+      (Date.iso8601(base.to_s[0, 10]) + days.round).iso8601
+    rescue ArgumentError, TypeError
+      nil
+    end
+
+    # Wrap a datum with its projected date ({'value'=>v,'tdate'=>d}) for
+    # the axis_tip formatter; a nil date leaves the raw value untouched
+    # (payloads without a timestamp keep their old shape).
+    def tdated(val, date)
+      date ? { 'value' => val, 'tdate' => date } : val
+    end
+
     def dist_fan(dist)
       hs = dist['horizons'] || []
       cats = ['now'] + hs.map { |h| "#{h['d']}d#{h['extrapolated'] ? '*' : ''}" }
@@ -2715,19 +2789,32 @@ module Publish
           'itemStyle' => { 'color' => "rgba(#{DIST_HUE},#{alpha})" },
           'data' => [spot] + hs.map { |h| dist_k(h[key]) } }
       end
-      series = [line.call('p05', 1, 'dashed', 0.55),
-                line.call('p25', 1, 'solid', 0.75),
-                line.call('median', 2.5, 'solid', 1.0),
+      # Owner round 2026-11-02 (user feedback): the axis tooltip lists
+      # rows in SERIES order, so the quantiles run TOP-DOWN -- p95 first,
+      # p05 last, the medians between p75 and p25 where they sit on the
+      # chart. The median's data items carry each horizon's projected
+      # calendar date; the axis_tip formatter hoists it into the
+      # popup header ('30d · 2026-12-02'). z 3 keeps the two emphasis
+      # lines drawn above the thin quantiles regardless of list order.
+      base   = dist['date'] || dist['ts']
+      median = line.call('median', 2.5, 'solid', 1.0)
+      median['z'] = 3
+      median['data'] = median['data'].each_with_index.map do |v, i|
+        tdated(v, proj_date(base, i.zero? ? 0 : hs[i - 1]['d'].to_i))
+      end
+      series = [line.call('p95', 1, 'dashed', 0.55),
                 line.call('p75', 1, 'solid', 0.75),
-                line.call('p95', 1, 'dashed', 0.55)]
+                median]
       if hs.any? { |h| h['median_rwm'] }
-        series << { 'name' => 'rwm median', 'type' => 'line',
+        series << { 'name' => 'rwm median', 'type' => 'line', 'z' => 3,
                     'symbol' => 'circle', 'symbolSize' => 5,
                     'lineStyle' => { 'width' => 2, 'type' => 'dashed',
                                      'color' => '#2fbf8f' },
                     'itemStyle' => { 'color' => '#2fbf8f' },
                     'data' => [spot] + hs.map { |h| dist_k(h['median_rwm']) } }
       end
+      series += [line.call('p25', 1, 'solid', 0.75),
+                 line.call('p05', 1, 'dashed', 0.55)]
 
       # Owner interface ruling 2026-10-12: the PIT calibration audit is
       # an OVERLAY on this chart (the vol_spread idiom -- heterogeneous

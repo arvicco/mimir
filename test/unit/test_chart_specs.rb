@@ -62,7 +62,9 @@ class TestChartSpecs < Minitest::Test
     assert_equal 200, metas['scenario_strip']['height'] # compact (2026-10-12)
     assert_equal 'gex_cp', metas['gex_btc']['legend_widget'] # (p) DERI (c)
     # hooks are opt-in: nobody else declares them
-    assert_nil metas['lppl_regime']['tooltip_formatter']
+    # panel cards share the axis_tip tooltip: one header, rows in panel
+    # order (owner round 2026-11-02)
+    assert_equal 'axis_tip', metas['lppl_regime']['tooltip_formatter']
     # M9-13 (owner ruling 2026-08-11): the shadow diagnostics move off the
     # LPPL panels onto a SHADOW tab of the same card. lppl_regime is the
     # default tab (pos 0); lppl_shadow (pos 1) carries the row-hover formatter.
@@ -130,20 +132,26 @@ class TestChartSpecs < Minitest::Test
                  metas['gex_btc_trend'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
     assert_equal %w[gex stack 1 210 MSTR],
                  metas['gex_mstr_trend'].values_at('tab_group', 'group_style', 'tab_pos', 'height', 'tab_label').map(&:to_s)
-    # the vol charts carry no drawn-legend/tooltip renderer hooks;
-    # the stacked pairs DO carry height (half a card each)
+    # the tenor-axis vol charts share the axis_tip tooltip (projected
+    # dates in the header, owner round 2026-11-02); no legend widgets.
+    # The stacked pairs DO carry height (half a card each).
+    %w[vol_surface vol_surface_mstr vol_spread vol_basis].each do |n|
+      assert_equal 'axis_tip', metas[n]['tooltip_formatter'], n
+    end
+    %w[vol_spread_trend gex_btc_trend gex_mstr_trend].each do |n|
+      assert_nil metas[n]['tooltip_formatter'], n
+    end
     %w[vol_surface vol_surface_mstr vol_spread vol_spread_trend vol_basis
        gex_btc_trend gex_mstr_trend].each do |n|
-      assert_nil metas[n]['tooltip_formatter'], n
       assert_nil metas[n]['legend_widget'], n
     end
     assert_equal 210, metas['gex_btc_trend']['height'] # lower stacked section
     assert_equal 210, metas['gex_mstr_trend']['height']
-    # M10-4: positioning is a SOLO card (no tab_group), no custom tooltip/
-    # legend hooks; it carries only the terms glossary and, like lppl_regime,
-    # no height (default card height for its three panels).
+    # M10-4: positioning is a SOLO card (no tab_group), no legend widget;
+    # it carries the terms glossary, the axis_tip tooltip (2026-11-02) and,
+    # like lppl_regime, no height (default card height for its three panels).
     assert_nil metas['positioning']['tab_group']
-    assert_nil metas['positioning']['tooltip_formatter']
+    assert_equal 'axis_tip', metas['positioning']['tooltip_formatter']
     assert_nil metas['positioning']['legend_widget']
     assert_nil metas['positioning']['height']
     assert_equal Publish::Charts::POSITIONING_TERMS, metas['positioning']['terms']
@@ -225,8 +233,9 @@ class TestChartSpecs < Minitest::Test
   def test_vol_spread_trend_lines_per_tenor_scaled_with_gaps
     opt = build('vol_spread_trend')
     sp  = JSON.parse(File.read(File.join(PAYLOADS, 'payload_vol_spread.json')))
-    # x axis = the history dates in order; one line series per tenor.
-    assert_equal sp['history'].map { |r| r['date'] }, opt['xAxis']['data']
+    # x axis = the history dates in order, compacted to MM-DD (the gex
+    # trend idiom, owner round 2026-11-02); one line series per tenor.
+    assert_equal sp['history'].map { |r| r['date'][5..] }, opt['xAxis']['data']
     assert_equal %w[7d 14d 21d 30d 45d 90d 180d], opt['series'].map { |s| s['name'] }
     opt['series'].each do |s|
       assert_equal 'line', s['type']
@@ -265,7 +274,7 @@ class TestChartSpecs < Minitest::Test
     opt = Publish::Charts.vol_spread_trend(
       'history' => [mk.call('2026-08-10', 0.40), mk.call('2026-08-11', nil),
                     mk.call('2026-08-12', 0.38)])
-    assert_equal %w[2026-08-10 2026-08-12], opt['xAxis']['data']
+    assert_equal %w[08-10 08-12], opt['xAxis']['data']
     assert_equal [40.0, 38.0], opt['series'].find { |s| s['name'] == '7d' }['data']
     assert_match(/\A2d history/, opt['title']['text'])
     opt['series'].each { |s| assert_equal true, s['connectNulls'], s['name'] }
@@ -305,8 +314,11 @@ class TestChartSpecs < Minitest::Test
     # title from the mstr stats block (no MP cross-check tail -- BTC-only)
     assert_equal 'flip +8.9% · Γ+ 5d', opt['title']['text']
     refute_includes opt['title']['text'], 'MP'
-    # four price lines, filled dots, MSTR's own axis in raw dollars ($)
-    assert_equal %w[spot flip CW PW], opt['series'].map { |s| s['name'] }
+    # four price lines, filled dots, MSTR's own axis in raw dollars ($).
+    # Popup rows read top-down (owner round 2026-11-02): CW above spot,
+    # PW below; the drawn legend keeps its own order via legend.data.
+    assert_equal %w[CW spot flip PW], opt['series'].map { |s| s['name'] }
+    assert_equal %w[spot flip CW PW], opt['legend']['data']
     assert_equal 'price ($)', opt['yAxis']['name']
     spot = opt['series'].find { |s| s['name'] == 'spot' }
     assert_equal 95.0, spot['data'].first # raw dollars, NOT /1000 like BTC
@@ -775,6 +787,71 @@ class TestChartSpecs < Minitest::Test
     # fan series stay on the primary axes (default index 0)
     med = opt['series'].find { |s| s['name'] == 'median' }
     refute med.key?('xAxisIndex')
+  end
+
+  # ---- popup order + projected dates (owner round 2026-11-02) ---------
+  # User feedback: a quantile popup must read like the chart (p95 on top,
+  # p05 at the bottom), and a horizon tag ('30d') should say WHEN that is.
+
+  def test_dist_fan_quantiles_list_top_down
+    opt = build('dist_fan') # fixture rwm is all-null: no rwm series
+    fan = opt['series'].map { |s| s['name'] }.select { |n| n.to_s !~ /PIT|^$/ }
+    assert_equal %w[p95 p75 median p25 p05], fan.first(5)
+    doc = JSON.parse(File.read(File.join(PAYLOADS, 'payload_dist_latest.json')))
+    doc['horizons'].each { |h| h['median_rwm'] = h['median'] }
+    with_rwm = Publish::Charts.dist_fan(doc)['series'].map { |s| s['name'] }
+    assert_equal ['p95', 'p75', 'median', 'rwm median', 'p25', 'p05'],
+                 with_rwm.first(6), 'rwm median sits beside the median'
+  end
+
+  def test_dist_fan_median_carries_projected_dates
+    opt = build('dist_fan') # fixture date 2026-07-04, horizons 7/30/90d
+    med = opt['series'].find { |s| s['name'] == 'median' }
+    assert_equal %w[2026-07-04 2026-07-11 2026-08-03 2026-10-02],
+                 med['data'].map { |d| d['tdate'] }
+    assert_equal 3, med['z'], 'emphasis line stays above the thin quantiles'
+    # the quantile lines keep plain values (one tdate carrier is enough)
+    p95 = opt['series'].find { |s| s['name'] == 'p95' }
+    assert p95['data'].none? { |d| d.is_a?(Hash) }
+    assert_equal 'axis_tip',
+                 Publish::Charts::CHARTS['dist_fan'][:meta]['tooltip_formatter']
+  end
+
+  def test_vol_tenor_charts_carry_projected_dates
+    # vol_surface: the invisible exp(d) carrier holds ts + tenor days
+    exp = build('vol_surface')['series'].find { |s| s['name'] == 'exp(d)' }
+    assert_equal '2026-08-03', exp['data'][3]['tdate'] # ts 07-04 + 30d
+    # vol_spread: both leg lines carry it (a dead leg cannot drop it)
+    spread = build('vol_spread')
+    %w[MSTR BTC].each do |leg|
+      row = spread['series'].find { |s| s['name'] == leg }
+      assert_equal '2026-08-03', row['data'][3]['tdate'], leg
+    end
+    # vol_basis: real futures -- ts + actual days to expiry (3.56d -> +4)
+    ann = build('vol_basis')['series'].first
+    assert_equal '2026-07-08', ann['data'].first['tdate']
+  end
+
+  def test_popup_row_order_reads_top_down
+    # vol_spread: MSTR above BTC as drawn, then the spread they subtract
+    # to; the bars keep z 1 so they still draw under the leg lines.
+    spread = build('vol_spread')
+    assert_equal %w[MSTR BTC spread], spread['series'].map { |s| s['name'] }
+    assert_equal 1, spread['series'].last['z']
+    assert_equal %w[spread MSTR BTC], spread['legend']['data']
+    # gex trend: CW above spot, PW below (the walls' definition)
+    assert_equal %w[CW spot flip PW],
+                 build('gex_btc_trend')['series'].map { |s| s['name'] }
+    # positioning: panel-0 series (OI + reserves) list together, top-down
+    names = build('positioning')['series'].map { |s| s['name'] }
+    assert_equal ['OI $B', 'reserves', 'global L/S', 'top L/S',
+                  'taker buy%', 'long liq $M', 'short liq $M'], names
+  end
+
+  def test_scenario_strip_date_labels_hide_overlap
+    # '29Sep' collisions: ECharts drops the colliding day label instead
+    strip = build('scenario_strip')
+    assert_equal({ 'hideOverlap' => true }, strip['xAxis'][0]['axisLabel'])
   end
 
   # ---- scorecard row folding (owner ruling 2026-10-12) -----------------
