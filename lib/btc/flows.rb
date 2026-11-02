@@ -7,7 +7,7 @@
 #
 # parse_flows replaces the tag-strip + regex-soup parser whose number
 # run swallowed each next row's day-of-month -- halving the rows AND
-# reporting day numbers as daily totals (TOOL-REVIEW.md F-22). Parsing
+# reporting day numbers as daily totals (a Phase-0 tool-review finding). Parsing
 # is per <tr>/<td>: a data row's FIRST cell is a date, the day's net
 # total is its LAST numeric cell, (123.4) is negative. Header and
 # Total/Average/Minimum/Maximum summary rows have no date cell and

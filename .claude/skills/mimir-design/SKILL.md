@@ -26,7 +26,7 @@ another. When a new ruling lands, add it here in the same commit.
   `legend.data` so ECharts still owns selection state and the widget
   drives it via legend actions), `tab_group` (+ `tab_label` /
   `tab_pos`; charts sharing a group render into ONE card as tabs --
-  owner ruling D7-c 2026-07-06, the GEX card), `group_style:
+  owner ruling 2026-07-06, the GEX card), `group_style:
   'stack'` (owner ruling 2026-08-10: a tab_group rendered as ONE card
   with every member ALWAYS visible, stacked vertically by tab_pos,
   each member keeping its own head/badge/bubble at meta.height -- the
@@ -240,6 +240,33 @@ measures the REAL DOM (the ECharts tooltip is the `z-index: 9999999`
 div), hovering via raw mouse.move -- locator.hover() auto-scrolls and
 silently defeats edge-of-viewport scenarios.
 
+**Popup rows read top-down like the chart.** (Owner round 2026-11-02,
+dashboard-user feedback: the fan hover listed p05 above p95 --
+"OBVIOUS that it should be listed THAT way".) Axis-tooltip rows follow
+the series' VERTICAL identity on the canvas: quantile fans p95 -> p05
+with the medians between p75/p25, panel cards top panel first (OI +
+reserves, then ratios, then liq bars), walls CW above spot/flip above
+PW, legs before their derived spread (MSTR, BTC, spread). The specs
+encode it as series DECLARATION order and the `axis_tip` house
+formatter re-sorts params back to it (linked-axis cards hand params
+grouped by the HOVERED axis -- pointer-dependent, with the date
+repeated per group; axis_tip renders ONE header). Series whose
+vertical order is data-dependent with no stable identity (vol_surface
+ATM/RR/FLY, dist_edge ascending expiries, tenor gradients) keep
+semantic order -- value-sorted rows that reshuffle between hovers are
+worse than a fixed honest order. Drawn legends keep their own order
+via legend.data; reordering series never reorders a legend.
+
+**Horizon tags name their date.** (Same round: "near top 30d tag,
+there should be a projected date (2026-12-02)".) A popup headed by a
+relative tag ('30d', '53d') carries the projected calendar date in
+the header: build-time `tdate` on ONE series' data items (both legs
+when a leg can die), hoisted by axis_tip as '30d · 2026-12-02'.
+Nominal tenors project as_of + tenor days (dist_fan, vol_surface,
+vol_spread); real listed futures project their actual expiry
+(vol_basis). Date-axis popups need none (the header IS a date), and
+per-row tenor names (dist_edge) stay bare -- six dated rows is bloat.
+
 **Hover data reads as one line per entity.** Aggregate — never one row
 per series. Pattern: header `54k: +20.5M −15.33M` (level + totals),
 then `DERI: +10.5M −5.33M` per venue; calls/positive in teal, puts/
@@ -322,7 +349,7 @@ never override into the inversion.
 `#e6a23c`; stress bands green→amber→orange→red.
 
 **Vol tenors carry a spectral gradient.** (Owner ruling 2026-08-29,
-register R-9.) The six vol tenors are colour-coded 7d RED → 14d
+the tenor-palette ruling.) The six vol tenors are colour-coded 7d RED → 14d
 orange → 21d yellow → 30d green → 45d cyan → 90d dark blue → 180d
 DARK-DARK BLUE (the long tenor, owner ruling 2026-08-29)
 (`VOL_TENOR_COLORS` in chart_specs.rb, single source), the SAME hue

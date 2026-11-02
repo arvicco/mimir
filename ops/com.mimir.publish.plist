@@ -12,7 +12,7 @@
     then:
       launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mimir.publish.plist
 
-  StartInterval 7200 = bi-hourly (decision D5-a). launchd does NOT start a
+  StartInterval 7200 = bi-hourly (owner decision 2026-07-06). launchd does NOT start a
   second instance while a previous run is still in flight (no overlap): a
   long publish simply defers the next tick. That is why there is no
   KeepAlive (we want at-most-one publisher, not a respawn loop).

@@ -85,7 +85,7 @@
   ],
   "series": [
     {
-      "name": "p05",
+      "name": "p95",
       "type": "line",
       "symbol": "circle",
       "symbolSize": 5,
@@ -99,49 +99,9 @@
       },
       "data": [
         63.1,
-        60.8,
-        54.9,
-        51.0
-      ]
-    },
-    {
-      "name": "p25",
-      "type": "line",
-      "symbol": "circle",
-      "symbolSize": 5,
-      "lineStyle": {
-        "width": 1,
-        "type": "solid",
-        "color": "rgba(84,112,198,0.75)"
-      },
-      "itemStyle": {
-        "color": "rgba(84,112,198,0.75)"
-      },
-      "data": [
-        63.1,
-        63.0,
-        55.9,
-        55.9
-      ]
-    },
-    {
-      "name": "median",
-      "type": "line",
-      "symbol": "circle",
-      "symbolSize": 5,
-      "lineStyle": {
-        "width": 2.5,
-        "type": "solid",
-        "color": "rgba(84,112,198,1.0)"
-      },
-      "itemStyle": {
-        "color": "rgba(84,112,198,1.0)"
-      },
-      "data": [
-        63.1,
-        64.4,
-        62.9,
-        63.0
+        70.3,
+        74.0,
+        85.1
       ]
     },
     {
@@ -165,7 +125,60 @@
       ]
     },
     {
-      "name": "p95",
+      "name": "median",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 5,
+      "lineStyle": {
+        "width": 2.5,
+        "type": "solid",
+        "color": "rgba(84,112,198,1.0)"
+      },
+      "itemStyle": {
+        "color": "rgba(84,112,198,1.0)"
+      },
+      "data": [
+        {
+          "value": 63.1,
+          "tdate": "2026-07-04"
+        },
+        {
+          "value": 64.4,
+          "tdate": "2026-07-11"
+        },
+        {
+          "value": 62.9,
+          "tdate": "2026-08-03"
+        },
+        {
+          "value": 63.0,
+          "tdate": "2026-10-02"
+        }
+      ],
+      "z": 3
+    },
+    {
+      "name": "p25",
+      "type": "line",
+      "symbol": "circle",
+      "symbolSize": 5,
+      "lineStyle": {
+        "width": 1,
+        "type": "solid",
+        "color": "rgba(84,112,198,0.75)"
+      },
+      "itemStyle": {
+        "color": "rgba(84,112,198,0.75)"
+      },
+      "data": [
+        63.1,
+        63.0,
+        55.9,
+        55.9
+      ]
+    },
+    {
+      "name": "p05",
       "type": "line",
       "symbol": "circle",
       "symbolSize": 5,
@@ -179,9 +192,9 @@
       },
       "data": [
         63.1,
-        70.3,
-        74.0,
-        85.1
+        60.8,
+        54.9,
+        51.0
       ]
     },
     {

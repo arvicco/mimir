@@ -10,7 +10,7 @@
 //                             malformed keys -- rejected before KV)
 //                        401: only when the AUTH_TOKEN secret exists and
 //                             the bearer mismatches. DORMANT by default:
-//                             owner ruling D4-c (2026-07-05) ships Gate 4
+//                             owner ruling 2026-07-05 ships Gate 4
 //                             public-read; Cloudflare Access sits at the
 //                             queue tail as console-only work.
 //   GET /healthz      -> {"ok":true,"worker_ts":...}, no-store, no auth.

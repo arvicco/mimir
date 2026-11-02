@@ -53,6 +53,14 @@
 #   not heal it -- the line gains a trailing ` BLIND:<suite>[,...]` marker
 #   (BLIND_MARKERS order), after any ` OLD:` suffix, e.g.
 #   `PUB LIVE 13/13 keys 09:34 UTC BLIND:scenario`. publish_health surfaces it.
+#   ADDITIVE (M14-2, dead-venue-inside-a-fresh-payload incident): on LIVE
+#   runs only, Publish::DegDetector counts consecutive runs in which a
+#   registered payload (publish/deg_registry.rb) lost or carried a dead leg;
+#   a key at 6+ consecutive degraded runs rides a trailing
+#   ` DEG:<key>[,<key>...]` marker (DEG_REGISTRY order), after any ` OLD:` /
+#   ` BLIND:` suffix, e.g. `PUB LIVE 38/38 keys 09:34 UTC DEG:gex:combined`.
+#   State lives in <data>/ops/deg_state.json; a detector failure warns its
+#   error class and never fails the run (no marker that run).
 #
 # DATA SOURCES: the four scripts/ suites (subprocess), plus the scenario
 # history + lppl ledger jsonl under BTC::Env.data_dir(<suite>). No direct
@@ -69,6 +77,7 @@ require 'fileutils'
 require_relative 'envelope'
 require_relative 'chart_specs'
 require_relative 'kv_client'
+require_relative 'deg_detector'
 require_relative '../lib/btc/env'
 require_relative '../lib/btc/report'
 
@@ -90,19 +99,19 @@ module Publish
       ['basis:latest',    ['ruby', 'scripts/basis.rb', '--json'],                      60,  3_600],
       ['gex:trend',       ['ruby', 'scripts/gex_trend.rb', '--json'],                  30,  3_600],
       ['gex:check',       ['ruby', 'scripts/gex_check.rb', '--json'],                  120, 3_600],
-      # M10-7 (P-19): our own signals' forward-return track record, scored
+      # M10-7: our own signals' forward-return track record, scored
       # offline from the local ledgers by scripts/scorecard.rb (no network).
       # Descriptive only -- report-only, changes no analytics semantics.
       ['scorecard:latest', ['ruby', 'scripts/scorecard.rb', '--json'],                 60,  3_600],
-      # M10-4 (P-6): the crowd-positioning module -- daily crowd/OI/liquidation
+      # M10-4: the crowd-positioning module -- daily crowd/OI/liquidation
       # stance. Runs at WEIGHT 0 during the soak (display only); its --json
       # carries the card series. Daily cadence (24h source-cache ttl).
       ['positioning:latest', ['ruby', 'scripts/scenario/positioning.rb', '--json'],    60,  3_600],
-      # M11-7 (P-8, R-11/D11-a): the exchange-reserve module -- weight 0,
+      # M11-7 (owner ruling 2026-08-29): the exchange-reserve module -- weight 0,
       # daily cadence (24h source-cache ttl); its --json carries the
       # reserves series the positioning card draws on its right axis.
       ['reserves:latest',  ['ruby', 'scripts/scenario/reserves.rb', '--json'],         60,  3_600],
-      # M12-4 (Q-12): the independent bubble-index cross-reference --
+      # M12-4: the independent bubble-index cross-reference --
       # ADVISORY payload for the SHADOW tab's x-ref row, never a score
       # input. Daily cadence (24h source-cache ttl).
       ['bubble:ref',       ['ruby', 'scripts/bubble_ref.rb', '--json'],                60,  3_600],
@@ -198,10 +207,13 @@ module Publish
       # publish, could not heal it) rides an additive ` BLIND:<suite>` suffix.
       blind = blind_tails(envelopes)
       blind_suffix = blind.empty? ? '' : format(' BLIND:%s', blind.join(','))
+      # M14-2: degraded-leg streaks (LIVE only) ride an additive ` DEG:` suffix.
+      deg = degraded_keys(envelopes, now, dry_run)
+      deg_suffix = deg.empty? ? '' : format(' DEG:%s', deg.join(','))
       BTC::Report.status('publish',
-                         format('PUB %s %d/%d keys %s%s%s', dry_run ? 'DRY' : 'LIVE',
+                         format('PUB %s %d/%d keys %s%s%s%s', dry_run ? 'DRY' : 'LIVE',
                                 published, expected, now.utc.strftime('%H:%M UTC'),
-                                old_suffix, blind_suffix),
+                                old_suffix, blind_suffix, deg_suffix),
                          dir: status_dir)
 
       { keys: records.map(&:first), skipped: skipped,
@@ -209,7 +221,19 @@ module Publish
         # M12-5 (additive): the run's envelopes + health markers, so the
         # publish bin can dispatch transition alerts (real mode only)
         # without re-fetching anything.
-        envelopes: envelopes, old_keys: old, blind_tails: blind }
+        envelopes: envelopes, old_keys: old, blind_tails: blind,
+        deg_keys: deg }
+    end
+
+    # M14-2 integration point: the degradation detector runs AFTER the
+    # artifacts were written (a failed KV write raised before here, so it
+    # never advances streaks). Rescue-all: a detector malfunction must never
+    # fail the publish -- warn the error class only, no marker this run.
+    def degraded_keys(envelopes, now, dry_run)
+      Publish::DegDetector.run(envelopes, now: now, dry_run: dry_run)
+    rescue StandardError => e
+      warn format('publish: deg detector failed (%s)', e.class)
+      []
     end
 
     # Run one producer; parse its full stdout as a single JSON document.
@@ -339,7 +363,7 @@ module Publish
       unless inputs.all? { |k| envelopes.key?(k) }
         return skip_chart(key, 'inputs not published')
       end
-      # A fail-soft payload ('unavailable': true, F-12) is an honest suite
+      # A fail-soft payload ('unavailable': true) is an honest suite
       # status, not chartable data -- building from one published a NaN
       # gauge / empty table (2026-07-07 incident). Skip instead;
       # keep-last-good + the index carry keep the previous chart visible.

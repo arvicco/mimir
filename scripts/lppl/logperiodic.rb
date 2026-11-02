@@ -7,8 +7,8 @@
 # noise. Residuals of the post-peak pure power-decay fit are tested for
 # periodicity in ln(tau) time via Lomb-Scargle; significance of the peak
 # power is assessed against a parametric bootstrap null on the same uneven
-# u-grid. HEADLINE + SCORE p (owner ruling 2026-08-29, register R-7 / was
-# D9-f): the AR(1)+GARCH(1,1) bootstrap (p_value_v2) -- the more realistic
+# u-grid. HEADLINE + SCORE p (owner ruling 2026-08-29):
+# the AR(1)+GARCH(1,1) bootstrap (p_value_v2) -- the more realistic
 # null. The plain AR(1) p (field p_value) stays as the in-line reference.
 #
 #   score +1  p_v2 <= 0.05 and omega_peak in [6, 13]
@@ -82,7 +82,7 @@ end
 pval = (hits + 1).to_f / (SIMS + 1)
 
 # ---- AR(1)+GARCH(1,1) parametric bootstrap (M9-7; HEADLINE since M11-4) ------
-# Owner ruling 2026-08-29 (register R-7): the GARCH bootstrap p -- the more
+# Owner ruling 2026-08-29: the GARCH bootstrap p -- the more
 # realistic null (volatility clustering) -- is the p-value we stand behind:
 # it drives the SCORE and leads the headline; the AR(1) p stays as the
 # in-line reference (field p_value, unchanged meaning). Both p's sat

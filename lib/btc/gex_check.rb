@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 #
 # gex_check.rb -- pure comparison math for the options-positioning
-# cross-check (M8-3 / P-5): our own computed GEX walls & gamma flip
+# cross-check (M8-3): our own computed GEX walls & gamma flip
 # (from scripts/gex.rb) versus Coinglass's Deribit max-pain view. No IO,
 # no ENV, no network -- the gex_history.rb / metrics.rb pattern; the
 # script scripts/gex_check.rb does the fetching and formatting.
 #
 # DESCRIPTIVE ONLY -- NO SCORING, NO VERDICT (owner ruling 2026-07-10,
-# P-5 report-only): every number here is a distance or a weighted mean
+# report-only): every number here is a distance or a weighted mean
 # over the two views. No divergence threshold, no pass/fail, no signal
 # is applied (Golden Rule 4 -- a divergence band is a research decision
 # to be picked empirically after weeks of data).

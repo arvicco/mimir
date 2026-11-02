@@ -246,7 +246,7 @@ BEFORE any new feature work. Stage 0 runs interactively with the owner.
 
 ### Phase 1 -- seams, contracts + reviewed refactoring
 - `lib/btc/http.rb` seam + all call-site migration: delivered early in
-  Phase 0 (F-13). Remaining here: fixtures recorded via
+  Phase 0 (a tool-review finding). Remaining here: fixtures recorded via
   `rake fixtures:record` (network task, run manually).
 - Contract tests in `test/contract/` for every module's `--json`,
   including btco.rb, plus the ingest proposal schema (extraction JSON
@@ -255,7 +255,7 @@ BEFORE any new feature work. Stage 0 runs interactively with the owner.
   only; behavior-preserving, characterization tests first; duplication
   across the disparate tools consolidated into `lib/`. Bugs found are
   decision items (a fix changes published behavior), never silent.
-- Optional `BTC_DATA_DIR` (delivered early in Phase 0, F-8).
+- Optional `BTC_DATA_DIR` (delivered early in Phase 0).
 - **Gate 1:** field-set diff empty for all modules; cron behavior
   unchanged; refactor list fully resolved (done or explicitly deferred).
   Legacy code is now in good shape -- new feature work may begin.
@@ -320,13 +320,13 @@ BEFORE any new feature work. Stage 0 runs interactively with the owner.
 mostly autonomous; ingest is owner-interactive and moves back.)
 - additive `--as-of` replay mode for the lppl suite (current-day
   semantics untouched); sequential ledger + fit-history rebuild from
-  the Oct-2025 peak (D7-a), verified by reproducing the already-
+  the Oct-2025 peak (owner ruling 2026-07-06), verified by reproducing the already-
   recorded days byte-identically before any historical write
   (owner-blessed one-shot, backup first). Import beats recompute
-  wherever pre-handoff ledger files exist (D7-b).
+  wherever pre-handoff ledger files exist (owner ruling 2026-07-06: none usable).
 - `v1:gex:mstr` + `v1:chart:gex_mstr` published (additive index
   growth); card tab widget on the GEX card (4th renderer hook -- owner
-  ruling D7-c required, options presented first).
+  ruling required, options presented first).
 - **Gate 6:** replay verification reviewed; backfilled ledger blessed;
   MSTR tab visual review. Soak week reviewed here if complete.
 
@@ -336,7 +336,7 @@ mostly autonomous; ingest is owner-interactive and moves back.)
   schema reports absolute numbers, so no backlog replay is needed; add
   the missing XXI/NAKA CIKs), owner reviews and applies proposals until
   no `placeholder:true` remains. Ingestion stays INTERACTIVE (owner
-  ruling 2026-07-06, D6-a): the only scheduled piece is a daily
+  ruling 2026-07-06): the only scheduled piece is a daily
   discovery alert (list new filings, surface a count in the tmux/status
   layer -- no fetch, no AI analysis, no state mutation); analysis and
   apply happen in owner sessions.
@@ -361,7 +361,7 @@ took the surface to 27.
 What actually shipped (branch phase-9, PR #11): a revision of the LPPL
 suite's statistics surfaced as the LPPL card's SHADOW tab -- six
 additive, report-only frozen-vs-shadow diagnostics, each feeding a
-pre-registered decision item (D9-a..g) the owner rules after a soak. No
+pre-registered decision item the owner rules after a soak. No
 verdict or weight changed at merge (SHADOW-FIRST). It also ended the
 worktree era: production agents now exec from the app-managed live
 clone + data home (M9-12). 27 keys live at merge.
@@ -372,7 +372,7 @@ clone + data home (M9-12). 27 keys live at merge.
 
 ### Phase 10 -- dashboard round 2
 - new chart specs (flow_decay_curve, cohort_panel, expiry_timeline,
-  macro_clock, liq_topology) + the parked D4-a LPPL price panel; the
+  macro_clock, liq_topology) + the parked LPPL price panel; the
   dashboard outgrows the 3x2 grid -- full layout pass under the
   mimir-design skill.
 - **Gate 10:** visual review; goldens blessed.

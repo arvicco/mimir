@@ -4,7 +4,7 @@
 # (scenario, lppl, btco). One JSON line in --json mode, aligned human
 # lines otherwise; fail_soft implements the house convention: a dead
 # data source reports score 0 and exits 0, never crashing an aggregate.
-# Extracted from the per-suite copies (TOOL-REVIEW.md F-15); name_w /
+# Extracted from the per-suite copies (a Phase-0 tool-review finding); name_w /
 # key_w preserve each suite's historical column widths.
 
 require 'json'
@@ -20,7 +20,7 @@ module BTC
     # the real now (unchanged behavior) and is overridden only by replay
     # callers that freeze time to a past as-of day.
     # All string output passes through BTC::Env.redact, so a secret in an
-    # exception message or URL can never reach stdout (F-6).
+    # exception message or URL can never reach stdout.
     def report(name, score, headline, detail = {}, name_w: 14, key_w: 18,
                json: ARGV.include?('--json'), now: Time.now.utc)
       headline = BTC::Env.redact(headline)
@@ -46,7 +46,7 @@ module BTC
 
     # The JSON form carries an additive 'unavailable': true marker so
     # consumers can distinguish "healthy 0" from "data source down"
-    # without parsing headlines (F-12). Human output is unchanged.
+    # without parsing headlines. Human output is unchanged.
     def fail_soft(name, err, name_w: 14, json: ARGV.include?('--json'))
       detail = json ? { 'unavailable' => true } : {}
       report(name, 0, "unavailable (#{err})", detail, name_w: name_w, json: json)

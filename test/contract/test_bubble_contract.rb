@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 #
-# M12-4 (Q-12): --json field-set contract for scripts/bubble_ref.rb,
+# M12-4: --json field-set contract for scripts/bubble_ref.rb,
 # run offline via the fake transport against the recorded
 # coinglass_bubble_index.json (skips until the owner records it:
 # `rake fixtures:record SOURCES=bubble`). Frozen contract from birth

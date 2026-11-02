@@ -18,7 +18,7 @@
 # listings default to <ticker>.T, override via a 'yahoo' entry field;
 # manual_px remains the last fallback).
 # (Stooq served quotes+FX until its API died upstream 2026-07 --
-# TOOL-REVIEW.md F-17; universe.json's 'stooq' field is vestigial.)
+# a Phase-0 tool-review finding; universe.json's 'stooq' field is vestigial.)
 # --check-filings closes the loop: it queries EDGAR's submissions API
 # for filings newer than your recorded as-of date and prints URLs (plus
 # a best-effort hint), so the config is updated deliberately, never
@@ -173,9 +173,9 @@ cos.each do |c|
   end
 end
 
-# Non-US listings (D8-f, owner-ruled 2026-07-10): Yahoo's chart API
+# Non-US listings (owner-ruled 2026-07-10): Yahoo's chart API
 # serves primary-market quotes keyless (stooq, the original non-US
-# source, died upstream -- F-17). Symbol resolution: an explicit
+# source, died upstream). Symbol resolution: an explicit
 # 'yahoo' field on the universe entry wins; JPY listings default to
 # '<ticker>.T' (Tokyo). Price stays in listing ccy -- the FX block
 # below converts, same as always. Fail-soft: no quote -> the row is

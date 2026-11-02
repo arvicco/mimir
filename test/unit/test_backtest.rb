@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 #
-# M12-3 (Q-20): Backtest -- band mapping (mirrors the aggregator's
+# M12-3: Backtest -- band mapping (mirrors the aggregator's
 # regime derivation EXACTLY), organic-wins row merging, --bands
 # validation, and an end-to-end CURRENT-vs-PROPOSED run over synthetic
 # histories + prices. No network, no real data dirs.

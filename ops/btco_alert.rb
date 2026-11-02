@@ -4,7 +4,7 @@
 #
 # Runs the ingest discovery primitive `ruby scripts/btco/ingest.rb --dry
 # --json` -- a provably read-only listing: NO document fetch, NO AI, NO
-# state mutation, NO API spend (decision D6-a) -- and writes a one-glance
+# state mutation, NO API spend (owner decision 2026-07-06) -- and writes a one-glance
 # status token to /tmp/ingest.status for the tmux bar to `cat`.
 #
 # Usage (normally invoked by ops/run_btco_alert.sh under launchd):
@@ -16,7 +16,7 @@
 #   Condition                               /tmp/ingest.status token
 #   -----------------------------------------------------------------
 #   n new filings discovered (n > 0)        ING n!
-#   nothing new (n == 0)                    (empty file -- D8-a: the tmux
+#   nothing new (n == 0)                    (empty file -- 2026-07-06 ruling: the tmux
 #                                            #() collapses to nothing, so a
 #                                            packed bar stays quiet on quiet days)
 #   discovery failed / unparseable output   ING ?

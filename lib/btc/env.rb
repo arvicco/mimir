@@ -12,9 +12,10 @@ module BTC
     # ENV names whose values must never appear in output or error text.
     # CLOUDFLARE_API_TOKEN is the canonical name (one-token ruling, Gate
     # 4); the legacy CF_API_TOKEN stays listed purely so a stale env
-    # file's value is still redacted.
+    # file's value is still redacted. NTFY_TOPIC (M14-3): the push topic
+    # name is a read credential for the alert channel.
     SECRET_ENV = %w[FRED_API_KEY CLOUDFLARE_API_TOKEN CF_API_TOKEN
-                    ANTHROPIC_API_KEY COINGLASS_API_KEY].freeze
+                    ANTHROPIC_API_KEY COINGLASS_API_KEY NTFY_TOPIC].freeze
 
     module_function
 
@@ -53,7 +54,7 @@ module BTC
     # Scrub secrets from a string bound for output: credential-looking
     # query params by pattern, plus the literal values of SECRET_ENV
     # (some APIs, e.g. FRED, only accept keys as query params, so URLs
-    # in exception messages are a leak vector -- TOOL-REVIEW.md F-6).
+    # in exception messages are a leak vector -- a Phase-0 tool-review finding).
     def redact(str)
       s = str.to_s.gsub(/((?:api_?key|token|secret|password)=)[^&\s"']+/i,
                         '\1[REDACTED]')

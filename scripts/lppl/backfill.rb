@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 #
 # backfill.rb -- staged sequential rebuild of the LPPL evidence ledger
-# via the --as-of replay mode (M6-2, decision D7-a: from the Oct-2025
-# cycle peak; D7-b: no usable pre-handoff files, recompute is the
+# via the --as-of replay mode (M6-2, owner decision 2026-07-06: from the Oct-2025
+# cycle peak; same day: no usable pre-handoff files, recompute is the
 # blessed path).
 #
 #   rake lppl:backfill            # peak -> yesterday into the staging dir
